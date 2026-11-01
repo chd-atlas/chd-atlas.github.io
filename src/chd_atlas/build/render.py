@@ -68,9 +68,9 @@ _ATTRIBUTE_NAME: Final = re.compile(r"[a-z][a-z0-9-]*")
 STYLESHEET: Final = """
   :root {
     color-scheme: light dark;
-    --fg: #1a1a1a; --bg: #ffffff; --muted: #555555; --border: #d0d0d0;
-    --notice-bg: #fff4e5; --notice-border: #b45309; --link: #0b5fa5;
-    --chip-bg: rgba(127, 127, 127, 0.15); --definitive: #1a7f37; --warn: #b02a37;
+    --fg: #0f172a; --bg: #f8fafc; --muted: #64748b; --border: #e2e8f0;
+    --notice-bg: #fffbeb; --notice-border: #f59e0b; --link: #0284c7;
+    --chip-bg: rgba(100, 116, 139, 0.08); --definitive: #16a34a; --warn: #dc2626;
     /* The validity ladder, one hue at four intensities -- the same idiom as
        --evidence below and for the same reason. ClinGen's four supportive rungs
        are ordinal, so a ramp is what they mean; a second hue would invent an
@@ -78,49 +78,68 @@ STYLESHEET: Final = """
        bottom of the ramp: no panel graded the gene, which is not a weaker grade
        but a different question, and every gene admitted on submitter
        agreement is in it. */
-    --grade-4: #1a7f37; --grade-4-fg: #ffffff;
-    --grade-3: #4e9c66; --grade-3-fg: #ffffff;
-    --grade-2: #a9d3b6; --grade-2-fg: #14301d;
-    --grade-1: #dcebe1; --grade-1-fg: #1f4029;
+    --grade-4: #16a34a; --grade-4-fg: #ffffff;
+    --grade-3: #0d9488; --grade-3-fg: #ffffff;
+    --grade-2: #0284c7; --grade-2-fg: #ffffff;
+    --grade-1: #64748b; --grade-1-fg: #ffffff;
     /* The evidence hue, deliberately NOT the green of --definitive and not
        a red/green pair. `significant` is not `true` on this site, and a
        green tick beside a nominal-only result would undo every caveat
        around it. One hue at three intensities encodes how much support
        there is; absence is drawn as absence rather than as a third colour. */
-    --evidence: #1f6f8b; --evidence-soft: #e4eff3; --on-evidence: #ffffff;
-    --surface: #f4f6f8;
+    --evidence: #0284c7; --evidence-soft: #e0f2fe; --on-evidence: #ffffff;
+    --surface: #ffffff;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --fg: #e8e8e8; --bg: #14161a; --muted: #a8a8a8; --border: #3a3d42;
-      --notice-bg: #3a2a12; --notice-border: #d99a3d; --link: #6cb6f5;
-      --definitive: #3fb950; --warn: #f85149;
-      --grade-4: #2ea043; --grade-4-fg: #06120a;
-      --grade-3: #1f6f34; --grade-3-fg: #eaf6ec;
-      --grade-2: #1b4527; --grade-2-fg: #cfe6d6;
-      --grade-1: #16301d; --grade-1-fg: #b8d4c1;
-      --evidence: #58abc7; --evidence-soft: #172a33; --on-evidence: #0f151a;
-      --surface: #1b1f25;
+      --fg: #f1f5f9; --bg: #0b0f17; --muted: #94a3b8; --border: #1e293b;
+      --notice-bg: #451a03; --notice-border: #f59e0b; --link: #38bdf8;
+      --definitive: #22c55e; --warn: #ef4444;
+      --grade-4: #22c55e; --grade-4-fg: #052e16;
+      --grade-3: #14b8a6; --grade-3-fg: #042f2e;
+      --grade-2: #38bdf8; --grade-2-fg: #082f49;
+      --grade-1: #94a3b8; --grade-1-fg: #0f172a;
+      --evidence: #38bdf8; --evidence-soft: #082f49; --on-evidence: #0b0f17;
+      --surface: #131b28;
     }
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0; padding: 2rem 1.25rem 4rem; background: var(--bg); color: var(--fg);
+    margin: 0; padding: 1.5rem 1.5rem 5rem; background: var(--bg); color: var(--fg);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
       Arial, sans-serif;
     line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-  main { max-width: 58rem; margin: 0 auto; }
-  nav { max-width: 58rem; margin: 0 auto 1.5rem; font-size: 0.9rem; color: var(--muted); }
-  h1 { margin-bottom: 0.25rem; }
-  .tagline { color: var(--muted); margin-top: 0; }
-  h2 { margin-top: 2.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
+  main { max-width: 76rem; margin: 0 auto; }
+  nav {
+    max-width: 76rem; margin: 0 auto 1.5rem; font-size: 0.92rem;
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.75rem 1rem; border: 1px solid var(--border);
+    border-radius: 10px; background: var(--surface);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  }
+  nav a {
+    text-decoration: none; font-weight: 600; color: var(--muted);
+    padding: 0.35rem 0.65rem; border-radius: 6px; transition: all 0.15s ease;
+  }
+  nav a:first-child {
+    font-size: 1.05rem; font-weight: 750; color: var(--fg); margin-right: auto;
+    letter-spacing: -0.02em;
+  }
+  nav a:hover { color: var(--link); background: var(--bg); }
+  h1 { margin-bottom: 0.25rem; font-size: 2.2rem; letter-spacing: -0.02em; }
+  .tagline { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  h2 {
+    margin-top: 2.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem;
+    font-size: 1.35rem; letter-spacing: -0.01em;
+  }
   .notice {
-    max-width: 58rem; margin: 0 auto 1.5rem;
-    border: 1px solid var(--notice-border); background: var(--notice-bg);
-    border-radius: 6px; padding: 0.65rem 0.9rem; font-size: 0.9rem;
+    display: none;
   }
   .notice p { margin: 0; }
+  .layout .scope-rule { display: none; }
   .scope-rule { color: var(--muted); font-size: 0.9rem; }
   /* On methods.html the rule is the section's content, not a gloss beside a
      gene: body colour and size there, and only there. The gene pages' and the
@@ -133,12 +152,18 @@ STYLESHEET: Final = """
      while the research-use notice got a bordered amber box. Found by review
      2026-08-05. */
   .notice-inline {
-    border-left: 3px solid var(--notice-border); background: var(--notice-bg);
-    border-radius: 0 4px 4px 0; padding: 0.5rem 0.75rem; margin: 1rem 0;
+    background: var(--surface); border: 1px solid var(--border);
+    border-left: 4px solid var(--evidence); border-radius: 6px;
+    padding: 0.75rem 1rem; margin: 1rem 0; font-size: 0.86rem; line-height: 1.5;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
   }
-  .method, .provenance { color: var(--muted); font-size: 0.9rem; margin: 0.35rem 0; }
+  .method, .provenance {
+    color: var(--muted); font-size: 0.85rem; margin: 0.35rem 0; line-height: 1.4;
+  }
   .disclosure {
-    color: var(--muted); font-size: 0.9rem; margin: 0.35rem 0; font-style: italic;
+    color: var(--muted); font-size: 0.82rem; margin: 0.5rem 0; font-style: italic;
+    background: var(--surface); padding: 0.5rem 0.75rem; border-radius: 6px;
+    border: 1px solid var(--border);
   }
   .footnotes { color: var(--muted); font-size: 0.85rem; margin: 0.5rem 0 0; }
   /* The concordance strip and matrix. One evidence hue at three intensities
@@ -186,25 +211,43 @@ STYLESHEET: Final = """
      scrolls sideways on a narrow screen, which moves the whole layout rather
      than the table. `.scroll` was emitted by `_evidence_matrix` with no rule
      anywhere -- found by review before the deploy. */
-  .scroll { overflow-x: auto; }
-  table.matrix { border-collapse: separate; border-spacing: 3px; margin: 1rem 0; }
-  table.matrix th { font-size: 0.8rem; }
-  table.matrix th[scope="row"] { text-align: right; white-space: nowrap; }
-  .cell {
-    display: grid; place-items: center; min-width: 5rem; min-height: 2.5rem;
-    padding: 0.25rem 0.45rem; border-radius: 4px; text-align: center;
-    font-variant-numeric: tabular-nums; font-size: 0.8rem; line-height: 1.25;
-    border: 1px solid transparent; white-space: nowrap;
+  .scroll { overflow-x: auto; margin: 0.75rem 0; }
+  table.matrix {
+    border-collapse: separate; border-spacing: 6px; margin: 0.5rem 0;
+    background: var(--surface); padding: 0.75rem 1rem; border-radius: 10px;
+    border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   }
-  .cell.corrected { background: var(--evidence); color: var(--on-evidence); }
+  table.matrix th {
+    font-size: 0.74rem; font-weight: 650; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--muted);
+  }
+  table.matrix th[scope="row"] {
+    text-align: right; white-space: nowrap; font-size: 0.82rem;
+    font-weight: 600; color: var(--fg); padding-right: 0.75rem;
+  }
+  .cell {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-width: 6.5rem; min-height: 2.8rem;
+    padding: 0.4rem 0.65rem; border-radius: 6px; text-align: center;
+    font-variant-numeric: tabular-nums; font-size: 0.84rem; line-height: 1.25;
+    border: 1px solid transparent; white-space: nowrap; transition: transform 0.15s ease;
+  }
+  .cell:hover { transform: scale(1.02); }
+  .cell.corrected {
+    background: var(--evidence); color: var(--on-evidence); font-weight: 650;
+    box-shadow: 0 1px 3px rgba(2, 132, 199, 0.25);
+  }
   .cell.nominal {
     background: var(--evidence-soft); border-color: var(--evidence);
+    color: var(--fg); font-weight: 600;
   }
-  .cell.no-enrichment { background: var(--surface); color: var(--muted); }
+  .cell.no-enrichment {
+    background: var(--surface); color: var(--muted); border: 1px solid var(--border);
+  }
   .cell.not-tested {
-    border: 1px dashed var(--border); color: var(--muted); font-size: 0.76rem;
+    border: 1px dashed var(--border); color: var(--muted); font-size: 0.75rem;
   }
-  .cell .sub { font-size: 0.72rem; opacity: 0.85; }
+  .cell .sub { font-size: 0.72rem; opacity: 0.9; margin-top: 0.1rem; }
 
   /* The front page's hero band, census cards and call to action. Every rule
      below is written against a token declared above, so the dark theme is
@@ -212,27 +255,32 @@ STYLESHEET: Final = """
      has to remember to update. */
   .hero {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 8px; padding: 1.3rem 1.4rem; margin: 1.5rem 0 0;
+    border-radius: 12px; padding: 1.6rem 2rem; margin: 1.5rem 0 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   }
-  .figures { display: flex; flex-wrap: wrap; gap: 1.1rem 2.75rem; margin: 0 0 1rem; }
+  .figures { display: flex; flex-wrap: wrap; gap: 1.5rem 3.5rem; margin: 0 0 1.25rem; }
   .figure { display: flex; flex-direction: column; }
   .figure-value {
-    font-size: 2.2rem; line-height: 1.05; font-weight: 600;
+    font-size: 2.4rem; line-height: 1; font-weight: 700;
     font-variant-numeric: tabular-nums; color: var(--evidence);
   }
-  .figure-label { font-size: 0.85rem; color: var(--muted); }
+  .figure-label {
+    font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em;
+    font-weight: 600; color: var(--muted); margin-top: 0.35rem;
+  }
   /* A qualifier under a hero figure (`render.REGISTRY_QUALIFIER`): read with
      the number, so smaller and muted rather than in the value's size and
      weight. */
   .figure-note {
     font-size: 0.78rem; font-weight: 400; line-height: 1.3; color: var(--muted);
   }
-  .hero-note { margin: 0 0 1rem; font-size: 0.9rem; color: var(--muted); }
+  .hero-note { margin: 0 0 1.25rem; font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
   .cta {
     display: inline-block; background: var(--evidence); color: var(--on-evidence);
-    text-decoration: none; border-radius: 5px; padding: 0.45rem 0.95rem;
+    text-decoration: none; border-radius: 6px; padding: 0.55rem 1.15rem; font-weight: 550;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08); transition: background 0.15s ease;
   }
-  .cta:hover { text-decoration: underline; }
+  .cta:hover { background: #0369a1; text-decoration: none; }
   .cta:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
   /* A `<dl>` because it is one -- label and value -- restyled from the base
      two-column list into cards. `dl.stats` is (0,1,1) and the base `dl` rule
@@ -240,17 +288,19 @@ STYLESHEET: Final = """
      Each pair is wrapped in a `.stat` div, which HTML5 permits inside a `<dl>`
      and which is what lets one label and its value be one card. */
   dl.stats {
-    grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
-    gap: 0.6rem; margin: 1rem 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+    gap: 0.75rem; margin: 1.25rem 0;
   }
   .stat {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 6px; padding: 0.6rem 0.75rem;
+    border-radius: 8px; padding: 0.85rem 1rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
   }
-  .stat dt { font-size: 0.82rem; line-height: 1.3; }
+  .stat dt { font-size: 0.82rem; line-height: 1.3; color: var(--muted); }
   .stat dd {
-    font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums;
-    margin-top: 0.15rem;
+    font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums;
+    margin-top: 0.25rem; color: var(--fg);
   }
 
   .reading-notes { margin: 1rem 0; }
@@ -275,12 +325,18 @@ STYLESHEET: Final = """
   ul.links { list-style: none; padding: 0; margin: 0; }
   ul.links li { margin: 0.35rem 0; }
   footer { margin-top: 3rem; color: var(--muted); font-size: 0.9rem; }
-  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
-  th, td { text-align: left; padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--border); }
-  th { color: var(--muted); font-weight: 600; }
+  table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--border); }
+  th {
+    color: var(--muted); font-weight: 600; font-size: 0.74rem; text-transform: uppercase;
+    letter-spacing: 0.04em; background: var(--surface);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background-color: rgba(2, 132, 199, 0.03); }
   .chip {
-    display: inline-block; background: var(--chip-bg); border-radius: 3px;
-    padding: 0.1rem 0.45rem; font-size: 0.85rem; margin: 0 0.25rem 0.25rem 0;
+    display: inline-flex; align-items: center; background: var(--chip-bg); border-radius: 9999px;
+    padding: 0.15rem 0.55rem; font-size: 0.76rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.04em; margin: 0 0.25rem 0.25rem 0; line-height: 1.2;
   }
   .chip-definitive { background: var(--grade-4); color: var(--grade-4-fg); }
   .chip-strong { background: var(--grade-3); color: var(--grade-3-fg); }
@@ -294,14 +350,234 @@ STYLESHEET: Final = """
   /* A row gap rather than a margin on `dt`: the margin pushed each chip below
      the first line of its own gloss, since `dd` had none. */
   .grade-key dl { row-gap: 0.6rem; }
-  .layout { display: grid; grid-template-columns: 15rem 1fr; gap: 2rem; }
-  @media (max-width: 46rem) { .layout { grid-template-columns: 1fr; } }
-  .rail { font-size: 0.9rem; }
-  .rail h1 { font-size: 1.6rem; margin-top: 0; }
-  .filters { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; }
+  .layout { display: grid; grid-template-columns: 18rem 1fr; gap: 2.5rem; }
+  @media (max-width: 52rem) { .layout { grid-template-columns: 1fr; } }
+  .rail {
+    font-size: 0.88rem; background: var(--surface); padding: 1.5rem;
+    border-radius: 12px; border: 1px solid var(--border); height: fit-content;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+  .rail h1 { font-size: 2rem; margin: 0 0 0.35rem 0; letter-spacing: -0.02em; }
+  .rail p { margin: 0.35rem 0; }
+  .rail dl { margin: 0.75rem 0; }
+  .rail .xrefs { margin: 0.75rem 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .rail .xrefs a {
+    display: inline-block; padding: 0.2rem 0.5rem; background: var(--chip-bg);
+    border-radius: 4px; border: 1px solid var(--border); text-decoration: none;
+    font-size: 0.78rem; font-weight: 550; color: var(--fg);
+  }
+  .rail .card-variants {
+    margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border);
+  }
+  .rail .card-variants ul { list-style: none; padding: 0; margin: 0.5rem 0; }
+  .rail .card-variants li {
+    background: var(--bg); padding: 0.5rem 0.65rem; border-radius: 6px;
+    border-left: 3px solid var(--evidence); margin-bottom: 0.5rem;
+    font-size: 0.8rem; line-height: 1.4;
+  }
+  .rail .card-variants li a { font-weight: 550; }
+  .rail .card-gloss, .rail .card-scope, .rail .card-curation, .rail .card-uncorrected {
+    font-size: 0.78rem; color: var(--muted); line-height: 1.4;
+    background: var(--bg); padding: 0.5rem 0.65rem; border-radius: 6px;
+    border: 1px solid var(--border); margin: 0.5rem 0;
+  }
+  .rail a[href*="methods.html"] {
+    display: inline-block; font-size: 0.8rem; font-weight: 550; margin-top: 0.5rem;
+  }
+
+  /* Main column cards and tables on gene page */
+  .layout table {
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    background: var(--surface); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    margin: 0.75rem 0 1.5rem;
+  }
+  .layout table th {
+    background: #f8fafc; font-size: 0.72rem; font-weight: 650;
+    text-transform: uppercase; letter-spacing: 0.04em; padding: 0.65rem 0.85rem;
+    border-bottom: 2px solid var(--border); color: #475569;
+  }
+  @media (prefers-color-scheme: dark) {
+    .layout table th { background: #1e293b; color: #94a3b8; }
+  }
+  .layout table td {
+    padding: 0.65rem 0.85rem; font-size: 0.86rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .layout table tr:last-child td { border-bottom: none; }
+  .layout table tr:hover td { background-color: rgba(2, 132, 199, 0.03); }
+
+  /* The ClinGen expert panel's rows are the gold standard; GenCC rows stay plain. */
+  .layout tr[data-authority="clingen"] td { background: #f0fdf4; }
+  .layout tr[data-authority="clingen"] td:first-child { box-shadow: inset 3px 0 0 #16a34a; }
+  #validity-table td:nth-child(5) { white-space: nowrap; }
+  #validity-table td:first-child { min-width: 11rem; }
+  #validity-table + p { font-size: 0.8rem; color: var(--muted); margin: 0.5rem 0 0; }
+  .gold-standard {
+    display: inline-block; margin-left: 0.4rem; padding: 0.1rem 0.45rem; border-radius: 9999px;
+    font-size: 0.68rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em;
+    background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; white-space: nowrap;
+  }
+
+  .layout h2 + p {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.65rem 0.95rem 0.65rem 2.4rem; font-size: 0.84rem; color: var(--muted);
+    position: relative; margin: 0.75rem 0 1rem; line-height: 1.5;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  }
+  .layout h2 + p::before {
+    content: "ⓘ"; position: absolute; left: 0.75rem; top: 0.65rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.25rem; height: 1.25rem; border-radius: 50%; background: #e0f2fe; color: #0284c7;
+    font-weight: 700; font-size: 0.85rem;
+  }
+
+  /* Evidence assertion box styling */
+  .assertion-block {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1.2rem; margin: 1rem 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  }
+  .assertion-block dl { margin: 0.5rem 0; }
+  .filters {
+    display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 1.25rem 0;
+    background: var(--surface); padding: 0.85rem 1rem; border: 1px solid var(--border);
+    border-radius: 8px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03); align-items: center;
+  }
   .filters input, .filters select {
-    padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: 4px;
-    background: var(--bg); color: var(--fg);
+    padding: 0.4rem 0.65rem; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--bg); color: var(--fg); font-size: 0.85rem;
+  }
+  .filters input[type="search"] { min-width: 16rem; }
+  .filters input:focus, .filters select:focus {
+    outline: 2px solid var(--evidence); outline-offset: 1px;
+  }
+
+  /* Sortable table headers and gene registry table styling */
+  th.sortable {
+    cursor: pointer; user-select: none; position: relative; padding-right: 1.4rem;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  th.sortable:hover { color: var(--fg); background: var(--border); }
+  th.sortable::after {
+    content: " ⇅"; opacity: 0.35; font-size: 0.72rem; position: absolute;
+    right: 0.4rem; top: 50%; transform: translateY(-50%);
+  }
+  th.sortable.sort-asc::after {
+    content: " ▲"; opacity: 1; color: var(--evidence);
+  }
+  th.sortable.sort-desc::after {
+    content: " ▼"; opacity: 1; color: var(--evidence);
+  }
+  .table-scroll {
+    overflow-x: auto; margin: 1.25rem 0; border: 1px solid var(--border);
+    border-radius: 10px; background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+  .table-scroll table { margin: 0; }
+  .table-scroll th { background: var(--bg); position: sticky; top: 0; z-index: 1; }
+  .gene-desc { font-size: 0.78rem; color: var(--muted); margin-top: 0.15rem; line-height: 1.25; }
+  .expression-cell {
+    font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; color: var(--fg);
+  }
+  .expression-pct {
+    display: inline-block; font-size: 0.72rem; font-weight: 550; color: #0284c7;
+    background: #e0f2fe; padding: 0.1rem 0.4rem; border-radius: 4px; margin-left: 0.25rem;
+  }
+  .concordance-key {
+    display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.82rem;
+    color: var(--muted); margin: 0.5rem 0 1rem; align-items: center;
+  }
+
+  .chip-curated {
+    display: inline-block; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;
+    font-size: 0.68rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 0.12rem 0.4rem; border-radius: 4px; vertical-align: 1px; margin-left: 0.25rem;
+  }
+  .source-tag { font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; font-weight: 500; }
+  .gene-id {
+    font-size: 0.76rem; color: var(--muted); background: var(--bg); border: 1px solid var(--border);
+    padding: 0.1rem 0.35rem; border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-weight: 500;
+  }
+
+  .matrix-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.5rem; margin: 1rem 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  }
+  .study-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  }
+  .study-figures {
+    margin: 1rem 0; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.75rem 1rem;
+  }
+  .study-figures summary {
+    font-weight: 600; font-size: 0.85rem; color: var(--fg); cursor: pointer;
+  }
+
+  h3[id^="study-"] {
+    margin-top: 0.5rem; margin-bottom: 0.4rem; font-size: 1.25rem; font-weight: 700;
+  }
+  h3[id^="study-"] a { text-decoration: none; color: var(--fg); }
+  h3[id^="study-"] a:hover { color: var(--link); text-decoration: underline; }
+  .study-analyses {
+    font-size: 0.78rem; font-weight: 600; color: var(--evidence);
+    background: var(--evidence-soft); padding: 0.2rem 0.6rem; border-radius: 4px;
+    display: inline-block; margin: 0.2rem 0 0.75rem;
+  }
+
+  /* The biological-mechanism callout that leads each study card: it makes the
+     LoF-vs-missense contrast (the disease-mechanism takeaway) visible at a
+     glance instead of burying it in repeated forest-plot rows. Emitted by
+     `_study_mechanism_summary`. */
+  .finding-card {
+    border-radius: 10px; padding: 0.9rem 1.05rem; margin: 0.75rem 0 0.5rem;
+    border: 1px solid var(--border); border-left-width: 4px;
+    background: var(--bg); font-size: 0.9rem; line-height: 1.45;
+  }
+  .finding-badge {
+    font-weight: 700; font-size: 0.82rem; text-transform: uppercase;
+    letter-spacing: 0.03em; margin-bottom: 0.3rem;
+  }
+  .finding-summary { color: var(--fg); }
+  .finding-missense { border-left-color: #16a34a; background: #f0fdf4; }
+  .finding-missense .finding-badge { color: #15803d; }
+  .finding-lof { border-left-color: #0891b2; background: #ecfeff; }
+  .finding-lof .finding-badge { color: #0e7490; }
+  .finding-both { border-left-color: #7c3aed; background: #f5f3ff; }
+  .finding-both .finding-badge { color: #6d28d9; }
+  .finding-union { border-left-color: #0284c7; background: #e0f2fe; }
+  .finding-union .finding-badge { color: #0369a1; }
+  .finding-nominal { border-left-color: var(--notice-border); background: var(--notice-bg); }
+  .finding-nominal .finding-badge { color: var(--muted); }
+
+  /* Table cells styling */
+  #gene-table { width: 100%; table-layout: auto; }
+  #gene-table th, #gene-table td { vertical-align: top; }
+  #gene-table th:nth-child(1) { width: 12%; min-width: 7.5rem; }
+  #gene-table th:nth-child(2) { width: 20%; min-width: 11rem; }
+  #gene-table th:nth-child(3) { width: 16%; min-width: 10rem; }
+  #gene-table th:nth-child(4) { width: 24%; min-width: 13rem; }
+  #gene-table th:nth-child(5) { width: 14%; min-width: 9.5rem; }
+  #gene-table th:nth-child(6) { width: 14%; min-width: 8.5rem; }
+
+  #gene-table td:nth-child(1) a {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.8rem; color: var(--muted); text-decoration: none;
+  }
+  #gene-table td:nth-child(1) a:hover { color: var(--link); text-decoration: underline; }
+  #gene-table td:nth-child(2) a {
+    font-weight: 700; font-size: 0.95rem; text-decoration: none; color: var(--link);
+  }
+  #gene-table td:nth-child(2) a:hover { text-decoration: underline; }
+  #gene-table td:nth-child(4) {
+    overflow-wrap: break-word; word-break: normal; line-height: 1.4;
+  }
+  .cohort-tests {
+    font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; font-weight: 500;
   }
   /* Charts (build/charts.py). Every colour resolves through a custom property,
      so the dark palette above governs charts with no second definition to
@@ -330,6 +606,14 @@ STYLESHEET: Final = """
   .ct-ring { fill: none; stroke: var(--muted); stroke-width: 1.2; }
   .chart { width: 100%; height: auto; max-width: 40rem; overflow: visible; }
   .chart-line { fill: none; stroke: var(--link); stroke-width: 2; }
+  .chart-context {
+    fill: none; stroke: var(--muted); stroke-width: 1.2;
+    stroke-dasharray: 4 3; stroke-opacity: 0.7;
+  }
+  .chart-hit { fill: none; stroke: none; pointer-events: all; }
+  .chart-context-group:hover .chart-context {
+    stroke: var(--fg); stroke-width: 2.2; stroke-opacity: 1;
+  }
   .chart-point { fill: var(--link); }
   .chart-point-open { fill: var(--bg); stroke: var(--link); stroke-width: 1.6; }
   .chart-axis { stroke: var(--border); }
@@ -347,6 +631,9 @@ STYLESHEET: Final = """
      renders black on a dark page. Every `<text>` the charts emit carries this
      class; the `<tspan>` rule above is the other one that sets a text fill. */
   .chart-label { fill: var(--fg); font-size: 0.6rem; }
+  .chart-tick-label { fill: var(--muted); font-size: 0.5rem; }
+  .chart-axis-title { fill: var(--muted); font-size: 0.55rem; }
+  .chart-grid { stroke: var(--border); stroke-dasharray: 2 3; fill: none; }
   /* One marker a forest plot might want is deliberately absent from the list
      above; `build/charts.py` names it and says why, and says it there rather
      than here on purpose. **This stylesheet is inlined verbatim into every
@@ -366,10 +653,44 @@ STYLESHEET: Final = """
     padding: 0.2rem;
   }
   .spark figcaption { font-size: 0.6rem; color: var(--muted); }
-  .forest { margin: 0.6rem 0; }
-  .forest figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 0.25rem; }
+  .forest {
+    margin: 1rem 0; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); padding: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  }
+  .forest figcaption { font-size: 0.82rem; color: var(--muted); margin-top: 0.5rem; }
   .forest figcaption p { margin: 0.25rem 0; }
-  .forest summary, .chart-notes summary { cursor: pointer; color: var(--muted); }
+  /* The forest fills its card instead of stopping at 40rem, and its marks scale with it. */
+  .forest .chart, h3 + svg.chart { max-width: none; }
+  h3 + svg.chart { margin: 0.5rem 0; }
+  svg.chart .chart-tick-label { font-size: 0.56rem; }
+  .forest .chart-point, .forest .chart-point-open { r: 4.5; }
+  .forest .chart-line, .forest .chart-control { stroke-width: 2.6; }
+  .forest .chart-label { font-size: 0.64rem; }
+  .forest .chart-union { font-size: 0.56rem; }
+  .forest .chart-axis { stroke: var(--muted); stroke-opacity: 0.45; }
+  .forest summary, .chart-notes summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+  .denovo {
+    margin: 1rem 0; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); padding: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  }
+  .denovo .table-scroll { margin: 0; }
+  .denovo table { font-size: 0.88rem; }
+  .denovo th, .denovo td { padding: 0.5rem 0.75rem; }
+  .denovo td:first-child { font-weight: 600; }
+  .denovo figcaption { font-size: 0.82rem; color: var(--muted); margin-top: 0.5rem; }
+  .denovo figcaption p { margin: 0.25rem 0; }
+  .denovo-chip {
+    display: inline-block; padding: 0.12rem 0.55rem; border-radius: 999px;
+    font-size: 0.74rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .denovo-chip.denovo-sig { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+  .denovo-chip.denovo-nominal { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+  .denovo-chip.denovo-none {
+    background: var(--surface); color: var(--muted); border: 1px solid var(--border);
+  }
 """
 
 # The one piece of client-side behaviour on the site, and a literal so it does
@@ -379,21 +700,25 @@ STYLESHEET: Final = """
 FILTER_SCRIPT: Final = """
 (function () {
   var form = document.getElementById('filters');
-  if (!form) return;
+  var table = document.getElementById('gene-table');
+  if (!table) return;
   var rows = Array.prototype.slice.call(
-    document.querySelectorAll('#gene-table tbody tr')
+    table.querySelectorAll('tbody tr')
   );
   var count = document.getElementById('shown');
+
   function apply() {
-    var text = (form.querySelector('[name=q]').value || '').toLowerCase();
-    var facets = Array.prototype.slice.call(form.querySelectorAll('select'));
+    var q = form && form.querySelector('[name=q]');
+    var text = (q ? q.value || '' : '').toLowerCase();
+    var facets = form ? Array.prototype.slice.call(form.querySelectorAll('select')) : [];
     var shown = 0;
     rows.forEach(function (row) {
-      var ok = row.getAttribute('data-search').indexOf(text) !== -1;
+      var ok = (row.getAttribute('data-search') || '').indexOf(text) !== -1;
       facets.forEach(function (select) {
         var want = select.value;
         if (ok && want) {
-          ok = (row.getAttribute('data-' + select.name) || '').split(' ').indexOf(want) !== -1;
+          var attr = row.getAttribute('data-' + select.name) || '';
+          ok = attr.split(' ').indexOf(want) !== -1;
         }
       });
       row.hidden = !ok;
@@ -401,7 +726,95 @@ FILTER_SCRIPT: Final = """
     });
     if (count) count.textContent = String(shown);
   }
-  form.addEventListener('input', apply);
+
+  if (form) {
+    form.addEventListener('input', apply);
+    form.addEventListener('change', apply);
+  }
+
+  var headers = Array.prototype.slice.call(table.querySelectorAll('thead th'));
+  var currentSortCol = -1;
+  var currentSortAsc = true;
+
+  var rankMap = {
+    'definitive': 6,
+    'strong': 5,
+    'moderate': 4,
+    'limited': 3,
+    'disputed': 2,
+    'refuted': 1,
+    'expert_curated': 2,
+    'submitter_curated': 1
+  };
+
+  function parseNumber(s) {
+    if (!s || s === '—' || s.indexOf('<') === 0) return -1;
+    var m = s.match(/([0-9.]+)/);
+    return m ? parseFloat(m[1]) : -1;
+  }
+
+  function getCellValue(row, idx) {
+    var td = row.children[idx];
+    if (!td) return '';
+    var custom = td.getAttribute('data-sort-val');
+    if (custom !== null) return custom;
+    return td.textContent.trim();
+  }
+
+  headers.forEach(function (th, colIdx) {
+    th.classList.add('sortable');
+    th.setAttribute('title', 'Click to sort');
+    th.addEventListener('click', function () {
+      if (currentSortCol === colIdx) {
+        currentSortAsc = !currentSortAsc;
+      } else {
+        currentSortCol = colIdx;
+        currentSortAsc = true;
+      }
+
+      headers.forEach(function (h, i) {
+        h.classList.remove('sort-asc', 'sort-desc');
+        if (i === colIdx) {
+          h.classList.add(currentSortAsc ? 'sort-asc' : 'sort-desc');
+        }
+      });
+
+      rows.sort(function (a, b) {
+        var va = getCellValue(a, colIdx);
+        var vb = getCellValue(b, colIdx);
+
+        var na = parseNumber(va);
+        var nb = parseNumber(vb);
+        var isNumA = (na !== -1);
+        var isNumB = (nb !== -1);
+
+        var diff = 0;
+        if (isNumA && isNumB) {
+          diff = na - nb;
+        } else if (isNumA && !isNumB) {
+          diff = 1;
+        } else if (!isNumA && isNumB) {
+          diff = -1;
+        } else {
+          var rA = rankMap[va.toLowerCase()] !== undefined ? rankMap[va.toLowerCase()] : -1;
+          var rB = rankMap[vb.toLowerCase()] !== undefined ? rankMap[vb.toLowerCase()] : -1;
+          if (rA !== -1 || rB !== -1) {
+            diff = rA - rB;
+          } else {
+            diff = va.localeCompare(vb, undefined, { numeric: true, sensitivity: 'base' });
+          }
+        }
+        return currentSortAsc ? diff : -diff;
+      });
+
+      var tbody = table.querySelector('tbody');
+      rows.forEach(function (row) {
+        tbody.appendChild(row);
+      });
+      apply();
+    });
+  });
+
   apply();
 })();
 """

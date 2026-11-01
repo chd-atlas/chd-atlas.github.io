@@ -1187,7 +1187,7 @@ def test_every_trajectory_mark_sits_where_the_payload_puts_it(site: Path) -> Non
             continue
         markup = page.read_text()
         section = markup[markup.find("Developmental expression") :]
-        figures = re.findall(r'<svg class="chart" viewBox="0 0 560 150".*?</svg>', section, re.S)
+        figures = re.findall(r'<svg class="chart" viewBox="0 0 560 202".*?</svg>', section, re.S)
         if not figures:
             continue
 
