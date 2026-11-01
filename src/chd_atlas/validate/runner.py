@@ -31,6 +31,7 @@ from chd_atlas.validate.burden import (
     validate_burden_combined_references,
     validate_burden_references,
 )
+from chd_atlas.validate.cell_types import validate_cell_type_profiles
 from chd_atlas.validate.genes import validate_identity_ids, validate_mirror_symbols
 from chd_atlas.validate.ids import load_id_registry, validate_ids
 from chd_atlas.validate.ontology import (
@@ -707,6 +708,19 @@ def validate_repository(root: Path) -> ValidationReport:
                 known_genes=known_genes or None,
                 published_genes=published,
                 phases=corpus.cardiac_phases,
+            )
+        )
+        # CTP001-011: cell-type rows against their dataset record and the rules
+        # the cell-type block prints of them. The same `or None` as above, for the same
+        # reason: an unreadable or header-only registry skips CTP007 rather
+        # than flagging every gene; TBL008 or REF001 reports why. The other
+        # checks still run, which
+        # `test_a_header_only_gene_registry_skips_only_the_cell_type_gene_check`
+        # pins: with this call deleted the whole suite once passed (review,
+        # 2026-10-28).
+        issues.extend(
+            validate_cell_type_profiles(
+                root, datasets=corpus.datasets, known_genes=known_genes or None
             )
         )
         # GEN004 (owner decision 2026-10-26, R13): the identity ids every

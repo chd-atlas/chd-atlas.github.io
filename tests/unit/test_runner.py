@@ -902,7 +902,12 @@ def test_an_unreadable_gene_registry_does_not_multiply_by_the_burden_mirror(
     report = validate_repository(root)
     codes = [issue.code for issue in report.issues if issue.severity is Severity.ERROR]
 
-    assert codes == ["REF001", "GEN004"]
+    # One REF001 per curated assertion (every committed assertion's gene is now
+    # unknown under a header-only registry) plus one GEN004 naming the empty
+    # registry. Counted, not a literal list, so adding another committed
+    # assertion (as NR2F2/CHDA:AST:0000002 did) does not stale this test.
+    n_assertions = sum(1 for _ in (root / "curation" / "assertions").glob("*.yaml"))
+    assert codes == ["REF001"] * n_assertions + ["GEN004"]
 
     for assertion in (root / "curation" / "assertions").iterdir():
         assertion.unlink()
@@ -1321,3 +1326,55 @@ def test_the_table_a_chd_only_count_comes_from_is_held_to_the_source_registry(
     assert [(issue.code, "'audain2021_s8'" in issue.message) for issue in errors] == [
         ("SRC003", True)
     ]
+
+
+def test_a_cell_type_mirror_with_an_unregistered_source_fails_validation(
+    tmp_path: Path,
+) -> None:
+    """`cell_type_profiles` carries `source`, so `_used_sources` holds it to SRC003.
+
+    Other checks (no `hoc` dataset record, an unregistered gene) may flag the
+    row as well; this test is about the source gate, so it asserts SRC003 only.
+    """
+    root = _real_repo(tmp_path)
+    shard = root / "mirrors" / "cell_type_profiles"
+    shard.mkdir(parents=True, exist_ok=True)
+    (shard / "hoc.tsv").write_text(
+        "dataset\tgene\tcell_type\tregion\tmedian_abundance\tunit\tq25\tq75\t"
+        "n_donors\tn_cells\tfraction_expressing\tsource\n"
+        "hoc\tHGNC:1100\tcardiomyocyte\tLV\t2.5\tcpm\t1.0\t3.0\t4\t900\t0.4\tnot_in_sources\n",
+        encoding="utf-8",
+    )
+
+    report = validate_repository(root)
+
+    assert "SRC003" in [issue.code for issue in report.issues]
+    assert any("'not_in_sources'" in i.message for i in report.issues if i.code == "SRC003")
+
+
+def test_a_header_only_gene_registry_skips_only_the_cell_type_gene_check(tmp_path: Path) -> None:
+    """CTP007 is skipped for an empty registry; REF001 names the cause instead.
+
+    The other cell-type checks still run: the row's dataset has no record, and
+    CTP001 says so. That assertion is the one that fails if `validate_repository`
+    stops calling `validate_cell_type_profiles` at all (review, 2026-10-28: with
+    the call deleted, the suite passed and a build skipped every row naming an
+    undeclared cell type or region in silence).
+    """
+    root = _real_repo(tmp_path)
+    genes = root / "mirrors" / "genes.tsv"
+    genes.write_text(genes.read_text(encoding="utf-8").splitlines()[0] + "\n", encoding="utf-8")
+    shard = root / "mirrors" / "cell_type_profiles"
+    shard.mkdir(parents=True, exist_ok=True)
+    (shard / "hoc.tsv").write_text(
+        "dataset\tgene\tcell_type\tregion\tmedian_abundance\tunit\tq25\tq75\t"
+        "n_donors\tn_cells\tfraction_expressing\tsource\n"
+        "hoc\tHGNC:1100\tcardiomyocyte\tall\t2.5\tcpm\t1.0\t3.0\t4\t900\t0.4\tnot_in_sources\n",
+        encoding="utf-8",
+    )
+
+    codes = [issue.code for issue in validate_repository(root).issues]
+
+    assert "REF001" in codes
+    assert "CTP007" not in codes
+    assert "CTP001" in codes

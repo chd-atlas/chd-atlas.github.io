@@ -6,7 +6,7 @@
         "dataset": {
           "anyOf": [
             {
-              "pattern": "^(PXD\\d{6,}|GSE\\d+|E-[A-Z]{4}-\\d+|EGA[SD]\\d{11})$",
+              "pattern": "^(PXD\\d{6,}|GSE\\d+|E-[A-Z]{4}-\\d+|EGA[SD]\\d{11}|[a-z][a-z0-9]*(?:-[a-z0-9]+)*)$",
               "type": "string"
             },
             {

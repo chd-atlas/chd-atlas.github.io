@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from chd_atlas.build.burden import BurdenCensus, BurdenRow, burden_census
+from chd_atlas.build.cell_types import CellTypeCensus
 from chd_atlas.build.concordance import survives_own_correction
 from chd_atlas.build.emit import Emitter
 from chd_atlas.build.landing import build_landing
@@ -63,6 +64,7 @@ _NO_BURDEN = BurdenCensus(rows=0, genes=0, families=0, studies=(), surviving_gen
 
 # The developmental-expression counterpart to `_NO_BURDEN`, for the same tests.
 _NO_PROFILES = ProfileCensus(genes=0, datasets=0)
+_NO_CELL_TYPES = CellTypeCensus(genes=0, datasets=0)
 
 TBX5 = "HGNC:11604"
 GATA4 = "HGNC:4173"
@@ -156,6 +158,7 @@ def _build(
     published: set[str] | None = None,
     census: BurdenCensus = _NO_BURDEN,
     profile_census: ProfileCensus = _NO_PROFILES,
+    cell_type_census: CellTypeCensus = _NO_CELL_TYPES,
     sources: SourceRegistry = _SOURCES,
 ) -> str:
     """Render the page.
@@ -186,6 +189,7 @@ def _build(
         ),
         census=census,
         profile_census=profile_census,
+        cell_type_census=cell_type_census,
         emitter=emitter,
         sources=sources,
     )
@@ -365,6 +369,7 @@ def test_the_page_is_published_through_write_text_and_reaches_the_checksums(
         published={TBX5},
         census=_NO_BURDEN,
         profile_census=_NO_PROFILES,
+        cell_type_census=_NO_CELL_TYPES,
         emitter=emitter,
         sources=_SOURCES,
     )
@@ -850,6 +855,11 @@ def test_the_landing_card_names_the_layer_the_build_publishes(tmp_path: Path) ->
 
     The datasets card went with the doorway page (2026-10-27): one dataset
     today, and `manifest.json`'s `profile_datasets` states it.
+
+    **The cell-type card is held the same way** (final review, 2026-10-28).
+    Both cell-type counts are 0 on the committed corpus, so a card reading
+    `datasets` instead of `genes` survived every test; `genes=7, datasets=3`
+    separates them, and from the profile card's 3 and 2.
     """
     corpus = Corpus(root=Path("."), assertions=(_assertion(),))
 
@@ -859,10 +869,12 @@ def test_the_landing_card_names_the_layer_the_build_publishes(tmp_path: Path) ->
         {TBX5: uncurated()},
         tmp_path,
         profile_census=ProfileCensus(genes=3, datasets=2),
+        cell_type_census=CellTypeCensus(genes=7, datasets=3),
     )
     listed = _section(text, "<h2>What's published</h2>")
 
     assert re.search(r"<dt>Genes with developmental expression data</dt>\s*<dd>3</dd>", listed)
+    assert re.search(r"<dt>Genes with cell-type expression data</dt>\s*<dd>7</dd>", listed)
 
 
 def test_the_front_page_is_a_doorway_and_its_reading_notes_live_elsewhere(
@@ -916,13 +928,14 @@ def test_every_figure_the_page_states_is_the_manifests_own(
 ) -> None:
     """Three artifacts, one set of numbers, checked against a real build.
 
-    The page states six keys of `counts` and the manifest all of them
+    The page states seven keys of `counts` and the manifest all of them
     (`docs/data-api.md`; the page stated every key until the doorway page,
-    2026-10-27): five as figures, and `assertions` in the sentence naming the
-    curated genes. They are derived from a single `burden_census` call in
-    `build_site` precisely so they cannot disagree -- and a test that only read
-    fixtures could not see them start to, because the drift would be in the
-    wiring rather than in either derivation.
+    2026-10-27): six as figures -- `cell_type_genes` joined them with schema
+    2.20 -- and `assertions` in the sentence naming the curated genes. They are
+    derived once in `build_site` (the burden figures from a single
+    `burden_census` call) and handed to both precisely so they cannot disagree
+    -- and a test that only read fixtures could not see them start to, because
+    the drift would be in the wiring rather than in either derivation.
 
     `burden_rows` is checked against the gene bundles too, which is the claim
     that actually matters: the figure must count rows a consumer can *fetch*, not
@@ -969,6 +982,7 @@ def test_every_figure_the_page_states_is_the_manifests_own(
             "burden_surviving_genes"
         ],
         "Genes with developmental expression data": counts["profile_genes"],
+        "Genes with cell-type expression data": counts["cell_type_genes"],
         "Genes with a reported rare-variant result": sum(
             1 for row in index["genes"] if row["burden_row_count"]
         ),

@@ -1490,3 +1490,34 @@ def test_the_page_sentences_the_doc_reports_are_the_ones_the_pages_render(site: 
     )
     assert "only case group, not a subgroup, where it does not" in doc
     assert "whole case set" not in doc
+
+
+def test_the_doc_documents_the_cell_type_expression_bundle_key(site: Path) -> None:
+    """The section exists, its example's keys are the real shape, its claims are there.
+
+    A real build has no cell-type mirror yet, so every bundle publishes the
+    empty shape and the counts are 0; the section must not claim otherwise.
+    """
+    bundle = json.loads(next((site / "genes").glob("HGNC_*.json")).read_text())
+    assert bundle["cell_type_expression"] == {"datasets": []}
+    counts = json.loads((site / "manifest.json").read_text())["counts"]
+    assert counts["cell_type_genes"] == counts["cell_type_datasets"] == 0
+
+    doc = DOC.read_text()
+    heading = (
+        "### The bundle's `cell_type_expression` object: a cell-type profile, never a contrast"
+    )
+    assert heading in doc
+    section = doc[doc.index(heading) + len(heading) :]
+    section = section[: section.index("\n## ")]
+    prose = " ".join(re.sub(r"```.*?```", "", section, flags=re.S).split())
+    assert len(prose.split()) <= 150
+    assert "not evidence against a gene" in prose
+    assert "9 to 15 weeks" in prose
+    assert "no heart had at least 10 cells" in prose
+    example = json.loads(re.search(r"```json\n(.*?)```", section, re.S).group(1))  # type: ignore[union-attr]
+    dataset = example["datasets"][0]
+    assert set(dataset) == {
+        "dataset", "unit", "detection_floor", "n_donors", "specificity", "cell_types",
+    }  # fmt: skip
+    assert "`2.20`" in " ".join(doc.split())

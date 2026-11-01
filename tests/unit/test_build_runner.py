@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 
 from chd_atlas.build.burden import BurdenRow, load_burden
+from chd_atlas.build.cell_types import CellTypeCensus
 from chd_atlas.build.concordance import survives_own_correction
 from chd_atlas.build.identity import GeneIdentity, read_gene_identities
 from chd_atlas.build.profiles import ProfileCensus
@@ -628,3 +629,158 @@ def test_the_registry_reads_each_genes_identity_with_blank_cells_as_none(tmp_pat
 
     (mirror / "genes.tsv").write_text("hgnc_id\tsymbol\tname\tensembl_gene\nHGNC:1\tA\tB\tC\n")
     assert read_gene_identities(tmp_path) is None
+
+
+def test_the_cell_type_census_reaches_the_manifest_by_key(
+    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`build_site` publishes `genes` under `cell_type_genes`, never swapped.
+
+    Fixed, distinct answers (as `profile_census` is given above), because a
+    real build has no cell-type mirror yet and publishes 0 for both; the empty
+    case is asserted too, on the unpatched build.
+    """
+    out = tmp_path / "dist"
+    build_site(repo, out)
+    counts = json.loads((out / "manifest.json").read_text())["counts"]
+    assert counts["cell_type_genes"] == 0
+    assert counts["cell_type_datasets"] == 0
+
+    monkeypatch.setattr(
+        "chd_atlas.build.runner.cell_type_census",
+        lambda expression, published: CellTypeCensus(genes=5, datasets=2),
+    )
+    patched = tmp_path / "patched"
+    build_site(repo, patched)
+    counts = json.loads((patched / "manifest.json").read_text())["counts"]
+    assert counts["cell_type_genes"] == 5
+    assert counts["cell_type_datasets"] == 2
+
+
+# The cell-type layer on a real build. No committed dataset has `design:
+# cell_type_profile` yet, so a build of the corpus alone publishes `{"datasets":
+# []}` on every bundle and cannot see the layer: deleting `cell_types=` from
+# either runner call passed the whole suite (review, 2026-10-28). One dataset
+# over two published genes, so `cell_type_genes` (2) differs from both
+# `cell_type_datasets` (1) and 0 (CLAUDE.md section 4.30). It carries the values
+# the block's fixed copy states, which `cell_type_block` refuses to render
+# without.
+_HOC_DATASET = """\
+id: hoc
+archive: ucsc_cell_browser
+technology: scrnaseq
+design: cell_type_profile
+tissue: heart
+developmental_stage: 9 to 15 weeks post conception
+organism: NCBITaxon:9606
+n_samples: 8
+licence: CC-BY-4.0
+publication: PMID:38480880
+cell_types:
+  - {token: aCM, label: Atrial cardiomyocytes, compartment: Cardiomyocytes}
+  - {token: Fibro, label: Fibroblasts, compartment: Stromal}
+regions: [LA, LV]
+detection_floor: 1.0
+floor_source: test fixture
+quantile_estimator: linear
+"""
+_HOC_PUBLICATION = """\
+  - id: PMID:38480880
+    title: Test fixture standing in for the cell-type dataset's publication.
+    journal: Test fixture
+    year: 2024
+    authors:
+      - Fixture A
+    study_type: transcriptomics
+"""
+_HOC_SOURCE = """\
+  - id: hoc_fixture
+    name: Test fixture standing in for the cell-type pseudobulk
+    version: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    retrieved_on: 2026-10-28
+    url: https://cells.ucsc.edu/?ds=hoc
+    licence: CC-BY-4.0
+    redistribution: permitted_with_attribution
+"""
+# TBX5 and GATA4: each gene's pooled atrial-cardiomyocyte median, distinct so a
+# bundle carrying the other gene's entry fails.
+_HOC_ACM_MEDIANS = {"HGNC:11604": 220.67, "HGNC:4173": 41.48}
+
+
+def _hoc_shard() -> str:
+    rows = []
+    for gene, acm in _HOC_ACM_MEDIANS.items():
+        for cell_type, median in (("aCM", acm), ("Fibro", 11.16)):
+            for region in ("LA", "LV", "all"):
+                cells = 8000 if region == "all" else 4000
+                rows.append(
+                    (
+                        gene,
+                        cell_type,
+                        region,
+                        f"{median}\tcpm\t{median * 0.9}\t{median * 1.1}"
+                        f"\t8\t{cells}\t0.5\thoc_fixture",
+                    )
+                )
+    return (
+        "dataset\tgene\tcell_type\tregion\tmedian_abundance\tunit\tq25\tq75\t"
+        "n_donors\tn_cells\tfraction_expressing\tsource\n"
+        + "".join(f"hoc\t{g}\t{c}\t{r}\t{rest}\n" for g, c, r, rest in sorted(rows))
+    )
+
+
+@pytest.fixture(scope="module")
+def cell_type_build(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The committed corpus plus the synthetic cell-type dataset above, built."""
+    root = tmp_path_factory.mktemp("cell_type_build")
+    repo = root / "repo"
+    repo.mkdir()
+    for name in ("curation", "mirrors"):
+        shutil.copytree(REPO / name, repo / name)
+    (repo / "ontologies").symlink_to(REPO / "ontologies")
+    (repo / "curation" / "datasets" / "hoc.yaml").write_text(_HOC_DATASET, encoding="utf-8")
+    for path, entry in (
+        (repo / "curation" / "publications.yaml", _HOC_PUBLICATION),
+        (repo / "mirrors" / "sources.yaml", _HOC_SOURCE),
+    ):
+        path.write_text(path.read_text(encoding="utf-8") + entry, encoding="utf-8")
+    shard = repo / "mirrors" / "cell_type_profiles"
+    shard.mkdir()
+    (shard / "hoc.tsv").write_text(_hoc_shard(), encoding="utf-8")
+    out = root / "dist"
+    build_site(repo, out)
+    return out
+
+
+def test_a_cell_type_dataset_reaches_the_bundle_the_page_the_manifest_and_the_front_page(
+    cell_type_build: Path,
+) -> None:
+    out = cell_type_build
+    heading = '<section class="cell-types"><h3>Cell types (Farah 2024)</h3>'
+    index = json.loads((out / "genes" / "index.json").read_text())
+    published = [row["gene"] for row in index["genes"]]
+    assert set(_HOC_ACM_MEDIANS) <= set(published)
+    without = next(gene for gene in published if gene not in _HOC_ACM_MEDIANS)
+
+    for gene, median in _HOC_ACM_MEDIANS.items():
+        slug = gene.replace(":", "_")
+        bundle = json.loads((out / "genes" / f"{slug}.json").read_text())
+        (entry,) = bundle["cell_type_expression"]["datasets"]
+        assert entry["dataset"] == "hoc"
+        assert [c["cell_type"] for c in entry["cell_types"]] == ["aCM", "Fibro"]
+        assert entry["cell_types"][0]["pooled"]["median"] == median
+        page = (out / "genes" / f"{slug}.html").read_text()
+        section = page.split("<h2>Developmental expression</h2>", 1)[1].split("<h2", 1)[0]
+        assert heading in section
+
+    other = without.replace(":", "_")
+    assert json.loads((out / "genes" / f"{other}.json").read_text())["cell_type_expression"] == {
+        "datasets": []
+    }
+    assert heading not in (out / "genes" / f"{other}.html").read_text()
+
+    counts = json.loads((out / "manifest.json").read_text())["counts"]
+    assert counts["cell_type_genes"] == len(_HOC_ACM_MEDIANS) == 2
+    assert counts["cell_type_datasets"] == 1
+    landing = (out / "index.html").read_text()
+    assert "<dt>Genes with cell-type expression data</dt><dd>2</dd>" in landing

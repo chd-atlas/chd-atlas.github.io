@@ -5,10 +5,39 @@
         "pride",
         "geo",
         "arrayexpress",
-        "ega"
+        "ega",
+        "ucsc_cell_browser"
       ],
       "title": "Archive",
       "type": "string"
+    },
+    "CellTypeDecl": {
+      "additionalProperties": false,
+      "description": "One of a cell-type dataset's own cell-type tokens.\n\n`token` is the string the source's matrix uses; `label` is what a page\nshows; `compartment` groups tokens for display. All three are required\nand must not be blank, because a blank one renders as an unlabelled row.",
+      "properties": {
+        "compartment": {
+          "minLength": 1,
+          "title": "Compartment",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "token": {
+          "minLength": 1,
+          "title": "Token",
+          "type": "string"
+        }
+      },
+      "required": [
+        "token",
+        "label",
+        "compartment"
+      ],
+      "title": "CellTypeDecl",
+      "type": "object"
     },
     "Contrast": {
       "additionalProperties": false,
@@ -67,7 +96,8 @@
       "description": "Whether a dataset's rows are contrasts or abundances.\n\nDeclared rather than inferred from `len(contrasts)`, so a curator who\nforgot the contrasts is distinguishable from an abundance atlas that\ncorrectly has none.",
       "enum": [
         "contrast",
-        "profile"
+        "profile",
+        "cell_type_profile"
       ],
       "title": "DatasetDesign",
       "type": "string"
@@ -134,6 +164,14 @@
       "title": "Cardiac Tissues",
       "type": "array"
     },
+    "cell_types": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/CellTypeDecl"
+      },
+      "title": "Cell Types",
+      "type": "array"
+    },
     "contrasts": {
       "items": {
         "$ref": "#/$defs/Contrast"
@@ -175,7 +213,7 @@
       "title": "Floor Source"
     },
     "id": {
-      "pattern": "^(PXD\\d{6,}|GSE\\d+|E-[A-Z]{4}-\\d+|EGA[SD]\\d{11})$",
+      "pattern": "^(PXD\\d{6,}|GSE\\d+|E-[A-Z]{4}-\\d+|EGA[SD]\\d{11}|[a-z][a-z0-9]*(?:-[a-z0-9]+)*)$",
       "title": "Id",
       "type": "string"
     },
@@ -218,6 +256,14 @@
       ],
       "default": null,
       "title": "Quantile Estimator"
+    },
+    "regions": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Regions",
+      "type": "array"
     },
     "stages": {
       "default": [],

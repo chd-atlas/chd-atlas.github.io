@@ -27,7 +27,7 @@ from chd_atlas.build.paths import METHODS_PAGE
 from chd_atlas.corpus import Corpus, load_curation
 from chd_atlas.models.cohort import Cohort
 from chd_atlas.models.review import ReviewStatus
-from chd_atlas.vocab import Technology
+from chd_atlas.vocab import DatasetDesign, Technology
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -916,29 +916,48 @@ def test_the_cohort_list_says_what_its_rows_name_and_what_they_do_not(
     assert (len(named), held) == (11, 6211)
 
 
+_CELL_TYPE_PARAGRAPHS = (
+    "<p><strong>Cell types</strong> come from single-cell RNA sequencing of 8 hearts at 9 to "
+    "15 weeks (Farah et al. 2024). For each heart, this atlas sums the counts of every cell "
+    "of one type, and of that type in one region, and divides by all of that group's counts: "
+    "counts per million (CPM). A page shows the median across hearts and the middle half of "
+    "hearts. A heart counts only with 10 or more cells of that type there. Values below 1 CPM "
+    "are below this atlas's detection floor, which borrows the Human Protein Atlas's "
+    '"not detected" cut of 1. '
+    "A dot's size is the share of that type's cells with at least one count.</p>"
+    "<p>Regions pool all four ages. τ is computed across cell types as for organs above. "
+    "Single-cell methods dissociate tissue, so how many cells of a type were captured "
+    "reflects the method, not the heart. A high share of cells describes that cell type, "
+    "not how common the type is.</p>"
+)
+
+
 def test_expression_states_what_every_gene_page_shortened_or_folded(page: str) -> None:
     """The expression reading notes, moved off every gene page (2026-10-26, D50).
 
-    Six paragraphs, pinned whole. The first is the bulk-dilution notice in
+    Eight paragraphs, pinned whole. The first is the bulk-dilution notice in
     full: a gene page keeps one line of it (`pages._BULK_TISSUE_NOTICE`,
     one of the ten caveats the spec keeps visible) and links here. The next
     two were the page's folded "How to read these figures" notes. The next
     two define tau and the developmental phases, which 118 and 119 gene pages
     print and nothing on the site defined until review (2026-10-26; each
-    clause's source is recorded in `methods._EXPRESSION`). The last states in
+    clause's source is recorded in `methods._EXPRESSION`). The sixth states in
     general the axes each chart's visible caption line states of its own
     figure (D57), and is where the charts' "How to read this chart" toggles
-    link.
+    link. The last two (`_CELL_TYPE_PARAGRAPHS`, at most 250 words) say how a
+    cell-type figure is computed, and are where the cell-type block's fold
+    links.
 
     Each was re-read for a page with no gene, dataset or figure on it, and
     reworded where its words assumed one: "below", "shown below", "on this
     page" and "elsewhere on this page" name nothing here. Read against the
     code and a build of 0fc451a (`methods._EXPRESSION` records each):
 
-    * the bulk claim is scoped to *developmental* expression, the profile
-      datasets the gene page's section renders, and held to every curated
-      dataset by
-      `test_every_curated_dataset_is_the_bulk_tissue_the_expression_notes_say`;
+    * the bulk claim is scoped to the developmental *timeline*, the profile
+      datasets whose stage series the gene page's section renders -- the
+      cell-type paragraphs below it are single-cell -- and held to every
+      profile dataset by
+      `test_every_timeline_dataset_is_the_bulk_tissue_the_expression_notes_say`;
     * "the number of genes measured" is the number the grid was built from
       (`Placement.n_genes`: 58,735 in every cell of E-MTAB-6814's grid);
     * "a dataset's own detection floor" read as the source's, and the only
@@ -966,7 +985,7 @@ def test_expression_states_what_every_gene_page_shortened_or_folded(page: str) -
     """
     assert _section(page, "expression") == (
         '<h2 id="expression">Developmental expression</h2>'
-        '<p class="notice-inline"><strong>Every developmental expression measurement in this '
+        '<p class="notice-inline"><strong>Every measurement on a developmental timeline in this '
         "atlas is from bulk tissue, never a single cell type.</strong> An embryonic heart "
         "sample mixes cardiomyocytes with endocardium, epicardium, cardiac neural crest, "
         "cushion mesenchyme and blood, and many congenital heart disease genes act in one rare "
@@ -1022,39 +1041,45 @@ def test_expression_states_what_every_gene_page_shortened_or_folded(page: str) -
         "per-organ axis would rescale every line to its own range and hide exactly that "
         "difference. A chart following one cardiac organ across a dataset's stages fits its "
         "vertical axis to the gene's own placed medians in that organ, so a curve's height "
-        "compares nothing to another gene's.</p>"
+        "compares nothing to another gene's.</p>" + _CELL_TYPE_PARAGRAPHS
     )
+    added = re.sub(r"<[^>]+>", " ", _CELL_TYPE_PARAGRAPHS).split()
+    assert len(added) <= 250, len(added)
 
 
-def test_every_curated_dataset_is_the_bulk_tissue_the_expression_notes_say(
+def test_every_timeline_dataset_is_the_bulk_tissue_the_expression_notes_say(
     corpus: Corpus,
 ) -> None:
-    """`#expression` opens "Every developmental expression measurement in this
-    atlas is from bulk tissue", and so does every gene page's short form.
+    """`#expression` opens "Every measurement on a developmental timeline in this
+    atlas is from bulk tissue", and a gene page without cell-type data says
+    "Every measurement below is from bulk tissue" above its timeline blocks.
 
     Both are unconditional by design -- a caveat beside only the bad news reads
     as an excuse -- so neither reads the data it describes. This is what does:
-    a dataset of any other technology (single-cell, proteomics) can make both
+    a `profile`-design dataset of any other technology (single-cell,
+    proteomics) would put a non-bulk measurement on a timeline and make both
     sentences false, and fails here rather than on a reader. Measured
     2026-10-26: one curated dataset, E-MTAB-6814, `bulk_rnaseq`.
 
-    **Every curated dataset, whatever its design** (review, 2026-10-26). It
-    checked profile datasets alone, while the sentence covers every
-    developmental measurement in the atlas, and a contrast dataset of
-    developmental tissue is one; nothing in a dataset's record says whether
-    its tissue is developmental, so the check takes them all. The error runs
-    the safe way: a bulk microarray, or an adult contrast dataset, fails here
-    though the sentence may still be true, and a person re-reads it; the
-    opposite error would publish a false sentence.
+    **Timeline datasets only, since the final review (2026-10-28).** It took
+    every curated dataset from review (2026-10-26), while the sentence named
+    every "developmental expression measurement", and a contrast dataset of
+    fetal tissue is one. The cell-type paragraphs `#expression` now ends with
+    made that sentence false, so it was scoped to the timeline, which only a
+    `profile` dataset draws: a contrast dataset compares two conditions, and a
+    `cell_type_profile` one pools 9 to 15 weeks. Checking every dataset would
+    fail the moment the Farah record is curated, over a sentence that record
+    does not contradict.
     """
-    assert corpus.datasets, "no dataset curated; the check would pass vacuously"
+    timeline = [d for d in corpus.datasets if d.design is DatasetDesign.PROFILE]
+    assert timeline, "no profile dataset curated; the check would pass vacuously"
     other = sorted(
-        f"{dataset.id} ({dataset.technology.value}, {dataset.design.value})"
-        for dataset in corpus.datasets
+        f"{dataset.id} ({dataset.technology.value})"
+        for dataset in timeline
         if dataset.technology is not Technology.BULK_RNASEQ
     )
     assert not other, (
-        "re-read methods.html#expression's 'Every developmental expression measurement in "
+        "re-read methods.html#expression's 'Every measurement on a developmental timeline in "
         "this atlas is from bulk tissue' and the gene page's 'Every measurement below "
         f"is from bulk tissue' (pages._BULK_TISSUE_NOTICE) against: {other}"
     )

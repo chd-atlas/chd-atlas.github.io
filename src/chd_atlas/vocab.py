@@ -574,6 +574,7 @@ class Archive(StrEnum):
     GEO = "geo"
     ARRAYEXPRESS = "arrayexpress"
     EGA = "ega"
+    UCSC_CELL_BROWSER = "ucsc_cell_browser"
 
 
 class Technology(StrEnum):
@@ -595,6 +596,10 @@ class DatasetDesign(StrEnum):
 
     CONTRAST = "contrast"
     PROFILE = "profile"
+    # One abundance per cell type and region (Farah et al. 2024), not per
+    # tissue and stage: it declares cell_types and regions where PROFILE
+    # declares cardiac_tissues and stages.
+    CELL_TYPE_PROFILE = "cell_type_profile"
 
 
 MODEL_ORGANISMS: Final[dict[str, str]] = {

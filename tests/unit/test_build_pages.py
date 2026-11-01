@@ -15,6 +15,7 @@ from typing import Final
 import pytest
 
 from chd_atlas.build.burden import BurdenRow, CombinedRow
+from chd_atlas.build.cell_types import CellTypeExpression
 from chd_atlas.build.concordance import cohort_families, evidence_axes, gene_concordance
 from chd_atlas.build.derive import GeneFacts
 from chd_atlas.build.emit import Emitter
@@ -61,6 +62,9 @@ from chd_atlas.vocab import (
     ValiditySource,
     ValidityState,
 )
+from tests.unit.test_build_cell_type_chart import dataset as cell_type_dataset
+from tests.unit.test_build_cell_type_chart import payload as cell_type_payload
+from tests.unit.test_build_cell_type_chart import specificity as cell_type_specificity
 
 TBX5 = "HGNC:11604"
 GATA4 = "HGNC:4173"
@@ -261,6 +265,7 @@ def test_an_uncurated_gene_page_says_the_atlas_has_not_curated_it(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -311,6 +316,7 @@ def test_a_curated_gene_page_carries_its_evidence_quote_and_pmid(
         publications=publications,
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     page = _page(tmp_path, "HGNC_11604.html")
@@ -367,6 +373,7 @@ def test_a_symbol_carrying_markup_is_escaped(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -420,11 +427,12 @@ def test_a_non_http_report_url_never_becomes_a_link(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
     section = _validity_table(page)
-    groups = section[section.index("<h3>") :]
+    groups = section[section.index("<table") :]
     assert "<a href=" not in groups
     assert "<td>SOP11</td>" in groups
     assert report_url.strip() not in page
@@ -468,6 +476,7 @@ def test_panelapp_australias_homepage_link_opens_the_genes_own_page_and_nothing_
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     groups = _validity_table(_page(tmp_path, "HGNC_4173.html"))
@@ -515,6 +524,7 @@ def test_an_uncurated_notice_never_denies_functional_records_the_rail_counts(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -546,6 +556,7 @@ def test_a_mirrored_disease_label_carrying_markup_is_escaped(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     assert "<img src=x" not in _page(tmp_path, "HGNC_4173.html")
@@ -656,6 +667,7 @@ def test_a_contested_gene_is_never_chipped_as_settled(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -720,6 +732,7 @@ def test_every_gene_in_the_facts_gets_exactly_one_page(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     assert sorted(path.name for path in (tmp_path / "genes").iterdir()) == [
@@ -904,7 +917,6 @@ def test_the_browse_page_says_whose_classification_the_confidence_column_carries
         "ClinGen expert panel has graded the gene for any of the diseases in scope "
         "here; its page names the submitters whose agreement admitted it."
     )
-    assert '<th scope="col">atlas curation</th>' in page
     assert '<th scope="col">confidence</th>' in page
     row = re.search(r"<tr[^>]*>(?:(?!</tr>).)*HGNC_4173\.html(?:(?!</tr>).)*</tr>", page, re.S)
     assert row, "the submitter-admitted gene has no browse row"
@@ -1029,6 +1041,7 @@ def test_a_gene_definitive_for_two_in_scope_diseases_names_both_in_a_fixed_order
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     browse = _page(tmp_path, "index.html")
@@ -1085,6 +1098,7 @@ def test_both_page_kinds_state_the_rule_that_admits_a_gene_to_this_atlas(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     for name in ("index.html", "HGNC_11604.html", "HGNC_4173.html"):
@@ -1164,6 +1178,7 @@ def test_a_gene_page_names_the_disease_beside_the_chip_that_says_definitive(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -1191,6 +1206,7 @@ def test_every_browse_row_links_to_a_page_that_was_written(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
     build_gene_index_page(facts_two, emitter, symbols={}, validity=validity_two, burden_counts={})
 
@@ -1444,6 +1460,7 @@ def _burden_page(
         cohorts=registry,
         families=families if families is not None else cohort_families(rows, registry),
         axes=axes if axes is not None else evidence_axes(rows),
+        cell_types={},
     )
     return _page(tmp_path, name)
 
@@ -2082,13 +2099,13 @@ def test_the_browse_page_shows_how_much_burden_evidence_each_gene_has(
 
     page = _page(tmp_path, "index.html")
 
-    assert '<th scope="col">rare-variant rows</th>' in page
+    assert '<th scope="col">rare variants across studies</th>' in page
     rows = {
         match.group(1): match.group(0)
         for match in re.finditer(r'<tr data-search="(hgnc:\d+)[^"]*".*?</tr>', page)
     }
-    assert "<td>9</td>" in rows["hgnc:11604"]
-    assert f"<td>{_EM_DASH}</td>" in rows["hgnc:4173"]
+    assert "9 tests" in rows["hgnc:11604"]
+    assert "untested" in rows["hgnc:4173"]
 
     # The facet and the attribute must spell the same word; see
     # `test_every_facet_names_a_data_attribute_the_filter_script_reads`.
@@ -2963,11 +2980,8 @@ def test_the_browse_headers_and_cells_line_up(
     assert by_header["gene"] == TBX5
     assert by_header["symbol"] == "TBX5"
     assert by_header["confidence"] == "definitive"
-    # Only the strip renders a tally; only `validity` renders a validity state.
     assert "tested" in by_header["rare variants across studies"]
-    assert by_header["validity"] == "expert_curated"
-    assert by_header["atlas curation"] in {"curated", "not_yet_curated"}
-    assert by_header["rare-variant rows"] == "4"
+    assert "tpm" in by_header["heart expression"].lower() or by_header["heart expression"] == "—"
 
 
 def test_the_gene_page_matrix_carries_its_own_key_and_caption(
@@ -3133,8 +3147,11 @@ def test_two_effect_measures_never_share_one_axis(
     assert len(figures) == len(set(figures)), "one panel carried two measures"
     # And the two panels are two pictures, not one picture drawn twice: the
     # rows are otherwise identical, so a facet keyed on `study` alone would
-    # emit a single figure holding both numbers on one axis.
-    assert len(_forest_figures(section)) == 2
+    # emit a single figure holding both numbers on one axis. The enrichment
+    # ratio draws as the de novo structured table (`_denovo_table`) and the
+    # odds ratio as the forest, so a single forest figure is expected here.
+    assert len(_forest_figures(section)) == 1
+    assert len(re.findall(r'<figure class="denovo"', section)) == 1
 
     # The order, on a set wide enough that a coincidentally-sorted iteration
     # is not what is being measured. Asserted as the published sequence, not
@@ -3166,8 +3183,11 @@ def test_a_study_publishing_no_interval_still_gets_a_panel(
     """Otherwise the only picture on TBX5's page is of the null study.
 
     PMID:40127276 reports de novo LOF enriched 297x, q 5.6e-08, surviving its
-    own correction, and publishes no intervals. Drawing only where intervals
-    exist demotes the surviving finding to text.
+    own correction, and publishes no intervals. It now draws as the de novo
+    structured consequence table (`_denovo_table`) rather than a forest, so
+    the surviving finding must appear there as a row -- not be demoted to
+    text, which is what a blanket "draw only where intervals exist" rule would
+    have done to the forest's point estimate.
     """
     section = _burden_section_text(
         _burden_page(
@@ -3199,18 +3219,15 @@ def test_a_study_publishing_no_interval_still_gets_a_panel(
         )
     )
 
-    assert "chart-nointerval" in section
-    assert "no interval published" in section
-    # The panel is drawn, not skipped: the surviving finding is a picture.
-    figures = _forest_figures(section)
+    # The panel is drawn, not skipped: the surviving finding is a table row.
+    figures = re.findall(r'<figure class="denovo".*?</figure>', section, flags=re.S)
     assert len(figures) == 1
-    # **And 1 is on the axis.** This panel's only row is enriched 297x, so an
-    # axis fitted to the values present would start above 1 and leave nothing
-    # to say which side of "no enrichment" the row falls on. The null line is
-    # the one drawn from the top of the plot rather than along its foot.
-    null = re.search(r'<line class="chart-axis" x1="([\d.]+)" y1="16\.0"', figures[0])
-    assert null is not None, "the panel drew no null line"
-    assert 244.0 <= float(null.group(1)) <= 470.0
+    assert "denovo-sig" in figures[0]
+    # The point estimate and its correction are in the cells, not demoted to
+    # prose: the enrichment value as `×`, and the surviving `q`.
+    assert "297" in figures[0]
+    assert "q 5.58e-08" in figures[0]
+    assert "no interval published" not in figures[0]
 
 
 def test_an_unbounded_effect_draws_an_arrow_and_never_a_ceiling(
@@ -3364,16 +3381,6 @@ def test_the_union_key_never_promises_a_component_row_the_panel_does_not_draw(
     measurement. Each sentence is pinned as a literal on its panel's visible
     line.
     """
-    enrichment: dict[str, object] = {
-        "study": "PMID:40127276",
-        "comparator": "mutation_model",
-        "n_control_carriers": None,
-        "n_controls": None,
-        "control_cohorts": (),
-        "expected_count": 0.42,
-        "effect_measure": "enrichment_ratio",
-        "pvalue_test": "poisson",
-    }
     placed: dict[str, object] = {"effect_bound": None, "ci_low": 1.2, "ci_high": 8.1}
     section = _burden_section_text(
         _burden_page(
@@ -3385,10 +3392,14 @@ def test_the_union_key_never_promises_a_component_row_the_panel_does_not_draw(
                 _burden_row(cohort_stratum="all", effect=2.45, **placed),
                 _burden_row(cohort_stratum="syndromic", effect=3.1, **placed),
                 _burden_row(cohort_stratum="nonsyndromic", effect=4.2, **placed),
-                # Panel two, Sierant enrichment ratios: `syndromic ·
+                # Panel two, a synthetic odds-ratio study: `syndromic ·
                 # damaging` is tagged on the consequence axis with only one of
                 # its two component consequences drawn. No published panel is
                 # in this state; every measured case splits on the other axis.
+                # (Until 2026-11 this fixture was an `enrichment_ratio`
+                # mutation-model forest; enrichment now renders as the de novo
+                # structured table, which has no union reconciliation prose,
+                # so the consequence branch is measured on a forest instead.)
                 #
                 # **The missing component is on the panel under a different
                 # stratum**, and no row here is `all cases`, so the stratum
@@ -3399,25 +3410,25 @@ def test_the_union_key_never_promises_a_component_row_the_panel_does_not_draw(
                 # panel's rows all shared a stratum, so holding it fixed or
                 # not made no difference to any of them (CLAUDE.md 4.36).
                 _burden_row(
+                    study="PMID:99999999",
                     cohort_stratum="syndromic",
                     consequence_class="damaging",
                     effect=5.0,
                     **placed,
-                    **enrichment,
                 ),
                 _burden_row(
+                    study="PMID:99999999",
                     cohort_stratum="syndromic",
                     consequence_class="lof",
                     effect=6.0,
                     **placed,
-                    **enrichment,
                 ),
                 _burden_row(
+                    study="PMID:99999999",
                     cohort_stratum="nonsyndromic",
                     consequence_class="missense_damaging",
                     effect=4.0,
                     **placed,
-                    **enrichment,
                 ),
                 # Panel three, Sierant odds ratios: TBX5's real shape -- a
                 # stratum union with the non-syndromic side missing.
@@ -3449,8 +3460,11 @@ def test_the_union_key_never_promises_a_component_row_the_panel_does_not_draw(
         )
     )
 
-    # Studies in id order, and `enrichment_ratio` before `odds_ratio`.
-    unplotted, consequence_short, stratum_short, complete = _forest_figures(section)
+    # Studies in id order; each study now carries a single odds-ratio forest
+    # (the enrichment panel that used to sit beside PMID:40127276 now renders
+    # as the de novo table), and the synthetic consequence-union study sorts
+    # last.
+    unplotted, stratum_short, complete, consequence_short = _forest_figures(section)
 
     def visible(figure: str) -> str:
         return figure[figure.index("<figcaption><p>") : figure.index("</p>")]
@@ -3782,7 +3796,6 @@ def test_a_gene_with_no_plottable_row_gets_a_sentence_and_no_chart(
     ("measure", "label", "gloss"),
     [
         ("odds_ratio", "OR", "no association"),
-        ("enrichment_ratio", "enrichment", "no enrichment"),
         ("rate_ratio", "rate ratio", "no difference in rate"),
         ("hazard_ratio", "hazard_ratio", "no difference between the arms"),
     ],
@@ -4217,6 +4230,7 @@ def test_the_rail_names_the_grade_the_panel_gave_and_the_disease_it_gave_it_for(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     page = _page(tmp_path, "HGNC_11604.html")
@@ -4253,6 +4267,7 @@ def test_a_gene_no_panel_graded_names_the_submitters_that_admitted_it(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -4312,6 +4327,7 @@ def test_both_page_kinds_leave_the_grade_key_to_methods_html(tmp_path: Path) -> 
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     for name in ("index.html", "HGNC_11604.html"):
@@ -4501,6 +4517,7 @@ def _expression_page(
     facts: dict[str, GeneFacts] | None = None,
     name: str = "HGNC_4173.html",
     phases: CardiacPhaseFile | None = None,
+    cell_types: dict[str, CellTypeExpression] | None = None,
 ) -> str:
     """One gene page, built only to exercise the expression section.
 
@@ -4528,6 +4545,7 @@ def _expression_page(
         profiles=profiles,
         datasets=datasets or {},
         phases=phases,
+        cell_types=cell_types or {},
     )
     return _page(tmp_path, name)
 
@@ -4621,6 +4639,7 @@ def test_the_gloss_never_calls_a_gene_heart_preferential_on_another_organs_peak(
         cohorts={},
         profiles={TBX5: heart_peak, GATA4: liver_peak},
         datasets={"E-MTAB-6814": dataset},
+        cell_types={},
     )
 
     heart_section = _expression_section_text(_page(tmp_path, "HGNC_11604.html"))
@@ -4985,6 +5004,21 @@ def test_the_bulk_dilution_caveat_is_unconditional_not_only_beside_bad_news(
     )
     assert caveat in unfolded(bad_news_section)
 
+    # The combined banner replaces the bulk one on a gene with cell-type data;
+    # it carries the same caveat sentence, outside every fold.
+    with_cells = _expression_section_text(
+        _expression_page(
+            tmp_path,
+            {GATA4: below_floor},
+            {"E-MTAB-6814": _profile_dataset(detection_floor=1.0), "hoc": cell_type_dataset()},
+            cell_types={GATA4: CellTypeExpression(datasets=[cell_type_payload()])},
+        )
+    )
+    assert (
+        "A low or absent value is not evidence a gene is unimportant to heart development."
+        in unfolded(with_cells)
+    )
+
 
 def test_the_expression_reading_notes_are_on_methods_html_and_not_on_the_gene_page(
     tmp_path: Path,
@@ -5269,7 +5303,7 @@ def _trajectory_figure(section: str) -> str:
     range in words, so a section-wide check on either cannot tell which
     picture answered it. The trajectory is the 560-wide one.
     """
-    found = re.findall(r'<svg class="chart" viewBox="0 0 560 150".*?</svg>', section, flags=re.S)
+    found = re.findall(r'<svg class="chart" viewBox="0 0 560 202".*?</svg>', section, flags=re.S)
     assert len(found) == 1, f"expected one trajectory, found {len(found)}"
     return found[0]
 
@@ -5752,7 +5786,9 @@ def test_both_figures_hold_one_rule_about_a_line_through_two_points(
     assert "<polyline" in panels["liver"], (
         "three placed points is a trajectory; gating them too would be the opposite defect"
     )
-    assert "<polyline" not in _trajectory_figure(section), (
+    # Only the solid line is the trajectory's rule; the dashed `chart-context`
+    # lines are other organs drawn behind it, and liver legitimately has one.
+    assert 'class="chart-line"' not in _trajectory_figure(section), (
         "the trajectory's own rule must be unchanged by this fix"
     )
 
@@ -6360,7 +6396,7 @@ _MANY_CARDIAC_DATASET = {"E-MTAB-6814": _profile_dataset(cardiac_tissues=_CARDIA
 def _trajectory_organs(section: str) -> list[str]:
     """Every trajectory's organ, in the order the section draws them.
 
-    Matched on the trajectory's own 560x150 `viewBox` rather than on `<svg`,
+    Matched on the trajectory's own 560x202 `viewBox` rather than on `<svg`,
     for the reason `_trajectory_figure` is (CLAUDE.md section 4.19): the organ
     small multiples are 96x40 `<svg>`s in the same section, and a *cardiac*
     organ's panel opens `Median abundance in <organ>,` exactly as its
@@ -6369,7 +6405,7 @@ def _trajectory_organs(section: str) -> list[str]:
     order the trajectories do not decide.
     """
     return re.findall(
-        r'<svg class="chart" viewBox="0 0 560 150"[^>]*><title>'
+        r'<svg class="chart" viewBox="0 0 560 202"[^>]*><title>'
         r"Median abundance in ([^,]+),",
         section,
     )
@@ -6647,6 +6683,7 @@ def test_a_study_s_own_combination_is_stated_in_its_block_and_labelled_for_what_
         families=cohort_families(rows, _COHORTS),
         axes=evidence_axes(rows),
         combined={GATA4: [_combined()]},
+        cell_types={},
     )
     section = _burden_section_text(_page(tmp_path, "HGNC_4173.html"))
     block = _study_block(section, "40127276")
@@ -6755,6 +6792,7 @@ def test_an_orphanet_scoped_syndrome_says_why_it_counts_as_chd_above_both_groups
             "MONDO:0012547": "Noonan syndrome 4",
             _NSML: "Noonan syndrome with multiple lentigines",
         },
+        cell_types={},
     )
     page = _page(tmp_path, "HGNC_4173.html")
     section = _slice_between(page, "<h2>Mirrored gene&ndash;disease validity</h2>", ("<h2",))
@@ -6783,7 +6821,7 @@ def test_an_orphanet_scoped_syndrome_says_why_it_counts_as_chd_above_both_groups
     # Sorted by disease id: MONDO:0012547 before MONDO:0018997.
     assert section.index(subtype) < section.index(direct)
     # Above both groups, not under either.
-    first_group = section.index("<h3>Expert panel (ClinGen)</h3>")
+    first_group = section.index("<table")
     assert section.index(subtype) < first_group and section.index(direct) < first_group
     # A disease an expert panel curated as CHD gets no Orphanet sentence, and a
     # scope term the gene has no record for gets none at all: the page would
@@ -6941,11 +6979,12 @@ def test_clingens_own_gencc_copy_is_listed_only_where_it_differs_from_the_panel(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
-    others = _slice_between(page, "<h3>Other curators (GenCC)</h3>", ("<h2",))
-    assert others.count("<tr><td>") == (1 if listed else 0)
+    others = _validity_table(page)
+    assert others.count('data-authority="gencc"') == (1 if listed else 0)
     notice = (
         "<p>ClinGen also submits its own classifications to the Gene Curation Coalition; "
         "such a copy is listed here only where it differs from the panel record above, "
@@ -6987,12 +7026,11 @@ def test_a_copy_spelling_the_panels_rung_differently_is_still_folded(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
-    others = _slice_between(
-        _page(tmp_path, "HGNC_4173.html"), "<h3>Other curators (GenCC)</h3>", ("<h2",)
-    )
-    assert others.count("<tr><td>") == 0
+    others = _validity_table(_page(tmp_path, "HGNC_4173.html"))
+    assert others.count('data-authority="gencc"') == 0
 
 
 def test_the_validity_section_groups_by_authority_and_reads_one_vocabulary(
@@ -7045,19 +7083,21 @@ def test_the_validity_section_groups_by_authority_and_reads_one_vocabulary(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     section = _validity_table(_page(tmp_path, "HGNC_4173.html"))
     headers = re.findall(r'<th scope="col">([^<]*)</th>', section)
-    assert (
-        headers == ["curated by", "disease", "inheritance", "classification", "date", "report"] * 2
+    assert headers == ["curated by", "disease", "inheritance", "classification", "date", "report"]
+    assert section.count("<table") == 1
+    # One table, the expert panel's row first and the only one marked gold standard.
+    assert section.index("Syndromic Disorders Gene Curation Expert Panel") < section.index(
+        "Ambry Genetics"
     )
-    assert (
-        section.index("<h3>Expert panel (ClinGen)</h3>")
-        < section.index("Syndromic Disorders Gene Curation Expert Panel")
-        < section.index("<h3>Other curators (GenCC)</h3>")
-        < section.index("Ambry Genetics")
-    )
+    assert section.count("Gold standard</span>") == 1
+    assert section.index("Gold standard") < section.index("Ambry Genetics")
+    assert section.count('data-authority="clingen"') == 1
+    assert section.count('data-authority="gencc"') == 1
     assert "<td>2024-11-07</td>" in section and "T17:00" not in section
     assert "<td>2018-05-31</td>" in section and "20:04:32" not in section
     intro = (
@@ -7066,10 +7106,10 @@ def test_the_validity_section_groups_by_authority_and_reads_one_vocabulary(
         "atlas&#x27;s remit are listed, so this may not be every classification this gene "
         'has (<a href="../methods.html#validity">how these records are listed</a>).</p>'
     )
-    head = section[: section.index("<h3>")]
+    head = section[: section.index("<table")]
     assert head == "<h2>Mirrored gene&ndash;disease validity</h2>" + intro
     # "below" is true only above both groups.
-    assert section.index(intro) < section.index("<h3>Expert panel (ClinGen)</h3>")
+    assert section.index(intro) < section.index("<table")
     assert section.count("<td>Autosomal dominant</td>") == 2
     assert "<td>AD</td>" not in section
     assert ">SOP11 report</a>" in section
@@ -7113,17 +7153,14 @@ def test_an_empty_authority_group_is_a_sentence_not_an_empty_table(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     section = _validity_table(_page(tmp_path, "HGNC_4173.html"))
+    # One table holding the group that exists; the absent group is a sentence.
     assert section.count("<table") == 1
     assert absent_group_sentence in section
-    # Both headings survive an empty group, panel first.
-    panel_heading = "<h3>Expert panel (ClinGen)</h3>"
-    other_heading = "<h3>Other curators (GenCC)</h3>"
-    assert section.count(panel_heading) == 1
-    assert section.count(other_heading) == 1
-    assert section.index(panel_heading) < section.index(other_heading)
+    assert section.count("Gold standard</span>") == (1 if source is ValiditySource.CLINGEN else 0)
 
 
 # GATA4's row of `mirrors/genes.tsv`, measured 2026-10-25.
@@ -7152,6 +7189,7 @@ def test_a_gene_page_names_its_gene_and_links_gnomad_and_clinvar_first(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     rail = _slice_between(_page(tmp_path, "HGNC_4173.html"), '<aside class="rail">', ("</aside>",))
@@ -7193,6 +7231,7 @@ def test_the_rails_identity_text_is_escaped(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
 
     rail = _slice_between(_page(tmp_path, "HGNC_4173.html"), '<aside class="rail">', ("</aside>",))
@@ -7226,6 +7265,7 @@ def test_a_gene_page_that_cannot_carry_its_required_links_is_refused(
             publications={},
             burden={},
             cohorts={},
+            cell_types={},
         )
 
 
@@ -8074,6 +8114,7 @@ def _card_page(
         cohorts={},
         scope_warrants=warrants,
         scope_terms=scope_terms,
+        cell_types={},
     )
     return _rail_of(_page(tmp_path, "HGNC_4173.html"))
 
@@ -9052,6 +9093,7 @@ def test_the_card_says_in_plain_words_what_the_atlas_itself_curated(
         publications={},
         burden={},
         cohorts={},
+        cell_types={},
     )
     page = _page(tmp_path, "HGNC_4173.html")
     rail = _rail_of(page)
@@ -9121,6 +9163,7 @@ def test_every_value_the_card_interpolates_is_escaped(tmp_path: Path) -> None:
         families=cohort_families(rows, _COHORTS),
         axes=evidence_axes(rows),
         scope_warrants=_ORPHANET_WARRANTS,
+        cell_types={},
     )
     rail = _rail_of(_page(tmp_path, "HGNC_4173.html"))
 
@@ -9178,3 +9221,112 @@ def test_a_study_no_cohort_family_holds_is_refused_rather_than_miscounted(
 def test_a_count_of_one_names_one_carrier(carriers: int, total: int, unit: str, shown: str) -> None:
     """ "1 carriers / 14,040" rendered in tables and on the card until 2026-10-26."""
     assert _count(carriers, total, unit) == shown
+
+
+_COMBINED_BANNER = (
+    '<p class="notice-inline">Cell-type values pool 8 hearts at 9 to 15 weeks; the timeline '
+    "below is from bulk tissue. A low or absent value is not evidence a gene is unimportant "
+    "to heart development.</p>"
+)
+
+
+def _bulk_profile() -> ExpressionProfile:
+    return _expression_profile(
+        (
+            _dataset_profile_entry(
+                stages=(_stage_entry(tissues=(_tissue_entry(placement=_placement()),)),)
+            ),
+        )
+    )
+
+
+def test_a_gene_with_cell_type_data_carries_the_combined_banner_and_not_the_bulk_only_one(
+    tmp_path: Path,
+) -> None:
+    page = _expression_page(
+        tmp_path,
+        {GATA4: _bulk_profile()},
+        {"E-MTAB-6814": _profile_dataset(), "hoc": cell_type_dataset()},
+        cell_types={GATA4: CellTypeExpression(datasets=[cell_type_payload()])},
+    )
+    section = _expression_section_text(page)
+
+    assert _COMBINED_BANNER in section
+    assert "Every measurement below is from bulk tissue" not in section
+    # The cell-type block opens the section, before the first bulk dataset block.
+    assert section.index("<h3>Cell types (Farah 2024)</h3>") < section.index("E-MTAB-6814")
+    assert section.index(_COMBINED_BANNER) < section.index("<h3>Cell types")
+    # The figures are named by the page's symbol, not by its id or the dataset's.
+    assert 'aria-label="GATA4 expression by cell type"' in section
+
+
+def test_a_gene_without_cell_type_data_keeps_the_bulk_banner_and_no_block(
+    tmp_path: Path,
+) -> None:
+    # TBX5 has no entry in `cell_types`; GATA4 beside it does.
+    page = _expression_page(
+        tmp_path,
+        {GATA4: _bulk_profile(), TBX5: _bulk_profile()},
+        {"E-MTAB-6814": _profile_dataset(), "hoc": cell_type_dataset()},
+        facts={
+            GATA4: _facts(GATA4, AtlasCuration.NOT_YET_CURATED),
+            TBX5: _facts(TBX5, AtlasCuration.NOT_YET_CURATED),
+        },
+        name="HGNC_11604.html",
+        cell_types={GATA4: CellTypeExpression(datasets=[cell_type_payload()])},
+    )
+    section = _expression_section_text(page)
+
+    assert "Every measurement below is from bulk tissue" in section
+    assert "Cell-type values pool" not in section
+    assert "Cell types (Farah" not in section
+    assert '<svg class="ct-svg"' not in section
+
+
+def test_a_gene_with_cell_type_data_and_no_bulk_profile_claims_no_timeline(
+    tmp_path: Path,
+) -> None:
+    page = _expression_page(
+        tmp_path,
+        {GATA4: EMPTY_EXPRESSION_PROFILE},
+        {"hoc": cell_type_dataset()},
+        cell_types={GATA4: CellTypeExpression(datasets=[cell_type_payload()])},
+    )
+    section = _expression_section_text(page)
+
+    assert (
+        '<p class="notice-inline">Cell-type values pool 8 hearts at 9 to 15 weeks. A low or '
+        "absent value is not evidence a gene is unimportant to heart development.</p>"
+    ) in section
+    assert "timeline" not in section
+    assert "not yet curated" not in section
+    assert "<h3>Cell types (Farah 2024)</h3>" in section
+
+
+def test_the_cell_type_block_adds_at_most_40_visible_words_to_a_gene_page(
+    tmp_path: Path,
+) -> None:
+    """Measured with the budget test's own counting (`_prose`, `_words`) on a fixture
+    page (with its tau line) with and without the block. The spec's ceiling is 40;
+    the measured growth is 40 (block 35 + banner 5, re-measured 2026-10-28 after
+    the tau line moved below the chart), so the block is at its ceiling and any
+    visible word it adds fails here. Words inside an SVG or a closed fold do not
+    count, which is why the region grid's key costs none."""
+    from tests.test_built_site_is_consumable import _prose, _words
+
+    datasets = {"E-MTAB-6814": _profile_dataset(), "hoc": cell_type_dataset()}
+    profiles = {GATA4: _bulk_profile()}
+    plain = _expression_page(tmp_path / "a", profiles, datasets)
+    with_cells = _expression_page(
+        tmp_path / "b",
+        profiles,
+        datasets,
+        cell_types={
+            GATA4: CellTypeExpression(datasets=[cell_type_payload(spec=cell_type_specificity())])
+        },
+    )
+
+    def words(page: str) -> int:
+        return sum(_words(text) for text in _prose(page))
+
+    assert words(with_cells) - words(plain) <= 40

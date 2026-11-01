@@ -89,12 +89,15 @@ UniprotAccession = NewType(
 )
 
 # PRIDE (PXD######, unpadded past 999999), GEO (GSE#####), ArrayExpress (E-XXXX-###),
-# EGA (EGAS###########).
+# EGA (EGAS###########), and the UCSC Cell Browser, which names a dataset by a
+# lowercase slug ("hoc", "heart-atlas") rather than an accession.
 AccessionId = NewType(
     "AccessionId",
     Annotated[
         str,
-        StringConstraints(pattern=r"^(PXD\d{6,}|GSE\d+|E-[A-Z]{4}-\d+|EGA[SD]\d{11})$"),
+        StringConstraints(
+            pattern=r"^(PXD\d{6,}|GSE\d+|E-[A-Z]{4}-\d+|EGA[SD]\d{11}|[a-z][a-z0-9]*(?:-[a-z0-9]+)*)$"
+        ),
     ],
 )
 

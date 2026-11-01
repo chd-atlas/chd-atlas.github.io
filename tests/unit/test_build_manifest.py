@@ -197,7 +197,7 @@ def test_the_manifest_publishes_five_keys_and_nothing_that_varies(
 
     manifest = _published(tmp_path)
     assert set(manifest) == {"schema_version", "source_commit", "status", "counts", "files"}
-    assert manifest["schema_version"] == "2.19" == SCHEMA_VERSION
+    assert manifest["schema_version"] == "2.20" == SCHEMA_VERSION
     assert manifest["status"] == "in-development" == STATUS
     assert manifest["source_commit"] == commit
     assert manifest["files"] == {}
@@ -390,3 +390,19 @@ def test_a_git_that_does_not_answer_leaves_the_build_unprovenanced(
 
     assert source_commit(tmp_path) is None
     assert calls[0]["timeout"] == 10
+
+
+def test_the_manifest_states_the_cell_type_census(tmp_path: Path) -> None:
+    """`cell_type_datasets` and `cell_type_genes` are published as given, distinct."""
+    emitter = Emitter(root=tmp_path)
+
+    write_manifest(
+        Corpus(root=Path(".")),
+        emitter,
+        commit=None,
+        counts={"cell_type_genes": 7, "cell_type_datasets": 3},
+    )
+
+    counts = _published(tmp_path)["counts"]
+    assert counts["cell_type_genes"] == 7
+    assert counts["cell_type_datasets"] == 3

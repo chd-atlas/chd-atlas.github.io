@@ -285,3 +285,128 @@ def test_a_stage_refuses_a_position_it_cannot_place(fields: dict[str, object]) -
     """
     with pytest.raises(ValidationError):
         Stage(token="neonate", **fields)  # type: ignore[arg-type]
+
+
+def _cell_type_dataset(**overrides: object) -> Dataset:
+    base: dict[str, object] = {
+        "id": "hoc",
+        "archive": "ucsc_cell_browser",
+        "technology": "scrnaseq",
+        "design": "cell_type_profile",
+        "tissue": "Heart",
+        "developmental_stage": "adult",
+        "organism": "NCBITaxon:9606",
+        "n_samples": 10,
+        "licence": "CC BY 4.0",
+        "cell_types": [
+            {"token": "Cardiomyocyte", "label": "Cardiomyocyte", "compartment": "myocardial"},
+            {"token": "Fibroblast", "label": "Fibroblast", "compartment": "stromal"},
+        ],
+        "regions": ["LV", "RV"],
+        "detection_floor": 0.1,
+        "floor_source": "source methods, section 2",
+        "quantile_estimator": "linear",
+    }
+    base.update(overrides)
+    return Dataset(**base)
+
+
+def test_a_ucsc_dataset_id_is_its_lowercase_browser_name() -> None:
+    """The UCSC Cell Browser names a dataset by a lowercase slug, not an accession."""
+    assert _cell_type_dataset().id == "hoc"
+    assert _cell_type_dataset(id="heart-atlas").id == "heart-atlas"
+
+    with pytest.raises(ValidationError, match="does not match archive 'ucsc_cell_browser'"):
+        _cell_type_dataset(id="GSE1")
+    with pytest.raises(ValidationError, match="does not match archive 'geo'"):
+        _cell_type_dataset(archive="geo")
+
+
+@pytest.mark.parametrize(
+    ("override", "match"),
+    [
+        pytest.param({"cell_types": []}, "cell_types must not be empty", id="cell_types"),
+        pytest.param({"regions": []}, "regions must not be empty", id="regions"),
+        pytest.param(
+            {"detection_floor": None}, "detection_floor and floor_source", id="detection_floor"
+        ),
+        pytest.param({"floor_source": ""}, "detection_floor and floor_source", id="floor_source"),
+        pytest.param({"quantile_estimator": ""}, "quantile_estimator", id="quantile_estimator"),
+        pytest.param(
+            {
+                "cell_types": [
+                    {"token": "Fibroblast", "label": "Fibroblast", "compartment": "stromal"},
+                    {"token": "Fibroblast", "label": "Fibro", "compartment": "stromal"},
+                ]
+            },
+            "duplicate cell_type tokens",
+            id="duplicate_tokens",
+        ),
+        pytest.param(
+            {"contrasts": [_contrast()]},
+            "design 'cell_type_profile' declares no contrasts",
+            id="contrasts",
+        ),
+        # Measured before the check (review, 2026-10-28): the model accepted
+        # ['LV', 'LV', 'all', 'Apex', ' '], and "Apex" would draw a column of
+        # dashes captioned "no heart had 10 or more cells there".
+        pytest.param({"regions": ["LV", "LV"]}, "duplicate regions", id="duplicate_regions"),
+        pytest.param({"regions": ["LV", "all"]}, "'all'", id="pooled_region"),
+        pytest.param({"regions": ["LV", "Apex"]}, "'Apex'", id="unknown_region"),
+        pytest.param({"regions": ["LV", " "]}, "' '", id="blank_region"),
+        *(
+            pytest.param(
+                {
+                    "cell_types": [
+                        {"token": "Fibroblast", "label": "Fibroblast", "compartment": "stromal"}
+                        | {field: "   "}
+                    ]
+                },
+                f"{field} must not be blank",
+                id=f"blank_{field}",
+            )
+            for field in ("token", "label", "compartment")
+        ),
+    ],
+)
+def test_a_cell_type_profile_dataset_is_fully_declared(
+    override: dict[str, object], match: str
+) -> None:
+    """Each case moves exactly one field off the valid baseline, so the branch
+    that caught it is unambiguous (same shape as the profile-dataset test).
+    """
+    assert _cell_type_dataset().regions == ("LV", "RV")
+    with pytest.raises(ValidationError, match=match):
+        _cell_type_dataset(**override)
+
+
+def test_a_cell_type_profile_dataset_needs_no_stages() -> None:
+    """Stages and cardiac_tissues belong to the bulk profile design; a cell-type
+    dataset is indexed by cell type and region instead -- Farah et al. 2024's
+    fetal hearts pool 9 to 15 weeks rather than follow a stage series.
+    """
+    dataset = _cell_type_dataset()
+    assert dataset.stages == ()
+    assert dataset.cardiac_tissues == ()
+
+
+@pytest.mark.parametrize("design", ["contrast", "profile"])
+@pytest.mark.parametrize(
+    "field",
+    [
+        pytest.param(
+            {"cell_types": [{"token": "T", "label": "T", "compartment": "c"}]}, id="cell_types"
+        ),
+        pytest.param({"regions": ["LV"]}, id="regions"),
+    ],
+)
+def test_cell_types_and_regions_are_refused_on_any_other_design(
+    design: str, field: dict[str, object]
+) -> None:
+    """The `[]`-unless-`cell_type_profile` claim in the model comment and in
+    docs/data-api.md is enforced here, not only stated.
+    """
+    base = _profile_dataset().model_dump() if design == "profile" else _dataset()
+    base.update(field)
+    with pytest.raises(ValidationError, match=f"design '{design}' declares no cell_types"):
+        Dataset.model_validate(base)

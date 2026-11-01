@@ -35,6 +35,7 @@ from collections.abc import Collection, Iterable, Mapping, Sequence
 from typing import Any, cast
 
 from chd_atlas.build.burden import BurdenRow, CombinedRow, burden_payload, combined_payload
+from chd_atlas.build.cell_types import EMPTY_CELL_TYPE_EXPRESSION, CellTypeExpression
 from chd_atlas.build.derive import GeneFacts, gene_facts
 from chd_atlas.build.emit import Emitter, Json
 from chd_atlas.build.identity import EMPTY_IDENTITY, GeneIdentity, identity_payload
@@ -143,6 +144,16 @@ def _expression_profile(profiles: Mapping[str, ExpressionProfile], gene: str) ->
     adds to `ExpressionProfile`.
     """
     return cast(Json, profiles.get(gene, EMPTY_EXPRESSION_PROFILE))
+
+
+def _cell_type_expression(cell_types: Mapping[str, CellTypeExpression], gene: str) -> Json:
+    """One gene's single-cell expression by cell type, always present.
+
+    `EMPTY_CELL_TYPE_EXPRESSION` for a gene no cell-type dataset covers -- the
+    rule `_expression_profile` keeps -- so a consumer reads one shape. Cast
+    for the reason `_expression_profile` is: a `TypedDict` is never a `Json`.
+    """
+    return cast(Json, cell_types.get(gene, EMPTY_CELL_TYPE_EXPRESSION))
 
 
 def _validity_record(record: ValidityRecord) -> dict[str, Json]:
@@ -265,6 +276,8 @@ def build_genes(
     profiles: Mapping[str, ExpressionProfile],
     combined: Mapping[str, Sequence[CombinedRow]] | None = None,
     identities: Mapping[str, GeneIdentity] | None = None,
+    *,
+    cell_types: Mapping[str, CellTypeExpression],
 ) -> dict[str, GeneFacts]:
     """Emit `genes/index.json` and one bundle per published gene, and return the facts.
 
@@ -321,6 +334,14 @@ def build_genes(
     `test_every_published_bundle_carries_the_identity_its_registry_row_holds`
     is what catches it, by comparing every bundle of a real build with
     `mirrors/genes.tsv`.
+
+    `cell_types` is `gene_cell_type_expression`'s return, published or not, and
+    restricted here the way `profiles` is below. Required, with no default,
+    unlike `combined` and `identities`: no committed dataset carries cell-type
+    data yet, so a real build cannot tell a dropped mapping from an empty one,
+    and with a default, deleting it from the runner's call passed the whole
+    suite while every bundle published `{"datasets": []}` (review, 2026-10-28).
+    A caller with no cell-type data passes `{}`.
 
     `profiles` is `gene_expression_profiles`' return (`build/profiles.py`):
     the derived percentile placement, tau and phase assignment for every gene
@@ -474,6 +495,11 @@ def build_genes(
                 # would make "this gene was not covered by that source
                 # matrix" indistinguishable from "the build dropped it".
                 "expression_profile": _expression_profile(profiles, gene),
+                # Always present, empty ({"datasets": []}) when no cell-type
+                # dataset covers this gene, for the reason `omics` is. A
+                # profile of cell types, never a contrast: a low or absent
+                # value is not evidence against the gene.
+                "cell_type_expression": _cell_type_expression(cell_types, gene),
                 # The same object the browse row carries -- literally the
                 # same mapping, handed in by the runner -- so a consumer that
                 # filtered on the index and then fetched the bundle reads one

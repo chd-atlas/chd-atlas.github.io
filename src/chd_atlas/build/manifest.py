@@ -463,7 +463,27 @@ from chd_atlas.corpus import Corpus
 #   sources they rest on conflict; on the two scope terms, a clinical
 #   judgement), or `not_accessible`, a source the record rests on could not be
 #   read, with a note stating what is unresolved (`models/review.py`).
-SCHEMA_VERSION: Final = "2.19"
+#
+# 2.20 (single-cell cell-type expression, Farah et al. 2024). MINOR, additive:
+#
+# * Every gene bundle gains `cell_type_expression`, always present, and
+#   `{"datasets": []}` for a gene no cell-type dataset covers. A profile of
+#   cell types, never a contrast: a low or absent value is not evidence
+#   against a gene.
+# * `counts` gains `cell_type_genes` and `cell_type_datasets`, the published
+#   genes with a non-empty `cell_type_expression` and the distinct datasets
+#   those bundles name (`cell_types.cell_type_census`). Both are 0 until
+#   `mirrors/cell_type_profiles/` is committed.
+# * Every `datasets.json` record gains `cell_types` (each `token`, `label`,
+#   `compartment`) and `regions`, both `[]` on every design but
+#   `cell_type_profile`.
+# * `design` gains the value `cell_type_profile`, and `archive` the value
+#   `ucsc_cell_browser` (`vocab.DatasetDesign`, `vocab.Archive`).
+# * A dataset id may be a lowercase slug (`hoc`, `heart-atlas`), the UCSC Cell
+#   Browser's name for a dataset, as well as an archive accession: in
+#   `datasets.json`'s `id` and in the `dataset` an assertion's evidence names
+#   (`identifiers.AccessionId`). No curated record uses one yet.
+SCHEMA_VERSION: Final = "2.20"
 
 # What `status` publishes today. A literal rather than something derived from
 # the corpus, unlike every field in `counts`: there is no measurement of "is
@@ -565,7 +585,9 @@ def write_manifest(
     `counts` carries the figures this module cannot derive from a `Corpus`: the
     published gene population, the burden rows reaching a bundle, the number
     of cohort families, and the developmental-expression layer's own
-    `profile_datasets`/`profile_genes` (`profiles.profile_census`). They are
+    `profile_datasets`/`profile_genes` (`profiles.profile_census`) and the
+    single-cell layer's `cell_type_datasets`/`cell_type_genes`
+    (`cell_types.cell_type_census`). They are
     passed in rather than recomputed for the reason `runner.py` threads
     `published` to three builders — the front page, the browse payload and this
     manifest must state one census, and the only way they cannot disagree is to
