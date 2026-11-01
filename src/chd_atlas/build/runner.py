@@ -438,6 +438,12 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
         # For the Orphadata citation's data version (R11), read off the files'
         # own headers into `mirrors/sources.yaml` by the converter.
         sources=registry,
+        facts=facts,
+        concordance=concordance,
+        profiles=expression_profiles,
+        burden_counts={gene: len(rows) for gene, rows in burden.items()},
+        publications={publication.id: publication for publication in corpus.publications},
+        identities=identities,
     )
     # The HTML over everything above. Wired here and nowhere else: until this
     # call existed, `pages.py` was imported by its unit test alone, `build_landing`
@@ -499,6 +505,8 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
         # For the summary caveats of the studies the strips name, which the
         # gene pages' cards print from the same records.
         publications={publication.id: publication for publication in corpus.publications},
+        profiles=expression_profiles,
+        identities=identities,
     )
     # Last, and enforced as last: this seals the emitter.
     #

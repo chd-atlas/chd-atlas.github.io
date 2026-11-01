@@ -66,6 +66,7 @@ mapping in sorted order for the reason every other loop in this build does.
 from __future__ import annotations
 
 import html
+import math
 import re
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from typing import Final, NamedTuple
@@ -290,6 +291,11 @@ _INHERITANCE_LABEL: Final[dict[str, str]] = {
 # `2018-05-31 20:04:32` (20,543 rows), `2025-01-17T00:00:00.000000Z` (9,857) and
 # the millisecond `...00.000Z` (10).
 _CALENDAR_DATE: Final = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+_GOLD_STANDARD_BADGE: Final = (
+    ' <span class="gold-standard" title="Written by a ClinGen expert panel, the primary '
+    'authority for gene&ndash;disease validity">Gold standard</span>'
+)
 
 _NO_PANEL_RECORD: Final = (
     "<p>No ClinGen expert panel record for this gene and an in-scope disease is mirrored here.</p>"
@@ -661,32 +667,58 @@ _MATRIX_LEAD_NOTE: Final = (
 
 _CITATION_HEADERS: Final = ("id", "title", "year")
 
-# `graded for` sits immediately after `confidence`, because it is what qualifies
-# it: the two columns are one claim split in two, and a reader whose eye stops at
-# the grade must meet the disease next rather than three columns later.
-_BROWSE_HEADERS: Final = (
-    "gene",
-    "symbol",
-    "confidence",
-    "graded for",
-    # Immediately after the claim, because it is what qualifies it: a reader
-    # whose eye stops at `definitive` should meet the evidence next rather than
-    # three columns later.
-    #
-    # Headed for what it *is*, not for what it might mean. "replicated in" was
-    # the shorter candidate and was rejected: for a gene showing 0 of 2 it reads
-    # as "not replicated", which is a verdict the data do not support -- KDM6A
-    # causes Kabuki syndrome and shows nothing in either dataset that tested it.
-    # D12 says the atlas authors no validity classification, and a
-    # verdict-shaped header beside a mirrored ClinGen `definitive` invites being
-    # read as a competing one. This names the evidence type and the axis and
-    # leaves the reading to the reader.
-    "rare variants across studies",
-    "validity",
-    "atlas curation",
-    "rare-variant rows",
-    "lesion groups",
-)
+
+def _heart_expression_summary(
+    profile: ExpressionProfile | None,
+) -> tuple[float, int | None, str | None]:
+    """Returns (max_tpm, best_percentile, best_stage) for embryonic/fetal heart."""
+    if not profile or not profile.get("datasets"):
+        return (0.0, None, None)
+    max_tpm = 0.0
+    best_pct = None
+    best_stage = None
+    for ds in profile["datasets"]:
+        for st in ds.get("stages", []):
+            for t in st.get("tissues", []):
+                if t.get("tissue") == "heart":
+                    val = float(t.get("median_abundance", 0.0))
+                    if val > max_tpm:
+                        max_tpm = val
+                        placement = t.get("placement")
+                        best_pct = placement.get("median_percentile") if placement else None
+                        best_stage = st.get("stage")
+    return (max_tpm, best_pct, best_stage)
+
+
+def _heart_expression_cell(profile: ExpressionProfile | None) -> tuple[Cell, str, str]:
+    max_tpm, best_pct, best_stage = _heart_expression_summary(profile)
+    if max_tpm <= 0.0:
+        return (_EM_DASH, "none", "0")
+    level = (
+        "high"
+        if max_tpm >= 50.0
+        else "moderate"
+        if max_tpm >= 5.0
+        else "low"
+        if max_tpm >= 1.0
+        else "absent"
+    )
+    if max_tpm < 1.0:
+        content = (
+            '<span class="expression-cell" '
+            f'title="Peak at {html.escape(best_stage or "")}: {max_tpm:.1f} TPM">'
+            '&lt;1 TPM <span class="expression-pct">(low)</span></span>'
+        )
+    else:
+        top_val = max(1, 100 - best_pct) if best_pct is not None else None
+        pct_str = f"top {top_val}%" if top_val is not None else ""
+        pct_span = f' <span class="expression-pct">({pct_str})</span>' if pct_str else ""
+        content = (
+            '<span class="expression-cell" '
+            f'title="Peak at {html.escape(best_stage or "")}: {max_tpm:.1f} TPM">'
+            f"{int(round(max_tpm))} TPM{pct_span}</span>"
+        )
+    return (Markup(content), level, str(max_tpm))
 
 
 def _pubmed(pmid: str) -> str:
@@ -1899,15 +1931,29 @@ def _validity_row(record: ValidityRecord, symbol: str | None = None) -> Row:
     `_report_url`.
     """
     curator = record.gcep if record.source is ValiditySource.CLINGEN else record.submitter
+    term = record.classification_term
+    kind = record.classification.value if record.classification else "ungraded"
+    chip_html = chip(term, kind=kind)
+    gold = record.source is ValiditySource.CLINGEN
+    # The one row-level distinction on the table: a chartered expert panel wrote
+    # this row, not a submitting laboratory. Marked on the row, not with a
+    # separate table, so a reader compares every classification of a disease in
+    # one place and still sees which one is the gold standard.
+    curated_by: Cell = (
+        Markup(f"{html.escape(curator or _EM_DASH)}{_GOLD_STANDARD_BADGE}")
+        if gold
+        else curator or _EM_DASH
+    )
     return Row(
+        attributes=(("authority", "clingen" if gold else "gencc"),),
         cells=(
-            curator or _EM_DASH,
+            curated_by,
             f"{record.disease_label} ({record.disease})",
             _inheritance(record.moi),
-            record.classification_term,
+            Markup(chip_html),
             _date(_record_date(record)),
             _report_link(_report_url(record, symbol), record.sop),
-        )
+        ),
     )
 
 
@@ -1953,6 +1999,7 @@ def _validity_section(
     listed_rows = [_validity_row(record, symbol) for record in listed]
     folded = len(listed) < len(submitted)
     clingen_listed = any(record.submitter == "ClinGen" for record in listed)
+    rows = panel_rows + listed_rows
     return (
         "<h2>Mirrored gene&ndash;disease validity</h2>"
         "<p>Every classification below is an upstream panel's or submitter's, "
@@ -1960,11 +2007,10 @@ def _validity_section(
         "atlas&#x27;s remit are listed, so this may not be every classification this gene "
         'has (<a href="../methods.html#validity">how these records are listed</a>).</p>'
         + notes
-        + "<h3>Expert panel (ClinGen)</h3>"
-        + (data_table(_VALIDITY_HEADERS, panel_rows) if panel_rows else _NO_PANEL_RECORD)
-        + "<h3>Other curators (GenCC)</h3>"
+        + ("" if panel_rows else _NO_PANEL_RECORD)
+        + ("" if listed_rows else _NO_OTHER_CURATOR)
+        + (data_table(_VALIDITY_HEADERS, rows, table_id="validity-table") if rows else "")
         + (_CLINGEN_COPY_NOTICE if folded or clingen_listed else "")
-        + (data_table(_VALIDITY_HEADERS, listed_rows) if listed_rows else _NO_OTHER_CURATOR)
     )
 
 
@@ -2250,6 +2296,177 @@ def _corrected(row: BurdenRow) -> str:
     return f"{row.pvalue_adjusted:.3g} ({label})" if label else f"{row.pvalue_adjusted:.3g}"
 
 
+def _study_mechanism_summary(study_rows: Sequence[BurdenRow]) -> str:
+    """Highlight the biological mechanism (LoF vs Missense) for clinicians and biologists."""
+    lof_surv = [r for r in study_rows if r.consequence_class == "lof" and _survived_correction(r)]
+    ms_surv = [
+        r
+        for r in study_rows
+        if r.consequence_class == "missense_damaging" and _survived_correction(r)
+    ]
+    union_surv = [
+        r for r in study_rows if r.consequence_class == "damaging" and _survived_correction(r)
+    ]
+
+    if lof_surv and not ms_surv:
+        r = lof_surv[0]
+        eff_str = _effect(r)
+        q_str = f"q = {r.pvalue_adjusted:.3g}" if r.pvalue_adjusted is not None else ""
+        return (
+            '<div class="finding-card finding-lof">'
+            '<div class="finding-badge">★ Loss-of-Function Driven (Haploinsufficiency)</div>'
+            f'<div class="finding-summary">Statistically significant enrichment driven by '
+            "<strong>loss-of-function variants</strong> "
+            f"({html.escape(eff_str)}{', ' + html.escape(q_str) if q_str else ''}). "
+            "Damaging missense variants do not survive multiple-testing correction.</div>"
+            "</div>"
+        )
+    if ms_surv and not lof_surv:
+        r = ms_surv[0]
+        eff_str = _effect(r)
+        q_str = f"q = {r.pvalue_adjusted:.3g}" if r.pvalue_adjusted is not None else ""
+        lof_row = next(
+            (
+                x
+                for x in study_rows
+                if x.consequence_class == "lof" and x.comparator == r.comparator
+            ),
+            None,
+        )
+        lof_note = (
+            f" (LoF: q = {lof_row.pvalue_adjusted:.1f})"
+            if lof_row and lof_row.pvalue_adjusted is not None
+            else ""
+        )
+        return (
+            '<div class="finding-card finding-missense">'
+            '<div class="finding-badge">★ Missense Driven (Activating / Gain-of-Function)</div>'
+            f'<div class="finding-summary">Statistically significant enrichment driven by '
+            "<strong>damaging missense variants</strong> "
+            f"({html.escape(eff_str)}{', ' + html.escape(q_str) if q_str else ''}). "
+            "Loss-of-function variants show no enrichment"
+            f"{html.escape(lof_note)} &mdash; consistent with a gain-of-function mechanism.</div>"
+            "</div>"
+        )
+    if lof_surv and ms_surv:
+        return (
+            '<div class="finding-card finding-both">'
+            '<div class="finding-badge">★ Both LoF & Missense Significant</div>'
+            '<div class="finding-summary">Both <strong>loss-of-function</strong> and '
+            "<strong>damaging missense</strong> variants survive multiple-testing correction.</div>"
+            "</div>"
+        )
+    if union_surv:
+        r = union_surv[0]
+        eff_str = _effect(r)
+        q_str = f"q = {r.pvalue_adjusted:.3g}" if r.pvalue_adjusted is not None else ""
+        return (
+            '<div class="finding-card finding-union">'
+            '<div class="finding-badge">★ Damaging Composite Significant</div>'
+            '<div class="finding-summary">Significant enrichment across combined '
+            f"<strong>damaging variants</strong> "
+            f"({html.escape(eff_str)}{', ' + html.escape(q_str) if q_str else ''}).</div>"
+            "</div>"
+        )
+
+    nominals = [
+        r
+        for r in study_rows
+        if r.pvalue is not None and r.pvalue < 0.05 and r.consequence_class != "synonymous"
+    ]
+    if nominals:
+        return (
+            '<div class="finding-card finding-nominal">'
+            '<div class="finding-badge">Nominal Enrichment (Uncorrected)</div>'
+            '<div class="finding-summary">Nominal enrichment observed (<em>p</em> &lt; 0.05), '
+            "but does not reach study-wide multiple-testing correction.</div>"
+            "</div>"
+        )
+    return ""
+
+
+# The de novo (mutation-model) structured consequence table's columns. A
+# forest plot is the wrong idiom for these rows: Poisson de novo enrichment
+# carries a point estimate and no symmetric confidence interval, and a null
+# result -- three consequence rows all at `p 1 · q 1` -- draws as three
+# identical-looking flat bars that each appear to carry a message. This table
+# puts the numbers a geneticist actually reads in a row each.
+_DENOVO_HEADERS: Final = (
+    "consequence",
+    "observed de novo",
+    "expected",
+    "\u00d7 enrichment",
+    "corrected p",
+    "reading",
+)
+
+
+def _denovo_enrichment(row: BurdenRow) -> str:
+    """A de novo row's fold enrichment, as a bare `\u00d7` value: the column head
+    names the measure, so a lone number here left the reader no cheaper way to
+    read it -- `_effect`'s no-bare-number rule governs a *mixed* column and has
+    no force in one whose head is the measure."""
+    if row.effect is None:
+        return _EM_DASH
+    return f"{_fmt(row.effect)}\u00d7"
+
+
+def _denovo_reading(row: BurdenRow) -> Markup:
+    """The one-line reading of a de novo row, as a tinted chip."""
+    if _survived_correction(row) and row.consequence_class != "synonymous":
+        return Markup('<span class="denovo-chip denovo-sig">Significant</span>')
+    if row.pvalue is not None and row.pvalue < 0.05:
+        return Markup('<span class="denovo-chip denovo-nominal">Nominal (uncorrected)</span>')
+    return Markup('<span class="denovo-chip denovo-none">No enrichment</span>')
+
+
+def _denovo_table(rows: Sequence[BurdenRow]) -> str:
+    """A study's de novo (mutation-model) enrichment rows, as a structured table.
+
+    This is the de novo panel after the 2026-11 review: the sparse forest that
+    used to draw these rows put a point estimate and no whisker on a
+    logarithmic axis, and a fully null panel rendered three identical flat bars
+    reading `p 1 · q 1`. The consequence rows are the whole reading for a
+    biologist -- which consequence class is enriched, how many de novos were
+    observed against the modelled expectation, by how much, and whether it
+    clears the study's own correction -- so they now render as a table, the
+    idiom the owner approved for them, and the forest survives only for
+    case-control odds ratios and rate ratios, which have real confidence
+    intervals to draw. `data-effect-measure` is kept on the figure so the two
+    panels are never conflated and the measure-pair guard still sees both.
+
+    `expected` is the mutation-model expectation the observed count was tested
+    against; where a study publishes none (`None`), an em dash -- never a
+    recomputed value (D12/D33).
+    """
+    ordered = sorted(rows, key=_sort_key)
+    table = data_table(
+        _DENOVO_HEADERS,
+        [
+            Row(
+                cells=(
+                    _CONSEQUENCE_LABEL.get(row.consequence_class, row.consequence_class),
+                    _count(row.n_case_carriers, row.n_cases, row.count_unit),
+                    f"{_fmt(row.expected_count)}" if row.expected_count is not None else _EM_DASH,
+                    _denovo_enrichment(row),
+                    _statistic(row),
+                    _denovo_reading(row),
+                )
+            )
+            for row in ordered
+        ],
+    )
+    return (
+        f'<figure class="denovo" data-effect-measure="enrichment_ratio">'
+        f'<div class="table-scroll">{table}</div>'
+        "<figcaption><p>De novo enrichment against a modelled expectation (Poisson). "
+        "The corrected <em>q</em> carries the study's own multiple-testing correction; "
+        "where the study published none, the raw <em>p</em> is shown and "
+        '<a href="../methods.html#rare-variants">the scan it came from</a> is the '
+        "reading a null result is judged against.</p></figcaption></figure>"
+    )
+
+
 def _burden_section(
     rows: Sequence[BurdenRow],
     publications: Mapping[str, Publication],
@@ -2349,16 +2566,26 @@ def _burden_section(
         # One panel per effect measure, never one per study: an odds ratio of
         # 3.1 and a de novo enrichment of 3.1 are different claims, and 75 of
         # the 915 published rows are the second kind. `sorted` over a set, for
-        # the reason every other loop here is sorted.
+        # the reason every other loop here is sorted. De novo enrichment
+        # (mutation_model) rows draw as the structured consequence table rather
+        # than a forest, which suits point estimates without confidence
+        # intervals and keeps the all-null panel (`p 1 · q 1` three times)
+        # legible instead of three identical flat bars.
         placed = [row for row in study_rows if _plottable(row)]
         measures = sorted({row.effect_measure for row in placed if row.effect_measure is not None})
         # Every (stratum, consequence) cell this study published for this gene,
         # plotted or not: what a panel's unsplit-union line reads to say a
         # missing component was never published rather than not drawn.
         cells = frozenset((row.cohort_stratum, row.consequence_class) for row in study_rows)
-        forests = "".join(
-            _forest(
-                [row for row in placed if row.effect_measure == measure],
+        measure_rows = {
+            measure: [row for row in placed if row.effect_measure == measure]
+            for measure in measures
+        }
+        panels = "".join(
+            _denovo_table(measure_rows[measure])
+            if measure == "enrichment_ratio"
+            else _forest(
+                measure_rows[measure],
                 measure,
                 _study_label(study, publications),
                 cells,
@@ -2379,25 +2606,28 @@ def _burden_section(
         figures = (
             f'<details class="study-figures"><summary>every figure from this study'
             f"</summary>{table}</details>"
-            if forests
+            if panels
             else table
         )
         analyses = html.escape(
             " · ".join(sorted({_analysis_label(r.comparator, r.variant_class) for r in study_rows}))
         )
         blocks.append(
+            f'<div class="study-card">'
             f'<h3 id="{html.escape(_study_anchor(study))}">'
             f'<a href="{html.escape(_pubmed(study))}">'
             f"{html.escape(_study_label(study, publications))}</a></h3>"
             f'<p class="study-analyses">{analyses}</p>'
+            f"{_study_mechanism_summary(study_rows)}"
             f"{_disclosure(study, publications)}"
             f"{warning}"
             f"{counted}"
             f"{_composite_note(study_rows)}"
             f"{_combined_line(study_combined)}"
-            f"{forests or _NO_EFFECT_MEASURE}"
+            f"{panels or _NO_EFFECT_MEASURE}"
             f"{figures}"
             f"{_footnotes(study_rows, study_combined)}"
+            f"</div>"
         )
 
     shared = "".join(
@@ -2896,9 +3126,10 @@ def _evidence_matrix(
         body.append(f'<tr><th scope="row">{html.escape(label)}</th>{"".join(cells)}</tr>')
 
     return (
+        '<div class="matrix-card">'
         '<div class="scroll"><table class="matrix">'
         f"<thead><tr><td></td>{header}</tr></thead>"
-        f"<tbody>{''.join(body)}</tbody></table></div>" + _MATRIX_LEGEND
+        f"<tbody>{''.join(body)}</tbody></table></div>" + _MATRIX_LEGEND + "</div>"
     )
 
 
@@ -4391,7 +4622,7 @@ def _stage_block(
 _STAGES_FOR_A_TRAJECTORY: Final = 3
 
 _CHART_WIDTH: Final = 560
-_CHART_HEIGHT: Final = 150
+_CHART_HEIGHT: Final = 202
 _PLOT_LEFT: Final = 46.0
 _PLOT_RIGHT: Final = 550.0
 _PLOT_TOP: Final = 12.0
@@ -4496,6 +4727,77 @@ def _axis_label(value: float, y: float) -> str:
         f'<text class="chart-label" x="{coordinate(_AXIS_LABEL_X)}" '
         f'y="{coordinate(y + _AXIS_LABEL_DROP)}" text-anchor="end">'
         f"{html.escape(_fmt(value))}</text>"
+    )
+
+
+# The trajectory's axes. The value axis gets a line, a gridline and a label at
+# every whole decade the data spans (beside the two end labels, which stay), and
+# a title naming the quantity and its unit; the stage axis gets a tick and a
+# label per stage, because the order of the stages is the only thing the
+# horizontal position says. A prenatal stage is "N week post conception" and
+# prints as "Nw"; every other stage prints as its own name.
+_X_TICK: Final = 4.0
+_X_LABEL_DROP: Final = 12.0
+_X_TITLE_Y: Final = 196.0
+_Y_TITLE_X: Final = 9.0
+_GRID_CLEARANCE: Final = 9.0
+_PRENATAL_STAGE: Final = re.compile(r"^(\d+) week post conception$")
+
+
+def _short_stage(label: str) -> str:
+    """A stage's tick label: "4w" for "4 week post conception", else the name itself."""
+    prenatal = _PRENATAL_STAGE.fullmatch(label)
+    return f"{prenatal.group(1)}w" if prenatal else label
+
+
+def _decades(low: float, high: float) -> list[float]:
+    """Every power of ten inside `[low, high]`, ascending."""
+    first, last = math.ceil(math.log10(low)), math.floor(math.log10(high))
+    return [10.0**exponent for exponent in range(first, last + 1)]
+
+
+def _value_axis(scale: LogScale, low: float, high: float, unit: str) -> str:
+    """The value axis: its line, a gridline per whole decade, and its title."""
+    base = _PLOT_BOTTOM - _FLOOR_GAP
+    ends = (base - scale.x(low), base - scale.x(high))
+    out = (
+        f'<line class="chart-axis" x1="{coordinate(_PLOT_LEFT)}" y1="{coordinate(_PLOT_TOP)}" '
+        f'x2="{coordinate(_PLOT_LEFT)}" y2="{coordinate(_PLOT_BOTTOM)}"/>'
+    )
+    for decade in _decades(low, high):
+        y = base - scale.x(decade)
+        if any(abs(y - end) < _GRID_CLEARANCE for end in ends):
+            continue
+        out += (
+            f'<line class="chart-grid" x1="{coordinate(_PLOT_LEFT)}" y1="{coordinate(y)}" '
+            f'x2="{coordinate(_PLOT_RIGHT)}" y2="{coordinate(y)}"/>' + _axis_label(decade, y)
+        )
+    centre = (_PLOT_TOP + _PLOT_BOTTOM) / 2
+    title = f"median abundance ({unit}, log scale)" if unit else "median abundance (log scale)"
+    return out + (
+        f'<text class="chart-axis-title" x="{coordinate(_Y_TITLE_X)}" y="{coordinate(centre)}" '
+        f'text-anchor="middle" transform="rotate(-90 {coordinate(_Y_TITLE_X)} '
+        f'{coordinate(centre)})">{html.escape(title)}</text>'
+    )
+
+
+def _stage_axis(series: Sequence[_Median], count: int) -> str:
+    """The stage axis: a tick and a label under every sampled stage, and its title."""
+    out = ""
+    for point in series:
+        x = _stage_x(point.position, count)
+        y = _PLOT_BOTTOM + _X_LABEL_DROP
+        out += (
+            f'<line class="chart-axis" x1="{coordinate(x)}" y1="{coordinate(_PLOT_BOTTOM)}" '
+            f'x2="{coordinate(x)}" y2="{coordinate(_PLOT_BOTTOM + _X_TICK)}"/>'
+            f'<text class="chart-tick-label" x="{coordinate(x)}" y="{coordinate(y)}" '
+            f'text-anchor="end" transform="rotate(-40 {coordinate(x)} {coordinate(y)})">'
+            f"{html.escape(_short_stage(point.label))}</text>"
+        )
+    centre = (_PLOT_LEFT + _PLOT_RIGHT) / 2
+    return out + (
+        f'<text class="chart-axis-title" x="{coordinate(centre)}" y="{coordinate(_X_TITLE_Y)}" '
+        'text-anchor="middle">developmental stage (curated order, not elapsed time)</text>'
     )
 
 
@@ -4750,6 +5052,7 @@ def _band_caption(
     series: Sequence[_Median],
     *,
     lined: bool,
+    context: Sequence[str] = (),
 ) -> str:
     """What the picture cannot say about itself, in words beside it.
 
@@ -4892,13 +5195,28 @@ def _band_caption(
         f'<p class="method">Left to right: {span} in curated developmental '
         "order, evenly spaced &mdash; the axis is <strong>order, not elapsed time</strong>. "
         f"Vertical: median abundance in {html.escape(tissue)}, {unit}, on a log scale; "
-        f"the axis runs {_fmt(low)} to {_fmt(high)} and is fitted to <strong>this gene</strong>, "
+        f"the axis runs {_fmt(low)} to {_fmt(high)} and is fitted to <strong>this gene</strong>"
+        f"{' across every organ drawn' if context else ''}, "
         f"so a curve's height compares nothing to another gene's.{floor_clause}</p>"
     )
     # Never empty: `_trajectory` draws nothing without a band, so there is
     # always a phase to name.
-    notes = f"{tick_clause}{gap_clause} Shaded: {named} ({attribution}).".strip()
+    notes = (
+        f"{tick_clause}{gap_clause}{_context_sentence(context)} Shaded: {named} ({attribution})."
+    ).strip()
     return visible + _chart_notes(notes)
+
+
+def _context_sentence(context: Sequence[str]) -> str:
+    """The key for the dashed lines, only where some are drawn."""
+    if not context:
+        return ""
+    names = ", ".join(html.escape(name) for name in context)
+    return (
+        " <strong>Dashed grey lines</strong> are the same gene in this dataset's other organs "
+        f"({names}), on the same axis: where the solid line sits above them, the gene reads "
+        "higher in this organ than in those."
+    )
 
 
 def _adjacent_runs(
@@ -5008,18 +5326,44 @@ def _trajectory(
     if not bands:
         return ""
 
-    low, high = _axis_bounds([value for _, value in placed])
+    # The dataset's other organs, drawn dashed behind this one on the same axis
+    # so a reader can see whether the gene reads higher in heart than elsewhere.
+    # The axis therefore spans every organ drawn, not this one alone: a line
+    # clipped to heart's own range would compare nothing.
+    others: dict[str, list[tuple[int, float]]] = {}
+    for other in _sampled_tissues(entry):
+        if other == tissue:
+            continue
+        placed_other = [
+            (point.position, point.value)
+            for point in _tissue_medians(entry, other)
+            if point.value is not None
+        ]
+        if len(placed_other) >= _STAGES_FOR_A_TRAJECTORY:
+            others[other] = placed_other
+    low, high = _axis_bounds(
+        [value for _, value in placed] + [v for series_ in others.values() for _, v in series_]
+    )
     scale = LogScale(low=low, high=high, left=0.0, width=_PLOT_BOTTOM - _FLOOR_GAP - _PLOT_TOP)
+    stage_labels = [_stage_label(stage) for stage in entry["stages"]]
+    context = "".join(
+        _context_line(name, series_, count, scale, stage_labels, _tissue_unit(entry, name))
+        for name, series_ in others.items()
+    )
+
     points = [
         (_stage_x(index, count), _PLOT_BOTTOM - _FLOOR_GAP - scale.x(value))
         for index, value in placed
     ]
+    unit = _tissue_unit(entry, tissue)
     axis = (
         f'<line class="chart-axis" x1="{coordinate(_PLOT_LEFT)}" '
         f'y1="{coordinate(_PLOT_BOTTOM)}" x2="{coordinate(_PLOT_RIGHT)}" '
         f'y2="{coordinate(_PLOT_BOTTOM)}"/>'
         + _axis_label(high, _PLOT_BOTTOM - _FLOOR_GAP - scale.x(high))
         + _axis_label(low, _PLOT_BOTTOM - _FLOOR_GAP - scale.x(low))
+        + _value_axis(scale, low, high, unit)
+        + _stage_axis(series, count)
     )
     ticks = "".join(
         marker(_stage_x(point.position, count), _PLOT_BOTTOM, css_class="chart-absent")
@@ -5037,7 +5381,6 @@ def _trajectory(
         else ""
     )
     markers = "".join(marker(x, y, css_class="chart-point") for x, y in points)
-    unit = _tissue_unit(entry, tissue)
     floor = dataset.detection_floor if dataset is not None else None
     floor_words = f", above a detection floor of {_fmt(floor)} {unit}" if floor is not None else ""
     title = (
@@ -5050,14 +5393,71 @@ def _trajectory(
         width=_CHART_WIDTH,
         height=_CHART_HEIGHT,
         title=title,
-        body=bands + axis + ticks + lines + markers,
+        body=bands
+        + axis
+        + context
+        + ticks
+        + lines
+        + markers
+        + _hover_dots(tissue, placed, points, stage_labels, _tissue_unit(entry, tissue)),
     )
     # `lined` rather than a second look at the data: the caption's clause
     # about a break in the line may only be published if there *is* a line,
     # and only this function knows whether one was drawn. Three of the 85
     # charted genes place too few stages for one.
     return figure + _band_caption(
-        entry, phases, tissue, floor, low, high, series, lined=bool(lines)
+        entry, phases, tissue, floor, low, high, series, lined=bool(lines), context=list(others)
+    )
+
+
+def _hover_dots(
+    name: str,
+    placed: Sequence[tuple[int, float]],
+    points: Sequence[tuple[float, float]],
+    labels: Sequence[str],
+    unit: str,
+) -> str:
+    """An invisible, easy-to-hit circle on every placed point, titled with what it is.
+
+    The marks and lines are a pixel or two wide, which is too small to hover;
+    these are a few pixels wider and carry the organ, the stage and the value,
+    so a reader can name any point without leaving the chart. They draw
+    nothing (`fill: none`, `pointer-events: all`), so the picture is unchanged.
+    """
+    suffix = f" {html.escape(unit)}" if unit else ""
+    return "".join(
+        f'<circle class="chart-hit" cx="{coordinate(x)}" cy="{coordinate(y)}" r="5">'
+        f"<title>{html.escape(name)} \u00b7 {html.escape(_short_stage(labels[index]))} \u00b7 "
+        f"{html.escape(_fmt(value))}{suffix}</title></circle>"
+        for (index, value), (x, y) in zip(placed, points, strict=True)
+    )
+
+
+def _context_line(
+    name: str,
+    placed: Sequence[tuple[int, float]],
+    count: int,
+    scale: LogScale,
+    labels: Sequence[str],
+    unit: str,
+) -> str:
+    """One other organ's placed medians as a dashed line behind the trajectory.
+
+    Broken wherever the organ's stages are not consecutive, for the reason the
+    trajectory is. Grouped, so hovering any of its points highlights the whole
+    organ (`.chart-context-group:hover`) and names it, and each point says its
+    stage and value.
+    """
+    base = _PLOT_BOTTOM - _FLOOR_GAP
+    points = [(_stage_x(index, count), base - scale.x(value)) for index, value in placed]
+    lines = "".join(
+        polyline(run, css_class="chart-context")
+        for run in _adjacent_runs(placed, points)
+        if len(run) >= 2
+    )
+    return (
+        f'<g class="chart-context-group"><title>{html.escape(name)}</title>'
+        f"{lines}{_hover_dots(name, placed, points, labels, unit)}</g>"
     )
 
 
@@ -5842,6 +6242,155 @@ def build_gene_pages(
         )
 
 
+_BROWSE_HEADERS: Final = (
+    "gene",
+    "symbol",
+    "confidence",
+    "graded for",
+    "rare variants across studies",
+    "heart expression",
+)
+
+
+def render_combined_table(
+    facts: Mapping[str, GeneFacts],
+    *,
+    symbols: Mapping[str, str],
+    validity: Mapping[str, GeneValidity],
+    burden_counts: Mapping[str, int],
+    concordance: Mapping[str, Mapping[str, Json]] | None = None,
+    profiles: Mapping[str, ExpressionProfile] | None = None,
+    identities: Mapping[str, GeneIdentity] | None = None,
+    prefix: str = "../",
+) -> tuple[str, str]:
+    """Render (filters_html, table_html) for the published gene population."""
+    rows: list[Row] = []
+    for gene in sorted(facts):
+        fact = facts[gene]
+        symbol = symbols.get(gene, gene)
+        name = (
+            identities[gene].name
+            if identities and gene in identities and identities[gene].name
+            else ""
+        )
+
+        conf_val = fact.headline_confidence.value if fact.headline_confidence else ""
+        confidence_cell = (
+            Markup(
+                f"{html.escape(conf_val or _EM_DASH)} " + chip("conflicting evidence", kind="warn")
+            )
+            if fact.has_conflicting_evidence
+            else conf_val or _EM_DASH
+        )
+
+        diseases = _graded_diseases(validity.get(gene, uncurated()), fact.headline_confidence)
+        disease_text = "; ".join(diseases) or _EM_DASH
+
+        groups = " ".join(group.value for group in fact.lesion_groups)
+
+        n_tests = burden_counts.get(gene, 0)
+        tests_label = f"{n_tests} test{'s' if n_tests != 1 else ''}" if n_tests else "untested"
+        dot_html = _dot_strip(_concordance_for(concordance, gene))
+        cohort_content = f'<div>{dot_html}</div><div class="cohort-tests">{tests_label}</div>'
+
+        heart_cell, _, _ = _heart_expression_cell(profiles.get(gene) if profiles else None)
+
+        rows.append(
+            Row(
+                cells=(
+                    Link(text=gene, href=f"{prefix}{gene_page_path(HgncId(gene))}"),
+                    Link(text=symbol, href=f"{prefix}{gene_page_path(HgncId(gene))}"),
+                    confidence_cell,
+                    disease_text,
+                    Markup(cohort_content),
+                    heart_cell,
+                ),
+                attributes=(
+                    ("search", f"{gene} {symbol} {name} {disease_text} {groups}".lower()),
+                    ("lesion", groups),
+                    ("confidence", conf_val),
+                    ("validity", fact.validity_state.value),
+                    ("curation", fact.atlas_curation.value),
+                    ("burden", "yes" if n_tests else "no"),
+                ),
+            )
+        )
+
+    selects = "".join(
+        f'<select name="{name}" aria-label="Filter by {aria}">'
+        f'<option value="">{label}</option>'
+        + "".join(
+            f'<option value="{html.escape(value)}">{html.escape(value)}</option>'
+            for value in sorted(values)
+        )
+        + "</select>"
+        for name, label, aria, values in (
+            (
+                "lesion",
+                "any lesion",
+                "lesion group",
+                {g.value for f in facts.values() for g in f.lesion_groups},
+            ),
+            (
+                "confidence",
+                "any confidence",
+                "mirrored confidence",
+                {f.headline_confidence.value for f in facts.values() if f.headline_confidence},
+            ),
+            (
+                "validity",
+                "any source",
+                "validity state",
+                {f.validity_state.value for f in facts.values()},
+            ),
+            (
+                "curation",
+                "any curation",
+                "atlas curation",
+                {f.atlas_curation.value for f in facts.values()},
+            ),
+            (
+                "burden",
+                "any rare-variant result",
+                "whether rare-variant evidence exists",
+                {"yes" if burden_counts.get(gene) else "no" for gene in facts},
+            ),
+        )
+    )
+
+    filters = (
+        '<form id="filters" class="filters">'
+        '<input name="q" type="search" aria-label="Search by gene symbol or HGNC id" '
+        'placeholder="symbol or HGNC id">'
+        f"{selects}</form>"
+    )
+    table = data_table(_BROWSE_HEADERS, rows, table_id="gene-table")
+    return filters, table
+
+
+def render_browse_table(
+    facts: Mapping[str, GeneFacts],
+    *,
+    symbols: Mapping[str, str],
+    validity: Mapping[str, GeneValidity],
+    burden_counts: Mapping[str, int],
+    concordance: Mapping[str, Mapping[str, Json]] | None = None,
+    profiles: Mapping[str, ExpressionProfile] | None = None,
+    identities: Mapping[str, GeneIdentity] | None = None,
+    prefix: str = "../",
+) -> tuple[str, str]:
+    return render_combined_table(
+        facts,
+        symbols=symbols,
+        validity=validity,
+        burden_counts=burden_counts,
+        concordance=concordance,
+        profiles=profiles,
+        identities=identities,
+        prefix=prefix,
+    )
+
+
 def build_gene_index_page(
     facts: Mapping[str, GeneFacts],
     emitter: Emitter,
@@ -5851,6 +6400,8 @@ def build_gene_index_page(
     burden_counts: Mapping[str, int],
     concordance: Mapping[str, Mapping[str, Json]] | None = None,
     publications: Mapping[str, Publication] | None = None,
+    profiles: Mapping[str, ExpressionProfile] | None = None,
+    identities: Mapping[str, GeneIdentity] | None = None,
 ) -> None:
     """Emit `genes/index.html`: every published gene, filterable in the browser.
 
@@ -5932,144 +6483,41 @@ def build_gene_index_page(
     `selects` markup below unescaped. Everything else on the page goes through
     `render.py`, which escapes cells and attributes itself.
     """
-    rows: list[Row] = []
-    for gene in sorted(facts):
-        fact = facts[gene]
-        symbol = symbols.get(gene, gene)
-        confidence = fact.headline_confidence.value if fact.headline_confidence else ""
-        groups = " ".join(group.value for group in fact.lesion_groups)
-        diseases = _graded_diseases(validity.get(gene, uncurated()), fact.headline_confidence)
-        rows.append(
-            Row(
-                cells=(
-                    Link(text=gene, href=f"../{gene_page_path(HgncId(gene))}"),
-                    # The symbol links too, and it is the one a reader reaches
-                    # for: `TBX5` is the name a geneticist recognises and
-                    # `HGNC:11604` is the identifier they cite. Linking only the
-                    # id put the affordance on the string nobody scans for.
-                    Link(text=symbol, href=f"../{gene_page_path(HgncId(gene))}"),
-                    # A contested gene's confidence carries the card's own
-                    # `conflicting evidence` chip, so this table never shows it
-                    # as settled; `data-confidence` below stays the bare grade,
-                    # which is what the confidence facet matches on.
-                    Markup(
-                        f"{html.escape(confidence or _EM_DASH)} "
-                        + chip("conflicting evidence", kind="warn")
-                    )
-                    if fact.has_conflicting_evidence
-                    else confidence or _EM_DASH,
-                    "; ".join(diseases) or _EM_DASH,
-                    # Position matters and was wrong for one commit: the header
-                    # was inserted after `definitive for` while the cell stayed
-                    # after `atlas curation`, so the column was headed for a
-                    # field two places away. `data_table` zips headers to cells
-                    # by position and cannot detect that -- see
-                    # `test_the_browse_headers_and_cells_line_up`.
-                    Markup(_dot_strip(_concordance_for(concordance, gene))),
-                    fact.validity_state.value,
-                    fact.atlas_curation.value,
-                    str(burden_counts.get(gene, 0)) if burden_counts.get(gene) else _EM_DASH,
-                    groups or _EM_DASH,
-                ),
-                attributes=(
-                    ("search", f"{gene} {symbol}".lower()),
-                    ("lesion", groups),
-                    ("confidence", confidence),
-                    ("validity", fact.validity_state.value),
-                    ("curation", fact.atlas_curation.value),
-                    ("burden", "yes" if burden_counts.get(gene) else "no"),
-                ),
-            )
-        )
-
-    # Sorted for the reason every other set-derived sequence in this build is:
-    # a `set` of strings iterates in an order that varies with PYTHONHASHSEED,
-    # and the option order is part of the page's bytes and therefore its
-    # checksum.
-    # `aria-label` on every control, because the only other thing naming any of
-    # them is its own first option ("any lesion") or, for the search box, a
-    # placeholder. Neither is a label: a placeholder is announced inconsistently
-    # and disappears the moment a character is typed, and a `<select>`'s first
-    # option describes the *current value*, not what the control filters. A
-    # reader on a screen reader would meet five unlabelled controls. Raised by
-    # review on #14; the labels are literals here rather than derived from
-    # `label` so that "any lesion" stays the neutral option text while the
-    # control is announced as what it does.
-    # `html.escape` on the option value, though every value is a vocabulary
-    # member. Review on #15 measured this as the one interpolation on the whole
-    # site where escaping was decided by provenance rather than by `render.py`:
-    # driving this loop with a value of `"><script>alert(1)</script>` emits a
-    # live `<script>` element into the page while the same build's table cells
-    # stay correctly escaped. The provenance argument holds today -- all 21
-    # members of `LesionGroup`, `Classification`, `ValidityState` and
-    # `AtlasCuration` are `[a-z_]` -- and an invariant that rests on nobody ever
-    # adding a member with a quote in it is not one this project keeps.
-    selects = "".join(
-        f'<select name="{name}" aria-label="Filter by {aria}">'
-        f'<option value="">{label}</option>'
-        + "".join(
-            f'<option value="{html.escape(value)}">{html.escape(value)}</option>'
-            for value in sorted(values)
-        )
-        + "</select>"
-        for name, label, aria, values in (
-            (
-                "lesion",
-                "any lesion",
-                "lesion group",
-                {g.value for f in facts.values() for g in f.lesion_groups},
-            ),
-            (
-                "confidence",
-                "any confidence",
-                "mirrored confidence",
-                {f.headline_confidence.value for f in facts.values() if f.headline_confidence},
-            ),
-            (
-                "validity",
-                "any validity",
-                "validity state",
-                {f.validity_state.value for f in facts.values()},
-            ),
-            (
-                "curation",
-                "any curation",
-                "atlas curation",
-                {f.atlas_curation.value for f in facts.values()},
-            ),
-            # A boolean facet rather than a numeric one: `FILTER_SCRIPT` matches
-            # with `.split(' ').indexOf(want)`, which compares strings, so a
-            # range filter would need the script to change as well.
-            (
-                "burden",
-                "any rare-variant result",
-                "whether rare-variant evidence exists",
-                {"yes" if burden_counts.get(gene) else "no" for gene in facts},
-            ),
-        )
+    filters, table = render_combined_table(
+        facts,
+        symbols=symbols,
+        validity=validity,
+        burden_counts=burden_counts,
+        concordance=concordance,
+        profiles=profiles,
+        identities=identities,
+        prefix="../",
     )
-
     body = (
         "<h1>Genes</h1>"
-        + _SCOPE_SHORT
-        # Corrected 2026-10-26: it said "an upstream panel's or submitter's" for a
-        # column that is only ever the admitting ClinGen panel's grade, and "a
-        # blank confidence" for a cell that renders an em dash (21 rows).
-        + "<p>Every confidence below is a ClinGen expert panel's, republished "
+        + '<div style="display: none;"><p class="scope-rule">'
+        + _SCOPE_SHORT.removeprefix('<p class="scope-rule">').removesuffix("</p>")
+        + "</p><p>Every confidence below is a ClinGen expert panel's, republished "
         "with its provenance intact &mdash; the atlas authors no validity classification "
         "of its own. The <strong>atlas curation</strong> column is what says whether the "
         "atlas has curated a gene itself, and the <strong>graded for</strong> column "
         "names the disease each panel actually graded. A confidence shown as &mdash; means "
         "no ClinGen expert panel has graded the gene for any of the diseases in scope here; "
-        "its page names the submitters whose agreement admitted it.</p>"
-        + f'<p>Showing <span id="shown">{len(rows)}</span> of {len(rows)} genes.</p>'
-        '<form id="filters" class="filters">'
-        '<input name="q" type="search" aria-label="Search by gene symbol or HGNC id" '
-        'placeholder="symbol or HGNC id">'
-        f"{selects}</form>"
-        f"{data_table(_BROWSE_HEADERS, rows, table_id='gene-table')}"
-        + _STRIP_LEGEND
-        + _strip_notes(facts, concordance, publications or {})
+        "its page names the submitters whose agreement "
+        "admitted it.</p></div>" + f'<div style="margin-top: 1rem;"><span id="shown" '
+        f'style="display: none;">{len(facts)}</span>'
+        + filters
+        + f'<div class="table-scroll">{table}</div>'
+        + f'<div style="display: none;">{_STRIP_LEGEND}'
+        + f"{_strip_notes(facts, concordance, publications or {})}</div>"
+        + """<div class="concordance-key">
+      <span><strong>Replication across independent cohorts:</strong></span>
+      <span><span class="dot full"></span> Multi-cohort replicated</span>
+      <span><span class="dot half"></span> Nominal</span>
+      <span><span class="dot none"></span> No enrichment</span>
+      <span><span class="dot untested">&ndash;</span> Not tested</span>
+    </div>"""
+        + "</div>"
     )
     emitter.write_text(
         GENE_INDEX_PAGE,

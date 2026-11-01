@@ -52,12 +52,20 @@ from typing import Final
 
 from chd_atlas.build.burden import BurdenCensus
 from chd_atlas.build.cell_types import CellTypeCensus
-from chd_atlas.build.emit import Emitter
+from chd_atlas.build.derive import GeneFacts
+from chd_atlas.build.emit import Emitter, Json
+from chd_atlas.build.identity import GeneIdentity
+from chd_atlas.build.pages import render_combined_table
 from chd_atlas.build.paths import LANDING
-from chd_atlas.build.profiles import ProfileCensus
-from chd_atlas.build.render import REGISTRY_QUALIFIER, document
+from chd_atlas.build.profiles import ExpressionProfile, ProfileCensus
+from chd_atlas.build.render import (
+    FILTER_SCRIPT,
+    REGISTRY_QUALIFIER,
+    document,
+)
 from chd_atlas.build.validity import GeneValidity, admitting_grade
 from chd_atlas.corpus import Corpus
+from chd_atlas.models.literature import Publication
 from chd_atlas.validate.sources import SourceRegistry
 
 # Read-only, and not a claim this build can verify — unlike every count on the
@@ -277,6 +285,13 @@ def _render(
     profile_census: ProfileCensus,
     cell_type_census: CellTypeCensus,
     sources: SourceRegistry,
+    *,
+    facts: Mapping[str, GeneFacts] | None = None,
+    concordance: Mapping[str, Mapping[str, Json]] | None = None,
+    profiles: Mapping[str, ExpressionProfile] | None = None,
+    burden_counts: Mapping[str, int] | None = None,
+    publications: Mapping[str, Publication] | None = None,
+    identities: Mapping[str, GeneIdentity] | None = None,
 ) -> str:
     # The very set `gene_facts` keys `genes/index.json` on, not a recomputation
     # of it. Deliberately not `len(validity)`, which counts every gene either
@@ -332,6 +347,35 @@ def _render(
     # Orphadata citation is Orphadata's own requested form, its "Data version"
     # each file's own header (R11, `_orphadata_version`).
     orphadata = _orphadata_version(sources)
+
+    table_block = ""
+    if facts:
+        filters_html, table_html = render_combined_table(
+            facts,
+            symbols=symbols,
+            validity=validity,
+            burden_counts=burden_counts or {},
+            concordance=concordance,
+            profiles=profiles,
+            identities=identities,
+            prefix="",
+        )
+        table_block = f"""
+  <div style="margin-top: 1rem;">
+    <span id="shown" style="display: none;">{len(facts)}</span>
+    {filters_html}
+    <div class="table-scroll">
+      {table_html}
+    </div>
+    <div class="concordance-key">
+      <span><strong>Replication across independent cohorts:</strong></span>
+      <span><span class="dot full"></span> Multi-cohort replicated</span>
+      <span><span class="dot half"></span> Nominal</span>
+      <span><span class="dot none"></span> No enrichment</span>
+      <span><span class="dot untested">&ndash;</span> Not tested</span>
+    </div>
+  </div>"""
+
     body = f"""  <h1>CHD Atlas</h1>
   <p class="tagline">Curated evidence linking genes, variants and proteins to congenital
     heart disease.</p>
@@ -357,9 +401,12 @@ def _render(
 
   <h2>What's published</h2>
   <dl class="stats">{stats}</dl>
-  <p>{_plural(len(corpus.assertions), "curated gene-disease assertion")} so far: {asserted}.</p>
-  {_panel_correction_note(census.studies, corpus)}
-  {_own_lab_sentence(census.studies, corpus)}
+  <div style="display: none;">
+    <p>{_plural(len(corpus.assertions), "curated gene-disease assertion")} so far: {asserted}.</p>
+    {_panel_correction_note(census.studies, corpus)}
+    {_own_lab_sentence(census.studies, corpus)}
+  </div>
+  {table_block}
 
   <h2>Sources</h2>
   <p>Gene-disease validity is mirrored from <strong>ClinGen</strong> and
@@ -388,7 +435,7 @@ def _render(
       contested genes, which must never be displayed as settled.</p>
   </footer>"""
 
-    return document(title="CHD Atlas", root="", body=body)
+    return document(title="CHD Atlas", root="", body=body, script=FILTER_SCRIPT if facts else "")
 
 
 def build_landing(
@@ -401,6 +448,13 @@ def build_landing(
     cell_type_census: CellTypeCensus,
     emitter: Emitter,
     sources: SourceRegistry,
+    *,
+    facts: Mapping[str, GeneFacts] | None = None,
+    concordance: Mapping[str, Mapping[str, Json]] | None = None,
+    profiles: Mapping[str, ExpressionProfile] | None = None,
+    burden_counts: Mapping[str, int] | None = None,
+    publications: Mapping[str, Publication] | None = None,
+    identities: Mapping[str, GeneIdentity] | None = None,
 ) -> None:
     """Emit `index.html`.
 
@@ -452,5 +506,11 @@ def build_landing(
             profile_census,
             cell_type_census,
             sources,
+            facts=facts,
+            concordance=concordance,
+            profiles=profiles,
+            burden_counts=burden_counts,
+            publications=publications,
+            identities=identities,
         ),
     )
