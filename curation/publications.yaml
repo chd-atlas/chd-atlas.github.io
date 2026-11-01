@@ -324,3 +324,180 @@ publications:
     # is cited here only as the origin of an expression dataset.
     study_type: transcriptomics
     doi: 10.1038/s41586-019-1338-5
+  - id: PMID:24702954
+    title: >-
+      Rare variants in NR2F2 cause congenital heart defects in humans.
+    journal: American journal of human genetics
+    year: 2014
+    authors:
+      - Al Turki S
+      - Manickaraj AK
+      - Mercer CL
+      - Gerety SS
+      - Hitz MP
+      - Lindsay S
+      - D'Alessandro LC
+      - Swaminathan GJ
+      - Bentham J
+      - Arndt AK
+      - Louw J
+      - Low J
+      - Breckpot J
+      - Gewillig M
+      - Thienpont B
+      - Abdul-Khaliq H
+      - Harnack C
+      - Hoff K
+      - Kramer HH
+      - Schubert S
+      - Siebert R
+      - Toka O
+      - Cosgrove C
+      - Watkins H
+      - Lucassen AM
+      - O'Kelly IM
+      - Salmon AP
+      - Bu'lock FA
+      - Granados-Riveron J
+      - Setchfield K
+      - Thornborough C
+      - Brook JD
+      - Mulder B
+      - Klaassen S
+      - Bhattacharya S
+      - Devriendt K
+      - Fitzpatrick DF
+      - UK10K Consortium
+      - Wilson DI
+      - Mital S
+      - Hurles ME
+    # Exome sequencing in 13 AVSD trios and 112 unrelated AVSD individuals,
+    # with enrichment of rare NR2F2 variants against 5,194 controls (p =
+    # 7.7e-7) plus family-based cosegregation. Read off the paper: the
+    # case-control comparison is the headline statistic.
+    study_type: case_control
+    doi: 10.1016/j.ajhg.2014.03.007
+    pmcid: PMC3980509
+    own_lab: false
+  - id: PMID:30720060
+    title: >-
+      NR2F2 loss-of-function mutation is responsible for congenital bicuspid
+      aortic valve.
+    journal: International journal of molecular medicine
+    year: 2019
+    authors:
+      - Wang J
+      - Abhinav P
+      - Xu YJ
+      - Li RG
+      - Zhang M
+      - Qiu XB
+      - Di RM
+      - Qiao Q
+      - Li XM
+      - Huang RT
+      - Xue S
+      - Yang YQ
+    # NR2F2 coding exons sequenced in 176 unrelated congenital BAV cases, with
+    # the identified mutation genotyped in family members and absent from 560
+    # control chromosomes. Read off the paper: proband screening against
+    # controls, so case_control.
+    study_type: case_control
+    doi: 10.3892/ijmm.2019.4087
+    own_lab: false
+  - id: PMID:37500725
+    title: >-
+      Heterozygous rare variants in NR2F2 cause a recognizable multiple
+      congenital anomaly syndrome with developmental delays.
+    journal: "European journal of human genetics : EJHG"
+    year: 2023
+    authors:
+      - Ganapathi M
+      - Matsuoka LS
+      - March M
+      - Li D
+      - Brokamp E
+      - Benito-Sanz S
+      - White SM
+      - Lachlan K
+      - Ahimaz P
+      - Sewda A
+      - Bastarache L
+      - Thomas-Wilson A
+      - Stoler JM
+      - Bramswig NC
+      - Baptista J
+      - Stals K
+      - Demurger F
+      - Cogne B
+      - Isidor B
+      - Bedeschi MF
+      - Peron A
+      - Amiel J
+      - Zackai E
+      - Schacht JP
+      - Iglesias AD
+      - Morton J
+      - Schmetz A
+      - Undiagnosed Diseases Network
+      - Seidel V
+      - Lucia S
+      - Baskin SM
+      - Thiffault I
+      - Cogan JD
+      - Gordon CT
+      - Chung WK
+      - Bowdin S
+      - Bhoj E
+    # A clinical cohort of 17 previously unreported individuals, the majority of
+    # whom carry de novo variants established by parent-offspring genotyping;
+    # the paper also aggregates the prior reported cases and gives clinical
+    # recommendations. This file's StudyType has no case_series member, so
+    # trio_wes is the nearest reading of the de novo clinical-exome cases.
+    study_type: trio_wes
+    doi: 10.1038/s41431-023-01434-5
+    pmcid: PMC10545729
+    own_lab: false
+  - id: PMID:34619368
+    title: >-
+      Expanding the clinical spectrum of pathogenic variation in NR2F2:
+      Asplenia.
+    journal: European journal of medical genetics
+    year: 2021
+    authors:
+      - Arsov T
+      - Kelecic J
+      - Frkovic SH
+      - Sestan M
+      - Kifer N
+      - Andrews D
+      - Adamski M
+      - Jelusic M
+      - Cook MC
+    # A single case report: a likely pathogenic de novo NR2F2 variant in a
+    # child with congenital syndromic asplenia. The de novo call rests on
+    # parent-offspring genotyping, the nearest StudyType fit here.
+    study_type: trio_wes
+    doi: 10.1016/j.ejmg.2021.104347
+    own_lab: false
+  - id: PMID:27363585
+    title: >-
+      De novo frameshift mutation in COUP-TFII (NR2F2) in human congenital
+      diaphragmatic hernia.
+    journal: American journal of medical genetics. Part A
+    year: 2016
+    authors:
+      - High FA
+      - Bhayani P
+      - Wilson JM
+      - Bult CJ
+      - Donahoe PK
+      - Longoni M
+    # A single case report: heterozygous de novo NR2F2 frameshift mutation in
+    # a patient with congenital diaphragmatic hernia and an atrial septal
+    # defect. The de novo call rests on parent-offspring genotyping, the
+    # nearest StudyType fit here.
+    study_type: trio_wes
+    doi: 10.1002/ajmg.a.37830
+    pmcid: PMC5003181
+    own_lab: false

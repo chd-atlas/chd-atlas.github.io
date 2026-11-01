@@ -20,3 +20,32 @@ phenotypes:
     label: Aplasia/Hypoplasia of the thumb
     synonyms:
       - Absent or hypoplastic thumbs
+  # NR2F2-related MCA/dysmorphic syndrome (CHDA:AST:0000002). HP:0006695 is the
+  # generic AVSD term; HP:0001647 (BAV) and HP:0030853 (heterotaxy) broaden the
+  # lesion spectrum beyond the septal defects above.
+  - id: HP:0006695
+    label: Atrioventricular canal defect
+    lesion_group: avsd
+    synonyms:
+      - Atrioventricular septal defect
+      - Endocardial cushion defect
+  - id: HP:0001647
+    label: Bicuspid aortic valve
+    lesion_group: lvoto
+    synonyms:
+      - BAV
+  - id: HP:0030853
+    label: Heterotaxy
+    lesion_group: heterotaxy
+    synonyms:
+      - Heterotaxia
+  # Extracardiac features of the NR2F2 syndrome (CHDA:AST:0000002) -- not
+  # cardiac lesions, so no `lesion_group`.
+  - id: HP:0001746
+    label: Asplenia
+    synonyms:
+      - Absent spleen
+  - id: HP:0000776
+    label: Congenital diaphragmatic hernia
+    synonyms:
+      - Diaphragmatic hernia

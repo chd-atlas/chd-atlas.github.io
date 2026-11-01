@@ -49,11 +49,11 @@ What the build produced, and a checksum for every file in it.
 ```json
 {
   "counts": {
-    "assertions": 1, "burden_combined": 108, "burden_rows": 1210,
+    "assertions": 2, "burden_combined": 108, "burden_rows": 1210,
     "burden_surviving_genes": 32, "cell_type_datasets": 0, "cell_type_genes": 0,
     "cohort_families": 2, "cohorts": 20, "datasets": 1, "featured": 1, "functional": 0,
-    "genes": 119, "phenotypes": 3, "profile_datasets": 1, "profile_genes": 119,
-    "publications": 5, "scope_terms": 105
+    "genes": 119, "phenotypes": 8, "profile_datasets": 1, "profile_genes": 119,
+    "publications": 10, "scope_terms": 105
   },
   "files": {
     "genes/index.json": "sha256:<64 hex>",
@@ -86,7 +86,7 @@ wrong by the next one.
   [`cohorts.json`](#cohortsjson) and [`scope.json`](#scopejson) publish entire
   — every sample collection and every in-scope disease term, not the subset the
   published genes happen to cite. A gene the atlas has not curated contributes
-  to none of them and still gets a bundle — 118 of the 119 genes published today
+  to none of them and still gets a bundle — 117 of the 119 genes published today
   are in exactly that position, published on an external authority's
   classification rather than on curation done here. Read `atlas_curation` on the
   browse row to tell the two apart.
@@ -452,7 +452,7 @@ and `SCP006` admits it only if Orphanet records a structural heart phenotype for
 it at `Frequent (79-30%)` or stronger. Every term and its warrant is published in
 [`scope.json`](#scopejson). Every bundle carries `admitted_by`, naming the
 one warrant that admitted that gene. That makes the whole chain a mirrored
-decision rather than a curated one: 118 of the 119 genes carry no assertion
+decision rather than a curated one: 117 of the 119 genes carry no assertion
 authored here, and `atlas_curation` is the field that says which.
 
 **The two warrants are not symmetric, deliberately.** ClinGen admits alone
@@ -466,7 +466,7 @@ to admit a gene alone must be trusted to refuse one.
 
 **Read `atlas_curation` before presenting a row as curated content.** Every
 `headline_confidence` is an upstream expert panel's call and never this atlas's,
-and on 118 of the 119 rows there is no assessment by this atlas behind it at all.
+and on 117 of the 119 rows there is no assessment by this atlas behind it at all.
 
 **This population widened on 2026-08-06, from 23 genes to 92.** A consumer
 written against the earlier data will have seen only `"definitive"` in
@@ -619,11 +619,12 @@ assumptions are now false — see the next section.
 - **An empty `confidence_by_lesion_group` does not mean "not assessed."** It
   means this atlas has recorded no lesion group for the gene, which is a fact
   about this resource's curation queue and says nothing about the gene's
-  validity. Measured against a real build (2026-10-26), 97 of the 119 published
+  validity. Measured against a real build (2026-10-26), 96 of the 119 published
   rows carry a non-null `headline_confidence` together with
   `"confidence_by_lesion_group": {}` — an expert panel graded each of them, and
-  no curator here has written an assertion for them yet. TBX5 is the only row
-  with a non-empty map today (`{"septal": "definitive"}`). A consumer that
+  no curator here has written an assertion for them yet. TBX5 and NR2F2 are the
+  only rows with a non-empty map today (`{"septal": "definitive"}` for TBX5;
+  `{"septal","avsd","lvoto","heterotaxy"}` all `"definitive"` for NR2F2). A consumer that
   renders an empty map as "not assessed" therefore understates every one of
   those expert-panel calls as unassessed while still counting them among the
   genes it presents. Read `validity_state` for whether any authority has
@@ -1808,13 +1809,13 @@ panel is drawn heavier), that only medians placed against the percentile grid
 are drawn, and that every figure is in the table below; why a line breaks, and
 which sampled organs have no panel, it adds only where the panels show one.
 
-For the 118 genes published today with no curation here, the card's curation
+For the 117 genes published today with no curation here, the card's curation
 sentence says exactly that:
 
 > Not yet curated by the atlas: every classification on this page is a ClinGen
 > expert panel's or a named curator's.
 
-That wording renders on 97 of those 118 pages, the genes a ClinGen panel holds
+That wording renders on 96 of those 117 pages, the genes a ClinGen panel holds
 an in-scope record for. The 21 admitted on submitter agreement have no panel
 classification to describe, and say so instead:
 
@@ -2724,7 +2725,7 @@ The list is always present and may be empty. Every group it names is a key of
 ### The same failure in a second shape: a gene the atlas has not curated
 
 `headline_confidence` is published for every gene, curated here or not, so a
-consumer that renders it alone presents 97 of the 119 published genes — every
+consumer that renders it alone presents 96 of the 119 published genes — every
 gene this atlas has not curated and a ClinGen panel has graded — as this
 atlas's assessment of them. It is not: it is a ClinGen expert panel's, and this
 atlas has recorded nothing about those genes beyond republishing it with its

@@ -1,0 +1,92 @@
+assertions:
+  - id: CHDA:AST:0000002
+    gene: HGNC:7976
+    phenotypes:
+      - HP:0001631
+      - HP:0001629
+      - HP:0006695
+      - HP:0001647
+      - HP:0030853
+    lesion_groups:
+      - septal
+      - avsd
+      - lvoto
+      - heterotaxy
+    inheritance:
+      - AD
+    mechanism: loss_of_function
+    syndromic: syndromic
+    extracardiac_features:
+      - HP:0001746
+      - HP:0000776
+    curator: LLM CHD Atlas
+    curated_on: 2026-11-01
+    last_reviewed: 2026-11-01
+    notes: >-
+      This record carries lesion and evidence only, per D12: gene-disease
+      validity is mirrored, not curated here. ClinGen's Congenital Heart
+      Disease Gene Curation Expert Panel classifies NR2F2 (HGNC:7976) as
+      Definitive for NR2F2 related multiple congenital anomalies/dysmorphic
+      syndrome (MONDO:0800458) under SOP10, dated 2023-08-01 --
+      https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_2bac9024-04eb-4cea-8886-3181c948e54b-2023-08-01T160000.000Z
+    evidence:
+      - publication: PMID:24702954
+        evidence_class: genetic_case_control
+        locator:
+          kind: in_text
+          element: Abstract
+        summary: >-
+          Exome sequencing of 13 AVSD trios and 112 unrelated AVSD
+          individuals identified five rare missense NR2F2 variants (two de
+          novo), significantly enriched against 5,194 controls (p = 7.7e-7),
+          with further CHD-affected families carrying a de novo balanced
+          translocation, a splice-donor substitution and a cosegregating 3 bp
+          duplication.
+        strength: strong
+      - publication: PMID:37500725
+        evidence_class: genetic_case
+        locator:
+          kind: in_text
+          element: Abstract
+        summary: >-
+          Seventeen previously unreported individuals with heterozygous
+          NR2F2 variants (majority de novo, predicted loss-of-function)
+          showed variable features including congenital heart disease,
+          congenital diaphragmatic hernia, asplenia, genital anomalies and
+          developmental delay, defining a highly variable multiple congenital
+          anomaly syndrome.
+        strength: strong
+      - publication: PMID:30720060
+        evidence_class: genetic_case
+        locator:
+          kind: in_text
+          element: Abstract
+        summary: >-
+          A novel heterozygous NR2F2 nonsense mutation (c.288C>A;
+          p.Cys96*) in a congenital bicuspid aortic valve family cosegregated
+          with complete penetrance in an autosomal dominant pattern, was
+          absent from 560 control chromosomes, and the mutant protein lacked
+          transcriptional activity.
+        strength: supporting
+      - publication: PMID:34619368
+        evidence_class: genetic_case
+        locator:
+          kind: in_text
+          element: Abstract
+        summary: >-
+          A child with congenital syndromic asplenia, immune deficiency and
+          genital anomalies carried a likely pathogenic de novo NR2F2 variant,
+          extending the NR2F2 clinical spectrum to include asplenia.
+        strength: supporting
+      - publication: PMID:27363585
+        evidence_class: genetic_case
+        locator:
+          kind: in_text
+          element: Abstract
+        summary: >-
+          A patient with congenital diaphragmatic hernia and an atrial septal
+          defect carried a heterozygous de novo NR2F2 frameshift mutation
+          (p.Pro33AlafsTer77) disrupting the DNA-binding isoform,
+          establishing NR2F2 coding mutations as a cause of diaphragmatic
+          hernia.
+        strength: supporting
