@@ -902,7 +902,12 @@ def test_an_unreadable_gene_registry_does_not_multiply_by_the_burden_mirror(
     report = validate_repository(root)
     codes = [issue.code for issue in report.issues if issue.severity is Severity.ERROR]
 
-    assert codes == ["REF001", "GEN004"]
+    # One REF001 per curated assertion (every committed assertion's gene is now
+    # unknown under a header-only registry) plus one GEN004 naming the empty
+    # registry. Counted, not a literal list, so adding another committed
+    # assertion (as NR2F2/CHDA:AST:0000002 did) does not stale this test.
+    n_assertions = sum(1 for _ in (root / "curation" / "assertions").glob("*.yaml"))
+    assert codes == ["REF001"] * n_assertions + ["GEN004"]
 
     for assertion in (root / "curation" / "assertions").iterdir():
         assertion.unlink()
