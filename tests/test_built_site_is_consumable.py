@@ -615,6 +615,38 @@ def test_every_cohort_a_published_burden_row_cites_resolves_with_its_caveat(site
     assert "outside this atlas's scope" in registry["taa_cases"]["description"]
 
 
+def test_every_cell_type_dataset_a_bundle_names_resolves_in_datasets_json(site: Path) -> None:
+    """A bundle's `cell_type_expression` names its dataset by bare id; the record is
+    in `datasets.json`, the way a burden row's cohorts are in `cohorts.json`.
+
+    The id is the only route from a value to what produced it: the hearts and
+    weeks sampled, the detection floor's basis, the publication. Asserted over
+    the real build since Farah et al. 2024 landed (2026-11-02, 118 bundles
+    naming `hoc`), with each resolved record held to what the bundle carries
+    beside the id: the design, the floor, the hearts, and every cell type and
+    region a bundle publishes being one the record declares, under the label
+    the record gives it.
+    """
+    records = {record["id"]: record for record in _read(site, "datasets.json")["datasets"]}
+    named = 0
+    for path in sorted((site / "genes").glob("HGNC_*.json")):
+        for entry in json.loads(path.read_text(encoding="utf-8"))["cell_type_expression"][
+            "datasets"
+        ]:
+            named += 1
+            record = records.get(entry["dataset"])
+            assert record is not None, f"{path.name}: {entry['dataset']} resolves to nothing"
+            assert record["design"] == "cell_type_profile", path.name
+            assert entry["detection_floor"] == record["detection_floor"], path.name
+            assert entry["n_donors"] == record["n_samples"], path.name
+            labels = {item["token"]: item["label"] for item in record["cell_types"]}
+            for item in entry["cell_types"]:
+                assert labels.get(item["cell_type"]) == item["label"], (path.name, item)
+                for region in item["regions"]:
+                    assert region["region"] in record["regions"], (path.name, region)
+    assert named, "no published bundle names a cell-type dataset, so this proves nothing"
+
+
 def test_methods_html_lists_every_cohort_cohorts_json_publishes(site: Path) -> None:
     """The registry for a reader, `cohorts.json` for a program: the same records (P4).
 
