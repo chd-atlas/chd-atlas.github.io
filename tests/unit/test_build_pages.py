@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import html
+import os
 import re
+import subprocess
+import sys
 from dataclasses import replace
 from datetime import date
 from enum import StrEnum
@@ -6415,6 +6418,24 @@ def test_the_grid_legend_names_only_the_states_drawn(tmp_path: Path) -> None:
     assert "no complete percentile grid is published for this organ at this stage" in full
     assert "blank: not sampled" in full
 
+    # A below-floor cell with no *other* gap: the floor entry is present and
+    # the gap entry (and its swatch) is not. Mutating `if grid.gap_reasons:`
+    # to `if True:` adds "no reason was recorded for this gap" here.
+    floor_only = legend(
+        _grid_page(
+            tmp_path,
+            (
+                (
+                    "4 week post conception",
+                    (_placed("Heart", 50.0), _unplaced("Liver", "below_detection_floor")),
+                ),
+            ),
+        )
+    )
+    assert "below the 1 rpkm floor" in floor_only
+    assert "no reason was recorded for this gap" not in floor_only
+    assert "heat-gap" not in floor_only
+
 
 def test_the_grey_stage_key_appears_only_when_a_stage_label_is_greyed(tmp_path: Path) -> None:
     """A greyed stage label is keyed, and only when one is drawn (section 4.27).
@@ -6589,8 +6610,50 @@ def test_the_summary_line_reads_the_bundle_s_own_counts() -> None:
                 ("6 week post conception", None, "no_quantile_grid", None),
             ),
             1.0,
-            "placed at ",
+            "placed at 1 of 2 stages sampled; peak 50 rpkm",
             id="a-non-floor-gap-forbids-the-floor-clause",
+        ),
+        pytest.param(
+            (
+                ("5 week post conception", 50.0, None, None),
+                ("6 week post conception", 40.0, None, None),
+                ("7 week post conception", None, "no_quantile_grid", None),
+            ),
+            1.0,
+            "placed at 2 of 3 stages sampled; peak 50 rpkm",
+            id="the-placed-clause-counts-placed-and-sampled-separately",
+        ),
+        pytest.param(
+            (
+                ("5 week post conception", 50.0, None, None),
+                ("6 week post conception", 40.0, None, None),
+                ("7 week post conception", None, "below_detection_floor", None),
+            ),
+            None,
+            "placed at 2 of 3 stages sampled; peak 50 rpkm",
+            id="an-unknown-floor-clause-counts-placed-and-sampled-separately",
+        ),
+        pytest.param(
+            (
+                ("5 week post conception", 50.0, None, None),
+                ("6 week post conception", 50.0, None, None),
+                ("7 week post conception", 50.0, None, None),
+            ),
+            1.0,
+            "peak 50 rpkm at 5 weeks post conception and 2 other stages;",
+            id="three-way-tie-pluralises-the-other-stages",
+        ),
+        pytest.param(
+            (("infant", 50.0, None, None), ("adult", 20.0, None, None)),
+            1.0,
+            "peak 50 rpkm at infant; the highest",
+            id="a-non-prenatal-peak-is-named-by-its-own-label",
+        ),
+        pytest.param(
+            (("<&", 50.0, None, None), ("adult", 20.0, None, None)),
+            1.0,
+            "peak 50 rpkm at &lt;&amp;; the highest",
+            id="a-stage-label-is-escaped",
         ),
         pytest.param(
             (
@@ -6598,7 +6661,7 @@ def test_the_summary_line_reads_the_bundle_s_own_counts() -> None:
                 ("6 week post conception", None, "below_detection_floor", None),
             ),
             None,
-            "placed at ",
+            "placed at 1 of 2 stages sampled; peak 50 rpkm",
             id="an-unknown-floor-forbids-the-floor-clause",
         ),
     ],
@@ -6616,6 +6679,37 @@ def test_the_summary_line_s_branches(
     that is announced without being known.
     """
     assert fragment in _glance_line(_glance_entry(*rows), "Heart", floor)
+
+
+_ORGAN_ORDER_SCRIPT: Final = """
+from chd_atlas.build.pages import _organ_order
+names = ["Spleen", "Kidney", "Brain", "Liver", "Lung", "Colon", "Testis", "Ovary"]
+entry = {"stages": [{"tissues": [{"tissue": n} for n in ["Heart", *names]]}]}
+print("|".join(_organ_order(entry, frozenset({"Heart"}))))
+"""
+
+
+@pytest.mark.parametrize("seed", [0, 1, 7, 12345, 99991])
+def test_the_organ_order_sorts_the_non_cardiac_organs_under_every_hash_seed(seed: int) -> None:
+    """The grid's row order is published, so the non-cardiac group must be sorted.
+
+    Run in a subprocess per explicit `PYTHONHASHSEED`, because one interpreter
+    has one seed (CLAUDE.md section 4.13/4.42). Measured 2026-11-02 against the
+    mutant that iterates `list({t for t in sampled})` instead of `sampled`:
+    for these eight organ names the sorted order came out under **0 of 300**
+    seeds (0..299, one probe interpreter per seed), so each seed here kills it
+    with probability near 1. Were the true sorted-by-luck rate as high as 1%
+    (about the 95% upper bound for 0/300), five seeds would leave a survival
+    probability of 0.01^5 = 1e-10.
+    """
+    result = subprocess.run(
+        [sys.executable, "-c", _ORGAN_ORDER_SCRIPT],
+        env={**os.environ, "PYTHONHASHSEED": str(seed)},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == "Heart|Brain|Colon|Kidney|Liver|Lung|Ovary|Spleen|Testis"
 
 
 def test_no_summary_line_without_a_placed_heart_stage(tmp_path: Path) -> None:
