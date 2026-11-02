@@ -54,7 +54,7 @@ here, and "this page" here names a page with no gene on it.
   keeps in one line, and one states in general the chart axes each chart's
   visible caption line states of its own figure (D57). Two more define what
   the pages print and nothing defined (review, 2026-10-26): tau, and the
-  developmental phases each stage names and each trajectory shades.
+  developmental phases each stage names and each bulk figure's phase strip draws.
 
 `tests/unit/test_build_methods.py` pins the scope rule and the key's opening
 paragraph against literals, sliced to the section; the glosses by a phrase
@@ -674,12 +674,13 @@ def _cohorts(cohorts: Mapping[str, Cohort]) -> str:
 #   this page" "for another". "as the heart matures" became "over development",
 #   because every organ's grid moves, not the heart's alone: liver's 90th
 #   percentile is 24 tpm at 4 wpc and 5 at adolescence, heart's 28 and 6.
-# * The axes sentence was checked against `_even_x` (both charts space a
-#   dataset's stages evenly, in `Stage.order`), `_small_multiples` (one
-#   `LogScale` per dataset block, over every organ drawn) and `_trajectory`
-#   (one chart per declared cardiac organ, its axis `_axis_bounds` over that
-#   organ's placed medians). "share one abundance axis" is "within a dataset":
-#   a second dataset's grid would draw its own.
+# * The axes sentence was checked against `pages._bulk_figure` (one figure per
+#   dataset: its heart chart's axis is `_axis_bounds` over the cardiac tissue's
+#   placed medians alone), `pages._stage_x` (every part of the figure places a
+#   stage at one x, evenly spaced, in `Stage.order`) and `pages._grid_state`
+#   (the four shade bins, and the two states a cell takes without a placed
+#   median). The bins are fixed so that shades compare across genes; the
+#   chart's axis is fitted per gene, so its heights do not.
 _EXPRESSION: Final = (
     '<h2 id="expression">Developmental expression</h2>'
     # was pages._BULK_TISSUE_NOTICE in full, under its old name
@@ -718,8 +719,8 @@ _EXPRESSION: Final = (
     # defined (review, 2026-10-26; counted on a build of 802d694). Each clause
     # read off the code that day: `profiles.specificity` and `TAU_METHOD`
     # (log2(median + 1), raw medians even below the floor, the peak gated
-    # `< floor`), `pages._specificity_sentence` (the argmax organ, or "the
-    # peak is tied") and `pages._specificity_gap_sentence` (a reason for every
+    # `< floor`), `pages._highest_cell` (the argmax organ, or
+    # "tied") and `pages._tau_cell` (a reason for every
     # gap). 0 and 1 are the formula's own bounds, not a banding of the values
     # between: D39(c) keeps every adjective about a tau off the site. A
     # negative median is clamped to zero (`TAU_METHOD` says so); none of the
@@ -734,7 +735,7 @@ _EXPRESSION: Final = (
     "floor decides only whether τ is published at all, and it is not when every organ "
     "sampled is below it. Where a stage has no τ, the page says why in its place, and each "
     "gene's JSON carries the formula and the medians beside every τ it publishes.</p>"
-    # The phases every stage block names and the trajectory shades (review,
+    # The phases every stage block names and the phase strip draws (review,
     # 2026-10-26: "Developmental phase" on 119 pages, "Shaded:" on 112, on a
     # build of 802d694, and this section said nothing of either). Read against
     # `curation/cardiac_phases.yaml` (its header, and each phase's Carnegie
@@ -758,21 +759,20 @@ _EXPRESSION: Final = (
     "phase's Gene Ontology definition. A stage names every phase under way at its age, "
     "from the phase's start up to but not including its end, so one stage can name "
     "several; a stage no phase covers names none and says why, for example that it is "
-    "post-natal or after the curated window. A chart following one cardiac organ shades "
-    "each phase from the first stage "
-    "that names it to the last, and its folded key names the phases and their "
-    "source.</p>"
-    # The chart axes in general; each chart's own visible line states them of
-    # its figure (`pages._band_caption`, `pages._spark_caption`).
-    "<p>Every expression chart lays its stages out left to right in curated developmental "
-    "order, evenly spaced: the axis is <strong>order, not elapsed time</strong>. Within a "
-    "dataset, a gene's small multiples &mdash; one panel per organ with a placed "
-    "measurement &mdash; share <strong>one abundance axis</strong>, which is what makes a "
-    "gene concentrated in one organ look different from a broadly expressed one; a "
-    "per-organ axis would rescale every line to its own range and hide exactly that "
-    "difference. A chart following one cardiac organ across a dataset's stages fits its "
-    "vertical axis to the gene's own placed medians in that organ, so a curve's height "
-    "compares nothing to another gene's.</p>"
+    "post-natal or after the curated window. The heart chart's phase strip draws each "
+    "phase from the first stage that names it to the last; its folded key names the source "
+    "of the phases.</p>"
+    # The chart axes in general; the figure's visible caption line states them
+    # of its own figure (`pages._band_caption`).
+    "<p>The bulk figure lays its stages out in curated developmental order, evenly "
+    "spaced: the axis is <strong>order, not elapsed time</strong>. A gene's heart chart "
+    "fits its vertical axis to that gene's own placed medians in heart, so a curve's height "
+    "compares nothing to another gene's. The organ grid shades each placed median in one of "
+    "four fixed bins, below 10, 10 to 100, 100 to 1,000 and 1,000 or more in its unit, so "
+    "shades compare across genes; a "
+    "median below the detection floor and any other unplaced cell, such as one with no "
+    "percentile grid, are drawn as empty cells, each titled as such, and a stage an organ "
+    "was not sampled at is left blank.</p>"
     # The single-cell layer (Farah et al. 2024): how a cell-type figure is
     # computed and what it does not say.
     "<p><strong>Cell types</strong> come from single-cell RNA sequencing of 8 hearts at 9 to "

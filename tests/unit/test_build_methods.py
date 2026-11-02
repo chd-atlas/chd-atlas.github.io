@@ -973,9 +973,9 @@ def test_expression_states_what_every_gene_page_shortened_or_folded(page: str) -
     * the reference distribution changes shape "over development", not "as
       the heart matures": every organ's grid moves -- liver's 90th percentile
       is 24 tpm at 4 wpc and 5 at adolescence, heart's 28 and 6;
-    * the small multiples share one axis *within a dataset*
-      (`_small_multiples` fits one per dataset block), and a trajectory follows
-      one cardiac organ, its axis fitted to the gene's placed medians there;
+    * the heart chart's axis is fitted to the gene's placed medians in heart
+      alone, and the grid's four shades are fixed bins that compare across
+      genes (`pages._bulk_figure`, `pages._grid_state`);
     * tau's 0 and 1 are the formula's bounds, and no value between is glossed:
       D39(c) keeps every adjective about a tau off the site;
     * the phases' source is named in the form the trajectory's key renders
@@ -1031,19 +1031,17 @@ def test_expression_states_what_every_gene_page_shortened_or_folded(page: str) -
         "phase's Gene Ontology definition. A stage names every phase under way at its age, "
         "from the phase's start up to but not including its end, so one stage can name "
         "several; a stage no phase covers names none and says why, for example that it is "
-        "post-natal or after the curated window. A chart following one cardiac organ shades "
-        "each phase from the first stage "
-        "that names it to the last, and its folded key names the phases and their "
-        "source.</p>"
-        "<p>Every expression chart lays its stages out left to right in curated developmental "
-        "order, evenly spaced: the axis is <strong>order, not elapsed time</strong>. Within a "
-        "dataset, a gene's small multiples &mdash; one panel per organ with a placed "
-        "measurement &mdash; share <strong>one abundance axis</strong>, which is what makes a "
-        "gene concentrated in one organ look different from a broadly expressed one; a "
-        "per-organ axis would rescale every line to its own range and hide exactly that "
-        "difference. A chart following one cardiac organ across a dataset's stages fits its "
-        "vertical axis to the gene's own placed medians in that organ, so a curve's height "
-        "compares nothing to another gene's.</p>" + _CELL_TYPE_PARAGRAPHS
+        "post-natal or after the curated window. The heart chart's phase strip draws each "
+        "phase from the first stage that names it to the last; its folded key names the source "
+        "of the phases.</p>"
+        "<p>The bulk figure lays its stages out in curated developmental order, evenly "
+        "spaced: the axis is <strong>order, not elapsed time</strong>. A gene's heart chart "
+        "fits its vertical axis to that gene's own placed medians in heart, so a curve's height "
+        "compares nothing to another gene's. The organ grid shades each placed median in one of "
+        "four fixed bins, below 10, 10 to 100, 100 to 1,000 and 1,000 or more in its unit, so "
+        "shades compare across genes; a median below the detection floor and any other unplaced "
+        "cell, such as one with no percentile grid, are drawn as empty cells, each titled as "
+        "such, and a stage an organ was not sampled at is left blank.</p>" + _CELL_TYPE_PARAGRAPHS
     )
     added = re.sub(r"<[^>]+>", " ", _CELL_TYPE_PARAGRAPHS).split()
     assert len(added) <= 250, len(added)

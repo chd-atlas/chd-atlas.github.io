@@ -1797,23 +1797,25 @@ section states the argument in full with the reading notes this section folded
 before this release — how a median is placed against its organ's percentile
 grid, why none is placed below a dataset's detection floor, and why percentiles
 are not comparable across organs or developmental stages — and defines τ and
-the developmental phases each stage names. Each chart — a phase-banded
-trajectory per cardiac organ where one can be drawn, and the organ small
-multiples — shows one line of its caption: its axes, in stage order rather than
-elapsed time, and the range of its abundance axis. Under a trajectory that ticks
-a stage below the dataset's detection floor, the same line says what the ticks
-mark, with the floor's value, and names any other reason a tick on it was
-drawn for. The rest of its key is folded under *How to read
-this chart*, ending with a link, *How to read expression figures*, to
-`methods.html#expression`. Under a trajectory the fold always names the shaded
-phases and their source; why the line breaks where this dataset has no row for
-the organ, and what a tick means on a figure with no tick for the floor, it
-adds only where the figure shows one. Under the small multiples it always says why
-the panels share one axis, which organ is drawn heavier as this atlas's
-declared cardiac tissue (or, where this dataset placed nothing there, that no
-panel is drawn heavier), that only medians placed against the percentile grid
-are drawn, and that every figure is in the table below; why a line breaks, and
-which sampled organs have no panel, it adds only where the panels show one.
+the developmental phases each stage names. Each dataset opens with one summary
+line per cardiac tissue placed at any stage: the stages at or above the floor out of
+those sampled, the peak and its stage, and the stages at which that tissue has
+the highest median. Its figure draws every organ on the same stages as a grid of
+four fixed shades, with a legend that keys the shades, where any cell is shaded, and whichever empty cells
+and greyed stages (no heart row there) the figure draws. Where the heart has a
+placed stage and a curated phase covers one of its stages, a phase strip and the
+heart chart sit above the grid, and one visible line states the chart's axis:
+stage order rather than elapsed time, and the range the axis is fitted to, the
+gene's own placed medians, so heights compare nothing across genes. Under a chart
+that ticks a stage below the dataset's detection floor, the same line says what
+the ticks mark, with the floor's value. Where no chart is drawn, a sentence above
+the figure says why. The rest of the key is folded under *How to read this
+chart*, ending with a link, *How to read expression figures*, to
+`methods.html#expression`; beside a chart that fold names the source of the phases
+and says where the line breaks, where it does, and it says the grid's shades are
+fixed bins wherever the grid draws one. Every figure is in the tables folded under *every figure, all 21
+stages* (the count is the dataset's): one per cardiac tissue sampled, or one of
+stages where none is, and one for the other organs.
 
 For the 117 genes published today with no curation here, the card's curation
 sentence says exactly that:

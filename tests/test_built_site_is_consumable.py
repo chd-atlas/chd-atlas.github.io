@@ -266,6 +266,28 @@ def test_tbx5_publishes_its_mirrored_validity_with_the_provenance_behind_it(
     ]
 
 
+def test_tbx5_summary_line_on_the_real_build(site: Path) -> None:
+    """TBX5's one summary line, as the committed corpus builds it.
+
+    Measured 2026-11-02 on a build of the committed corpus: exactly one
+    `class="glance"` on `HGNC_11604.html` (one dataset, one cardiac tissue),
+    and its text is the sentence spec B1 gives as its own example. The literal
+    is pinned rather than derived, so a change to the peak, the floor clause,
+    the tie count or the highest-count fails here on real data and not only on
+    a fixture.
+    """
+    page = (site / "genes" / "HGNC_11604.html").read_text(encoding="utf-8")
+
+    assert page.count('<p class="glance">') == 1
+    start = page.index('<p class="glance">')
+    line = page[start : page.index("</p>", start) + len("</p>")]
+    assert line == (
+        '<p class="glance"><strong>Heart:</strong> at or above the 1 tpm floor at 19 of 19 stages '
+        "sampled; peak 275 tpm at 9 weeks post conception; the highest of the organs sampled "
+        "at 19 stages.</p>"
+    )
+
+
 def _burden_rows(gene: str, bundle: dict[str, Any]) -> list[BurdenRow]:
     """A bundle's published burden rows as the `BurdenRow`s the renderers read."""
     return [
@@ -1018,12 +1040,14 @@ def test_every_geometry_the_pages_publish_has_coordinate_s_fixed_shape(site: Pat
     assert total > len(gene_pages), f"only {total} geometry tokens over {len(pages)} pages"
 
 
-# Each `<rect class="chart-band">` a trajectory draws, paired with the phase
+# Each `<rect class="chart-strip">` the phase strip draws, paired with the phase
 # label its own `<title>` names. Anchored on the `<rect>` rather than on the
 # bare class name, because `render.STYLESHEET` is inlined verbatim into every
-# page and carries `.chart-band { ... }` — a `"chart-band" in page` check
-# passes on all 94 pages with every band deleted (CLAUDE.md section 4.35).
-_BAND = re.compile(r'<rect class="chart-band"[^>]*><title>([^<]*)</title>')
+# page and carries `.chart-strip { ... }` — a `"chart-strip" in page` check
+# passes on all pages with every bar deleted (CLAUDE.md section 4.35). It was
+# `chart-band` until 2026-11-02, when each phase's name moved from the faint
+# band behind the plot to a bar in the strip above it.
+_BAND = re.compile(r'<rect class="chart-strip"[^>]*><title>([^<]*)</title>')
 
 
 def test_the_curated_phase_vocabulary_reaches_the_pages_it_is_drawn_on(site: Path) -> None:
@@ -1203,14 +1227,21 @@ def test_every_trajectory_mark_sits_where_the_payload_puts_it(site: Path) -> Non
     a test, because the suite asserted which classes appear and never where
     anything is.
 
-    One test rather than thirty: it walks every published trajectory, derives
-    each placed stage's x from its index and each below-floor stage's tick
-    from the same pitch, and asserts the drawn marks are exactly that set.
-    A transposition, a radius change, a pitch change or a dropped tick all
-    fail it, and they fail it on the real corpus rather than on a fixture.
+    One test rather than thirty: it walks every published figure, derives each
+    placed stage's x from its index and each below-floor stage's tick from the
+    same pitch, and asserts the drawn marks are exactly that set. A
+    transposition, a radius change, a pitch change or a dropped tick all fail
+    it, and they fail it on the real corpus rather than on a fixture.
+
+    **The organ grid is swept too** (2026-11-02): every cell the payload has is
+    drawn, once, at its stage's column, in the shade its own median earns, and
+    no cell is drawn where the payload has no row. The expected shade is
+    recomputed here from the literal bin edges 10, 100 and 1,000 and from the
+    recorded reason, never by calling the renderer's own `_grid_state`.
     """
-    left, right, bottom = 46.0, 550.0, 124.0
+    left, right = 64.0, 544.0
     checked = 0
+    cells_checked = 0
 
     for page in sorted((site / "genes").glob("HGNC_*.html")):
         bundle = json.loads((page.with_suffix(".json")).read_text())
@@ -1219,51 +1250,97 @@ def test_every_trajectory_mark_sits_where_the_payload_puts_it(site: Path) -> Non
             continue
         markup = page.read_text()
         section = markup[markup.find("Developmental expression") :]
-        figures = re.findall(r'<svg class="chart" viewBox="0 0 560 202".*?</svg>', section, re.S)
+        figures = re.findall(r'<svg class="chart" viewBox="0 0 560 \d+".*?</svg>', section, re.S)
         if not figures:
             continue
+        assert len(figures) == len(datasets), f"{page.stem}: one figure per dataset"
 
         stages = datasets[0]["stages"]
         count = len(stages)
         pitch = (right - left) / (count - 1)
-        # Every cardiac organ this dataset declares, in the order the page draws
-        # them; one trajectory each, so figure i belongs to organ i.
-        for figure in figures:
-            title = re.search(r"<title>Median abundance in ([^:,]+)", figure)
-            assert title is not None, "a trajectory names the organ it draws"
-            organ = title.group(1).strip()
+        figure = figures[0]
 
-            placed_x, tick_x = [], []
-            for index, stage in enumerate(stages):
-                for cell in stage["tissues"]:
-                    if cell["tissue"] != organ:
-                        continue
-                    x = round(left + pitch * index, 1)
-                    if cell["placement"] is not None and (cell["median_abundance"] or 0) > 0:
-                        placed_x.append(x)
-                    else:
-                        tick_x.append(x)
+        # The grid: exactly the payload's cells, at the right column and shade.
+        expected_cells: dict[tuple[str, float], str] = {}
+        for index, stage in enumerate(stages):
+            for cell in stage["tissues"]:
+                if cell["placement"] is not None:
+                    value = cell["median_abundance"]
+                    shade = (
+                        "heat-1"
+                        if value < 10
+                        else "heat-2"
+                        if value < 100
+                        else "heat-3"
+                        if value < 1000
+                        else "heat-4"
+                    )
+                elif cell["not_placed_reason"] == "below_detection_floor":
+                    shade = "heat-floor"
+                else:
+                    shade = "heat-gap"
+                expected_cells[(cell["tissue"], round(left + pitch * index, 1))] = shade
+        drawn_cells: dict[tuple[str, float], str] = {}
+        for shade, x, width, organ in re.findall(
+            r'<rect class="(heat-[a-z0-9]+)" x="([^"]+)" y="[^"]+" width="([^"]+)" '
+            r'height="[^"]+" rx="2"><title>([^<]*?) \u00b7 ',
+            figure,
+        ):
+            key = (html.unescape(organ), round(float(x) + float(width) / 2, 1))
+            assert key not in drawn_cells, f"{page.stem}: two cells at {key}"
+            drawn_cells[key] = shade
+        assert drawn_cells.keys() == expected_cells.keys(), (
+            f"{page.stem}: the grid draws a different set of cells than the payload has"
+        )
+        mismatched = {
+            k: (drawn_cells[k], expected_cells[k])
+            for k in drawn_cells
+            if drawn_cells[k] != expected_cells[k]
+        }
+        assert not mismatched, f"{page.stem}: a cell takes the wrong shade: {mismatched}"
+        cells_checked += len(drawn_cells)
 
-            drawn_ticks = [
-                float(m) for m in re.findall(r'<circle class="chart-absent" cx="([^"]+)"', figure)
-            ]
-            assert drawn_ticks == pytest.approx(tick_x, abs=0.05), (
-                f"{page.stem} {organ}: below-floor ticks are not at the stage pitch"
-            )
+        # The heart chart: only where there is one (the strip names its phases).
+        if 'class="chart-strip"' not in figure:
+            continue
+        title = re.search(r"<title>Median abundance in ([^:,]+)", figure)
+        assert title is not None, "a heart chart names the organ it draws"
+        organ = title.group(1).strip()
+        strips = figure.count('class="chart-strip"')
+        bottom = 4.0 + 13.0 * strips + 10.0 + 112.0
 
-            drawn_points = re.findall(
-                r'<circle class="chart-point" cx="([^"]+)" cy="([^"]+)" r="([^"]+)"', figure
-            )
-            assert [float(x) for x, _, _ in drawn_points] == pytest.approx(placed_x, abs=0.05), (
-                f"{page.stem} {organ}: placed marks are not at the stage pitch "
-                f"(a cx/cy transposition or a wrong divisor fails here)"
-            )
-            for _, cy, radius in drawn_points:
-                assert 0.0 < float(cy) <= bottom, f"{page.stem} {organ}: a mark is off the plot"
-                assert float(radius) > 0.0, f"{page.stem} {organ}: an invisible mark"
-            checked += 1
+        placed_x, tick_x = [], []
+        for index, stage in enumerate(stages):
+            for cell in stage["tissues"]:
+                if cell["tissue"] != organ:
+                    continue
+                x = round(left + pitch * index, 1)
+                if cell["placement"] is not None and (cell["median_abundance"] or 0) > 0:
+                    placed_x.append(x)
+                else:
+                    tick_x.append(x)
+
+        drawn_ticks = [
+            float(m) for m in re.findall(r'<circle class="chart-absent" cx="([^"]+)"', figure)
+        ]
+        assert drawn_ticks == pytest.approx(tick_x, abs=0.05), (
+            f"{page.stem} {organ}: below-floor ticks are not at the stage pitch"
+        )
+
+        drawn_points = re.findall(
+            r'<circle class="chart-point" cx="([^"]+)" cy="([^"]+)" r="([^"]+)"', figure
+        )
+        assert [float(x) for x, _, _ in drawn_points] == pytest.approx(placed_x, abs=0.05), (
+            f"{page.stem} {organ}: placed marks are not at the stage pitch "
+            f"(a cx/cy transposition or a wrong divisor fails here)"
+        )
+        for _, cy, radius in drawn_points:
+            assert 0.0 < float(cy) <= bottom, f"{page.stem} {organ}: a mark is off the plot"
+            assert float(radius) > 0.0, f"{page.stem} {organ}: an invisible mark"
+        checked += 1
 
     assert checked >= 80, f"only {checked} trajectories checked; the sweep found too few"
+    assert cells_checked >= 80 * 100, f"only {cells_checked} grid cells checked"
 
 
 def test_datasets_json_orders_its_stages_by_order_not_by_declaration(site: Path) -> None:
@@ -2001,13 +2078,12 @@ _SENTENCE = re.compile(r"(?<=[.!?])\s+(?=[A-Z(\"'“])")
 # (b)'s share: a sentence on at least this fraction of gene pages is boilerplate.
 _BOILERPLATE_SHARE = 0.9
 
-# Measured after the one-sentence cell-type banner (owner decision 2026-11-02):
-# (a) 1,000 x 1.03 rounded up, the headroom owner decision E4 keeps; (b) stays 22,
-# the 22 measured, with NO +1 headroom this time (the owner: "unchanged"). See the
-# test for the series and the rule. Lower each when a page sheds prose; raising
-# one is a decision, and its commit says why.
-_MEDIAN_VISIBLE_WORDS = 1030
-_BOILERPLATE_SENTENCES = 22
+# Measured after the bulk figure's redesign (2026-11-02): (a) 968 x 1.03 rounded
+# up, the headroom owner decision E4 keeps; (b) the 20 measured, with no
+# headroom. See the test for the series and the rule. Lower each when a page
+# sheds prose; raising one is a decision, and its commit says why.
+_MEDIAN_VISIBLE_WORDS = 998
+_BOILERPLATE_SENTENCES = 20
 
 
 class _VisibleText(HTMLParser):
@@ -2129,7 +2205,8 @@ def test_a_gene_page_carries_no_more_visible_prose_than_its_measured_budget(site
     owner answers 2026-10-27 (A1, A2)            964  1,073  21 sentences, 430 words
     review fixes to owner answers, 2026-10-27    964  1,073  21 sentences, 430 words
     fe94116, Farah, two-sentence banner          999  1,117  23 sentences, 454 words
-    dd34b8b, one-sentence banner (HEAD)        1,000  1,118  22 sentences, 455 words
+    dd34b8b, one-sentence banner               1,000  1,118  22 sentences, 455 words
+    e018bc9 + grey-stage key, bulk figure      968    1,084  20 sentences, 399 words
     =========================================  =====  =====  ======================
 
     The 2f6300a row is the owner's wording decisions of 2026-10-26 (E1, E2, R4,
@@ -2229,6 +2306,15 @@ def test_a_gene_page_carries_no_more_visible_prose_than_its_measured_budget(site
     by one word. By the rule (a) is 1,000 x 1.03 rounded up, 1,030, and (b)
     is 22 with no headroom, as the owner decided.
 
+    The last row is the bulk figure's redesign, measured with this parser on
+    fresh builds (2026-11-02): e018bc9, the tree the redesign's Tasks 1-3 left,
+    read 964 and 20 / 399 (1,079 with cells); the grey-stage key's one legend
+    line, which is on the 112 pages with a greyed stage label, is 5 words
+    there and moves the median by 4 to 968 (1,084 with cells). The methods
+    and API doc edits in the same commit change no gene page's bytes. (b)
+    reads 20 and 399 words on both builds. By the rule (a) is 968 x 1.03
+    rounded up, 998, and (b) is the measured 20.
+
     "cells" is the history: (a) with cells counted, the figure this test
     asserted until review, 957 at zero headroom. (b) never counted them, and
     the review's fixes to methods.html left every gene page's bytes as at
@@ -2240,9 +2326,10 @@ def test_a_gene_page_carries_no_more_visible_prose_than_its_measured_budget(site
     on a gene page sits in a table cell.
 
     **Headroom, because a curation-only change must not fail the suite.**
-    (a) is held at 1,030, the last row's 1,000 x 1.03, and (b) at 22, the
-    measured 22 with no margin (owner decision E4 keeps (a)'s; the owner left
-    (b) unchanged on 2026-11-02). They were 993 and 22, one over 21, after the previous row; 986 and
+    (a) is held at 998, the last row's 968 x 1.03 rounded up, and (b) at 20,
+    the measured 20 with no margin. The row above this one carried 1,030 and
+    22, which kept the owner's 3% headroom (E4). Before that, 993 and 22, one
+    over 21, after the row before; 986 and
     22 over the three rows before it, 971 and 22 over the batch-2 row, 909 and
     22 over 9a8f14d's, 922 and 23 over 2f6300a's, and 867 and 22 over
     802d694's). **When this fails,
