@@ -6438,10 +6438,12 @@ def _literature_section(
     """The gene's curated literature: one summary line, the exclusion tally, the findings.
 
     No search recorded: `_NOT_CURATED_LITERATURE` and nothing else. Otherwise a
-    visible line counting what the search returned and what was decided --
-    every clause that is a count is omitted when the count is 0 (`, N not yet
-    triaged`, `; N findings await review`), so no clause reads `0 ...` -- then
-    the exclusion tally, then the approved findings in a folded table. The
+    visible line counting what the search returned and what was decided -- the
+    papers, included and excluded counts always print, so `0 included` or
+    `0 excluded` can render; only the optional clauses (`, N not yet triaged`,
+    `; N findings await review`) are omitted when their count is 0 -- then
+    the exclusion tally, every search folded with its exact query, and the
+    approved findings in a folded table. The
     table lists approved findings only, which is all the bundle carries; the
     `await review` clause is what stops the unapproved ones being invisible. A
     finding's `review_status` and `review_note` are rendered beside its summary

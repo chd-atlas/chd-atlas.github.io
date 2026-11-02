@@ -2325,6 +2325,21 @@ def test_a_gene_page_carries_no_more_visible_prose_than_its_measured_budget(site
     populated section, which would add its summary line and a folded table to
     that gene's page only. Both constants stay at 998 and 20.
 
+    The last row is the final review's fix wave (2026-11-03), measured with
+    this parser on fresh builds of 92bc077 (before) and of the tree after the
+    changes to the literature section (after). On the committed corpus: 972
+    words and 20 sentences before and after (119 pages), since every page's
+    Literature section is still `Not yet curated.`. On a populated page, which
+    this corpus does not have, the build of the test fixture's two findings
+    for TBX5 (`test_build_runner._LITERATURE_FILE`): the TBX5 page 1,307 words
+    before and 1,309 after, the median 972 and 972, boilerplate 20 and 20. The
+    two added words are the fold's summary, "Searches run"; the new `result`
+    and `independence` columns, the fold's queries and the methods page's
+    wording are table cells, folded text or another file, none of them visible
+    words. Headroom, stated because the row above left it unsaid: 998 over a
+    measured 972 is 26 words, 2.7% (the 3% rule of E4 would give 1,002 for 972,
+    and the constant is not raised); 20 over a measured 20 is none.
+
     "cells" is the history: (a) with cells counted, the figure this test
     asserted until review, 957 at zero headroom. (b) never counted them, and
     the review's fixes to methods.html left every gene page's bytes as at

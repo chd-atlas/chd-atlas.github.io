@@ -710,8 +710,9 @@ def validate_repository(root: Path) -> ValidationReport:
         # registries below come from the curation a failed load empties. Each
         # is passed as None when empty so a missing registry skips its own
         # check, and CUR003/CUR004 above are the paired errors for the two the
-        # findings cite. `symbols` is None only when `_symbol_registry` is,
-        # i.e. a missing or unreadable genes.tsv, which TBL008/TBL001 report.
+        # findings cite. `symbols` is None when `_symbol_registry` is (a
+        # missing or unreadable genes.tsv, which TBL008/TBL001 report) and also
+        # when that registry is empty, through the `or None` below.
         # `published or None`: `_gate_published_genes` returns an empty set
         # when it degrades, and every file would then report LIT013. The
         # degrade is already an error elsewhere (its docstring: TBL000/TBL001

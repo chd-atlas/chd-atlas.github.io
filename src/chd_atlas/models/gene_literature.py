@@ -1,6 +1,7 @@
 # src/chd_atlas/models/gene_literature.py
 """The per-gene literature record: the searches run, what was decided about
-every hit, and the findings a human approved.
+every hit, and the findings extracted from the included papers, each approved
+by a human or not yet.
 
 Named ``gene_literature`` because ``models/literature.py`` already holds the
 publications, featured and phenotype registries.
