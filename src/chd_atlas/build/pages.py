@@ -5797,10 +5797,10 @@ def _bulk_figure(
     summary = f"{entry['dataset']}, {labels[0]} to {labels[-1]}"
     if tissue is None:
         baseline = _STRIP_TOP
-        title = (
-            f"Median abundance by organ and developmental stage in {summary}: every organ "
-            "sampled, one cell per stage sampled, shaded in fixed bins."
-        )
+        # Completed once the grid is built: whether any cell is shaded is the
+        # grid's to say, and a title promising shades on a grid with none
+        # (GDF1) would describe a mark the figure does not draw.
+        title = f"Median abundance by organ and developmental stage in {summary}: every organ "
     else:
         series = _tissue_medians(entry, tissue)
         placed = [(point.position, point.value) for point in series if point.value is not None]
@@ -5878,6 +5878,12 @@ def _bulk_figure(
         )
     grid_top = baseline + _axis_depth(labels) + _GRID_GAP_ABOVE
     grid = _grid(entry, organs, cardiac, floor, grid_top)
+    if tissue is None:
+        title += (
+            "sampled, one cell per stage sampled, shaded in fixed bins."
+            if grid.shaded
+            else "sampled, one cell per stage sampled; no median is placed, so no cell is shaded."
+        )
     height = int(math.ceil(grid_top + len(organs) * _GRID_ROW + 4.0))
     figure = svg_figure(width=_CHART_WIDTH, height=height, title=title, body=body + grid.svg)
     if tissue is None and grid.shaded:

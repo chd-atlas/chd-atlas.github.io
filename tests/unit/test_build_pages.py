@@ -6475,7 +6475,9 @@ def test_the_shade_key_and_the_bins_fold_need_a_shaded_cell_and_the_lede_says_ta
         assert shade not in key
     assert "The grid's shades are fixed bins" not in none_placed
     assert "How to read this chart" not in none_placed
-    assert "one cell per stage sampled, shaded in fixed bins" in none_placed
+    # The figure's title promises no shades it does not draw.
+    assert "one cell per stage sampled; no median is placed, so no cell is shaded." in none_placed
+    assert "shaded in fixed bins" not in none_placed
     assert "in the tables below.</p>" in none_placed
     assert "in the table below.</p>" not in none_placed
 
@@ -6548,6 +6550,8 @@ def test_an_unregistered_dataset_draws_the_grid_alone(tmp_path: Path) -> None:
         '<p class="strip-legend heat-key"><span class="legend-item">'
         '<span class="heat-swatch heat-1"></span> under 10</span>'
     ) in section
+    # The grid-only title promises shades only where a cell is shaded (GDF1 has none).
+    assert "one cell per stage sampled, shaded in fixed bins.</title>" in section
 
 
 def test_the_bulk_block_has_one_fold_and_no_dashed_lines_or_panels(tmp_path: Path) -> None:
@@ -6721,31 +6725,6 @@ def test_a_median_equal_to_the_floor_is_counted_and_read_as_at_or_above_it() -> 
                 ("5 week post conception", 50.0, None, None),
                 ("6 week post conception", 50.0, None, None),
                 ("7 week post conception", 50.0, None, None),
-def test_a_median_equal_to_the_floor_is_counted_and_read_as_at_or_above_it() -> None:
-    """`profiles.placement` refuses only a median strictly below the floor, so a
-    heart median of exactly 1 tpm against a floor of 1 tpm is placed and counted
-    -- and "above the 1 tpm floor" is then false of it. Measured 2026-11-02 on
-    the committed corpus: 34 of 112 summary lines counted such a stage (TFAP2B:
-    1 of 19 stages, peak 1 tpm). The unit is escaped here too: a `<` in it must
-    not reach the page as markup.
-    """
-    line = _glance_line(
-        _glance_entry(
-            ("5 week post conception", 1.0, None, "Heart"),
-            ("6 week post conception", None, "below_detection_floor", None),
-            unit="t<pm",
-        ),
-        "Heart",
-        1.0,
-    )
-
-    assert line == (
-        '<p class="glance"><strong>Heart:</strong> at or above the 1 t&lt;pm floor at 1 of 2 '
-        "stages sampled; peak 1 t&lt;pm at 5 weeks post conception; the highest of the organs "
-        "sampled at 1 stage.</p>"
-    )
-
-
             ),
             1.0,
             "peak 50 rpkm at 5 weeks post conception and 2 other stages;",
@@ -7254,8 +7233,6 @@ def test_both_sentences_that_list_every_cardiac_organ_list_them_in_one_order(
         "myocardium",
         "septum",
         "ventricle",
-    # A placed median may equal the floor, so the title's clause is "at or above".
-    assert "percentile grid, at or above a detection floor of" in svg.split("</title>")[0]
         "liver",
     ]
 
