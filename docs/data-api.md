@@ -1798,7 +1798,7 @@ before this release — how a median is placed against its organ's percentile
 grid, why none is placed below a dataset's detection floor, and why percentiles
 are not comparable across organs or developmental stages — and defines τ and
 the developmental phases each stage names. Each dataset opens with one summary
-line per cardiac tissue placed at any stage: the stages above the floor out of
+line per cardiac tissue placed at any stage: the stages at or above the floor out of
 those sampled, the peak and its stage, and the stages at which that tissue has
 the highest median. Its figure draws every organ on the same stages as a grid of
 four fixed shades, with a legend that keys the shades and whichever empty cells

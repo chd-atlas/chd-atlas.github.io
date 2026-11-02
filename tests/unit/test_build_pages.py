@@ -6524,7 +6524,7 @@ def test_the_bulk_block_has_one_fold_and_no_dashed_lines_or_panels(tmp_path: Pat
 
 
 def _glance_entry(
-    *rows: tuple[str, float | None, str | None, str | None],
+    *rows: tuple[str, float | None, str | None, str | None], unit: str = "rpkm"
 ) -> DatasetProfileEntry:
     """One heart row per stage: `(label, median, not_placed_reason, highest_in)`.
 
@@ -6542,11 +6542,11 @@ def _glance_entry(
                     _tissue_entry(
                         tissue="Heart",
                         median=median if median is not None else 0.3,
-                        unit="rpkm",
+                        unit=unit,
                         placement=_placement() if median is not None else None,
                         not_placed_reason=not_placed_reason,
                     ),
-                    _tissue_entry(tissue="Liver", median=1.0, unit="rpkm"),
+                    _tissue_entry(tissue="Liver", median=1.0, unit=unit),
                 ),
             )
             for label, median, not_placed_reason, highest_in in rows
@@ -6574,9 +6574,34 @@ def test_the_summary_line_reads_the_bundle_s_own_counts() -> None:
     )
 
     assert line == (
-        '<p class="glance"><strong>Heart:</strong> above the 1 rpkm floor at 3 of 4 stages '
+        '<p class="glance"><strong>Heart:</strong> at or above the 1 rpkm floor at 3 of 4 stages '
         "sampled; peak 50 rpkm at 6 weeks post conception; the highest of the organs sampled "
         "at 2 stages.</p>"
+    )
+
+
+def test_a_median_equal_to_the_floor_is_counted_and_read_as_at_or_above_it() -> None:
+    """`profiles.placement` refuses only a median strictly below the floor, so a
+    heart median of exactly 1 tpm against a floor of 1 tpm is placed and counted
+    -- and "above the 1 tpm floor" is then false of it. Measured 2026-11-02 on
+    the committed corpus: 34 of 112 summary lines counted such a stage (TFAP2B:
+    1 of 19 stages, peak 1 tpm). The unit is escaped here too: a `<` in it must
+    not reach the page as markup.
+    """
+    line = _glance_line(
+        _glance_entry(
+            ("5 week post conception", 1.0, None, "Heart"),
+            ("6 week post conception", None, "below_detection_floor", None),
+            unit="t<pm",
+        ),
+        "Heart",
+        1.0,
+    )
+
+    assert line == (
+        '<p class="glance"><strong>Heart:</strong> at or above the 1 t&lt;pm floor at 1 of 2 '
+        "stages sampled; peak 1 t&lt;pm at 5 weeks post conception; the highest of the organs "
+        "sampled at 1 stage.</p>"
     )
 
 
@@ -6763,7 +6788,7 @@ def test_the_summary_line_reaches_the_page_before_the_chart(tmp_path: Path) -> N
     assert section.count('<p class="glance">') == 1
     assert glance_start == heading_end
     assert section[glance_start:glance_end] == (
-        '<p class="glance"><strong>Heart:</strong> above the 1 tpm floor at 3 of 3 stages '
+        '<p class="glance"><strong>Heart:</strong> at or above the 1 tpm floor at 3 of 3 stages '
         "sampled; peak 275 tpm at 6 weeks post conception; the highest of the organs sampled "
         "at 3 stages.</p>"
     )
@@ -7086,6 +7111,8 @@ def test_the_cardiac_organs_are_charted_and_listed_in_one_order_whatever_the_fro
     svg = _bulk_svg(section)
 
     assert re.findall(r"<title>Median abundance in ([^,]+),", svg) == ["aorta"]
+    # A placed median may equal the floor, so the title's clause is "at or above".
+    assert "percentile grid, at or above a detection floor of" in svg.split("</title>")[0]
     assert (
         "Only aorta is charted; atrium, endocardium, epicardium, myocardium, septum, "
         "ventricle appear in the grid and the tables."

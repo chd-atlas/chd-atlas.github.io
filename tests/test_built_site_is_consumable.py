@@ -282,7 +282,7 @@ def test_tbx5_summary_line_on_the_real_build(site: Path) -> None:
     start = page.index('<p class="glance">')
     line = page[start : page.index("</p>", start) + len("</p>")]
     assert line == (
-        '<p class="glance"><strong>Heart:</strong> above the 1 tpm floor at 19 of 19 stages '
+        '<p class="glance"><strong>Heart:</strong> at or above the 1 tpm floor at 19 of 19 stages '
         "sampled; peak 275 tpm at 9 weeks post conception; the highest of the organs sampled "
         "at 19 stages.</p>"
     )

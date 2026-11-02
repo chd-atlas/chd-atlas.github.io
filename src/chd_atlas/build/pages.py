@@ -5104,9 +5104,8 @@ def _glance_line(entry: DatasetProfileEntry, tissue: str, floor: float | None) -
         if measured.value is None
     )
     if floor is not None and below_floor_only:
-        clause = (
-            f"above the {_fmt(floor)} {unit} floor at {len(placed)} of {len(series)} stages sampled"
-        )
+        words = html.escape(_floor_words(floor, unit), quote=False)
+        clause = f"at or above the {words} floor at {len(placed)} of {len(series)} stages sampled"
     else:
         clause = f"placed at {len(placed)} of {len(series)} stages sampled"
 
@@ -5428,13 +5427,14 @@ def _band_caption(
     if floor is not None and below_floor and other_clause:
         floor_clause = (
             " Ticks on the axis, beneath the foot of the scale rather than at a value on it, "
-            f"mark stages below this dataset's detection floor ({_fmt(floor)} {unit}) or "
+            f"mark stages below this dataset's detection floor ({_floor_words(floor, unit)}) or "
             f"where {other_clause}."
         )
     elif floor is not None and below_floor:
         floor_clause = (
             f" Ticks on the axis mark stages below this dataset's detection floor "
-            f"({_fmt(floor)} {unit}), beneath the foot of the scale rather than at a value on it."
+            f"({_floor_words(floor, unit)}), beneath the foot of the scale rather than at a "
+            "value on it."
         )
     elif other_clause:
         tick_clause = (
@@ -5620,7 +5620,7 @@ def _cell_title(
         part for part in (_fmt(cell["median_abundance"]), unit) if part
     )
     if state == "heat-floor":
-        words = " ".join(part for part in (_fmt(floor) if floor is not None else "", unit) if part)
+        words = _floor_words(floor, unit)
         text += f" \u00b7 below the {words} floor" if words else " \u00b7 below the detection floor"
     elif state == "heat-gap":
         reason = cell["not_placed_reason"] or ""
@@ -5717,9 +5717,7 @@ def _heat_legend(grid: _Grid, floor: float | None, unit: str, greyed: str | None
         ("heat-4", f"1,000+{unit_text}"),
     ]
     if grid.floor:
-        words = " ".join(
-            part for part in (_fmt(floor) if floor is not None else "", html.escape(unit)) if part
-        )
+        words = html.escape(_floor_words(floor, unit), quote=False)
         entries.append(
             ("heat-floor", f"below the {words} floor" if words else "below the detection floor")
         )
@@ -5841,7 +5839,9 @@ def _bulk_figure(
             + _hover_dots(tissue, placed, points, labels, unit)
         )
         floor_words = (
-            f", above a detection floor of {_fmt(floor)} {unit}" if floor is not None else ""
+            f", at or above a detection floor of {_floor_words(floor, unit)}"
+            if floor is not None
+            else ""
         )
         title = (
             f"Median abundance in {tissue}, {series[0].label} to {series[-1].label}: "
