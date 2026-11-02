@@ -928,8 +928,9 @@ def test_polars_pattern_engine_agrees_with_python_re(tmp_path: Path) -> None:
     `str.contains`:
 
     1. Every non-null value of every pattern-bearing column in every committed
-       mirror table -- 104,024 values total, counted per table beside the
-       assertion below -- produces
+       mirror table -- counted per table beside the assertion below, where the
+       total is pinned (it read "104,024 values total" here, a figure the
+       pin beside it had left behind by 2026-08-19) -- produces
        the identical offender set (here, the empty set: curated data is clean)
        under both engines, for every pattern actually used in a schema:
        `HGNC_PATTERN`, `MONDO_PATTERN`, `UNIPROT_PATTERN` and the inline
@@ -1122,7 +1123,12 @@ def test_polars_pattern_engine_agrees_with_python_re(tmp_path: Path) -> None:
     #
     # **181,703 -> 212,113**, when `gencc_submissions.submitted_on` gained its
     # date-prefix pattern: all 30,410 rows carry a value (awk count).
-    assert total_compared == 212_113
+    #
+    # **212,113 -> 224,421 on 2026-11-02**, when the first cell-type mirror
+    # landed: `mirrors/cell_type_profiles/hoc.tsv` (Farah et al. 2024) is 12,308
+    # rows over 181 registry genes, and its one pattern-checked column is `gene`
+    # (measured per table and column, not inferred from the difference).
+    assert total_compared == 224_421
 
     for pattern in patterns:
         compiled = re.compile(pattern)

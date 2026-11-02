@@ -472,8 +472,9 @@ from chd_atlas.corpus import Corpus
 #   against a gene.
 # * `counts` gains `cell_type_genes` and `cell_type_datasets`, the published
 #   genes with a non-empty `cell_type_expression` and the distinct datasets
-#   those bundles name (`cell_types.cell_type_census`). Both are 0 until
-#   `mirrors/cell_type_profiles/` is committed.
+#   those bundles name (`cell_types.cell_type_census`). Both were 0 until
+#   Farah et al. 2024's `mirrors/cell_type_profiles/hoc.tsv` landed
+#   (2026-11-02).
 # * Every `datasets.json` record gains `cell_types` (each `token`, `label`,
 #   `compartment`) and `regions`, both `[]` on every design but
 #   `cell_type_profile`.
@@ -482,7 +483,7 @@ from chd_atlas.corpus import Corpus
 # * A dataset id may be a lowercase slug (`hoc`, `heart-atlas`), the UCSC Cell
 #   Browser's name for a dataset, as well as an archive accession: in
 #   `datasets.json`'s `id` and in the `dataset` an assertion's evidence names
-#   (`identifiers.AccessionId`). No curated record uses one yet.
+#   (`identifiers.AccessionId`). `hoc`, curated 2026-11-02, was the first.
 SCHEMA_VERSION: Final = "2.20"
 
 # What `status` publishes today. A literal rather than something derived from

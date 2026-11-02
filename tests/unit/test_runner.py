@@ -1355,26 +1355,38 @@ def test_a_cell_type_mirror_with_an_unregistered_source_fails_validation(
 def test_a_header_only_gene_registry_skips_only_the_cell_type_gene_check(tmp_path: Path) -> None:
     """CTP007 is skipped for an empty registry; REF001 names the cause instead.
 
-    The other cell-type checks still run: the row's dataset has no record, and
-    CTP001 says so. That assertion is the one that fails if `validate_repository`
-    stops calling `validate_cell_type_profiles` at all (review, 2026-10-28: with
-    the call deleted, the suite passed and a build skipped every row naming an
-    undeclared cell type or region in silence).
+    The other cell-type checks still run: a second shard's row names a dataset
+    with no record, and CTP001 says so. That assertion is the one that fails if
+    `validate_repository` stops calling `validate_cell_type_profiles` at all
+    (review, 2026-10-28: with the call deleted, the suite passed and a build
+    skipped every row naming an undeclared cell type or region in silence).
+
+    **The committed `hoc.tsv` stays beside it since 2026-11-02**, when Farah et
+    al. 2024's 12,308 rows over 181 genes landed. The test wrote its row over
+    that file until then, and against the real record the row's undeclared cell
+    type raised CTP002 and the emptied dataset CTP008 in CTP001's place. Kept,
+    the real rows make the skip a measurement at scale: every one of those 181
+    genes would be a CTP007 against the empty registry, and none may be. They
+    are clean, so CTP001 must be the only cell-type code, which also fails if
+    the skip turns into a flood of anything else. Measured 2026-11-02: the
+    old fixture on the real corpus raised CTP002 once and CTP008 17 times; the
+    committed rows against an empty registry raise CTP007 181 times; deleting
+    the call, or passing the registry bare rather than `or None`, fails here.
     """
     root = _real_repo(tmp_path)
     genes = root / "mirrors" / "genes.tsv"
     genes.write_text(genes.read_text(encoding="utf-8").splitlines()[0] + "\n", encoding="utf-8")
     shard = root / "mirrors" / "cell_type_profiles"
-    shard.mkdir(parents=True, exist_ok=True)
-    (shard / "hoc.tsv").write_text(
+    assert (shard / "hoc.tsv").is_file(), "the committed cell-type mirror is gone; re-read this"
+    (shard / "unrecorded.tsv").write_text(
         "dataset\tgene\tcell_type\tregion\tmedian_abundance\tunit\tq25\tq75\t"
         "n_donors\tn_cells\tfraction_expressing\tsource\n"
-        "hoc\tHGNC:1100\tcardiomyocyte\tall\t2.5\tcpm\t1.0\t3.0\t4\t900\t0.4\tnot_in_sources\n",
+        "unrecorded\tHGNC:1100\tcardiomyocyte\tall\t2.5\tcpm\t1.0\t3.0\t4\t900\t0.4\t"
+        "farah2024_hoc\n",
         encoding="utf-8",
     )
 
     codes = [issue.code for issue in validate_repository(root).issues]
 
     assert "REF001" in codes
-    assert "CTP007" not in codes
-    assert "CTP001" in codes
+    assert sorted({code for code in codes if code.startswith("CTP")}) == ["CTP001"]
