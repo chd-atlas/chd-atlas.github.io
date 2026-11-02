@@ -37,7 +37,7 @@ Plain `.json` files are gzipped in transit by Pages and need no such handling.
 
 **A contested gene must never be displayed as settled.** See the note at the end
 of this document; it is the one consumer obligation this API imposes, and
-`atlas_curation` extends it to the genes this atlas has not yet curated — 118 of
+`atlas_curation` extends it to the genes this atlas has not yet curated — 117 of
 the 119 published today.
 
 ---
@@ -536,7 +536,7 @@ assumptions are now false — see the next section.
   nothing"), and asserting it for a gene nobody has assessed would state a
   conclusion no authority reached.
 - `atlas_curation` is `"curated"` when the atlas holds at least one curated
-  assertion for the gene and `"not_yet_curated"` when it holds none — 118 of the
+  assertion for the gene and `"not_yet_curated"` when it holds none — 117 of the
   119 rows published today. It is about *this* resource's own work and says
   nothing about the gene's validity: an uncurated row still carries whatever
   `headline_confidence` an expert panel assigned, which is exactly why the gene
@@ -757,7 +757,7 @@ abridged, and each is documented in full further down.
   where the mirrored classification lives.
 - `functional` holds **every** functional record about the gene, not only those
   an assertion cites.
-- `atlas_curation` reads the same here as on the browse row. On the 118 genes
+- `atlas_curation` reads the same here as on the browse row. On the 117 genes
   published today without curation here it is `"not_yet_curated"`, and
   `assertions`, `publications` and `functional` are then empty arrays: the page
   is the panel's classification plus whatever this atlas has recorded, which
