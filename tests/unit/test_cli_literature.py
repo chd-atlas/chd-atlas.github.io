@@ -1129,3 +1129,151 @@ def test_the_review_listing_is_ordered_by_id_not_by_file_order(root: Path, lit_p
         "CHDA:LIT:0000002",
         "CHDA:LIT:0000004",
     ]
+
+
+# --------------------------------------------------------------------------
+# what separates two findings must not end up inside one (fix round 1)
+# --------------------------------------------------------------------------
+
+_CHUNKS: dict[str, str] = {
+    "publication": "    publication: PMID:{pmid}\n",
+    "design": "    design: cohort_screen\n",
+    "methods": "    methods:\n      - exome\n",
+    "count_unit": "    count_unit: probands\n",
+    "screened": "    screened: 7\n",
+    "carriers": "    carriers:\n      de_novo: 2\n      inherited: 1\n      origin_unknown: 3\n",
+    "variant_classes": "    variant_classes:\n      - snv_indel\n",
+    "phenotypes": "    phenotypes:\n      - HP:0001631\n",
+    "lesion_groups": "    lesion_groups:\n      - septal\n",
+    "syndromic": "    syndromic: both\n",
+    "shares_probands_with": "    shares_probands_with: unknown\n",
+    "locators": "    locators:\n      - kind: in_text\n        element: Table 2\n",
+    "summary": "    summary: Six of seven.\n",
+    "extracted_by": "    extracted_by: agent:extract/test\n",
+}
+_HEADER = (
+    "gene: HGNC:11604\nsearches:\n  - id: 1\n    source: pubmed\n    query: TBX5[tiab]\n"
+    "    run_on: 2026-11-02\n    hits: 3\n    new_hits: 3\nfindings:\n"
+)
+
+
+def _entry(number: int, *, last: str | None = None, verified: bool, trailer: str = "") -> str:
+    """One finding; `last` moves that key to the end (hand-ordered files), `trailer`
+    is whatever separates it from the next finding."""
+    keys = list(_CHUNKS)
+    if last is not None:
+        keys.remove(last)
+        keys.append(last)
+    body = "".join(_CHUNKS[k].format(pmid=1000 + number) for k in keys)
+    if verified:
+        body = body.replace(
+            _CHUNKS["extracted_by"], _CHUNKS["extracted_by"] + "    verified_by: agent:v\n"
+        )
+    return f"  - id: CHDA:LIT:000000{number}\n" + body + trailer
+
+
+LAYOUTS = {
+    "blank line": (None, "\n"),
+    "comment then blank": (None, "  # note about the next one\n\n"),
+    "comment": (None, "  # note about the next one\n"),
+    "list last then comment": ("locators", "  # note about the next one\n"),
+    "list last then blank": ("locators", "\n"),
+    "mapping last then comment and blank": ("carriers", "  # note\n\n"),
+}
+
+
+def _assert_only_lines_added(before: str, after: str, edited: str, added: list[str]) -> None:
+    old, new = _blocks(before), _blocks(after)
+    for key in old:
+        if key != edited:
+            assert new[key] == old[key], key
+    lines = old[edited].splitlines(keepends=True)
+    content = [
+        i for i, line in enumerate(lines) if line.strip() and not line.lstrip().startswith("#")
+    ]
+    cut = content[-1] + 1
+    assert new[edited] == "".join(lines[:cut] + added + lines[cut:])
+
+
+def _layout_file(root: Path, layout: str, *, verified: bool) -> tuple[Path, str]:
+    last, trailer = LAYOUTS[layout]
+    text = (
+        _HEADER
+        + _entry(1, verified=verified, trailer="\n")
+        + _entry(2, last=last, verified=verified, trailer=trailer)
+        + _entry(3, verified=verified)
+    )
+    path = root / "curation" / "literature" / "TBX5.yaml"
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(text)
+    return path, text
+
+
+@pytest.mark.parametrize("layout", LAYOUTS)
+def test_approve_adds_only_its_lines_whatever_separates_the_findings(
+    root: Path, layout: str
+) -> None:
+    path, before = _layout_file(root, layout, verified=True)
+    result = _review(root, "--approve", "CHDA:LIT:0000002", "--by", "Dr. A", "--on", "2026-11-03")
+    assert result.exit_code == 0, result.stdout
+    _assert_only_lines_added(
+        before,
+        path.read_text(),
+        "CHDA:LIT:0000002",
+        ["    approved_by: Dr. A\n", "    approved_on: 2026-11-03\n"],
+    )
+
+
+@pytest.mark.parametrize("layout", LAYOUTS)
+def test_pending_review_adds_only_its_lines_whatever_separates_the_findings(
+    root: Path, layout: str
+) -> None:
+    path, before = _layout_file(root, layout, verified=False)
+    result = _review(root, "--pending-review", "CHDA:LIT:0000002", "--note", "Table 2 says 7.")
+    assert result.exit_code == 0, result.stdout
+    _assert_only_lines_added(
+        before,
+        path.read_text(),
+        "CHDA:LIT:0000002",
+        ["    review_status: pending_review\n", "    review_note: Table 2 says 7.\n"],
+    )
+
+
+@pytest.mark.parametrize("layout", LAYOUTS)
+def test_mark_verified_adds_only_its_line_whatever_separates_the_findings(
+    root: Path, layout: str
+) -> None:
+    path, before = _layout_file(root, layout, verified=False)
+    second = "findings:\n" + "".join(
+        _entry(n + 6, verified=False).replace(f"PMID:{1000 + n + 6}", f"PMID:{1000 + n}")
+        for n in (1, 2, 3)
+    )
+    result = _diff(root, _second(root, second), "--mark-verified", "agent:verify/blind")
+    assert result.exit_code == 0, result.stdout
+    assert result.stdout.endswith(
+        "marked verified (3): CHDA:LIT:0000001, CHDA:LIT:0000002, CHDA:LIT:0000003\n"
+    )
+    after = path.read_text()
+    for number in (1, 2, 3):
+        # extracted_by is where the line lands unless a hand-ordered key follows it
+        old, new = (
+            _blocks(before)[f"CHDA:LIT:000000{number}"],
+            _blocks(after)[f"CHDA:LIT:000000{number}"],
+        )
+        assert new.count("    verified_by: agent:verify/blind\n") == 1
+        assert new.replace("    verified_by: agent:verify/blind\n", "") == old
+
+
+def test_approving_a_finding_under_review_keeps_the_mark_and_the_note(
+    root: Path, lit_path: Path
+) -> None:
+    _review(root, "--pending-review", "CHDA:LIT:0000002", "--note", "Table 2 says 7; text says 8.")
+    result = _review(root, "--approve", "CHDA:LIT:0000002", "--by", "Dr. A", "--on", "2026-11-03")
+
+    assert result.exit_code == 0, result.stdout
+    block = _blocks(lit_path.read_text())["CHDA:LIT:0000002"]
+    assert block.endswith(
+        "    verified_by: agent:verify/earlier\n"
+        "    approved_by: Dr. A\n    approved_on: 2026-11-03\n"
+        "    review_status: pending_review\n    review_note: Table 2 says 7; text says 8.\n"
+    )

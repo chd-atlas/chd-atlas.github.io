@@ -18,7 +18,8 @@ Two files, two strategies, chosen by what each needs to preserve:
 
 `with_findings_updated` sets fields on named findings (verification, approval,
 a review mark) under the same rule: the lines it adds are the only change, and
-a comment that followed the entry moves to the new last line with it.
+a blank line or comment that followed the entry (even after a nested list or
+mapping) moves to the new last line with it.
 
 Both return **bytes** and write nothing: the caller serialises, validates and
 only then writes (`fs.write_bytes_atomically`), so a failure anywhere leaves the
@@ -110,30 +111,53 @@ def parse_findings_file(raw: bytes) -> list[Finding]:
     return loaded.findings
 
 
-def _carry_trailing_comment(entry: CommentedMap, old_last: str, new_last: str) -> None:
-    """Move the comment lines that followed an entry's last key to its new last key.
+def _trailing_slot(node: Any, key: Any) -> tuple[Any, Any, int] | None:
+    """`(container, key, slot)` of the deepest comment trailing `node[key]`.
 
-    ruamel hangs the comment between two list items (`# a note` above the next
-    finding) on the previous item's last key. Appending a key after that one
-    would leave the note stranded between two fields of the same finding; a
-    same-line comment (`key: v  # why`) stays where it was.
+    ruamel hangs whatever follows a block (a `# note`, or a blank line before
+    the next list item) on the last scalar inside it: the last key of a
+    mapping (slot 2) or the last item of a sequence (slot 0). So when the value
+    is a collection this walks down to its last element, keeping the deepest
+    slot that holds a comment.
     """
-    slot = entry.ca.items.get(old_last)
-    token = slot[2] if slot else None
-    if (
-        token is None
-        or not isinstance(token.value, str)
-        or isinstance(entry[old_last], list | dict)
-    ):
+    found: tuple[Any, Any, int] | None = None
+    while True:
+        slot = 2 if isinstance(node, CommentedMap) else 0
+        row = node.ca.items.get(key)
+        if row and row[slot] is not None:
+            found = (node, key, slot)
+        child = node[key]
+        if not isinstance(child, CommentedMap | CommentedSeq) or not len(child):
+            return found
+        node = child
+        key = list(child)[-1] if isinstance(child, CommentedMap) else len(child) - 1
+
+
+def _carry_trailing_comment(entry: CommentedMap, new_last: str) -> None:
+    """Move what followed an entry's last element to its new last key.
+
+    Appending a key after the old last one would otherwise leave a blank line
+    or a note that separated two findings stranded between two fields of the
+    same finding. A same-line comment (`key: v  # why`) stays where it was.
+    Call it after the new key is inserted at the end; `new_last` is that key.
+    """
+    found = _trailing_slot(entry, list(entry)[-2])
+    if found is None:
         return
+    container, key, slot = found
+    row = container.ca.items[key]
+    token = row[slot]
     first, newline, rest = token.value.partition("\n")
-    if not rest.strip():
-        return
     moved = copy.copy(token)
-    moved.value = "\n" + rest
-    token.value = first + newline if first.strip() else ""
-    if not token.value:
-        entry.ca.items.pop(old_last)
+    if first.strip():  # a same-line comment stays; only what follows moves
+        if not rest:
+            return
+        moved.value = "\n" + rest
+        token.value = first + newline
+    else:
+        row[slot] = None
+        if all(item is None for item in row):
+            container.ca.items.pop(key)
     entry.ca.items[new_last] = [None, None, moved, None]
 
 
@@ -169,7 +193,7 @@ def with_findings_updated(existing: bytes, updates: dict[str, dict[str, Any]]) -
             last = list(entry)[-1] if position == len(entry) else None
             entry.insert(position, name, value)
             if last is not None:
-                _carry_trailing_comment(entry, last, name)
+                _carry_trailing_comment(entry, name)
     content = dump_bytes(data)
     parse_literature(content)
     return content

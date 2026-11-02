@@ -450,7 +450,12 @@ def literature_review(
     note: str = typer.Option("", "--note", help="The measured disagreement, for --pending-review."),
     root: Path = typer.Option(Path("."), help="Repository root."),
 ) -> None:
-    """List the findings awaiting approval, approve some, or mark one pending review."""
+    """List the findings awaiting approval, approve some, or mark one pending review.
+
+    A review mark is published with the finding; it does not withdraw an
+    approval, and a marked finding can still be approved. A finding carries one
+    mark: a second is refused rather than overwriting the first note.
+    """
     _require_root(root)
     if approve and pending_review:
         raise _fail("--approve and --pending-review are two actions; use one, not both", 2)
