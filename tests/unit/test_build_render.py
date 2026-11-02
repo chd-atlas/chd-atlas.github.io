@@ -1,10 +1,13 @@
 # tests/unit/test_build_render.py
 """The shell every page shares, and the escaping every page depends on."""
 
+import re
+
 import pytest
 
 from chd_atlas.build.render import (
     RESEARCH_USE_NOTICE,
+    STYLESHEET,
     Link,
     Row,
     chip,
@@ -198,3 +201,17 @@ def test_a_table_with_no_rows_still_renders_its_header() -> None:
 def test_a_chip_and_a_definition_list_escape_their_values() -> None:
     assert "<i>" not in chip(text="<i>definitive</i>", kind="definitive")
     assert "<i>" not in definition_list([("<i>k</i>", "<i>v</i>")])
+
+
+def test_the_page_column_cannot_grow_past_the_viewport() -> None:
+    """`.layout`'s content track is `minmax(0, 1fr)`, never a bare `1fr`.
+
+    A bare `1fr` floors at its widest child's min-content, so one wide table
+    stretched the whole column past the window: measured 2026-11-02 at a
+    1,280px window, 47 of 119 gene pages scrolled sideways (RIT1's 1,411px
+    wide), and 0 with this track. Wide tables keep their own `.scroll`.
+    """
+    tracks = re.findall(r"\.layout\s*\{[^}]*grid-template-columns:\s*([^;]+);", STYLESHEET)
+
+    assert len(tracks) == 2, tracks  # the two-column rule and the narrow-screen one
+    assert all(track.endswith("minmax(0, 1fr)") for track in tracks), tracks

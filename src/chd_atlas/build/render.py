@@ -350,8 +350,10 @@ STYLESHEET: Final = """
   /* A row gap rather than a margin on `dt`: the margin pushed each chip below
      the first line of its own gloss, since `dd` had none. */
   .grade-key dl { row-gap: 0.6rem; }
-  .layout { display: grid; grid-template-columns: 18rem 1fr; gap: 2.5rem; }
-  @media (max-width: 52rem) { .layout { grid-template-columns: 1fr; } }
+  /* `minmax(0, 1fr)`: a bare `1fr` grows to its widest table, which pushed
+     47 of 119 gene pages past a 1,280px window. */
+  .layout { display: grid; grid-template-columns: 18rem minmax(0, 1fr); gap: 2.5rem; }
+  @media (max-width: 52rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
   .rail {
     font-size: 0.88rem; background: var(--surface); padding: 1.5rem;
     border-radius: 12px; border: 1px solid var(--border); height: fit-content;
@@ -529,10 +531,9 @@ STYLESHEET: Final = """
     display: inline-block; margin: 0.2rem 0 0.75rem;
   }
 
-  /* The biological-mechanism callout that leads each study card: it makes the
-     LoF-vs-missense contrast (the disease-mechanism takeaway) visible at a
-     glance instead of burying it in repeated forest-plot rows. Emitted by
-     `_study_mechanism_summary`. */
+  /* The finding callout that leads each study card: which consequence classes
+     survive the study's own correction, visible at a glance instead of buried
+     in repeated forest-plot rows. Emitted by `_study_finding_summary`. */
   .finding-card {
     border-radius: 10px; padding: 0.9rem 1.05rem; margin: 0.75rem 0 0.5rem;
     border: 1px solid var(--border); border-left-width: 4px;

@@ -29,6 +29,7 @@ from chd_atlas.build.pages import (
     _forest_text,
     _inheritance,
     _phase_sentence,
+    _study_finding_summary,
     build_gene_index_page,
     build_gene_pages,
 )
@@ -1475,6 +1476,103 @@ def _burden_section_text(page: str) -> str:
     picture the burden section did not draw.
     """
     return _slice_between(page, _RARE_VARIANT_H2, ("<h2",))
+
+
+def _sierant(**overrides: object) -> BurdenRow:
+    """A PMID:40127276 de novo row: an enrichment ratio and a Benjamini-Hochberg q."""
+    fields: dict[str, object] = {
+        "study": "PMID:40127276",
+        "comparator": "mutation_model",
+        "effect": 41.9,
+        "effect_measure": "enrichment_ratio",
+        "effect_bound": None,
+        "ci_low": None,
+        "pvalue_adjustment": "benjamini_hochberg",
+    }
+    return _burden_row(**(fields | overrides))
+
+
+@pytest.mark.parametrize(
+    ("rows", "present", "absent"),
+    [
+        pytest.param(
+            # SMAD2's shape: missense survives, LoF is nominal (p 0.022) but not.
+            [
+                _sierant(
+                    consequence_class="missense_damaging", pvalue=5.8e-05, pvalue_adjusted=0.00257
+                ),
+                _sierant(consequence_class="lof", effect=8.0, pvalue=0.0221, pvalue_adjusted=0.145),
+            ],
+            ("Damaging Missense Significant", "q 0.00257", "Loss-of-function variants do not."),
+            ("no enrichment", "ain-of-", "aploinsufficiency", "mechanism"),
+            id="missense-survives-lof-nominal",
+        ),
+        pytest.param(
+            [
+                _sierant(
+                    consequence_class="missense_damaging", pvalue=5.8e-05, pvalue_adjusted=0.00257
+                )
+            ],
+            ("Damaging Missense Significant",),
+            ("oss-of-function",),
+            id="missense-survives-lof-untested",
+        ),
+        pytest.param(
+            # PMID:34324492: deletions only, no effect size, a family-wise p.
+            [
+                _burden_row(
+                    study="PMID:34324492",
+                    effect=None,
+                    effect_bound=None,
+                    ci_low=None,
+                    pvalue=9.999e-05,
+                    pvalue_adjusted=0.0001,
+                    pvalue_adjustment="familywise_permutation",
+                )
+            ],
+            ("Loss-of-Function Significant", "corrected p 0.0001"),
+            ("q 0.0001", "issense", "aploinsufficiency", _EM_DASH),
+            id="cnv-familywise",
+        ),
+        pytest.param(
+            # PMID:42230622 publishes no corrected p; this p clears even 0.05/138,609.
+            [_burden_row()],
+            ("publishes no corrected p",),
+            ("does not survive", "does not reach"),
+            id="no-correction-published",
+        ),
+        pytest.param(
+            [_sierant(consequence_class="lof", pvalue=0.02, pvalue_adjusted=0.2)],
+            ("does not survive this study's correction",),
+            ("publishes no corrected p", "study-wide"),
+            id="correction-published-not-survived",
+        ),
+    ],
+)
+def test_a_study_card_states_what_its_rows_show_and_no_mechanism(
+    rows: list[BurdenRow], present: tuple[str, ...], absent: tuple[str, ...]
+) -> None:
+    """The finding card says which classes survive the study's own correction.
+
+    It names no mechanism: no study here states one, and on 2026-11-02 31 of the
+    93 published cards did (haploinsufficiency, gain-of-function). "Loss-of-function variants
+    show no enrichment" was false on GDF1, SMAD2 and MYH6, whose LoF rows were
+    nominal. A class the study never tested is not mentioned. The statistic is
+    `_statistic`'s, so a family-wise p is never called q.
+    """
+    text = html.unescape(re.sub(r"<[^>]+>", "", _study_finding_summary(rows)))
+
+    for phrase in present:
+        assert phrase in text, (phrase, text)
+    for phrase in absent:
+        assert phrase not in text, (phrase, text)
+
+
+def test_a_depleted_row_earns_no_enrichment_card() -> None:
+    """A non-synonymous row with p < 0.05 below 1 is depletion, not "enrichment"."""
+    depleted = _burden_row(effect=0.3, effect_bound=None, ci_low=0.1, ci_high=0.8, pvalue=0.01)
+
+    assert _study_finding_summary([depleted]) == ""
 
 
 def test_an_effect_size_is_never_rendered_without_the_measure_that_names_it(

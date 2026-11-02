@@ -963,6 +963,11 @@ def test_the_doc_states_the_population_the_build_publishes(site: Path) -> None:
     # 21 it is null": only a grade can be mistaken for an assessment.
     assert f"presents {graded} of the {genes} published genes" in doc
     assert f"On the other {ungraded} genes not yet curated here it is `null`" in doc
+    # The uncurated count itself, stated three times; all three still read 118
+    # after NR2F2's assertion (2026-11-01) made it 117.
+    assert f"has not yet curated — {len(uncurated)} of the {genes} published today." in doc
+    assert f"when it holds none — {len(uncurated)} of the {genes} rows published today." in doc
+    assert f"On the {len(uncurated)} genes published today without curation here" in doc
     # The empty-map paragraph: the same figure twice, and it read 97 and 75.
     rows = json.loads((site / "genes" / "index.json").read_text())["genes"]
     empty = sum(
