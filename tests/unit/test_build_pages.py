@@ -6416,6 +6416,44 @@ def test_the_grid_legend_names_only_the_states_drawn(tmp_path: Path) -> None:
     assert "blank: not sampled" in full
 
 
+def test_the_grey_stage_key_appears_only_when_a_stage_label_is_greyed(tmp_path: Path) -> None:
+    """A greyed stage label is keyed, and only when one is drawn (section 4.27).
+
+    The label is the only mark on the figure with no key, so the entry is
+    present exactly when the heart has no row at some stage. Sliced to the
+    legend element, as the test above does, because the phrase is not in the
+    stage tables.
+    """
+
+    def legend(section: str) -> str:
+        return re.search(r'<p class="strip-legend heat-key">.*?</p>', section, re.S).group(0)  # type: ignore[union-attr]
+
+    greyed = legend(
+        _grid_page(
+            tmp_path,
+            (
+                ("4 week post conception", (_placed("Heart", 50.0), _placed("Liver", 5.0))),
+                ("5 week post conception", (_placed("Liver", 5.0),)),
+                ("6 week post conception", (_placed("Heart", 70.0),)),
+            ),
+        )
+    )
+    assert "grey stage: no Heart sample" in greyed
+    assert "blank: not sampled" in greyed
+    assert greyed.index("blank: not sampled") < greyed.index("grey stage: no Heart sample")
+
+    complete = legend(
+        _grid_page(
+            tmp_path,
+            (
+                ("4 week post conception", (_placed("Heart", 50.0), _placed("Liver", 5.0))),
+                ("5 week post conception", (_placed("Heart", 60.0), _placed("Liver", 6.0))),
+            ),
+        )
+    )
+    assert "grey stage" not in complete
+
+
 def test_an_unregistered_dataset_draws_the_grid_alone(tmp_path: Path) -> None:
     """No `Dataset` means no cardiac tissue, floor or heart chart; the grid still draws."""
     section = _grid_page(

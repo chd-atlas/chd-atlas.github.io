@@ -5697,12 +5697,16 @@ def _grid(
     return _Grid(out, drawn_floor, frozenset(gap_reasons), cells < len(organs) * count)
 
 
-def _heat_legend(grid: _Grid, floor: float | None, unit: str) -> str:
+def _heat_legend(grid: _Grid, floor: float | None, unit: str, greyed: str | None) -> str:
     """The grid's key, in HTML: a swatch per state that occurs, and no others.
 
     The four shade labels are the bins' edges in the dataset's unit; the first
     starts at the floor ("1-10") because a placed median cannot be below it,
     and says "under 10" where the floor is unknown or not below the bin's edge.
+
+    `greyed` is the charted cardiac tissue when the figure greys at least one
+    of its stage labels (a stage that tissue has no row for). The grey label
+    has no swatch of its own, so its entry names the tissue in text alone.
     """
     unit_text = f" {html.escape(unit)}" if unit else ""
     first = f"{_fmt(floor)}\u201310" if floor is not None and floor < _HEAT_EDGES[0] else "under 10"
@@ -5732,6 +5736,8 @@ def _heat_legend(grid: _Grid, floor: float | None, unit: str) -> str:
         f'<span class="legend-item"><span class="heat-swatch {state}"></span> {text}</span> '
         for state, text in entries
     )
+    if greyed is not None:
+        items += f'<span class="legend-item">grey stage: no {html.escape(greyed)} sample</span> '
     return f'<p class="strip-legend heat-key">{items.rstrip()}</p>'
 
 
@@ -5865,7 +5871,12 @@ def _bulk_figure(
     grid = _grid(entry, organs, cardiac, floor, grid_top)
     height = int(math.ceil(grid_top + len(organs) * _GRID_ROW + 4.0))
     figure = svg_figure(width=_CHART_WIDTH, height=height, title=title, body=body + grid.svg)
-    legend = _heat_legend(grid, floor, _dominant_unit(entry, set(organs)))
+    legend = _heat_legend(
+        grid,
+        floor,
+        _dominant_unit(entry, set(organs)),
+        greyed=tissue if unsampled else None,
+    )
     return f'<div class="chart-scroll">{figure}</div>{legend}{caption}'
 
 
