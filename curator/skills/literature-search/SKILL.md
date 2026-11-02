@@ -46,7 +46,8 @@ uses no judgment, so any agent or person can run it.
 ## Done when
 
 - The command printed a search line and exited 0.
-- `.venv/bin/chd-atlas validate` reports no error for the file.
+- `.venv/bin/chd-atlas validate` reports no error caused by the search. The file's new
+  output is the `LIT002` warning for the pending hits (none if there were no new hits).
 - You tell the curator the hit count, the new-hit count, and that the next step is the
   `literature-triage` skill, then `.venv/bin/chd-atlas literature review <SYMBOL>` once
   findings exist.

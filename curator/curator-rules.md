@@ -66,7 +66,9 @@ convention only a person can check.
   `SCHEMA001`.
 - Independence: list `cohorts` from the registry, and set `shares_probands_with` to the
   finding ids that share probands, or to `unknown`. Never leave it out and never guess
-  (`SCHEMA001`). A named id must exist (`LIT007`).
+  (`SCHEMA001`). A named id must exist (`LIT007`). The curator checks independence by
+  reading this field in the `chd-atlas literature review` listing; `diff` does not
+  compare it.
 
 ## Attribution and approval
 

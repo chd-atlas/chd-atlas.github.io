@@ -24,7 +24,8 @@ first pass.
    ```
 
 2. Extract each paper from scratch, as the `literature-extract` skill describes (steps 2,
-   4, 5 and 6), but write to `local/literature/<SYMBOL>.verify.yaml`, not to `curation/`.
+   4, 5 and 6), but always set `shares_probands_with: unknown` (it names finding ids and
+   yours are local, so `diff` does not compare it), and write to `local/literature/<SYMBOL>.verify.yaml`, not to `curation/`.
    Create `local/literature/` if it is missing; `local/` is gitignored. The file has one
    top-level key, `findings:`, holding full findings. Ids are local to this file
    (`CHDA:LIT:0000001`, `CHDA:LIT:0000002`, ...); do not take them from the registry and

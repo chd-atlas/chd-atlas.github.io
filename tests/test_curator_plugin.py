@@ -259,6 +259,10 @@ def test_the_files_state_the_verified_rulings_literally() -> None:
     assert "curation/.id_registry.yaml" in extract
     assert "agent:literature-extract/<model>" in extract
     assert "agent:<skill>/<model>" in rules
+    # R26: the verifier writes `unknown`; the curator reads the field in the listing.
+    assert "always set `shares_probands_with: unknown`" in verify
+    assert "reading this field in the `chd-atlas literature review` listing" in rules
+    assert "field in the `review` listing" in extract
     for path in ALL_FILES:
         text = _text(path)
         assert not re.search(r"NCBI_API_KEY\s*=\s*\S", text), path.name

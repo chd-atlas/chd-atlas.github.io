@@ -494,6 +494,10 @@ def literature_review(
             )
             typer.echo(f"  {_counts_text(f)}")
             typer.echo(f"  locators: {'; '.join(_locator_text(loc) for loc in f.locators)}")
+            shared = f.shares_probands_with
+            typer.echo(
+                f"  shares probands with: {shared if isinstance(shared, str) else _ids(shared)}"
+            )
             if f.review_status is not None:
                 typer.echo(f"  review: {f.review_status.value}: {f.review_note}")
             typer.echo(f"  {f.summary}")

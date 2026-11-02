@@ -38,7 +38,9 @@ Read `curator/curator-rules.md` first. Model tier: a mid-tier model (for example
    in `mirrors/burden.tsv`, set `burden_study` to its PMID.
 5. Add a `locators` entry for every number (`kind: in_text` with `element`, or
    `kind: supplementary` with `file`, `sheet`, `row`). Set `cohorts` from
-   `curation/cohorts.yaml`, and `shares_probands_with` to finding ids or `unknown`.
+   `curation/cohorts.yaml`, and `shares_probands_with` to the ids of findings that share
+   probands with this one, or `unknown`. The curator checks independence by reading this
+   field in the `review` listing.
 6. A paper you cannot read stays in. Record only what the abstract supports, use the
    locator element `Abstract`, and set `review_status: not_accessible` with a
    `review_note` saying what could not be read.

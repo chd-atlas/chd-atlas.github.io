@@ -63,8 +63,9 @@ Triage reads an abstract and applies a short rule list.
 ## Done when
 
 - No entry is `pending`: `.venv/bin/chd-atlas validate` reports no `LIT002` for the file.
-- Validate reports no error. An included paper with no finding yet gives `LIT003`; that
-  clears at the extract step, so name those PMIDs in your hand-off.
+- Validate reports no error except `LIT003`, once for each included paper that has no
+  finding yet. Those clear at the extract step; name those PMIDs in your hand-off. Any
+  other error is a mistake in your edits: fix the edit.
 - You tell the curator how many were included and excluded by reason, then hand off to the
   `literature-extract` skill. The curator
   later runs `.venv/bin/chd-atlas literature review <SYMBOL>`.
@@ -74,4 +75,6 @@ Triage reads an abstract and applies a short rule list.
 - Never exclude on a hunch, on the journal, or on a paper being old or small.
 - Never exclude a paper for being unreadable.
 - Never add, remove or reorder triage entries, or change a `pmid` or `search`.
+- Never change a decision to clear a validator error. `LIT003` on an included paper is
+  expected; excluding the paper to remove it throws the paper's evidence away.
 - Never decide from memory of a paper; use the printed abstract.

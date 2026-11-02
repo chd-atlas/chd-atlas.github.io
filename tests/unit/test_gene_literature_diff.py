@@ -62,7 +62,6 @@ def test_the_compared_set_is_pinned() -> None:
         "lesion_groups",
         "syndromic",
         "cohorts",
-        "shares_probands_with",
     )
 
 
@@ -86,7 +85,6 @@ def test_the_compared_set_is_pinned() -> None:
         ("phenotypes", ["HP:0001631"], ["HP:0001631", "HP:0001642"]),
         ("lesion_groups", ["septal"], ["lvoto"]),
         ("syndromic", "isolated", "syndromic"),
-        ("shares_probands_with", "unknown", ["CHDA:LIT:0000004"]),
     ],
 )
 def test_a_pair_differing_in_one_field_reports_that_field_and_only_it(
@@ -122,16 +120,24 @@ def test_fields_the_curator_reads_are_not_compared() -> None:
     assert diff.fields == {} and diff.agreed == ("CHDA:LIT:0000001",)
 
 
+def test_a_shares_probands_with_difference_alone_leaves_the_pair_agreed() -> None:
+    # R26: the blind pass's ids are local, so the field cannot be compared.
+    diff = _pair(
+        {"shares_probands_with": ["CHDA:LIT:0000004"]}, {"shares_probands_with": "unknown"}
+    )
+    assert diff.fields == {} and diff.agreed == ("CHDA:LIT:0000001",)
+    assert "shares_probands_with" not in COMPARED_FIELDS
+
+
 def test_lists_that_carry_no_order_are_compared_as_sets() -> None:
     diff = _pair(
-        {"shares_probands_with": ["CHDA:LIT:0000004", "CHDA:LIT:0000005"]},
+        {},
         {
             "methods": ["genome", "exome"],
             "variant_classes": ["cnv", "snv_indel"],
             "phenotypes": ["HP:0001629", "HP:0001631"],
             "lesion_groups": ["avsd", "septal"],
             "cohorts": ["beta_cohort", "alpha_cohort"],
-            "shares_probands_with": ["CHDA:LIT:0000005", "CHDA:LIT:0000004"],
         },
     )
     # Matched despite the cohort order, and agreeing in every field.

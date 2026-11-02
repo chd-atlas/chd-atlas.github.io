@@ -978,6 +978,7 @@ def test_the_review_listing_pins_one_finding(root: Path, lit_path: Path) -> None
         "CHDA:LIT:0000001  https://pubmed.ncbi.nlm.nih.gov/8988165/  cohort_screen  UNVERIFIED\n"
         "  screened 7 probands; carriers 6 (de novo 2, inherited 1, origin unknown 3)\n"
         "  locators: Table 2 & <3>\n"
+        "  shares probands with: unknown\n"
         "  Six of seven probands carry a variant."
     )
     two = next(b for b in blocks if b.startswith("CHDA:LIT:0000002"))
@@ -986,6 +987,7 @@ def test_the_review_listing_pins_one_finding(root: Path, lit_path: Path) -> None
         "  agent:verify/earlier\n"
         "  cases 11, controls 13, p 0.02, OR 1.5\n"
         "  locators: s1.xlsx / Sheet 1 / row 4\n"
+        "  shares probands with: unknown\n"
         "  A GWAS hit."
     )
     # CHDA:LIT:0000003 is approved: not listed. Order is by id.
@@ -994,6 +996,22 @@ def test_the_review_listing_pins_one_finding(root: Path, lit_path: Path) -> None
         "CHDA:LIT:0000002",
         "CHDA:LIT:0000004",
     ]
+
+
+def test_the_review_listing_names_the_findings_that_share_probands(
+    root: Path, lit_path: Path
+) -> None:
+    text = lit_path.read_text()
+    assert text.count("    shares_probands_with: unknown\n") >= 1
+    lit_path.write_text(
+        text.replace(
+            "    shares_probands_with: unknown\n",
+            "    shares_probands_with:\n      - CHDA:LIT:0000004\n      - CHDA:LIT:0000002\n",
+            1,
+        )
+    )
+    one = next(b for b in _review(root).stdout.split("\n\n") if b.startswith("CHDA:LIT:0000001"))
+    assert "\n  shares probands with: CHDA:LIT:0000004, CHDA:LIT:0000002\n" in one
 
 
 def test_approve_sets_both_fields_and_changes_no_other_byte(root: Path, lit_path: Path) -> None:

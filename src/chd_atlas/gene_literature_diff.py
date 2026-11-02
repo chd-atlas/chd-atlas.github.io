@@ -12,11 +12,13 @@ Compared: every `Finding` field except `EXCLUDED_FIELDS`. The set is derived
 from the model, so a field added later is compared by default instead of being
 skipped without anyone noticing. Summaries and locators are free wording and
 the curator reads them; the identifier, the extraction and approval
-bookkeeping say who did what, not what the paper says.
+bookkeeping say who did what, not what the paper says. `shares_probands_with`
+is excluded too (ruling R26): it names finding ids, the blind pass uses ids
+local to its own file, so a list from the first pass could never agree with
+anything; the curator reads it in the `review` listing.
 
 Lists compared as sets, because their order carries no meaning: `methods`,
-`variant_classes`, `phenotypes`, `lesion_groups`, `cohorts` and
-`shares_probands_with` (when it is a list). `carriers` is a mapping and is
+`variant_classes`, `phenotypes`, `lesion_groups` and `cohorts`. `carriers` is a mapping and is
 compared by value. Reported values are the model's JSON-mode values, with the
 set-like lists sorted.
 """
@@ -40,6 +42,7 @@ EXCLUDED_FIELDS: Final = (
     "review_status",
     "review_note",
     "locators",
+    "shares_probands_with",
 )
 COMPARED_FIELDS: Final[tuple[str, ...]] = tuple(
     name for name in Finding.model_fields if name not in EXCLUDED_FIELDS
@@ -51,7 +54,6 @@ _SET_LIKE: Final = frozenset(
         "phenotypes",
         "lesion_groups",
         "cohorts",
-        "shares_probands_with",
     }
 )
 
