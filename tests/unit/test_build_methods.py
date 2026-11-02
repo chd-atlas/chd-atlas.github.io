@@ -1040,8 +1040,8 @@ def test_expression_states_what_every_gene_page_shortened_or_folded(page: str) -
         "compares nothing to another gene's. The organ grid shades each placed median in one of "
         "four fixed bins, below 10, 10 to 100, 100 to 1,000 and 1,000 or more in its unit, so "
         "shades compare across genes; a median below the detection floor and any other unplaced "
-        "cell, such as one with no percentile grid, are its two empty states, each drawn and "
-        "titled as such.</p>" + _CELL_TYPE_PARAGRAPHS
+        "cell, such as one with no percentile grid, are drawn as empty cells, each titled as "
+        "such, and a stage an organ was not sampled at is left blank.</p>" + _CELL_TYPE_PARAGRAPHS
     )
     added = re.sub(r"<[^>]+>", " ", _CELL_TYPE_PARAGRAPHS).split()
     assert len(added) <= 250, len(added)
