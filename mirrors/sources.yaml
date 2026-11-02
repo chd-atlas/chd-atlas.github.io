@@ -238,6 +238,7 @@ sources:
     # recorded.
     retrieved_on: 2026-04-18
     url: https://cells.ucsc.edu/?ds=hoc+all-heart
+    # Upstream identity: UCSC's hoc/all-heart/dataset.json (fetched 2026-11-02) lists the published exprMatrix.tsv.gz as md5 0fe4ac1a21 (UCSC prints a 10-character prefix), 378,103,049 bytes, dated 2023-07-12, before the h5ad's 2026-04-18 build.
     # UCSC's hoc/desc.json and hoc/dataset.json (fetched 2026-11-02) state no
     # licence. Owner decision 2026-11-02: treat the data as attributable to
     # Farah et al. 2024, whose article is CC BY 4.0.

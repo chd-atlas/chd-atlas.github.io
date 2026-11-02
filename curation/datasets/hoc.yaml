@@ -35,8 +35,6 @@ cell_types:
   - {token: WBC, label: White blood cells, compartment: Blood}
   - {token: Neuronal, label: Neuronal cells, compartment: Neuronal}
 regions: [LA, RA, LV, RV, IVS]
-# The Human Protein Atlas's "not detected" cut, matching this atlas's 1 TPM
-# floor for bulk expression.
 detection_floor: 1.0
 floor_source: >-
   The Human Protein Atlas's "not detected" cut, and the same 1 unit floor this

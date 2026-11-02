@@ -1785,7 +1785,7 @@ to [`methods.html#rare-variants`](#methodshtml), which states the key in
 general.
 
 The developmental expression section, last on the page, opens with one visible
-line. On a page with cell-type data it reads "Cell-type values pool 8 hearts at
+line. On a page with cell-type data and a bulk profile it reads "Cell-type values pool 8 hearts at
 9 to 15 weeks and the timeline below is from bulk tissue; a low or absent value
 is not evidence a gene is unimportant to heart development." and the cell-type
 block follows, its folded key ending with a link, *How to read cell-type

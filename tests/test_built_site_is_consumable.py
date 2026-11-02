@@ -1876,14 +1876,15 @@ def test_the_front_page_names_every_source_that_requires_attribution(site: Path)
     the page names it and a phrase is pinned; each phrase must be on the page,
     with the licence where it is CC BY. Measured on a real build the day it was
     written: 7 such sources. Since the doorway page (2026-10-27) the section is
-    "Sources", one paragraph of 123 words, and the sentence is three. Farah et
-    al. 2024's cell-type data made it 8 sources on 2026-11-02, named in one
-    13-word sentence. Measured on builds of fe94116, the paragraph's HTML
-    between `<p>` and `</p>` (heading not counted) with entities unescaped and
+    "Sources", one paragraph of 118 words (tags deleted outright, the method
+    below), and the sentence is three. Farah et al. 2024's cell-type data made it 8
+    sources on 2026-11-02, named in one 13-word sentence. Measured on builds of fe94116, the
+    paragraph's HTML between `<p>` and `</p>` (heading not counted) with entities unescaped and
     split on whitespace: 118 words without the sentence and 131 with it when
     tags are deleted outright, 123 and 136 when each tag is replaced by a
     space (a tag inside a word, as in `<strong>Orphanet</strong>'s`, then
-    splits it). The first method is the one the figures above use.
+    splits it). The 118-word figure above is the first method; the second is
+    given only to show the spread.
 
     **Every licence the sentence states is held to `sources.json`** (review,
     2026-10-27), not only CC BY: "Audain et al. 2021, CC0" and "EMBL-EBI's
@@ -2127,6 +2128,8 @@ def test_a_gene_page_carries_no_more_visible_prose_than_its_measured_budget(site
     review fixes to batch 3, 2026-10-27          957  1,066  21 sentences, 430 words
     owner answers 2026-10-27 (A1, A2)            964  1,073  21 sentences, 430 words
     review fixes to owner answers, 2026-10-27    964  1,073  21 sentences, 430 words
+    fe94116, Farah, two-sentence banner          999  1,117  23 sentences, 454 words
+    dd34b8b, one-sentence banner (HEAD)        1,000  1,118  22 sentences, 455 words
     =========================================  =====  =====  ======================
 
     The 2f6300a row is the owner's wording decisions of 2026-10-26 (E1, E2, R4,

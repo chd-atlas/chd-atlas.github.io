@@ -619,13 +619,12 @@ def _cohorts(cohorts: Mapping[str, Cohort]) -> str:
 # links here, or, where the gene has cell-type data, `pages._CELL_TYPE_NOTICE`,
 # which does not (the cell-type block's fold does); the next two were its
 # folded "How to read these figures" notes, and left it; the next two define
-# tau and the developmental
-# phases, which the pages print and nothing defined (review, the same day, each
-# recorded where it is written); the sixth states in general the axes each
-# chart's visible caption line states of its own figure, and is where every
-# chart's "How to read this chart" toggle links (`pages._chart_notes`); the
-# last two, added 2026-10-28, say how a cell-type figure is computed and what
-# it does not say.
+# tau and the developmental phases, which the pages print and nothing defined
+# (review, the same day, each recorded where it is written); the sixth states
+# in general the axes each chart's visible caption line states of its own
+# figure, and is where every chart's "How to read this chart" toggle links
+# (`pages._chart_notes`); the last two, added 2026-10-28, say how a cell-type
+# figure is computed and what it does not say.
 #
 # Each was re-read for a page with no gene, dataset or figure on it, and read
 # against the code and a build of 0fc451a that day. Narrower or different from

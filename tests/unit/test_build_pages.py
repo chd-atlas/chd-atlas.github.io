@@ -9414,8 +9414,9 @@ def test_the_cell_type_block_adds_at_most_41_visible_words_to_a_gene_page(
     the measured growth was 40 (block 35 + banner 5, re-measured 2026-10-28 after
     the tau line moved below the chart) and is 41 since the owner's one-sentence
     banner of 2026-11-02 (the banner gained "and", which joins the two clauses), so the ceiling
-    is raised by that word and any further visible word the block adds fails here. Words inside an SVG or a closed fold do not
-    count, which is why the region grid's key costs none."""
+    is raised by that word and any further visible word the block adds fails here.
+    Words inside an SVG or a closed fold do not count, which is why the region grid's
+    key costs none."""
     from tests.test_built_site_is_consumable import _prose, _words
 
     datasets = {"E-MTAB-6814": _profile_dataset(), "hoc": cell_type_dataset()}
