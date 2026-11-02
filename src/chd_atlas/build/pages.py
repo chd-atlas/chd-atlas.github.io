@@ -4566,10 +4566,6 @@ def _other_organ_cell(
     if cell is None:
         return "–"
     figure = _abundance(cell)
-    if cell["placement"] is None and cell["not_placed_reason"] == (
-        ProfileGap.BELOW_DETECTION_FLOOR.value
-    ):
-        return f"{figure}; below floor"
     return f"{figure}; {_tissue_percentile(cell, floor, with_grid=with_grid)}"
 
 
@@ -4577,7 +4573,8 @@ def _stage_tables(entry: DatasetProfileEntry, cardiac: frozenset[str], floor: fl
     """Every figure of one dataset: a table per cardiac tissue, one for the other organs.
 
     This replaced 21 near-identical per-stage blocks per dataset (59% of the
-    section's text was verbatim repetition) without taking a figure out of the
+    section's text was verbatim repetition, measured on TBX5 by the method in
+    `_dataset_block`'s docstring) without taking a figure out of the
     HTML: a chart that replaced them would be the characteristic defect, curated
     work reaching no page, in a redesign. Decisions the blocks made, kept here:
 
@@ -4588,7 +4585,7 @@ def _stage_tables(entry: DatasetProfileEntry, cardiac: frozenset[str], floor: fl
       carries its own " of N genes".
     - **The heart table has a row for every stage**, sampled or not, so the
       stage-level facts (phases, tau, highest median) survive for a stage the
-      tissue lacks; its median cell reads "not sampled", its percentile "-".
+      tissue lacks; its median cell reads "not sampled", its percentile "–".
     - **Phases:** every id, never the first (`_phases_cell`). **tau:** no
       adjective; the scale is in the header and a tie reads "tied"
       (`_highest_cell`). **Every gap is a named state**, never blank, and
@@ -4729,7 +4726,7 @@ _PLOT_HEIGHT: Final = 112.0
 # the axis; without the gap, the atlas's weakest statement about a figure ("we
 # do not vouch for this one") and its lowest real one ("this is the smallest
 # number we measured") would land on the same pixel row, which is the exact
-# conflation `_percentile_cell` refuses to make in words.
+# conflation `_tissue_percentile` refuses to make in words.
 _FLOOR_GAP: Final = 8.0
 
 # The value axis's own two labels, in the margin `_PLOT_LEFT` already
@@ -5022,7 +5019,7 @@ def _tissue_medians(entry: DatasetProfileEntry, tissue: str) -> list[_Median]:
     **What is plotted is exactly what the atlas placed.** A below-floor
     figure has a median too, and plotting it would put a number this atlas
     declines to vouch for on the same line as ones it does -- the discipline
-    `_percentile_cell` already keeps in words. A non-positive median folds
+    `_tissue_percentile` already keeps in words. A non-positive median folds
     into the same `None` for a second, narrower reason: it cannot be located
     on a log axis at all. Neither loses a figure; every one of them is in the
     table inside the `<details>`.
@@ -5282,7 +5279,7 @@ def _other_gap_clause(reasons: frozenset[str]) -> str:
     """Every gap reason *except* the detection floor's, spelled out.
 
     The floor is excluded because it is the one reason with its own required
-    wording -- `_percentile_cell`'s rule 5 and the short form `_band_caption`
+    wording -- `_tissue_percentile`'s rule 5 and the short form `_band_caption`
     carries on its visible line (E1). Everything else
     resolves through `_PLACEMENT_GAP_CLAUSE`, so a caption and the table cell
     three lines below it cannot spell one gap two ways.
@@ -5599,7 +5596,7 @@ def _grid_state(cell: TissueProfileEntry) -> str:
     A below-floor figure has a median too (0.4 tpm), and shading it `heat-1`
     would put a number this atlas declines to vouch for on the same ramp as
     ones it does -- the discipline `_tissue_medians` keeps for the line and
-    `_percentile_cell` keeps in words. `below_detection_floor` is the one
+    `_tissue_percentile` keeps in words. `below_detection_floor` is the one
     reason with its own state (rule 5); any other reason is a hole in the
     reference, not a low reading, and gets the other.
     """

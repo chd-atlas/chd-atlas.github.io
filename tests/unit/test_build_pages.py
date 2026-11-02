@@ -4853,7 +4853,7 @@ def test_every_figure_reaches_the_tables(tmp_path: Path) -> None:
     assert _row_cells(other, "6wpc")[1:] == [
         "99 rpkm (n=3 samples); no complete percentile grid is published for this organ at "
         "this stage",
-        "0.4 rpkm (n=3 samples); below floor",
+        "0.4 rpkm (n=3 samples); below the 1 rpkm floor",
     ]
 
 
@@ -5136,7 +5136,10 @@ def test_a_below_floor_tissue_names_the_floor_value_and_never_says_not_detected(
     page = _expression_page(tmp_path, profiles, {"E-MTAB-6814": _profile_dataset()})
     tables = _stage_tables_by_label(page)
     assert _row_cells(tables["Heart"], "7wpc")[3] == "below the 1 rpkm floor"
-    assert _row_cells(tables["Other organs"], "7wpc")[1] == "0.3 rpkm (n=3 samples); below floor"
+    assert (
+        _row_cells(tables["Other organs"], "7wpc")[1]
+        == "0.3 rpkm (n=3 samples); below the 1 rpkm floor"
+    )
     assert "not detected" not in page.lower()
 
     # A floor the dataset never declared: the wording drops the number, not the state.
