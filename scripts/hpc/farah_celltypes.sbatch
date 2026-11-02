@@ -3,8 +3,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=48G
-#SBATCH --time=0-04:00:00
+#SBATCH --mem=12G
+#SBATCH --time=0-00:30:00
 #SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.err
 #SBATCH --mail-type=END,FAIL
@@ -15,8 +15,11 @@
 # Pseudobulks the Farah et al. 2024 heart atlas with hvantk, twice (by Age, Rep,
 # cell class and Region; then without Region), and flattens both into
 # $OUT_DIR/pseudobulk.tsv for scripts/convert_farah2024.py.
-# The memory and time are NOT yet measured on this input: the first real run
-# should be read with `seff` and these numbers corrected from it.
+# Resources are from the first real run (seff, job 21367175, 2026-11-02):
+# wall-clock 2m30s, MaxRSS 6.39 GB of 48G requested, CPU efficiency 10.5%. Keep
+# the time at or under all_cpu.p's MaxTime (2h): that site sets
+# EnforcePartLimits=NO, so a longer request is accepted and then never starts
+# (measured 2026-11-02).
 
 set -euo pipefail
 PROJECT_DIR="${SLURM_SUBMIT_DIR:-$(pwd)}"
@@ -56,12 +59,34 @@ if command -v ml >/dev/null 2>&1; then
 fi
 # A cluster module must not shadow the venv's own packages.
 unset PYTHONPATH
+# hvantk is a flat checkout that its venv does not install, so `-m hvantk`
+# imports only with the checkout on the path. Set per call below, so the code
+# that runs is the commit recorded below (measured 2026-11-02: the venv alone
+# raises "No module named hvantk").
+HVANTK_PATH="$HVANTK_REPO"
+PYTHONPATH="$HVANTK_PATH" "$HVANTK_PYTHON" -c "import hvantk" \
+  || { echo "ERROR: cannot import hvantk from $HVANTK_REPO" >&2; exit 1; }
 
 # Captured rather than echoed inline: a command substitution inside `echo`
 # fails silently under `set -e` and would print an empty commit. The output's
-# provenance needs this line, so an empty one stops the job.
-HVANTK_HEAD="$(git -C "$HVANTK_REPO" rev-parse HEAD)"
-: "${HVANTK_HEAD:?could not read the hvantk commit from $HVANTK_REPO}"
+# provenance needs this line, so anything but a full sha stops the job.
+# Read from the checkout's own files, because the compute nodes have no git
+# (measured 2026-11-02: job 21367171 died on "git: command not found"). A
+# detached HEAD holds the sha; a branch HEAD names a loose or packed ref.
+hvantk_head() {
+  local git_dir="$HVANTK_REPO/.git" head ref
+  head="$(<"$git_dir/HEAD")"
+  if [[ "$head" != ref:* ]]; then echo "$head"; return; fi
+  ref="${head#ref: }"
+  if [[ -r "$git_dir/$ref" ]]; then
+    cat "$git_dir/$ref"
+  else
+    awk -v r="$ref" '$2 == r { print $1 }' "$git_dir/packed-refs"
+  fi
+}
+HVANTK_HEAD="$(hvantk_head)"
+[[ "$HVANTK_HEAD" =~ ^[0-9a-f]{40}$ ]] \
+  || { echo "ERROR: could not read the hvantk commit from $HVANTK_REPO" >&2; exit 1; }
 
 echo "== farah celltypes =="
 echo "date:         $(date -Iseconds)"
@@ -74,11 +99,11 @@ echo "input:        $INPUT_H5AD"
 echo "out:          $OUT_DIR"
 echo "input sha256: $(sha256sum "$INPUT_H5AD" | cut -d' ' -f1)"
 
-"$HVANTK_PYTHON" -m hvantk expression summarize -m "$INPUT_H5AD" \
+PYTHONPATH="$HVANTK_PATH" "$HVANTK_PYTHON" -m hvantk expression summarize -m "$INPUT_H5AD" \
   --group-by Age --group-by Rep --group-by major_cell_class --group-by Region \
   --min-cells "$MIN_CELLS" -o "$BY_REGION"
 
-"$HVANTK_PYTHON" -m hvantk expression summarize -m "$INPUT_H5AD" \
+PYTHONPATH="$HVANTK_PATH" "$HVANTK_PYTHON" -m hvantk expression summarize -m "$INPUT_H5AD" \
   --group-by Age --group-by Rep --group-by major_cell_class \
   --min-cells "$MIN_CELLS" -o "$POOLED"
 
