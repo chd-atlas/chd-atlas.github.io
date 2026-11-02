@@ -219,11 +219,15 @@ def test_every_chart_mark_resolves_a_paint_and_no_two_meanings_share_one() -> No
                 assert token in declared, f"{selector} resolves {token}, which no palette declares"
 
     # `.chart` itself is layout only -- width, height, overflow -- and paints
-    # nothing; every other chart class names a mark and must colour it.
+    # nothing, and so is the bulk figure's scroller `.chart-scroll` (and its
+    # `.chart-scroll .chart` rule): they hold a minimum width and an
+    # `overflow-x`, not a mark. Every other chart class names a mark and must
+    # colour it. The exemption is by the scroller's name, never by "declares
+    # no paint", which would exempt exactly the defect this asserts.
     marks = {
         selector: declarations
         for selector, declarations in rules.items()
-        if selector.startswith(".chart-")
+        if selector.startswith(".chart-") and not selector.startswith(".chart-scroll")
     }
     assert len(marks) > 8, f"only {len(marks)} mark classes found; the pattern has drifted"
     for selector, declarations in marks.items():
@@ -290,3 +294,37 @@ def test_an_axis_with_a_non_finite_bound_is_refused_at_construction(
     """
     with pytest.raises(ValueError, match="finite"):
         LogScale(low=low, high=high, left=0.0, width=width)
+
+
+def test_the_heat_tokens_exist_in_both_colour_schemes() -> None:
+    """The organ grid's four shades are defined for light and for dark, separately.
+
+    Dark mode is its own set of steps, never the light ones flipped, so a token
+    defined only in the light `:root` would render the grid with a dark-page
+    background and a light-page ramp. Sliced to each block: the dark block is
+    what follows `prefers-color-scheme: dark` up to the first rule outside it.
+    """
+    light = STYLESHEET.split("@media (prefers-color-scheme: dark)")[0]
+    dark = STYLESHEET.split("@media (prefers-color-scheme: dark)")[1].split("* { box-sizing")[0]
+    for block, expected in (
+        (
+            light,
+            {
+                "--heat-1": "#bae6fd",
+                "--heat-2": "#38bdf8",
+                "--heat-3": "#0284c7",
+                "--heat-4": "#075985",
+            },
+        ),
+        (
+            dark,
+            {
+                "--heat-1": "#0c4a6e",
+                "--heat-2": "#0369a1",
+                "--heat-3": "#0ea5e9",
+                "--heat-4": "#7dd3fc",
+            },
+        ),
+    ):
+        for token, value in expected.items():
+            assert f"{token}: {value};" in block

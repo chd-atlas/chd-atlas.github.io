@@ -4653,14 +4653,19 @@ def _stage_block(
 _STAGES_FOR_A_TRAJECTORY: Final = 3
 
 _CHART_WIDTH: Final = 560
-_CHART_HEIGHT: Final = 202
-_PLOT_LEFT: Final = 46.0
-_PLOT_RIGHT: Final = 550.0
-_PLOT_TOP: Final = 12.0
-_PLOT_BOTTOM: Final = 124.0
+# Wide enough for the grid's organ labels, which sit in the margin left of the
+# first column (`_grid`): "forebrain" and "hindbrain", the longest organ names
+# in E-MTAB-6814, are 9 characters. The value axis's own labels and title share
+# this margin.
+_PLOT_LEFT: Final = 64.0
+_PLOT_RIGHT: Final = 544.0
+# The heart chart's height. Its top and bottom are not constants: the phase
+# strip above it has one row per banded phase, so where the plot starts depends
+# on how many phases this dataset's stages fall inside (`_bulk_figure`).
+_PLOT_HEIGHT: Final = 112.0
 
 # The lowest placed measurement stops this far above the axis, and the gap is
-# load-bearing rather than padding. `_trajectory` ticks a below-floor stage ON
+# load-bearing rather than padding. `_bulk_figure` ticks a below-floor stage ON
 # the axis; without the gap, the atlas's weakest statement about a figure ("we
 # do not vouch for this one") and its lowest real one ("this is the smallest
 # number we measured") would land on the same pixel row, which is the exact
@@ -4668,7 +4673,7 @@ _PLOT_BOTTOM: Final = 124.0
 _FLOOR_GAP: Final = 8.0
 
 # The value axis's own two labels, in the margin `_PLOT_LEFT` already
-# reserves. Without them the 104 px between `_PLOT_TOP` and the foot of the
+# reserves. Without them the 104 px between the plot's top and the foot of the
 # scale carried no number at all, and every gene's curve filled all of it:
 # measured 2026-08-20, PKD1L1 spans 1 to 2 tpm and TBX20 spans 1 to 526, and
 # the two were drawn as the same full-height excursion. Right-anchored, so a
@@ -4691,20 +4696,22 @@ _AXIS_LABEL_DROP: Final = 3.4
 # placed stage, 2 tpm), TFAP2B (one placed stage, 1 tpm) and MMP21 -- which is
 # placed at *three* stages, all of them 1.0 tpm. A count of genes with few
 # placed stages would be a different set: 9 of the 92 are placed at fewer than
-# two heart stages, and 7 of those 9 place nothing at all, so `_trajectory`
-# returns before there is an axis to scale. No gene reaches this branch
-# through `_small_multiples`, whose axis pools every drawn organ.
+# two heart stages, and 7 of those 9 place nothing at all, so `_charted_tissue`
+# draws no chart and there is no axis to scale. No gene reaches this branch
+# through any other path: the heart chart is the only figure here with a value
+# axis, and it is fitted to the cardiac tissue's own placed medians alone.
 _FLAT_SERIES_SPAN: Final = 10.0**0.5
 
 
 def _even_x(index: int, count: int, left: float, right: float) -> float:
     """The `index`-th of `count` evenly spaced positions between `left` and `right`.
 
-    One implementation for both pictures on this page. The trajectory and the
-    organ small multiples plot the *same* stage sequence at different widths,
-    and a reader reads down from one to the other; two copies of this
-    arithmetic could put stage 5 four-ninths of the way along in one and
-    five-ninths in the other, with nothing failing.
+    Kept as its own function from when two pictures on this page plotted the
+    same stage sequence at different widths (the trajectory and a row of organ
+    small multiples, deleted 2026-11-02). Today one figure holds the phase
+    strip, the heart chart and the organ grid, and `_stage_x` is the one place
+    that fixes where a stage sits, so a column is one stage from strip to grid
+    by construction.
     """
     if count < 2:
         return (left + right) / 2
@@ -4719,8 +4726,8 @@ def _stage_x(index: int, count: int) -> float:
     carry no `wpc` at all, so a time-proportional axis could not place them;
     and even among the prenatal ones the sampling is uneven (13, then 16, 18,
     19 wpc). Evenly spaced positions say only "these came in this order",
-    which is the whole of what `Stage.order` supports. `_trajectory`'s caption
-    says so in words, because a reader cannot see it from the picture.
+    which is the whole of what `Stage.order` supports. `_band_caption` says so
+    in words, because a reader cannot see it from the picture.
     """
     return _even_x(index, count, _PLOT_LEFT, _PLOT_RIGHT)
 
@@ -4728,10 +4735,10 @@ def _stage_x(index: int, count: int) -> float:
 def _half_step(count: int) -> float:
     """Half the gap between two adjacent stages, in pixels.
 
-    A phase band runs half a step outside the first and last stage it covers,
-    so that a phase covering exactly one stage draws a visible band rather
-    than a zero-width rectangle nobody sees. One published phase does exactly
-    that: `outflow_tract_septum_morphogenesis` covers 6 wpc alone.
+    A phase band, and a bar in the phase strip, runs half a step outside the
+    first and last stage it covers, so that a phase covering exactly one stage
+    draws a visible band rather than a zero-width rectangle nobody sees. One
+    published phase does exactly that: `outflow_tract_septum_morphogenesis` covers 6 wpc alone.
     """
     if count < 2:
         return (_PLOT_RIGHT - _PLOT_LEFT) / 2
@@ -4761,22 +4768,35 @@ def _axis_label(value: float, y: float) -> str:
     )
 
 
-# The trajectory's axes. The value axis gets a line, a gridline and a label at
-# every whole decade the data spans (beside the two end labels, which stay), and
-# a title naming the quantity and its unit; the stage axis gets a tick and a
-# label per stage, because the order of the stages is the only thing the
-# horizontal position says. A prenatal stage is "N week post conception" and
-# prints as "Nw"; every other stage prints as its own name.
+# The figure's axes. The value axis gets a line, a gridline at every whole
+# decade the data spans (beside the two end labels, which stay), and a title
+# naming the quantity and its unit. The stage axis labels **every** stage the
+# dataset publishes, because one x position per stage is shared by the phase
+# strip above, the heart chart and the organ grid below, and the order of the
+# stages is the only thing the horizontal position says.
 _X_TICK: Final = 4.0
 _X_LABEL_DROP: Final = 12.0
-_X_TITLE_Y: Final = 196.0
 _Y_TITLE_X: Final = 9.0
 _GRID_CLEARANCE: Final = 9.0
 _PRENATAL_STAGE: Final = re.compile(r"^(\d+) week post conception$")
+_PRENATAL_TITLE: Final = "weeks post conception"
+# A tick label's rotation, and the width one character of it takes. The width
+# is an estimate used only to size the margin under the axis and to decide
+# which side of a strip bar its label goes on. It was set by eye against a
+# headless-Chrome screenshot of the TBX5 page (the longest label, "school age
+# child", clears the first grid row with room to spare), never derived from
+# font metrics: a different font would move it.
+_TICK_ANGLE: Final = 40.0
+_CHAR_WIDTH: Final = 4.6
 
 
 def _short_stage(label: str) -> str:
-    """A stage's tick label: "4w" for "4 week post conception", else the name itself."""
+    """A stage's short label: "4w" for "4 week post conception", else the name itself.
+
+    Used where there is no room for the axis's own convention (a week number
+    under a shared "weeks post conception" title): a hover title, a grid cell's
+    `<title>`.
+    """
     prenatal = _PRENATAL_STAGE.fullmatch(label)
     return f"{prenatal.group(1)}w" if prenatal else label
 
@@ -4787,13 +4807,19 @@ def _decades(low: float, high: float) -> list[float]:
     return [10.0**exponent for exponent in range(first, last + 1)]
 
 
-def _value_axis(scale: LogScale, low: float, high: float, unit: str) -> str:
-    """The value axis: its line, a gridline per whole decade, and its title."""
-    base = _PLOT_BOTTOM - _FLOOR_GAP
+def _value_axis(
+    scale: LogScale, low: float, high: float, unit: str, top: float, bottom: float
+) -> str:
+    """The value axis: its line, a gridline per whole decade, and its title.
+
+    `top` and `bottom` are the plot's own, because the phase strip above it
+    makes where the plot starts a function of how many phases there are.
+    """
+    base = bottom - _FLOOR_GAP
     ends = (base - scale.x(low), base - scale.x(high))
     out = (
-        f'<line class="chart-axis" x1="{coordinate(_PLOT_LEFT)}" y1="{coordinate(_PLOT_TOP)}" '
-        f'x2="{coordinate(_PLOT_LEFT)}" y2="{coordinate(_PLOT_BOTTOM)}"/>'
+        f'<line class="chart-axis" x1="{coordinate(_PLOT_LEFT)}" y1="{coordinate(top)}" '
+        f'x2="{coordinate(_PLOT_LEFT)}" y2="{coordinate(bottom)}"/>'
     )
     for decade in _decades(low, high):
         y = base - scale.x(decade)
@@ -4803,7 +4829,7 @@ def _value_axis(scale: LogScale, low: float, high: float, unit: str) -> str:
             f'<line class="chart-grid" x1="{coordinate(_PLOT_LEFT)}" y1="{coordinate(y)}" '
             f'x2="{coordinate(_PLOT_RIGHT)}" y2="{coordinate(y)}"/>' + _axis_label(decade, y)
         )
-    centre = (_PLOT_TOP + _PLOT_BOTTOM) / 2
+    centre = (top + bottom) / 2
     title = f"median abundance ({unit}, log scale)" if unit else "median abundance (log scale)"
     return out + (
         f'<text class="chart-axis-title" x="{coordinate(_Y_TITLE_X)}" y="{coordinate(centre)}" '
@@ -4812,24 +4838,72 @@ def _value_axis(scale: LogScale, low: float, high: float, unit: str) -> str:
     )
 
 
-def _stage_axis(series: Sequence[_Median], count: int) -> str:
-    """The stage axis: a tick and a label under every sampled stage, and its title."""
+def _axis_depth(labels: Sequence[str]) -> float:
+    """How far below the axis line its labels reach, in pixels.
+
+    A prenatal stage prints its week number on one row, and one shared
+    "weeks post conception" sits on the row below; any other stage prints its
+    full name rotated, and the longest name decides how far down those reach.
+    """
+    prenatal = any(_PRENATAL_STAGE.fullmatch(label) for label in labels)
+    others = [len(label) for label in labels if not _PRENATAL_STAGE.fullmatch(label)]
+    depth = _X_LABEL_DROP + 3.0
+    if prenatal:
+        depth = _X_LABEL_DROP + 15.0
+    if others:
+        slanted = max(others) * _CHAR_WIDTH * math.sin(math.radians(_TICK_ANGLE))
+        depth = max(depth, _X_LABEL_DROP + slanted + 4.0)
+    return depth
+
+
+def _stage_axis(labels: Sequence[str], unsampled: frozenset[int], baseline: float) -> str:
+    """The stage axis: a tick and a label under **every** stage the dataset publishes.
+
+    Until 2026-11-02 only the cardiac tissue's own sampled stages were labelled
+    (as "4w", rotated) and the axis carried a title, "developmental stage
+    (curated order, not elapsed time)". Two stages heart has no row at
+    (`school age child`, `elderly`) therefore had no tick at all, in a figure
+    whose columns are now shared with a grid that does have a cell there.
+
+    A prenatal stage ("N week post conception") shows its number, unrotated,
+    with exactly one "weeks post conception" centred under the prenatal run;
+    any other stage shows its full name rotated and anchored at its end. A
+    stage in `unsampled` -- one where the charted cardiac tissue has no row --
+    takes the lighter `unsampled` class: it is labelled, because the grid
+    below has a column there, and greyed, because the line above has nothing.
+    """
+    count = len(labels)
     out = ""
-    for point in series:
-        x = _stage_x(point.position, count)
-        y = _PLOT_BOTTOM + _X_LABEL_DROP
+    prenatal_x: list[float] = []
+    for index, label in enumerate(labels):
+        x = _stage_x(index, count)
+        y = baseline + _X_LABEL_DROP
+        css = "chart-tick-label unsampled" if index in unsampled else "chart-tick-label"
         out += (
-            f'<line class="chart-axis" x1="{coordinate(x)}" y1="{coordinate(_PLOT_BOTTOM)}" '
-            f'x2="{coordinate(x)}" y2="{coordinate(_PLOT_BOTTOM + _X_TICK)}"/>'
-            f'<text class="chart-tick-label" x="{coordinate(x)}" y="{coordinate(y)}" '
-            f'text-anchor="end" transform="rotate(-40 {coordinate(x)} {coordinate(y)})">'
-            f"{html.escape(_short_stage(point.label))}</text>"
+            f'<line class="chart-axis" x1="{coordinate(x)}" y1="{coordinate(baseline)}" '
+            f'x2="{coordinate(x)}" y2="{coordinate(baseline + _X_TICK)}"/>'
         )
-    centre = (_PLOT_LEFT + _PLOT_RIGHT) / 2
-    return out + (
-        f'<text class="chart-axis-title" x="{coordinate(centre)}" y="{coordinate(_X_TITLE_Y)}" '
-        'text-anchor="middle">developmental stage (curated order, not elapsed time)</text>'
-    )
+        prenatal = _PRENATAL_STAGE.fullmatch(label)
+        if prenatal:
+            prenatal_x.append(x)
+            out += (
+                f'<text class="{css}" x="{coordinate(x)}" y="{coordinate(y)}" '
+                f'text-anchor="middle">{prenatal.group(1)}</text>'
+            )
+        else:
+            out += (
+                f'<text class="{css}" x="{coordinate(x)}" y="{coordinate(y)}" '
+                f'text-anchor="end" transform="rotate(-{coordinate(_TICK_ANGLE)} '
+                f'{coordinate(x)} {coordinate(y)})">{html.escape(label)}</text>'
+            )
+    if prenatal_x:
+        centre = (min(prenatal_x) + max(prenatal_x)) / 2
+        out += (
+            f'<text class="chart-axis-title" x="{coordinate(centre)}" '
+            f'y="{coordinate(baseline + _X_LABEL_DROP + 12.0)}" text-anchor="middle">'
+            f"{_PRENATAL_TITLE}</text>"
+        )
+    return out
 
 
 def _stage_label(stage: StageProfileEntry) -> str:
@@ -4848,7 +4922,8 @@ class _Median(NamedTuple):
     A `NamedTuple` rather than a bare tuple because the fourth field is the
     one two captions were reading off the wrong axis. `value is None` says a
     stage was sampled and not placed; it does not say the gene reads low
-    there, and `_band_caption` and `_spark_caption` both said so. The reason
+    there, and two captions both said so (`_band_caption` and the since-deleted
+    spark caption). The reason
     now travels *with* the point, so a caption cannot look it up on a
     different pass over the data than the one that decided the point was
     unplaceable -- the discipline `_adjacent_runs` keeps by taking its pixel
@@ -4877,7 +4952,7 @@ def _tissue_medians(entry: DatasetProfileEntry, tissue: str) -> list[_Median]:
     detection floor, or with no complete percentile grid behind it. Those
     stages stay in the list rather than being filtered out, because a gap in
     the sequence and a stage nobody sampled must not render the same way:
-    `_trajectory` ticks the first on the axis and the second is simply not
+    `_bulk_figure` ticks the first on the axis and the second is simply not
     here at all.
 
     A stage where this organ has no row is not in the list, for that reason.
@@ -4982,45 +5057,94 @@ def _banded_phases(
     ]
 
 
-def _phase_bands(entry: DatasetProfileEntry, phases: CardiacPhaseFile | None, count: int) -> str:
-    """The shaded stage ranges this atlas's own phase vocabulary names.
+def _phase_bands(
+    entry: DatasetProfileEntry,
+    phases: CardiacPhaseFile | None,
+    count: int,
+    top: float,
+    bottom: float,
+) -> str:
+    """The faint shaded stage ranges behind the heart chart.
 
     **This is what makes the chart admissible under D43.** The curve itself is
-    what the source's own browser already draws; the bands are a claim no
+    what the source's own browser already draws; the phases are a claim no
     external browser makes, transcribed from PMID:32048790 into
     `curation/cardiac_phases.yaml` and carried onto every gene page here.
-    `_trajectory` returns `""` when this returns `""`, so the rule is enforced
-    by construction rather than by a comment asking a later author to keep it.
+    `_bulk_figure` draws no heart chart when this returns `""`, so the rule is
+    enforced by construction rather than by a comment asking a later author to
+    keep it.
 
-    Each band carries its own `<title>`, so a phase is nameable where several
-    overlap -- and they do overlap, deliberately: three cardiac processes run
-    concurrently at 6 wpc. Overlapping bands share one fill and merge into a
-    single shaded region marking the morphogenetic window; the caption below
-    the figure is what names each of them in text, which is also what a reader
-    who cannot hover gets -- inside its "How to read this chart" toggle since
-    2026-10-26 (D57, `_band_caption`).
+    The bands carry no `<title>` since the phase strip above the plot was added
+    (2026-11-02): each phase is now named once, in the strip's own row, and a
+    second `<title>` per band would name it twice. They overlap, deliberately
+    -- three cardiac processes run concurrently at 6 wpc -- and share one fill,
+    merging into a single shaded region marking the morphogenetic window.
     """
     edge = _half_step(count)
     rects = []
-    for phase, first, last in _banded_phases(entry, phases):
+    for _, first, last in _banded_phases(entry, phases):
         left = max(_stage_x(first, count) - edge, 0.0)
         right = min(_stage_x(last, count) + edge, float(_CHART_WIDTH))
         rects.append(
-            f'<rect class="chart-band" x="{coordinate(left)}" y="{coordinate(_PLOT_TOP)}" '
-            f'width="{coordinate(right - left)}" '
-            f'height="{coordinate(_PLOT_BOTTOM - _PLOT_TOP)}">'
-            f"<title>{html.escape(phase.label)}</title></rect>"
+            f'<rect class="chart-band" x="{coordinate(left)}" y="{coordinate(top)}" '
+            f'width="{coordinate(right - left)}" height="{coordinate(bottom - top)}"/>'
         )
     return "".join(rects)
+
+
+_STRIP_TOP: Final = 4.0
+_STRIP_ROW: Final = 13.0
+_STRIP_BAR: Final = 8.0
+_STRIP_TO_PLOT: Final = 10.0
+
+
+def _phase_strip(
+    rows: Sequence[tuple[CardiacPhase, int, int]], count: int, top: float
+) -> tuple[str, float]:
+    """One named bar per banded phase, in chronological order, and the strip's height.
+
+    **Chronological, not `_banded_phases`' id order.** That function sorts by
+    phase id so the order does not move with the stage walk, and an id order
+    is alphabetical, which says nothing about when a phase happens. A reader
+    follows a strip as a timeline, so the rows are ordered by first stage, then
+    last stage, then id -- the id only breaking a tie, so the order is still a
+    function of the data alone. `_banded_phases` is left alone: other callers
+    rely on its order.
+
+    Each bar spans the same half-step-padded range the faint band behind the
+    plot does, so the two cannot disagree; its label sits right of the bar, or
+    left of it when the label would run off the figure. A bar carries a
+    `<title>` with the same label, for a reader who hovers.
+    """
+    edge = _half_step(count)
+    out = ""
+    ordered = sorted(rows, key=lambda row: (row[1], row[2], row[0].id))
+    for position, (phase, first, last) in enumerate(ordered):
+        y = top + position * _STRIP_ROW
+        left = max(_stage_x(first, count) - edge, 0.0)
+        right = min(_stage_x(last, count) + edge, float(_CHART_WIDTH))
+        label = html.escape(phase.label)
+        if right + 4.0 + len(phase.label) * _CHAR_WIDTH <= _CHART_WIDTH:
+            text_x, anchor = right + 4.0, "start"
+        else:
+            text_x, anchor = left - 4.0, "end"
+        out += (
+            f'<rect class="chart-strip" x="{coordinate(left)}" y="{coordinate(y)}" '
+            f'width="{coordinate(right - left)}" height="{coordinate(_STRIP_BAR)}" rx="3">'
+            f"<title>{label}</title></rect>"
+            f'<text class="chart-tick-label" x="{coordinate(text_x)}" '
+            f'y="{coordinate(y + _STRIP_BAR / 2 + _AXIS_LABEL_DROP)}" '
+            f'text-anchor="{anchor}">{label}</text>'
+        )
+    return out, len(ordered) * _STRIP_ROW
 
 
 def _other_gap_clause(reasons: frozenset[str]) -> str:
     """Every gap reason *except* the detection floor's, spelled out.
 
     The floor is excluded because it is the one reason with its own required
-    wording -- `_percentile_cell`'s rule 5, the sentence `_spark_caption`
-    carries in its fold, and the short form `_band_caption` carries on its
-    visible line (E1). Everything else
+    wording -- `_percentile_cell`'s rule 5 and the short form `_band_caption`
+    carries on its visible line (E1). Everything else
     resolves through `_PLACEMENT_GAP_CLAUSE`, so a caption and the table cell
     three lines below it cannot spell one gap two ways.
 
@@ -5056,9 +5180,10 @@ def _other_gap_clause(reasons: frozenset[str]) -> str:
 def _chart_notes(notes: str) -> str:
     """An expression chart's folded key, under "How to read this chart" (D57).
 
-    One implementation for the trajectory and the small multiples, so the two
-    toggles on one page cannot word their summary or their link two ways. The
-    link names its section, as the forest's toggle names `#rare-variants`: the
+    One implementation for every expression chart's toggle, so the summary and
+    the link cannot be worded two ways. (Until 2026-11-02 a page carried two
+    of them, the trajectory's and the small multiples'; there is one fold per
+    figure now.) The link names its section, as the forest's toggle names `#rare-variants`: the
     nav's "How to read this atlas" and the gene card's "How to read this page"
     are the two texts that open the top of `methods.html`.
     Both paragraphs are `method`, because unlike the forest's these sit outside
@@ -5073,6 +5198,9 @@ def _chart_notes(notes: str) -> str:
     )
 
 
+_GRID_BINS_NOTE: Final = "The grid's shades are fixed bins, so they compare across genes."
+
+
 def _band_caption(
     entry: DatasetProfileEntry,
     phases: CardiacPhaseFile | None,
@@ -5083,76 +5211,61 @@ def _band_caption(
     series: Sequence[_Median],
     *,
     lined: bool,
-    context: Sequence[str] = (),
+    uncharted: Sequence[str] = (),
 ) -> str:
-    """What the picture cannot say about itself, in words beside it.
+    """What the figure cannot say about itself, in words beside it.
 
-    Four things a reader would otherwise have to guess, and two of them are
-    traps. The horizontal axis is stage *order*, not elapsed time, so the gap
-    between 13 and 16 wpc is drawn the same width as the gap between 4 and 5.
-    Saying so is the difference between an ordinal axis and a false linear
-    one.
+    The horizontal axis is stage *order*, not elapsed time, so the gap between
+    13 and 16 wpc is drawn the same width as the gap between 4 and 5. Saying
+    so is the difference between an ordinal axis and a false linear one.
 
     **And the vertical axis is fitted to this gene alone**, which is the
-    second trap and the one that was unstated. Every gene's curve fills the
-    same 104 px whatever it spans: measured 2026-08-20, PKD1L1 runs 1 to 2
-    tpm in heart and TBX20 runs 1 to 526, and the two were drawn as the same
-    full-height excursion under a caption that named neither number. The
-    range is printed here for the reason `_spark_caption` prints its own --
-    a shared axis and a per-gene one are different claims, and a reader can
-    only tell which they are looking at if the figure says.
+    second trap. Every gene's curve fills the same 112 px whatever it spans:
+    measured 2026-08-20, PKD1L1 runs 1 to 2 tpm in heart and TBX20 runs 1 to
+    526, and the two were drawn as the same full-height excursion under a
+    caption that named neither number. The range is printed so a reader can
+    tell which axis they are looking at -- and the grid below the chart is
+    the opposite, fixed bins, which the fold says in its last sentence.
+
+    **It fits the cardiac tissue alone since 2026-11-02.** The axis also
+    spanned every other organ's dashed line for as long as those were drawn,
+    and the caption said "across every organ drawn"; the dashed lines are gone
+    (the grid carries the other organs), so the range is the tissue's own
+    placed medians, and the clause is gone with them.
 
     **Both break clauses are conditional on the break being in this figure.**
-    The tick clause was not, and it named a mark most pages do not draw:
-    measured 2026-08-20, all 85 trajectory pages said "the stage is ticked on
-    the axis instead" while **55 drew zero ticks**, and 55 of the 59 with a
-    visibly broken line were among them -- TBX5 has two polylines, a visible
-    gap, and the only sentence about gaps described a mark that is not there.
-
-    **And the second cause was never named at all.** A line also breaks where
-    this dataset has no row for that organ at that stage, which for
-    E-MTAB-6814 is the same set of stages for every gene (heart has none at
-    `school age child` or `elderly`, forebrain none at 6 wpc, testis none at
-    `neonate` or `school age child`). `_tissue_medians`' docstring insists
-    that state and a below-floor one "must not render the same way", and in
-    the picture they did.
+    The tick clause named a mark most pages do not draw: measured 2026-08-20,
+    all 85 trajectory pages said "the stage is ticked on the axis instead"
+    while **55 drew zero ticks**. A line also breaks where this dataset has no
+    row for that organ at that stage, which for E-MTAB-6814 is the same set of
+    stages for every gene (heart has none at `school age child` or `elderly`).
+    `_tissue_medians`' docstring insists that state and a below-floor one "must
+    not render the same way", and in the picture they did.
 
     **It is stated as the axis's range, never as the medians'**, and the two
     differ on exactly the genes where the wording matters most. `_axis_bounds`
     widens a flat series by half a decade either side, because `LogScale`
-    refuses a zero-span axis; 3 of the 85 charted genes are flat (TFAP2B and
-    MMP21 at 1 tpm, FOXH1 at 2), and "median abundance in heart, 0.316 to
-    3.16 tpm" would attribute to their medians a spread neither end of
-    which anyone measured.
+    refuses a zero-span axis; 3 of the 85 charted genes were flat then (TFAP2B
+    and MMP21 at 1 tpm, FOXH1 at 2), and "median abundance in heart, 0.316 to
+    3.16 tpm" would attribute to their medians a spread neither end of which
+    anyone measured.
 
-    **One visible line, and the rest behind a toggle (D57, 2026-10-26).** The
-    caption was one paragraph of four or five sentences, 108 to 151 words,
-    under the trajectory on 112 pages; the visible line is 61 on every one of
-    them (measured on builds of 0fc451a and of this change, as the
-    whitespace-separated words of the rendered text: tags stripped, entities
-    unescaped). The gene-page budget's tokeniser, which drops a token with no
-    letter, digit, τ or ∞ (a bare dash), reads 107 to 149 and 60. The two axis
-    sentences stay in sight: they say what every point on the figure is, and
-    the second is particular to this gene. The floor, tick and no-row clauses
-    and the shaded phases fold under "How to read this chart", which closes on
-    a link to `methods.html#expression`, where the axes are stated once in
-    general; the link reads "How to read expression figures", for the reason
-    the forest's names its section rather than the nav's "How to read this
-    atlas". **The fold changed no clause's condition.**
+    **One visible sentence and the rest behind a toggle (D57, 2026-10-26).**
+    The floor clause came back out of the fold (owner decision 2026-10-26,
+    E1), in a short form on the visible line and only where it fires. A tick is
+    a `marker` centred on the axis line, so it says "on the axis", and it
+    keeps "beneath the foot of the scale rather than at a value on it", which
+    stops a reader reading a tick as a measurement. The fold carries the tick
+    clause, the no-row clause, the phases' attribution and the grid's bins; it
+    closes on a link to `methods.html#expression`. **The fold changed no
+    clause's condition.**
 
-    **The floor clause came back out of the fold (owner decision 2026-10-26,
-    E1)**, in a short form on the visible line and only where it fires. It is
-    particular to this gene -- a tick is drawn because a stage of this organ
-    reads below the floor -- and measured on a build of 3b766ba it fired on 32
-    of the 112 trajectory pages, inside the toggle on every one. The owner's
-    draft said "Ticks under the axis"; a tick is a `marker` centred on the axis
-    line, so it says "on the axis", and it keeps "beneath the foot of the
-    scale rather than at a value on it", which stops a reader reading a tick as
-    a measurement. The no-row clause's first spelling read "different again" while the floor
-    clause sat before it in this paragraph; it reads "different" now, a
-    contrast with the tick the visible line has just explained.
+    `uncharted` names any further cardiac tissue with a placed median: the
+    chart draws one tissue, and a second one's line would be silently absent
+    from it. The corpus has one cardiac tissue per dataset (E-MTAB-6814:
+    heart), so this is latent and fixture-tested; the grid and the tables
+    carry the others in full, and the fold says so.
     """
-    named = ", ".join(html.escape(phase.label) for phase, _, _ in _banded_phases(entry, phases))
     attribution = html.escape(phases.attributed_to) if phases is not None else ""
     unit = html.escape(_tissue_unit(entry, tissue))
     # Every stage this dataset sampled and did not place is ticked, whatever
@@ -5162,20 +5275,15 @@ def _band_caption(
     # that interrupt a *line*: a leading or trailing unplaced stage draws a
     # tick and breaks nothing, and it still needs explaining.
     ticked = frozenset(point.gap or "" for point in series if point.value is None)
-    # Visible, on the line above the toggle, and only where it fires (E1). A
-    # tick is a `marker` centred on the axis line, 8 px (`_FLOOR_GAP`) below
-    # the foot of the value scale: "on the axis", never "under" it.
+    # Visible, on the line above the toggle, and only where it fires (E1).
     #
     # **Where a tick also stands for another reason, the visible line names it
     # too** (review, 2026-10-27). "Ticks on the axis mark stages below this
     # dataset's detection floor" is universal, and beside a tick drawn because
-    # no percentile grid was published it is false of that tick, while the
-    # qualifier ("A tick can mean something else too") sat in the fold. So
-    # with both reasons present the sentence is a disjunction that is true of
-    # every tick, and the fold no longer repeats the other reason. Latent: all
-    # 2,830 unplaced cells in the published bundles are below the floor
-    # (measured 2026-10-27 on a build of this change), so no published page
-    # takes this form, and the fixture is its only measurement.
+    # no percentile grid was published it is false of that tick. So with both
+    # reasons present the sentence is a disjunction true of every tick.
+    # Latent: all 2,830 unplaced cells in the published bundles are below the
+    # floor (measured 2026-10-27), so no published page takes this form.
     other_clause = _other_gap_clause(ticked)
     floor_clause = ""
     tick_clause = ""
@@ -5200,11 +5308,7 @@ def _band_caption(
     # Two spellings, because the sentence contrasts itself with the floor
     # clause and that clause is not always there. "A break with no tick under
     # it is different" on a figure drawing no tick at all sends a reader
-    # hunting for one -- the defect this whole caption was rewritten for,
-    # reintroduced one sentence later (CLAUDE.md section 4.27). It read
-    # "different again" while the floor clause sat before it in this
-    # paragraph; since E1 that clause is on the visible line above the toggle,
-    # so the contrast is with a tick, which that line has just explained.
+    # hunting for one (CLAUDE.md section 4.27).
     gap_clause = ""
     if lined and no_row:
         gap_clause = (
@@ -5215,39 +5319,23 @@ def _band_caption(
             else " The line breaks where this dataset has <strong>no row for this organ at "
             "that stage</strong>: there is no measurement to place, low or otherwise."
         )
-    stages = entry["stages"]
-    span = (
-        f"{html.escape(_stage_label(stages[0]))} to {html.escape(_stage_label(stages[-1]))}, "
-        f"all {len(stages)} of this dataset's stages"
-        if stages
-        else "this dataset's stages"
-    )
+    uncharted_clause = ""
+    if uncharted:
+        names = ", ".join(html.escape(name) for name in uncharted)
+        uncharted_clause = (
+            f" Only {html.escape(tissue)} is charted; {names} appear in the grid and the tables."
+        )
     visible = (
-        f'<p class="method">Left to right: {span} in curated developmental '
-        "order, evenly spaced &mdash; the axis is <strong>order, not elapsed time</strong>. "
-        f"Vertical: median abundance in {html.escape(tissue)}, {unit}, on a log scale; "
-        f"the axis runs {_fmt(low)} to {_fmt(high)} and is fitted to <strong>this gene</strong>"
-        f"{' across every organ drawn' if context else ''}, "
-        f"so a curve's height compares nothing to another gene's.{floor_clause}</p>"
+        f'<p class="method">Median {unit or "abundance"} in {html.escape(tissue)} per stage on a '
+        f"log scale from {_fmt(low)} to {_fmt(high)}, fitted to this gene, so heights "
+        "compare nothing across genes; stages are in curated order, evenly spaced, "
+        f"not elapsed time.{floor_clause}</p>"
     )
-    # Never empty: `_trajectory` draws nothing without a band, so there is
-    # always a phase to name.
     notes = (
-        f"{tick_clause}{gap_clause}{_context_sentence(context)} Shaded: {named} ({attribution})."
+        f"{tick_clause}{gap_clause}{uncharted_clause} Phases above the chart: {attribution}. "
+        f"{_GRID_BINS_NOTE}"
     ).strip()
     return visible + _chart_notes(notes)
-
-
-def _context_sentence(context: Sequence[str]) -> str:
-    """The key for the dashed lines, only where some are drawn."""
-    if not context:
-        return ""
-    names = ", ".join(html.escape(name) for name in context)
-    return (
-        " <strong>Dashed grey lines</strong> are the same gene in this dataset's other organs "
-        f"({names}), on the same axis: where the solid line sits above them, the gene reads "
-        "higher in this organ than in those."
-    )
 
 
 def _adjacent_runs(
@@ -5258,7 +5346,7 @@ def _adjacent_runs(
     A break is any stage the atlas did not place sitting between two it did --
     below this dataset's detection floor, or with no percentile grid behind
     it -- and also a stage where this organ has no row at all. The two are
-    different facts and `_trajectory` renders them differently (the first gets
+    different facts and `_bulk_figure` renders them differently (the first gets
     an axis tick, the second nothing), but they are the same fact *for the
     line*: there is no measurement here to draw through.
 
@@ -5285,8 +5373,8 @@ def _line_breaks(series: Sequence[_Median]) -> tuple[frozenset[str], bool]:
     sampled and not placed" is not one fact -- below a detection floor is a
     low reading about the gene, a missing percentile grid is a hole in the
     reference -- and a caller handed only `True` can say nothing but the
-    first. `_spark_caption` said exactly that, of every break, whatever the
-    payload recorded.
+    first. A caption (since deleted) said exactly that, of every break,
+    whatever the payload recorded.
 
     `_adjacent_runs` splits the line on both and cannot tell them apart,
     because for the *line* they are the same fact. For the *caption* they are
@@ -5314,131 +5402,334 @@ def _line_breaks(series: Sequence[_Median]) -> tuple[frozenset[str], bool]:
     return frozenset(unplaced), unsampled
 
 
-def _trajectory(
-    entry: DatasetProfileEntry,
-    tissue: str,
-    dataset: Dataset | None,
-    phases: CardiacPhaseFile | None,
-) -> str:
-    """One organ's whole developmental series as a phase-banded figure.
+def _charted_tissue(
+    entry: DatasetProfileEntry, cardiac: frozenset[str], phases: CardiacPhaseFile | None
+) -> str | None:
+    """The cardiac tissue the heart chart draws, or `None` where there is no chart.
 
-    Returns `""` -- the caller's cue to say something in words instead -- in
-    each of the three cases where a figure would assert more than the data
-    does: nothing sampled for this organ, nothing placed at any stage, and no
-    curated phase band to draw, which is the bare re-plot D43 forbids.
+    `None` is the caller's cue to say something in words instead
+    (`_unbanded_sentence`, `_no_trajectory_sentence`), in each of the cases
+    where a chart would assert more than the data does: nothing placed for any
+    cardiac tissue, and no curated phase band to draw, which is the bare re-plot
+    D43 forbids. **They are different facts and `_dataset_block` owes a reader
+    a different sentence for each**; it asks `_anything_placed` to tell them
+    apart.
 
-    **The three are different facts and `_dataset_block` owes a reader a
-    different sentence for each**, which it could not do while this returned
-    a bare `""` for all three. The band question is answered per *dataset*
-    rather than per organ -- `_phase_bands` never reads the tissue -- so the
-    caller can ask it directly, and does; what it cannot re-derive cheaply is
-    which of the first two applies, so it asks `_anything_placed` instead.
-
-    The line is drawn only from `_STAGES_FOR_A_TRAJECTORY` placed points up.
-    Below that the markers stand alone: `charts.polyline` refuses fewer than
-    two points outright, and two would draw a segment claiming something about
-    the interval between them that two measurements do not support.
-
-    **And it is drawn in runs of adjacent stages, never as one line through
-    every placed point.** Measured 2026-08-20: 20 of the 85 charted genes have
-    a below-floor stage sitting strictly between two plotted points, and TBX1
-    has 11 of them against 5 placed stages. One line through the placed points
-    would run smooth and high across exactly the stages where this dataset
-    measured below its own floor -- the picture asserting a continuity the
-    figures deny, which is the conflation `_percentile_cell` refuses in words
-    and `_no_trajectory_sentence` refuses for a whole gene.
+    The first cardiac tissue, sorted, with a placed median. Sorted because
+    `cardiac` is a `frozenset`: an unsorted pick would draw a different organ
+    between two builds of one commit.
     """
-    series = _tissue_medians(entry, tissue)
-    placed = [(point.position, point.value) for point in series if point.value is not None]
-    if not placed:
-        return ""
-    count = len(entry["stages"])
-    bands = _phase_bands(entry, phases, count)
-    if not bands:
-        return ""
+    if not _banded_phases(entry, phases):
+        return None
+    for tissue in sorted(cardiac):
+        if any(point.value is not None for point in _tissue_medians(entry, tissue)):
+            return tissue
+    return None
 
-    # The dataset's other organs, drawn dashed behind this one on the same axis
-    # so a reader can see whether the gene reads higher in heart than elsewhere.
-    # The axis therefore spans every organ drawn, not this one alone: a line
-    # clipped to heart's own range would compare nothing.
-    others: dict[str, list[tuple[int, float]]] = {}
-    for other in _sampled_tissues(entry):
-        if other == tissue:
-            continue
-        placed_other = [
-            (point.position, point.value)
-            for point in _tissue_medians(entry, other)
-            if point.value is not None
-        ]
-        if len(placed_other) >= _STAGES_FOR_A_TRAJECTORY:
-            others[other] = placed_other
-    low, high = _axis_bounds(
-        [value for _, value in placed] + [v for series_ in others.values() for _, v in series_]
-    )
-    scale = LogScale(low=low, high=high, left=0.0, width=_PLOT_BOTTOM - _FLOOR_GAP - _PLOT_TOP)
-    stage_labels = [_stage_label(stage) for stage in entry["stages"]]
-    context = "".join(
-        _context_line(name, series_, count, scale, stage_labels, _tissue_unit(entry, name))
-        for name, series_ in others.items()
-    )
 
-    points = [
-        (_stage_x(index, count), _PLOT_BOTTOM - _FLOOR_GAP - scale.x(value))
-        for index, value in placed
-    ]
-    unit = _tissue_unit(entry, tissue)
-    axis = (
-        f'<line class="chart-axis" x1="{coordinate(_PLOT_LEFT)}" '
-        f'y1="{coordinate(_PLOT_BOTTOM)}" x2="{coordinate(_PLOT_RIGHT)}" '
-        f'y2="{coordinate(_PLOT_BOTTOM)}"/>'
-        + _axis_label(high, _PLOT_BOTTOM - _FLOOR_GAP - scale.x(high))
-        + _axis_label(low, _PLOT_BOTTOM - _FLOOR_GAP - scale.x(low))
-        + _value_axis(scale, low, high, unit)
-        + _stage_axis(series, count)
+def _organ_order(entry: DatasetProfileEntry, cardiac: frozenset[str]) -> list[str]:
+    """Every organ this dataset sampled for this gene: cardiac first, then the rest.
+
+    Each group sorted, because both come from a `set` and the grid's row order
+    is published. Cardiac first because the rows below the heart chart should
+    read as "the organs this atlas is about, then the context" -- and because
+    the declaration is this atlas's own (`Dataset.cardiac_tissues`), not the
+    source's.
+    """
+    sampled = _sampled_tissues(entry)
+    return [t for t in sampled if t in cardiac] + [t for t in sampled if t not in cardiac]
+
+
+# The grid's fixed bins, in the dataset's own unit: a cell's shade means the
+# same abundance on every gene's page, which is what the heart chart's
+# per-gene axis cannot offer. Edges are 10, 100 and 1,000.
+_HEAT_EDGES: Final = (10.0, 100.0, 1000.0)
+_GRID_ROW: Final = 14.0
+_GRID_CELL: Final = 12.0
+_GRID_GAP_ABOVE: Final = 6.0
+# A column is as wide as its stage's slot, capped: a dataset with a handful of
+# stages would otherwise draw cells wider than the grid is tall.
+_CELL_HALF_MAX: Final = 20.0
+
+
+def _grid_state(cell: TissueProfileEntry) -> str:
+    """The class one grid cell takes: a shade for a placed median, else why not.
+
+    **A placed cell is binned on its median; an unplaced one is never binned.**
+    A below-floor figure has a median too (0.4 tpm), and shading it `heat-1`
+    would put a number this atlas declines to vouch for on the same ramp as
+    ones it does -- the discipline `_tissue_medians` keeps for the line and
+    `_percentile_cell` keeps in words. `below_detection_floor` is the one
+    reason with its own state (rule 5); any other reason is a hole in the
+    reference, not a low reading, and gets the other.
+    """
+    if cell["placement"] is not None:
+        value = cell["median_abundance"]
+        for number, edge in enumerate(_HEAT_EDGES, start=1):
+            if value < edge:
+                return f"heat-{number}"
+        return "heat-4"
+    if cell["not_placed_reason"] == ProfileGap.BELOW_DETECTION_FLOOR.value:
+        return "heat-floor"
+    return "heat-gap"
+
+
+def _cell_title(
+    organ: str, stage: str, cell: TissueProfileEntry, state: str, floor: float | None
+) -> str:
+    """What hovering one grid cell says: organ, stage, value, and its state if unplaced."""
+    unit = cell["unit"]
+    text = f"{organ} \u00b7 {_short_stage(stage)} \u00b7 " + " ".join(
+        part for part in (_fmt(cell["median_abundance"]), unit) if part
     )
-    ticks = "".join(
-        marker(_stage_x(point.position, count), _PLOT_BOTTOM, css_class="chart-absent")
-        for point in series
-        if point.value is None
-    )
-    enough = len(points) >= _STAGES_FOR_A_TRAJECTORY
-    lines = (
-        "".join(
-            polyline(run, css_class="chart-line")
-            for run in _adjacent_runs(placed, points)
-            if len(run) >= 2
+    if state == "heat-floor":
+        words = " ".join(part for part in (_fmt(floor) if floor is not None else "", unit) if part)
+        text += f" \u00b7 below the {words} floor" if words else " \u00b7 below the detection floor"
+    elif state == "heat-gap":
+        reason = cell["not_placed_reason"] or ""
+        text += " \u00b7 " + _PLACEMENT_GAP_CLAUSE.get(
+            reason, "no reason was recorded for this gap"
         )
-        if enough
-        else ""
+    return html.escape(text)
+
+
+class _Grid(NamedTuple):
+    """The grid's markup, and which of its optional states it drew.
+
+    The legend names only the states that occur (CLAUDE.md section 4.27: a key
+    for a mark that is not drawn sends the reader hunting), so the grid says
+    what it drew rather than the legend re-reading the payload on a second
+    pass that could disagree.
+    """
+
+    svg: str
+    floor: bool
+    gap_reasons: frozenset[str]
+    blank: bool
+
+
+def _grid(
+    entry: DatasetProfileEntry,
+    organs: Sequence[str],
+    cardiac: frozenset[str],
+    floor: float | None,
+    top: float,
+) -> _Grid:
+    """One row per organ, one column per stage, one cell per row the payload has.
+
+    **A stage where an organ has no row draws nothing.** That is not a cell
+    with a blank state: the dataset never looked, and a drawn empty cell would
+    read as a measurement of nothing (`_tissue_medians` keeps the same line
+    for the heart series). Cardiac organ labels are bold.
+    """
+    count = len(entry["stages"])
+    half = min(_half_step(count), _CELL_HALF_MAX)
+    out = ""
+    drawn_floor = False
+    gap_reasons: set[str] = set()
+    cells = 0
+    for row, organ in enumerate(organs):
+        y = top + row * _GRID_ROW
+        css = "chart-tick-label cardiac" if organ in cardiac else "chart-tick-label"
+        out += (
+            f'<text class="{css}" x="{coordinate(_PLOT_LEFT - half - 4.0)}" '
+            f'y="{coordinate(y + _GRID_CELL / 2 + _AXIS_LABEL_DROP)}" text-anchor="end">'
+            f"{html.escape(organ)}</text>"
+        )
+        for index, stage in enumerate(entry["stages"]):
+            for cell in stage["tissues"]:
+                if cell["tissue"] != organ:
+                    continue
+                cells += 1
+                state = _grid_state(cell)
+                drawn_floor = drawn_floor or state == "heat-floor"
+                if state == "heat-gap":
+                    gap_reasons.add(cell["not_placed_reason"] or "")
+                x = _stage_x(index, count)
+                title = _cell_title(organ, _stage_label(stage), cell, state, floor)
+                out += (
+                    f'<rect class="{state}" x="{coordinate(x - half + 1.0)}" y="{coordinate(y)}" '
+                    f'width="{coordinate(2 * half - 2.0)}" height="{coordinate(_GRID_CELL)}" '
+                    f'rx="2"><title>{title}</title></rect>'
+                )
+                if state == "heat-floor":
+                    out += (
+                        f'<circle class="cell-dot" cx="{coordinate(x)}" '
+                        f'cy="{coordinate(y + _GRID_CELL / 2)}" r="1.6"/>'
+                    )
+    return _Grid(out, drawn_floor, frozenset(gap_reasons), cells < len(organs) * count)
+
+
+def _heat_legend(grid: _Grid, floor: float | None, unit: str) -> str:
+    """The grid's key, in HTML: a swatch per state that occurs, and no others.
+
+    The four shade labels are the bins' edges in the dataset's unit; the first
+    starts at the floor ("1-10") because a placed median cannot be below it,
+    and says "under 10" where the floor is unknown or not below the bin's edge.
+    """
+    unit_text = f" {html.escape(unit)}" if unit else ""
+    first = f"{_fmt(floor)}\u201310" if floor is not None and floor < _HEAT_EDGES[0] else "under 10"
+    entries = [
+        ("heat-1", first),
+        ("heat-2", "10\u2013100"),
+        ("heat-3", "100\u20131,000"),
+        ("heat-4", f"1,000+{unit_text}"),
+    ]
+    if grid.floor:
+        words = " ".join(
+            part for part in (_fmt(floor) if floor is not None else "", html.escape(unit)) if part
+        )
+        entries.append(
+            ("heat-floor", f"below the {words} floor" if words else "below the detection floor")
+        )
+    if grid.gap_reasons:
+        entries.append(
+            (
+                "heat-gap",
+                _other_gap_clause(grid.gap_reasons) or "no reason was recorded for this gap",
+            )
+        )
+    if grid.blank:
+        entries.append(("heat-blank", "blank: not sampled"))
+    items = "".join(
+        f'<span class="legend-item"><span class="heat-swatch {state}"></span> {text}</span> '
+        for state, text in entries
     )
-    markers = "".join(marker(x, y, css_class="chart-point") for x, y in points)
+    return f'<p class="strip-legend heat-key">{items.rstrip()}</p>'
+
+
+def _bulk_figure(
+    entry: DatasetProfileEntry, dataset: Dataset | None, phases: CardiacPhaseFile | None
+) -> str:
+    """One dataset's figure: a named phase strip, the heart over time, every organ by stage.
+
+    One `svg_figure`, one `<title>`. Every part reads the same `_stage_x`, so
+    a column is one stage from the strip's bars through the heart chart's
+    points and the axis labels to the grid's cells, by construction rather than
+    by three pieces of arithmetic agreeing.
+
+    Top to bottom: the **phase strip** (one bar per banded phase, named,
+    chronological), the **heart chart** (the cardiac tissue's placed medians on
+    a log axis fitted to those medians alone; a line only through adjacent
+    placed stages, a tick on the axis for a stage sampled and not placed), the
+    **stage axis** (every stage labelled), and the **organ grid** (cardiac
+    organs first, shades in fixed bins). Then the grid's HTML legend and the
+    caption with its one fold.
+
+    **The figure survives a missing chart.** Where nothing is placed in the
+    cardiac tissue, or no phase band exists (`_charted_tissue` is `None`), the
+    strip and the plot are not drawn, the stage axis moves to the top and the
+    grid is drawn in full; `_dataset_block` keeps its lede sentence for that
+    case. Returns `""` only where no organ has any row at all: there is then
+    no stage to label and nothing to say.
+
+    **What was deleted, and why it is not missed.** The dashed other-organ
+    lines (the heart chart's axis had to span them, so it compared nothing for
+    a gene whose heart reads low) and the five sparkline panels (a second
+    figure re-asking the question the grid now answers with a column shared
+    with the heart chart). Their conditions were not carried over: a mark not
+    drawn gets no clause.
+    """
+    cardiac = frozenset(dataset.cardiac_tissues) if dataset is not None else frozenset()
+    organs = _organ_order(entry, cardiac)
+    if not organs:
+        return ""
+    stages = entry["stages"]
+    count = len(stages)
+    labels = [_stage_label(stage) for stage in stages]
     floor = dataset.detection_floor if dataset is not None else None
-    floor_words = f", above a detection floor of {_fmt(floor)} {unit}" if floor is not None else ""
-    title = (
-        f"Median abundance in {tissue}, {series[0].label} to {series[-1].label}: "
-        f"{len(placed)} of {len(series)} sampled developmental stages placed against this "
-        f"dataset's percentile grid{floor_words}, banded by this atlas's own curated "
-        "cardiac phases."
-    )
-    figure = svg_figure(
-        width=_CHART_WIDTH,
-        height=_CHART_HEIGHT,
-        title=title,
-        body=bands
-        + axis
-        + context
-        + ticks
-        + lines
-        + markers
-        + _hover_dots(tissue, placed, points, stage_labels, _tissue_unit(entry, tissue)),
-    )
-    # `lined` rather than a second look at the data: the caption's clause
-    # about a break in the line may only be published if there *is* a line,
-    # and only this function knows whether one was drawn. Three of the 85
-    # charted genes place too few stages for one.
-    return figure + _band_caption(
-        entry, phases, tissue, floor, low, high, series, lined=bool(lines), context=list(others)
-    )
+    tissue = _charted_tissue(entry, cardiac, phases)
+
+    body = ""
+    caption = ""
+    unsampled: frozenset[int] = frozenset()
+    summary = f"{entry['dataset']}, {labels[0]} to {labels[-1]}"
+    if tissue is None:
+        baseline = _STRIP_TOP
+        title = (
+            f"Median abundance by organ and developmental stage in {summary}: every organ "
+            "sampled, one cell per stage, shaded in fixed bins."
+        )
+        caption = _chart_notes(_GRID_BINS_NOTE)
+    else:
+        series = _tissue_medians(entry, tissue)
+        placed = [(point.position, point.value) for point in series if point.value is not None]
+        unsampled = frozenset(range(count)) - {point.position for point in series}
+        rows = _banded_phases(entry, phases)
+        strip, strip_height = _phase_strip(rows, count, _STRIP_TOP)
+        top = _STRIP_TOP + strip_height + _STRIP_TO_PLOT
+        bottom = top + _PLOT_HEIGHT
+        baseline = bottom
+        low, high = _axis_bounds([value for _, value in placed])
+        scale = LogScale(low=low, high=high, left=0.0, width=bottom - _FLOOR_GAP - top)
+        points = [
+            (_stage_x(index, count), bottom - _FLOOR_GAP - scale.x(value))
+            for index, value in placed
+        ]
+        unit = _tissue_unit(entry, tissue)
+        body += (
+            _phase_bands(entry, phases, count, top, bottom)
+            + strip
+            + f'<line class="chart-axis" x1="{coordinate(_PLOT_LEFT)}" '
+            f'y1="{coordinate(bottom)}" x2="{coordinate(_PLOT_RIGHT)}" '
+            f'y2="{coordinate(bottom)}"/>'
+            + _axis_label(high, bottom - _FLOOR_GAP - scale.x(high))
+            + _axis_label(low, bottom - _FLOOR_GAP - scale.x(low))
+            + _value_axis(scale, low, high, unit, top, bottom)
+            + "".join(
+                marker(_stage_x(point.position, count), bottom, css_class="chart-absent")
+                for point in series
+                if point.value is None
+            )
+        )
+        enough = len(points) >= _STAGES_FOR_A_TRAJECTORY
+        lines = (
+            "".join(
+                polyline(run, css_class="chart-line")
+                for run in _adjacent_runs(placed, points)
+                if len(run) >= 2
+            )
+            if enough
+            else ""
+        )
+        body += (
+            lines
+            + "".join(marker(x, y, css_class="chart-point") for x, y in points)
+            + _hover_dots(tissue, placed, points, labels, unit)
+        )
+        floor_words = (
+            f", above a detection floor of {_fmt(floor)} {unit}" if floor is not None else ""
+        )
+        title = (
+            f"Median abundance in {tissue}, {series[0].label} to {series[-1].label}: "
+            f"{len(placed)} of {len(series)} sampled developmental stages placed against this "
+            f"dataset's percentile grid{floor_words}, with this atlas's own curated cardiac "
+            "phases above the chart and every organ sampled in a grid below it."
+        )
+        uncharted = [
+            other
+            for other in sorted(cardiac)
+            if other != tissue and any(p.value is not None for p in _tissue_medians(entry, other))
+        ]
+        # `lined` rather than a second look at the data: the caption's clause
+        # about a break in the line may only be published if there *is* a line,
+        # and only this function knows whether one was drawn.
+        caption = _band_caption(
+            entry, phases, tissue, floor, low, high, series, lined=bool(lines), uncharted=uncharted
+        )
+
+    body += _stage_axis(labels, unsampled, baseline)
+    if tissue is None:
+        body += (
+            f'<line class="chart-axis" x1="{coordinate(_PLOT_LEFT)}" y1="{coordinate(baseline)}" '
+            f'x2="{coordinate(_PLOT_RIGHT)}" y2="{coordinate(baseline)}"/>'
+        )
+    grid_top = baseline + _axis_depth(labels) + _GRID_GAP_ABOVE
+    grid = _grid(entry, organs, cardiac, floor, grid_top)
+    height = int(math.ceil(grid_top + len(organs) * _GRID_ROW + 4.0))
+    figure = svg_figure(width=_CHART_WIDTH, height=height, title=title, body=body + grid.svg)
+    legend = _heat_legend(grid, floor, _dominant_unit(entry, set(organs)))
+    return f'<div class="chart-scroll">{figure}</div>{legend}{caption}'
 
 
 def _hover_dots(
@@ -5461,34 +5752,6 @@ def _hover_dots(
         f"<title>{html.escape(name)} \u00b7 {html.escape(_short_stage(labels[index]))} \u00b7 "
         f"{html.escape(_fmt(value))}{suffix}</title></circle>"
         for (index, value), (x, y) in zip(placed, points, strict=True)
-    )
-
-
-def _context_line(
-    name: str,
-    placed: Sequence[tuple[int, float]],
-    count: int,
-    scale: LogScale,
-    labels: Sequence[str],
-    unit: str,
-) -> str:
-    """One other organ's placed medians as a dashed line behind the trajectory.
-
-    Broken wherever the organ's stages are not consecutive, for the reason the
-    trajectory is. Grouped, so hovering any of its points highlights the whole
-    organ (`.chart-context-group:hover`) and names it, and each point says its
-    stage and value.
-    """
-    base = _PLOT_BOTTOM - _FLOOR_GAP
-    points = [(_stage_x(index, count), base - scale.x(value)) for index, value in placed]
-    lines = "".join(
-        polyline(run, css_class="chart-context")
-        for run in _adjacent_runs(placed, points)
-        if len(run) >= 2
-    )
-    return (
-        f'<g class="chart-context-group"><title>{html.escape(name)}</title>'
-        f"{lines}{_hover_dots(name, placed, points, labels, unit)}</g>"
     )
 
 
@@ -5526,7 +5789,7 @@ def _sampled_organs_clause(sampled: Sequence[tuple[str, int]]) -> str:
 def _unbanded_sentence(entry: DatasetProfileEntry, cardiac: frozenset[str]) -> str:
     """D43's refusal, in words: placed measurements but no phase to band them with.
 
-    The third of `_trajectory`'s three `""`s, and the only one that is not
+    The third of the three reasons there is no heart chart, and the only one that is not
     about the gene at all. `_phase_bands` returns nothing when no curated
     cardiac phase with a stated end covers any of this dataset's stages, and
     a curve drawn without one is the re-plot of the source's own browser that
@@ -5558,7 +5821,7 @@ def _unbanded_sentence(entry: DatasetProfileEntry, cardiac: frozenset[str]) -> s
 def _anything_placed(entry: DatasetProfileEntry, cardiac: frozenset[str]) -> bool:
     """Does any cardiac organ carry a median this dataset placed?
 
-    The one question that tells `_trajectory`'s second refusal from its third,
+    The one question that tells the second reason there is no heart chart from the third,
     and it is asked of every cardiac organ at once because the answer decides
     one sentence for the whole dataset block.
     """
@@ -5669,305 +5932,28 @@ def _dominant_unit(entry: DatasetProfileEntry, tissues: set[str]) -> str:
     return ""
 
 
-# --- The organ small multiples ----------------------------------------------
-
-# Small on purpose: this is a grid of up to seven panels side by side
-# (`.sparks` in `render.STYLESHEET`), and the *comparison between* them is the
-# figure. No panel here is meant to be read on its own -- the trajectory above
-# is what reads one organ in detail.
-_SPARK_WIDTH: Final = 96
-_SPARK_HEIGHT: Final = 40
-_SPARK_LEFT: Final = 4.0
-_SPARK_RIGHT: Final = 92.0
-_SPARK_TOP: Final = 5.0
-_SPARK_BOTTOM: Final = 35.0
-
-
-def _spark_x(index: int, count: int) -> float:
-    """Where the `index`-th of `count` stages sits inside one small panel.
-
-    The same ordinal axis `_stage_x` documents, at a twentieth of the width.
-    """
-    return _even_x(index, count, _SPARK_LEFT, _SPARK_RIGHT)
-
-
 def _sampled_tissues(entry: DatasetProfileEntry) -> list[str]:
     """Every organ this dataset sampled for this gene, sorted.
 
     Sorted because it is derived from a `set`: `sort_keys` in the JSON encoder
-    has nothing to say about the order panels are laid out in, and two builds
-    of one commit must emit the same bytes.
+    has nothing to say about the order the grid's rows are laid out in, and two
+    builds of one commit must emit the same bytes.
     """
     return sorted({cell["tissue"] for stage in entry["stages"] for cell in stage["tissues"]})
-
-
-def _small_multiples(entry: DatasetProfileEntry, dataset: Dataset | None) -> str:
-    """One sparkline per organ, every panel on a single shared abundance axis.
-
-    **The shared axis is the whole point.** τ answers "is this gene
-    concentrated in one organ, and which" -- and this section stated it as a
-    number restated once per stage, 19 times on the TBX5 page (its other two
-    stages carry no τ) with only the figure changing. Per-organ axes would
-    rescale each line to its own range and draw five similar-looking traces,
-    which is the same non-answer in a picture.
-
-    One axis is what makes a τ of 0.80 to 1.00 -- TBX5's range across those 19
-    stages -- legible as a place rather than a number. Measured 2026-08-20 on
-    the committed corpus: TBX5's heart medians run 5 to 275 tpm, and the four
-    non-heart organs it places anything in peak at forebrain 2, ovary 3,
-    testis 4 and liver 12, so heart's peak sits 22.9x -- 1.36 decades -- above
-    the highest of them. **Not "above everything else": heart's own minimum,
-    5 tpm at middle adult, is below liver's 12.** The panels are what shows
-    that, and seven private axes would show none of it. TBX5 draws five of
-    them; hindbrain and kidney place nothing and the caption names them.
-
-    `data-scale-high` is emitted from the axis itself rather than recomputed,
-    so a build that gave each organ its own scale would publish a different
-    value per panel and could not pass the test asserting they are equal.
-    Assert the property, never the appearance.
-
-    **What earns this under D43** -- never a panel redundant with the source's
-    own browser -- is `Dataset.cardiac_tissues`. Which organ counts as cardiac
-    is this atlas's own declaration in `curation/datasets.yaml`, not the
-    source's; the source's browser has the per-organ curves and makes no such
-    claim. The caption states that in words, because a stroke weight is not an
-    argument.
-
-    Returns `""` in the two cases where a panel would assert more than the
-    data does, D42's rule that a page says so rather than drawing an empty
-    frame:
-
-    - **No stage reports a τ at all.** τ needs at least two organs, and with
-      one sampled there is no specificity to draw a specificity panel about.
-      `_SPECIFICITY_GAP_CLAUSE` is what the page says instead, once per stage,
-      and it says it already.
-    - **No organ has a single placed median.** Nothing to plot.
-
-    **Only medians this dataset placed are drawn**, which is `_tissue_medians`'
-    discipline reused rather than restated: a below-floor figure is one this
-    atlas declines to vouch for, and putting it on the same line as ones it
-    does is the conflation `_percentile_cell` refuses in words. The line
-    therefore breaks at an unplaced stage exactly as `_trajectory`'s does --
-    measured 2026-08-20, 20 of the 85 charted genes have a below-floor stage
-    strictly between two plotted points, and a guard added to one layer is not
-    a guard.
-
-    An organ with nothing placed gets no panel and is **named in the caption**
-    instead. Silently dropping it would leave five panels beside a τ sentence
-    reading "7 organs sampled", the page contradicting itself, and a reader
-    concluding this dataset never looked there.
-    """
-    if all(stage["specificity"] is None for stage in entry["stages"]):
-        return ""
-
-    series: dict[str, list[tuple[int, float]]] = {}
-    sampled_at: dict[str, int] = {}
-    # Kept whole, not just counted: `_spark_caption` has to tell a stage this
-    # dataset sampled and did not place from one it has no row for at all,
-    # and by the time a series is filtered to its placed points the two are
-    # the same absence. Handed down rather than re-derived, the reason
-    # `_adjacent_runs` takes its points beside its indices.
-    wholes: dict[str, list[_Median]] = {}
-    for tissue in _sampled_tissues(entry):
-        whole = _tissue_medians(entry, tissue)
-        sampled_at[tissue] = len(whole)
-        wholes[tissue] = whole
-        series[tissue] = [
-            (point.position, point.value) for point in whole if point.value is not None
-        ]
-    drawn = [tissue for tissue in series if series[tissue]]
-    if not drawn:
-        return ""
-
-    low, high = _axis_bounds([value for tissue in drawn for _, value in series[tissue]])
-    scale = LogScale(low=low, high=high, left=0.0, width=_SPARK_BOTTOM - _SPARK_TOP)
-    cardiac = frozenset(dataset.cardiac_tissues) if dataset is not None else frozenset()
-    count = len(entry["stages"])
-
-    panels = ""
-    for tissue in drawn:
-        placed = series[tissue]
-        points = [
-            (_spark_x(index, count), _SPARK_BOTTOM - scale.x(value)) for index, value in placed
-        ]
-        css = "chart-cardiac" if tissue in cardiac else "chart-control"
-        # The same floor `_trajectory` applies, and for the same stated
-        # reason: two measurements do not support a claim about the interval
-        # between them. This panel drew that segment anyway until 2026-08-21,
-        # so the two figures on one page published opposite claims about one
-        # pair of numbers -- measured, 13 organ series, and on CFC1 the
-        # trajectory drew two bare markers while the heart panel beside it,
-        # drawn heavier as the declared cardiac tissue, joined them.
-        #
-        # Gated on the organ's whole placed series rather than per run, again
-        # matching `_trajectory`: a run of two inside a longer series is a
-        # segment between two adjacent measurements of a trend the series
-        # already evidences, which is a different claim from a two-point
-        # series being a trend on its own.
-        enough = len(placed) >= _STAGES_FOR_A_TRAJECTORY
-        body = "".join(
-            polyline(run, css_class=css)
-            if enough and len(run) >= 2
-            else "".join(marker(x, y, css_class=css) for x, y in run)
-            for run in _adjacent_runs(placed, points)
-        )
-        role = (
-            ", this atlas's declared cardiac tissue for this dataset" if tissue in cardiac else ""
-        )
-        title = (
-            f"Median abundance in {tissue}{role}: {len(placed)} of "
-            f"{sampled_at[tissue]} sampled developmental stages placed, on the abundance "
-            "axis every organ here shares."
-        )
-        panels += (
-            f'<figure class="spark" data-scale-high="{coordinate(scale.high)}">'
-            + svg_figure(width=_SPARK_WIDTH, height=_SPARK_HEIGHT, title=title, body=body)
-            + f"<figcaption>{html.escape(tissue)}</figcaption></figure>"
-        )
-    undrawn = [tissue for tissue in series if not series[tissue]]
-    caption = _spark_caption(entry, drawn, undrawn, cardiac, low, high, wholes)
-    return f'<div class="sparks">{panels}</div>{caption}'
-
-
-def _spark_caption(
-    entry: DatasetProfileEntry,
-    drawn: Sequence[str],
-    undrawn: Sequence[str],
-    cardiac: frozenset[str],
-    low: float,
-    high: float,
-    wholes: Mapping[str, Sequence[_Median]],
-) -> str:
-    """What the grid of panels cannot say about itself, in words beside it.
-
-    Four things, and three of them are traps. The horizontal axis is stage
-    *order* rather than elapsed time, exactly as `_band_caption` says of the
-    trajectory. The vertical axis is **shared**, which is the entire claim the
-    figure makes and the one a reader cannot check by looking. The highlighted
-    organ is this atlas's own declaration and not the source's, which is what
-    admits the panel under D43. And an organ with no panel was still sampled.
-
-    **The opening clause said "one panel per organ this dataset sampled for
-    this gene", and 25 of the 91 pages carrying it went on to say "No panel is
-    drawn for ..." three sentences later.** A page that corrects itself is not
-    a page that is right: the first sentence is what a reader takes the grid
-    to mean, and an organ dropped for having nothing placed is exactly the
-    organ they would otherwise conclude was never looked at. It now says what
-    the grid actually is -- one panel per organ with a *placed* measurement --
-    so the sentence naming the dropped organs adds to it rather than
-    contradicting it.
-
-    **A line breaks for two reasons and only one was named.** The caption
-    attributed every gap to the detection floor; a panel's line also breaks
-    where this dataset has no row for that organ at that stage, and in a
-    spark there is no tick, so the two are pixel-for-pixel identical.
-    Measured 2026-08-20 on the built corpus: 87 of the 92 genes have at least
-    one panel split by a no-row stage -- testis on 82 pages, heart on 72,
-    forebrain on 69. Each cause is now its own clause, conditional on
-    occurring in this gene's panels, which is `_line_breaks`' whole purpose.
-
-    **The cardiac clause has three positions and no blank one.** A panel where
-    the declared cardiac tissue has nothing placed carries no highlight, and
-    "Highlighted: heart" beside no highlighted panel is false -- a sentence's
-    truth conditions travel with its position (`_POOLING_NOTICE`'s recorded
-    lesson). Measured 2026-08-20 on the committed corpus, that is 6 of the 91
-    genes with a panel, so it is a live case. It names the declaration anyway,
-    because "this atlas calls heart the cardiac tissue and placed nothing
-    there" is the fact, and dropping the sentence would leave a reader to
-    conclude the atlas never declared one.
-
-    **One visible line, and the rest behind a toggle (D57, 2026-10-26).** The
-    caption was one paragraph of five or six sentences, 133 to 175 words,
-    under the grid on 118 pages; the visible line is 41 on every one of them
-    (measured on builds of 0fc451a and of this change, as the
-    whitespace-separated words of the rendered text: tags stripped, entities
-    unescaped). The gene-page budget's tokeniser, which drops a token with no
-    letter, digit, τ or ∞ (a bare dash), reads 131 to 174 and 40. What stays in sight
-    is what every panel is: one per organ with a placed measurement, in stage
-    order, all on one abundance axis whose range is printed. Why the axis is
-    shared, the highlight, the breaks and the organs with no panel fold under
-    "How to read this chart" (`_chart_notes`, the trajectory's toggle too).
-    The fold changed no clause's condition. The opening clause stays the one
-    the paragraph above explains: it is true of a grid that drops an organ, so
-    the folded sentence naming the dropped organ adds to it rather than
-    correcting it.
-    """
-    unit = html.escape(_dominant_unit(entry, set(drawn)))
-    interrupted = [_line_breaks(wholes[tissue]) for tissue in drawn]
-    unplaced: frozenset[str] = frozenset().union(*(reasons for reasons, _ in interrupted))
-    no_row = any(unsampled for _, unsampled in interrupted)
-    causes = []
-    if ProfileGap.BELOW_DETECTION_FLOOR.value in unplaced:
-        causes.append(
-            "a stage measured <strong>below this dataset's detection floor</strong>, which "
-            "this atlas does not place"
-        )
-    other = _other_gap_clause(unplaced)
-    if other:
-        causes.append(f"a stage this atlas published no percentile for &mdash; {other}")
-    if no_row:
-        causes.append(
-            "a stage where this dataset has <strong>no row for that organ</strong> and "
-            "nothing was measured to place"
-        )
-    breaks = (
-        " Only medians this dataset placed against its percentile grid are drawn, so a line "
-        "breaks rather than running through " + ", and through ".join(causes) + "."
-        if causes
-        else " Only medians this dataset placed against its percentile grid are drawn."
-    )
-    cardiac_drawn = [tissue for tissue in drawn if tissue in cardiac]
-    if cardiac_drawn:
-        marked = ", ".join(html.escape(tissue) for tissue in cardiac_drawn)
-        noun = "tissue" if len(cardiac_drawn) == 1 else "tissues"
-        highlight = (
-            f" Drawn heavier: {marked} &mdash; this atlas's own declaration of which organ "
-            f"is this dataset's cardiac {noun}, not the source's."
-        )
-    elif cardiac:
-        declared = ", ".join(html.escape(tissue) for tissue in sorted(cardiac))
-        noun = "tissue" if len(cardiac) == 1 else "tissues"
-        highlight = (
-            f" No panel here is drawn heavier: this atlas declares {declared} this "
-            f"dataset's cardiac {noun}, and this dataset placed no measurement there."
-        )
-    else:
-        highlight = ""
-    if undrawn:
-        names = ", ".join(html.escape(tissue) for tissue in undrawn)
-        organs = "that organ" if len(undrawn) == 1 else "those organs"
-        missing = (
-            f" No panel is drawn for {names}: this dataset sampled {organs} and placed no "
-            "measurement there against its percentile grid."
-        )
-    else:
-        missing = ""
-    visible = (
-        '<p class="method">One panel per organ with a placed measurement for this gene, each '
-        "drawn left to right in curated developmental order &mdash; the horizontal axis is "
-        "<strong>order, not elapsed time</strong>. <strong>Every panel shares one abundance "
-        f"axis</strong> ({_fmt(low)} to {_fmt(high)} {unit}, log scale).</p>"
-    )
-    notes = (
-        "A shared axis is what makes a gene concentrated in one organ look different from a "
-        "broadly expressed one; a per-organ axis would rescale every line to its own range "
-        f"and hide exactly that difference.{highlight}{breaks}{missing} Every figure is in "
-        "the table below."
-    )
-    return visible + _chart_notes(notes)
 
 
 def _dataset_block(
     entry: DatasetProfileEntry, dataset: Dataset | None, phases: CardiacPhaseFile | None
 ) -> str:
-    """One dataset's whole contribution: a chart per cardiac organ, one panel per
-    organ sampled, then every figure.
+    """One dataset's whole contribution: its figure, then every figure in tables.
 
-    Two pictures, answering two questions, and neither substitutes for the
-    other. `_trajectory` reads one cardiac organ in detail across development;
-    `_small_multiples` compares every organ on one shared axis, which is what
-    τ asserts once per stage and nothing on the page showed. Each returns `""`
-    on its own terms, so a dataset can carry either, both or neither.
+    The figure (`_bulk_figure`) answers one question at a glance -- when the
+    cardiac tissue reads, how high, and whether it is where the gene reads
+    highest -- and it is drawn for every dataset that sampled any organ. Where
+    the cardiac tissue has no heart chart to draw it returns the grid alone,
+    and this keeps the lede sentence (`_unbanded_sentence`,
+    `_no_trajectory_sentence`) in front of it: the chart's absence is a fact a
+    reader is owed in words (D42).
 
     The link is D39(b)'s other half reaching a reader rather than only a
     program: `build_profile_quantiles` publishes the 101-point grid a
@@ -6012,32 +5998,29 @@ def _dataset_block(
     heading += "</h3>"
     cardiac = frozenset(dataset.cardiac_tissues) if dataset is not None else frozenset()
     floor = dataset.detection_floor if dataset is not None else None
-    # Sorted: `cardiac` is a `frozenset`, and an unsorted iteration would put
-    # two organs' charts in a different order between two builds of one commit.
-    charts = "".join(_trajectory(entry, tissue, dataset, phases) for tissue in sorted(cardiac))
-    # **Three refusals, three sentences.** `_trajectory` returns `""` for
-    # three different reasons -- nothing sampled, nothing placed, and no
-    # curated phase band -- and a caller that routes them all into one
-    # sentence publishes a claim that is false for two of them. Measured
-    # 2026-08-20 with `runner.py` passing `phases=None`: 55 pages said "no
-    # measurement there is placed against this dataset's percentile grid
-    # &mdash; ." with the reason list empty, and 30 said, in bold, that the
-    # gene reads below the detection floor at every stage sampled -- one of
-    # them with 18 of its 19 heart stages placed and printed in the table
-    # below. Nothing was published in either state, because `runner.py`
-    # passes the real vocabulary; the sentences were wrong all the same, and
-    # a dataset whose stages fall in no *ended* cardiac phase reaches them.
+    # **Three refusals, three sentences.** There is no heart chart for three
+    # different reasons -- nothing sampled, nothing placed, and no curated
+    # phase band -- and a caller that routes them all into one sentence
+    # publishes a claim that is false for two of them. Measured 2026-08-20
+    # with `runner.py` passing `phases=None`: 55 pages said "no measurement
+    # there is placed against this dataset's percentile grid &mdash; ." with
+    # the reason list empty, and 30 said, in bold, that the gene reads below
+    # the detection floor at every stage sampled -- one of them with 18 of its
+    # 19 heart stages placed and printed in the table below. Nothing was
+    # published in either state, because `runner.py` passes the real
+    # vocabulary; the sentences were wrong all the same, and a dataset whose
+    # stages fall in no *ended* cardiac phase reaches them.
     #
     # Placement first, because it is the fact about the gene. A missing band
     # is a fact about this atlas's own vocabulary, and where nothing is
     # placed a reader is better served by the dilution caveat than by it.
-    if charts:
-        lede = charts
+    if _charted_tissue(entry, cardiac, phases) is not None:
+        lede = ""
     elif _anything_placed(entry, cardiac):
         lede = _unbanded_sentence(entry, cardiac)
     else:
         lede = _no_trajectory_sentence(entry, cardiac, floor)
-    sparks = _small_multiples(entry, dataset)
+    figure = _bulk_figure(entry, dataset, phases)
     stages = "".join(_stage_block(stage, cardiac, floor) for stage in entry["stages"])
     total = len(entry["stages"])
     noun = "stage" if total == 1 else "stages"
@@ -6045,7 +6028,7 @@ def _dataset_block(
         f'<details class="stage-figures"><summary>every figure, all {total} {noun}'
         f"</summary>{stages}</details>"
     )
-    return heading + lede + sparks + folded
+    return heading + lede + figure + folded
 
 
 def _expression_section(
@@ -6175,8 +6158,8 @@ def build_gene_pages(
     `phases` is the same `CardiacPhaseFile` the profiles were derived against,
     threaded down rather than re-read, so a band on a chart and the phase
     sentence under the stage it covers cannot name different vocabularies.
-    `None` -- no curated phase file at all -- costs the trajectory, not the
-    section: `_trajectory` refuses to draw an unbanded curve, because a curve
+    `None` -- no curated phase file at all -- costs the heart chart, not the
+    section: `_charted_tissue` refuses to chart an unbanded curve, because a curve
     with no band is the panel the source's own browser already publishes, and
     every figure it would have summarised is in the tables regardless.
 
