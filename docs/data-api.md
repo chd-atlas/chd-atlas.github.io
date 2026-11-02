@@ -1801,7 +1801,7 @@ the developmental phases each stage names. Each dataset opens with one summary
 line per cardiac tissue placed at any stage: the stages at or above the floor out of
 those sampled, the peak and its stage, and the stages at which that tissue has
 the highest median. Its figure draws every organ on the same stages as a grid of
-four fixed shades, with a legend that keys the shades and whichever empty cells
+four fixed shades, with a legend that keys the shades, where any cell is shaded, and whichever empty cells
 and greyed stages (no heart row there) the figure draws. Where the heart has a
 placed stage and a curated phase covers one of its stages, a phase strip and the
 heart chart sit above the grid, and one visible line states the chart's axis:
@@ -1811,9 +1811,9 @@ that ticks a stage below the dataset's detection floor, the same line says what
 the ticks mark, with the floor's value. Where no chart is drawn, a sentence above
 the figure says why. The rest of the key is folded under *How to read this
 chart*, ending with a link, *How to read expression figures*, to
-`methods.html#expression`; beside a chart that fold names the phases and their
-source and says where the line breaks, and it always says the grid's shades are
-fixed bins. Every figure is in the tables folded under *every figure, all 21
+`methods.html#expression`; beside a chart that fold names the source of the phases
+and says where the line breaks, where it does, and it says the grid's shades are
+fixed bins wherever the grid draws one. Every figure is in the tables folded under *every figure, all 21
 stages* (the count is the dataset's): one per cardiac tissue sampled, or one of
 stages where none is, and one for the other organs.
 

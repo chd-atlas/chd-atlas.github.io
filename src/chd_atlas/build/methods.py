@@ -760,8 +760,8 @@ _EXPRESSION: Final = (
     "from the phase's start up to but not including its end, so one stage can name "
     "several; a stage no phase covers names none and says why, for example that it is "
     "post-natal or after the curated window. The heart chart's phase strip draws each "
-    "phase from the first stage that names it to the last; its folded key names the phases "
-    "and their source.</p>"
+    "phase from the first stage that names it to the last; its folded key names the source "
+    "of the phases.</p>"
     # The chart axes in general; the figure's visible caption line states them
     # of its own figure (`pages._band_caption`).
     "<p>The bulk figure lays its stages out in curated developmental order, evenly "

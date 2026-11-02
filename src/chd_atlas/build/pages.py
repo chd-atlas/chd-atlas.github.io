@@ -4613,12 +4613,12 @@ def _stage_tables(entry: DatasetProfileEntry, cardiac: frozenset[str], floor: fl
     if uniform:
         caption = (
             f"A percentile places this gene among {next(iter(grids)):,} genes in the same "
-            "organ and stage, so it compares nothing across rows."
+            "organ and stage, so it compares nothing across rows or columns."
         )
     else:
         caption = (
             "A percentile compares this gene only with genes in the same organ and stage, "
-            "never across rows."
+            "never across rows or columns."
         )
     organs = _organ_order(entry, cardiac)
     heart = [organ for organ in organs if organ in cardiac]
@@ -5643,6 +5643,7 @@ class _Grid(NamedTuple):
     floor: bool
     gap_reasons: frozenset[str]
     blank: bool
+    shaded: bool
 
 
 def _grid(
@@ -5663,6 +5664,7 @@ def _grid(
     half = min(_half_step(count), _CELL_HALF_MAX)
     out = ""
     drawn_floor = False
+    drawn_shade = False
     gap_reasons: set[str] = set()
     cells = 0
     for row, organ in enumerate(organs):
@@ -5680,6 +5682,7 @@ def _grid(
                 cells += 1
                 state = _grid_state(cell)
                 drawn_floor = drawn_floor or state == "heat-floor"
+                drawn_shade = drawn_shade or state[5:].isdigit()
                 if state == "heat-gap":
                     gap_reasons.add(cell["not_placed_reason"] or "")
                 x = _stage_x(index, count)
@@ -5694,7 +5697,7 @@ def _grid(
                         f'<circle class="cell-dot" cx="{coordinate(x)}" '
                         f'cy="{coordinate(y + _GRID_CELL / 2)}" r="1.6"/>'
                     )
-    return _Grid(out, drawn_floor, frozenset(gap_reasons), cells < len(organs) * count)
+    return _Grid(out, drawn_floor, frozenset(gap_reasons), cells < len(organs) * count, drawn_shade)
 
 
 def _heat_legend(grid: _Grid, floor: float | None, unit: str, greyed: str | None) -> str:
@@ -5710,12 +5713,19 @@ def _heat_legend(grid: _Grid, floor: float | None, unit: str, greyed: str | None
     """
     unit_text = f" {html.escape(unit)}" if unit else ""
     first = f"{_fmt(floor)}\u201310" if floor is not None and floor < _HEAT_EDGES[0] else "under 10"
-    entries = [
-        ("heat-1", first),
-        ("heat-2", "10\u2013100"),
-        ("heat-3", "100\u20131,000"),
-        ("heat-4", f"1,000+{unit_text}"),
-    ]
+    # The four shades are keyed only where the grid draws at least one placed
+    # cell: a key for a shade that is not drawn sends the reader hunting
+    # (GDF1 reads below the floor everywhere and draws no shaded cell).
+    entries = (
+        [
+            ("heat-1", first),
+            ("heat-2", "10\u2013100"),
+            ("heat-3", "100\u20131,000"),
+            ("heat-4", f"1,000+{unit_text}"),
+        ]
+        if grid.shaded
+        else []
+    )
     if grid.floor:
         words = html.escape(_floor_words(floor, unit), quote=False)
         entries.append(
@@ -5789,9 +5799,8 @@ def _bulk_figure(
         baseline = _STRIP_TOP
         title = (
             f"Median abundance by organ and developmental stage in {summary}: every organ "
-            "sampled, one cell per stage, shaded in fixed bins."
+            "sampled, one cell per stage sampled, shaded in fixed bins."
         )
-        caption = _chart_notes(_GRID_BINS_NOTE)
     else:
         series = _tissue_medians(entry, tissue)
         placed = [(point.position, point.value) for point in series if point.value is not None]
@@ -5871,6 +5880,9 @@ def _bulk_figure(
     grid = _grid(entry, organs, cardiac, floor, grid_top)
     height = int(math.ceil(grid_top + len(organs) * _GRID_ROW + 4.0))
     figure = svg_figure(width=_CHART_WIDTH, height=height, title=title, body=body + grid.svg)
+    if tissue is None and grid.shaded:
+        # The fold's only sentence is about the shades, so it needs one drawn.
+        caption = _chart_notes(_GRID_BINS_NOTE)
     legend = _heat_legend(
         grid,
         floor,
@@ -5943,7 +5955,7 @@ def _unbanded_sentence(entry: DatasetProfileEntry, cardiac: frozenset[str]) -> s
     a curve drawn without one is the re-plot of the source's own browser that
     D43 forbids. That is a fact about this atlas's vocabulary, so this
     sentence claims nothing about the measurements -- every one of which is
-    placed, and printed in the table below.
+    placed, and printed in the tables below.
 
     Reached only where something *is* placed. Where nothing is,
     `_no_trajectory_sentence` has the better sentence whatever the bands say:
@@ -5962,7 +5974,7 @@ def _unbanded_sentence(entry: DatasetProfileEntry, cardiac: frozenset[str]) -> s
         f"{_sampled_organs_clause(sampled)}: none of this dataset's developmental stages "
         "falls inside a curated cardiac phase this atlas can band, and an unbanded curve "
         "is the source's own plot rather than anything this atlas adds. Every per-stage "
-        "figure is in the table below.</p>"
+        "figure is in the tables below.</p>"
     )
 
 
@@ -6011,7 +6023,7 @@ def _no_trajectory_sentence(
 
     Returns `""` when this dataset sampled no cardiac organ for this gene at
     all: there is then no organ to make either statement about, and every
-    figure it did publish is in the table below regardless.
+    figure it did publish is in the tables below regardless.
 
     **Reached only where nothing at all is placed, and the first branch is
     false the moment that stops holding.** "At every stage sampled" is read
@@ -6043,7 +6055,7 @@ def _no_trajectory_sentence(
         return (
             f'<p class="notice-inline">No trajectory is drawn for {organs}: no measurement '
             f"there is placed against this dataset's percentile grid &mdash; {clauses}. Every "
-            "per-stage figure is in the table below.</p>"
+            "per-stage figure is in the tables below.</p>"
         )
     # The floor's own value is a separate sentence rather than a parenthesis
     # inside the first, because the organ clause already ends in one -- "in
@@ -6062,7 +6074,7 @@ def _no_trajectory_sentence(
         "<strong>not evidence that</strong> the gene is unimportant to heart development, and it "
         "is not a measured zero: every figure here is a median over bulk tissue, and a gene "
         "transcribed intensely in one rare cardiac lineage still reads below a bulk floor once "
-        "diluted across the sample. Every per-stage figure is in the table below.</p>"
+        "diluted across the sample. Every per-stage figure is in the tables below.</p>"
     )
 
 
@@ -6117,7 +6129,7 @@ def _dataset_block(
     function's job is to render what the payload says, not to police a
     registration mismatch a validator already reports elsewhere.
 
-    **The stage blocks move into a `<details>`; they do not leave.** This
+    **The stage tables move into a `<details>`; they do not leave.** This
     section rendered 21 near-identical blocks per dataset, one per stage, and
     59% of its text was verbatim repetition -- "below the detection floor in
     whole liver at this stage (detection floor 1 tpm)" appeared 20 times on
@@ -6154,7 +6166,7 @@ def _dataset_block(
     # there is placed against this dataset's percentile grid &mdash; ." with
     # the reason list empty, and 30 said, in bold, that the gene reads below
     # the detection floor at every stage sampled -- one of them with 18 of its
-    # 19 heart stages placed and printed in the table below. Nothing was
+    # 19 heart stages placed and printed in the tables below. Nothing was
     # published in either state, because `runner.py` passes the real
     # vocabulary; the sentences were wrong all the same, and a dataset whose
     # stages fall in no *ended* cardiac phase reaches them.

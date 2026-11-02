@@ -4944,7 +4944,7 @@ def test_the_percentile_caption_names_the_grid_once_when_uniform_and_per_cell_wh
     caption = uniform[: uniform.index("<p", uniform.index("<p") + 1)]
     assert (
         "A percentile places this gene among 19,842 genes in the same organ and stage, "
-        "so it compares nothing across rows."
+        "so it compares nothing across rows or columns."
     ) in caption
     assert " of 19,842 genes" not in uniform
 
@@ -4952,7 +4952,7 @@ def test_the_percentile_caption_names_the_grid_once_when_uniform_and_per_cell_wh
     caption = mixed[: mixed.index("<p", mixed.index("<p") + 1)]
     assert (
         "A percentile compares this gene only with genes in the same organ and stage, "
-        "never across rows."
+        "never across rows or columns."
     ) in caption
     assert "among" not in caption
     assert "97 (IQR 92–99) of 19,842 genes" in mixed
@@ -5461,7 +5461,7 @@ def _heart_series(
 
     * a `float` -- a median this dataset placed against its percentile grid;
     * `None` -- a stage sampled and **not placed**, for `unplaced_reason`,
-      which `_trajectory` ticks on the axis;
+      which `_bulk_figure` ticks on the axis;
     * `...` -- a stage this dataset has **no heart row for at all**, which
       gets no tick and nothing else, and is why the stage is still in
       `entry["stages"]` and still occupies an x position;
@@ -5533,7 +5533,7 @@ def _band_caption_text(section: str) -> str:
 
     From the visible line's first words to the toggle's `</details>`, which
     comes before the stage-figures fold's. Scoped for the reason
-    `_validity_table` is: `_percentile_cell` prints every gap clause the
+    `_validity_table` is: `_tissue_percentile` prints every gap clause the
     caption can, from the same map, in the stage table below, and the grid's
     legend prints them too, so a section-wide check on one is answered by
     another (CLAUDE.md section 4.19). The slice starts inside the first
@@ -5920,7 +5920,7 @@ def test_the_band_caption_names_only_the_breaks_this_figure_actually_draws(
         ("4wpc", None), ("5wpc", 5.0), ("6wpc", 40.0), ("7wpc", 275.0), reason="no_quantile_grid"
     )
     assert grid.count('class="chart-absent"') == 1, "the tick is drawn whatever the reason"
-    # Scoped to the caption: `_percentile_cell` prints the same clause in the
+    # Scoped to the caption: `_tissue_percentile` prints the same clause in the
     # stage table below, from the same map and deliberately so, and answers a
     # section-wide check on it whatever the caption said.
     caption_only = _band_caption_text(grid)
@@ -6067,9 +6067,11 @@ def test_the_line_never_spans_a_stage_the_atlas_did_not_place(tmp_path: Path) ->
     placed point always sits at exactly the plot's bottom less `_FLOOR_GAP`,
     so ticking a below-floor stage there instead of on the axis puts the two
     marks on one row on every charted page -- cy 116.0 on HGNC:10249 before
-    the phase strip moved the plot down (it is 131.0 against a tick at 139.0
-    with one phase row above it) --
-    which is the conflation `_percentile_cell` refuses in words.
+    the phase strip moved the plot down (it is 170.0 against a tick at 178.0
+    with four phase rows above it; measured 2026-11-02 on a real build by
+    reading the `chart-point` and `chart-absent` circles' `cy` and the distinct
+    `chart-strip` rect `y` values inside that page's `chart-scroll` figure) --
+    which is the conflation `_tissue_percentile` refuses in words.
     """
     profile = _heart_series(
         ("4wpc", 5.0),
@@ -6437,6 +6439,62 @@ def test_the_grid_legend_names_only_the_states_drawn(tmp_path: Path) -> None:
     assert "heat-gap" not in floor_only
 
 
+def test_the_shade_key_and_the_bins_fold_need_a_shaded_cell_and_the_lede_says_tables(
+    tmp_path: Path,
+) -> None:
+    """A grid with nothing placed draws no shade, so it keys none and folds no bins.
+
+    GDF1 reads below the floor at every stage: all four shade entries and the
+    fold's only sentence ("The grid's shades are fixed bins, so they compare
+    across genes.") described a mark the figure does not draw (section 4.27).
+    Sliced to the legend `<p>` and to the fold, because the stage tables and the
+    methods link carry neighbouring words. The same page pins two wordings the
+    final review found false: the lede's "tables below" (there are two tables)
+    and the title's "one cell per stage sampled" (a grid cell is absent where an
+    organ was not sampled).
+    """
+
+    def legend(section: str) -> str:
+        return re.search(r'<p class="strip-legend heat-key">.*?</p>', section, re.S).group(0)  # type: ignore[union-attr]
+
+    none_placed = _grid_page(
+        tmp_path,
+        (
+            (
+                "4 week post conception",
+                (
+                    _unplaced("Heart", "below_detection_floor"),
+                    _unplaced("Liver", "below_detection_floor"),
+                ),
+            ),
+        ),
+    )
+    key = legend(none_placed)
+    assert "below the 1 rpkm floor" in key
+    for shade in ("heat-1", "heat-2", "heat-3", "heat-4", "1,000+"):
+        assert shade not in key
+    assert "The grid's shades are fixed bins" not in none_placed
+    assert "How to read this chart" not in none_placed
+    assert "one cell per stage sampled, shaded in fixed bins" in none_placed
+    assert "in the tables below.</p>" in none_placed
+    assert "in the table below.</p>" not in none_placed
+
+    some_placed = _grid_page(
+        tmp_path,
+        (
+            (
+                "4 week post conception",
+                (_placed("Heart", 50.0), _unplaced("Liver", "no_quantile_grid")),
+            ),
+        ),
+    )
+    shaded_key = legend(some_placed)
+    for shade in ("heat-1", "heat-2", "heat-3", "heat-4"):
+        assert f'heat-swatch {shade}"' in shaded_key
+    fold = some_placed[some_placed.index('<details class="chart-notes">') :]
+    assert "The grid's shades are fixed bins" in fold[: fold.index("</details>")]
+
+
 def test_the_grey_stage_key_appears_only_when_a_stage_label_is_greyed(tmp_path: Path) -> None:
     """A greyed stage label is keyed, and only when one is drawn (section 4.27).
 
@@ -6663,6 +6721,31 @@ def test_a_median_equal_to_the_floor_is_counted_and_read_as_at_or_above_it() -> 
                 ("5 week post conception", 50.0, None, None),
                 ("6 week post conception", 50.0, None, None),
                 ("7 week post conception", 50.0, None, None),
+def test_a_median_equal_to_the_floor_is_counted_and_read_as_at_or_above_it() -> None:
+    """`profiles.placement` refuses only a median strictly below the floor, so a
+    heart median of exactly 1 tpm against a floor of 1 tpm is placed and counted
+    -- and "above the 1 tpm floor" is then false of it. Measured 2026-11-02 on
+    the committed corpus: 34 of 112 summary lines counted such a stage (TFAP2B:
+    1 of 19 stages, peak 1 tpm). The unit is escaped here too: a `<` in it must
+    not reach the page as markup.
+    """
+    line = _glance_line(
+        _glance_entry(
+            ("5 week post conception", 1.0, None, "Heart"),
+            ("6 week post conception", None, "below_detection_floor", None),
+            unit="t<pm",
+        ),
+        "Heart",
+        1.0,
+    )
+
+    assert line == (
+        '<p class="glance"><strong>Heart:</strong> at or above the 1 t&lt;pm floor at 1 of 2 '
+        "stages sampled; peak 1 t&lt;pm at 5 weeks post conception; the highest of the organs "
+        "sampled at 1 stage.</p>"
+    )
+
+
             ),
             1.0,
             "peak 50 rpkm at 5 weeks post conception and 2 other stages;",
@@ -6821,8 +6904,8 @@ def _organ_panel(
     to show for it -- E-MTAB-6814's real shape, identically for every gene.
 
     Every stage carries a real `specificity`, unlike `_heart_series`: tau is
-    what this panel exists to make visible, and `_small_multiples` draws
-    nothing for a dataset that reports none.
+    what the summary line's highest-median count and the tables' tau column
+    read, and both say less for a dataset that reports none.
 
     `phase` defaults to `_phase_info()`, whose id is not in `_cardiac_phases()`
     -- so a panel built here draws no trajectory unless a caller asks for a
@@ -7171,6 +7254,8 @@ def test_both_sentences_that_list_every_cardiac_organ_list_them_in_one_order(
         "myocardium",
         "septum",
         "ventricle",
+    # A placed median may equal the floor, so the title's clause is "at or above".
+    assert "percentile grid, at or above a detection floor of" in svg.split("</title>")[0]
         "liver",
     ]
 

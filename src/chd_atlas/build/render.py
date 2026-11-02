@@ -624,7 +624,6 @@ STYLESHEET: Final = """
   .chart-control { stroke: var(--muted); fill: none; }
   .chart-control-point { fill: var(--muted); }
   .chart-nointerval { stroke: var(--border); stroke-width: 4; stroke-dasharray: 2 3; }
-  .chart-cardiac { stroke: var(--link); stroke-width: 2; fill: none; }
   .chart-arrow { fill: var(--link); }
   .chart-arrow-open { fill: var(--bg); stroke: var(--link); stroke-width: 1.6; }
   .chart-control-arrow { fill: var(--muted); }
@@ -648,11 +647,13 @@ STYLESHEET: Final = """
      asserts is absent from a one-study page -- and naming the class here would
      put the very token a page-wide check greps for onto every page. Reason
      and class name both live in the module that emits the geometry. */
-  /* The bulk figure's own scroller: the svg keeps a floor width so its text never
-     renders below about 10 px on a phone, and the figure scrolls inside this box
-     instead of the page scrolling sideways. */
+  /* The bulk figure's own scroller: the svg keeps a floor width, and the figure
+     scrolls inside this box instead of the page scrolling sideways. Measured in
+     headless Chrome in a 390 px iframe (it will not go below 500 px itself):
+     at 560 px the stage labels rendered at 8.96 px and the smallest text at
+     8.80 px; at 640 px they render at 10.24 px and the smallest at 10.06 px. */
   .chart-scroll { overflow-x: auto; margin: 0.5rem 0; }
-  .chart-scroll .chart { min-width: 560px; max-width: none; }
+  .chart-scroll .chart { min-width: 640px; max-width: none; }
   /* The organ grid: a fixed bin per shade (--heat-N), then the two unplaced
      states drawn as absence rather than as the bottom of the ramp. */
   .heat-1 { fill: var(--heat-1); }
