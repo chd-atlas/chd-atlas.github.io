@@ -80,6 +80,9 @@ ModelPhenotypeId = NewType(
 TaxonId = NewType("TaxonId", Annotated[str, StringConstraints(pattern=r"^NCBITaxon:\d+$")])
 
 AssertionId = NewType("AssertionId", Annotated[str, StringConstraints(pattern=r"^CHDA:AST:\d{7}$")])
+LiteratureFindingId = NewType(
+    "LiteratureFindingId", Annotated[str, StringConstraints(pattern=r"^CHDA:LIT:\d{7}$")]
+)
 FunctionalId = NewType(
     "FunctionalId", Annotated[str, StringConstraints(pattern=r"^CHDA:FUN:\d{7}$")]
 )

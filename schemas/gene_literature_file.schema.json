@@ -1,0 +1,660 @@
+{
+  "$defs": {
+    "BurdenComparator": {
+      "description": "What a burden row's statistic compared the case count against.\n\nThis is the discriminator the whole burden schema turns on. Every published\nburden analysis asks the same question -- is this gene hit more often than\nexpected? -- and differs only in where \"expected\" comes from:\n\n- `CONTROL_COHORT`: an observed rate in sequenced controls (case-control).\n- `MUTATION_MODEL`: a per-gene expectation from a trinucleotide mutation\n  rate model, the standard for de novo enrichment in trios, where there is\n  no control group at all.\n- `NONE`: a case series. A numerator and a denominator, and nothing to\n  compare them with -- so no effect size and no p-value may be published,\n  which `validate_burden` enforces rather than trusts.\n\nA row's design is a property of the *row*, not of the study: one paper\nroutinely contributes de novo rows and case-control rows, so this cannot be\nhoisted onto the publication record.",
+      "enum": [
+        "control_cohort",
+        "mutation_model",
+        "none"
+      ],
+      "title": "BurdenComparator",
+      "type": "string"
+    },
+    "Carriers": {
+      "additionalProperties": false,
+      "description": "Carriers of a reported variant, split by what is known of its origin.",
+      "properties": {
+        "de_novo": {
+          "minimum": 0,
+          "title": "De Novo",
+          "type": "integer"
+        },
+        "inherited": {
+          "minimum": 0,
+          "title": "Inherited",
+          "type": "integer"
+        },
+        "origin_unknown": {
+          "minimum": 0,
+          "title": "Origin Unknown",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "de_novo",
+        "inherited",
+        "origin_unknown"
+      ],
+      "title": "Carriers",
+      "type": "object"
+    },
+    "DetectionMethod": {
+      "description": "How the variants a finding reports were detected.",
+      "enum": [
+        "targeted_sequencing",
+        "gene_panel",
+        "exome",
+        "genome",
+        "chromosomal_microarray",
+        "karyotype_or_fish",
+        "genotyping_array",
+        "targeted_genotyping"
+      ],
+      "title": "DetectionMethod",
+      "type": "string"
+    },
+    "ExclusionReason": {
+      "description": "Why a PubMed hit was excluded.",
+      "enum": [
+        "not_peer_reviewed",
+        "review_article",
+        "not_human_genetics",
+        "no_finding_in_gene",
+        "not_chd",
+        "same_data_as",
+        "other"
+      ],
+      "title": "ExclusionReason",
+      "type": "string"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "description": "What one paper reports about one gene, approved by a named person.",
+      "properties": {
+        "approved_by": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved By"
+        },
+        "approved_on": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved On"
+        },
+        "burden_study": {
+          "anyOf": [
+            {
+              "pattern": "^PMID:\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Burden Study"
+        },
+        "carriers": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Carriers"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cases": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cases"
+        },
+        "cohorts": {
+          "items": {
+            "pattern": "^[a-z0-9]+(_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "title": "Cohorts",
+          "type": "array"
+        },
+        "comparator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BurdenComparator"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "controls": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Controls"
+        },
+        "count_unit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScreenUnit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "design": {
+          "$ref": "#/$defs/FindingDesign"
+        },
+        "extracted_by": {
+          "minLength": 1,
+          "title": "Extracted By",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^CHDA:LIT:\\d{7}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "lesion_groups": {
+          "items": {
+            "$ref": "#/$defs/LesionGroup"
+          },
+          "minItems": 1,
+          "title": "Lesion Groups",
+          "type": "array"
+        },
+        "locators": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "in_text": "#/$defs/InTextLocator",
+                "supplementary": "#/$defs/SupplementaryLocator"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/SupplementaryLocator"
+              },
+              {
+                "$ref": "#/$defs/InTextLocator"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Locators",
+          "type": "array"
+        },
+        "methods": {
+          "items": {
+            "$ref": "#/$defs/DetectionMethod"
+          },
+          "minItems": 1,
+          "title": "Methods",
+          "type": "array"
+        },
+        "odds_ratio": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Odds Ratio"
+        },
+        "p_value": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "P Value"
+        },
+        "phenotypes": {
+          "items": {
+            "pattern": "^(HP|MONDO):\\d{7}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Phenotypes",
+          "type": "array"
+        },
+        "publication": {
+          "pattern": "^PMID:\\d+$",
+          "title": "Publication",
+          "type": "string"
+        },
+        "review_note": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Review Note"
+        },
+        "review_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReviewStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "screened": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Screened"
+        },
+        "shares_probands_with": {
+          "anyOf": [
+            {
+              "items": {
+                "pattern": "^CHDA:LIT:\\d{7}$",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "const": "unknown",
+              "type": "string"
+            }
+          ],
+          "title": "Shares Probands With"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "syndromic": {
+          "$ref": "#/$defs/SyndromicStatus"
+        },
+        "variant_classes": {
+          "items": {
+            "$ref": "#/$defs/FindingVariantClass"
+          },
+          "title": "Variant Classes",
+          "type": "array"
+        },
+        "verified_by": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verified By"
+        }
+      },
+      "required": [
+        "id",
+        "publication",
+        "design",
+        "methods",
+        "phenotypes",
+        "lesion_groups",
+        "syndromic",
+        "shares_probands_with",
+        "locators",
+        "summary",
+        "extracted_by"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "FindingDesign": {
+      "description": "What kind of study a literature finding reports (one per finding).",
+      "enum": [
+        "case_report",
+        "family_segregation",
+        "cohort_screen",
+        "rare_variant_association",
+        "common_variant_association"
+      ],
+      "title": "FindingDesign",
+      "type": "string"
+    },
+    "FindingVariantClass": {
+      "description": "The coarse class of variant a finding reports.",
+      "enum": [
+        "snv_indel",
+        "cnv",
+        "chromosomal"
+      ],
+      "title": "FindingVariantClass",
+      "type": "string"
+    },
+    "InTextLocator": {
+      "additionalProperties": false,
+      "description": "Points at a figure, table or section in the article body.",
+      "properties": {
+        "element": {
+          "minLength": 1,
+          "title": "Element",
+          "type": "string"
+        },
+        "kind": {
+          "const": "in_text",
+          "default": "in_text",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "element"
+      ],
+      "title": "InTextLocator",
+      "type": "object"
+    },
+    "LesionGroup": {
+      "enum": [
+        "conotruncal",
+        "septal",
+        "lvoto",
+        "rvoto",
+        "avsd",
+        "heterotaxy",
+        "anomalous_venous_return",
+        "complex",
+        "other"
+      ],
+      "title": "LesionGroup",
+      "type": "string"
+    },
+    "ReviewStatus": {
+      "description": "Why a curated record is marked as carrying an open question.\n\n`PENDING_REVIEW`: a question about the record that this atlas leaves open\nfor an expert -- the sources it rests on conflict, as on the two cohorts\nthe owner marked on 2026-10-27, or a clinical judgement is needed, as on\nthe two scope terms marked the same day.\n`NOT_ACCESSIBLE`: a source it rests on could not be read, so what it says\nis unchecked. Neither is a verdict on the record.",
+      "enum": [
+        "pending_review",
+        "not_accessible"
+      ],
+      "title": "ReviewStatus",
+      "type": "string"
+    },
+    "ScreenUnit": {
+      "description": "What a finding's `screened` count counts.",
+      "enum": [
+        "probands",
+        "families"
+      ],
+      "title": "ScreenUnit",
+      "type": "string"
+    },
+    "Search": {
+      "additionalProperties": false,
+      "description": "One recorded PubMed search and its arithmetic.",
+      "properties": {
+        "hits": {
+          "minimum": 0,
+          "title": "Hits",
+          "type": "integer"
+        },
+        "id": {
+          "minimum": 1,
+          "title": "Id",
+          "type": "integer"
+        },
+        "new_hits": {
+          "minimum": 0,
+          "title": "New Hits",
+          "type": "integer"
+        },
+        "query": {
+          "minLength": 1,
+          "title": "Query",
+          "type": "string"
+        },
+        "run_on": {
+          "format": "date",
+          "title": "Run On",
+          "type": "string"
+        },
+        "source": {
+          "const": "pubmed",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "query",
+        "run_on",
+        "hits",
+        "new_hits"
+      ],
+      "title": "Search",
+      "type": "object"
+    },
+    "SupplementaryLocator": {
+      "additionalProperties": false,
+      "description": "Points at an exact place inside a supplementary archive.",
+      "properties": {
+        "file": {
+          "minLength": 1,
+          "title": "File",
+          "type": "string"
+        },
+        "kind": {
+          "const": "supplementary",
+          "default": "supplementary",
+          "title": "Kind",
+          "type": "string"
+        },
+        "row": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Row"
+        },
+        "sheet": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sheet"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "title": "SupplementaryLocator",
+      "type": "object"
+    },
+    "SyndromicStatus": {
+      "enum": [
+        "isolated",
+        "syndromic",
+        "both"
+      ],
+      "title": "SyndromicStatus",
+      "type": "string"
+    },
+    "TriageDecision": {
+      "description": "What was decided about one PubMed hit.",
+      "enum": [
+        "included",
+        "excluded",
+        "pending"
+      ],
+      "title": "TriageDecision",
+      "type": "string"
+    },
+    "TriageEntry": {
+      "additionalProperties": false,
+      "description": "What was decided about one PubMed hit, attributed to the search that first found it.",
+      "properties": {
+        "decision": {
+          "$ref": "#/$defs/TriageDecision"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "pmid": {
+          "pattern": "^PMID:\\d+$",
+          "title": "Pmid",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExclusionReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "same_as": {
+          "anyOf": [
+            {
+              "pattern": "^PMID:\\d+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Same As"
+        },
+        "search": {
+          "minimum": 1,
+          "title": "Search",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "pmid",
+        "search",
+        "decision"
+      ],
+      "title": "TriageEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``curation/literature/<SYMBOL>.yaml`` -- one gene's searches, triage and findings.",
+  "properties": {
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "gene": {
+      "pattern": "^HGNC:\\d+$",
+      "title": "Gene",
+      "type": "string"
+    },
+    "searches": {
+      "items": {
+        "$ref": "#/$defs/Search"
+      },
+      "minItems": 1,
+      "title": "Searches",
+      "type": "array"
+    },
+    "triage": {
+      "items": {
+        "$ref": "#/$defs/TriageEntry"
+      },
+      "title": "Triage",
+      "type": "array"
+    }
+  },
+  "required": [
+    "gene",
+    "searches"
+  ],
+  "title": "GeneLiteratureFile",
+  "type": "object"
+}

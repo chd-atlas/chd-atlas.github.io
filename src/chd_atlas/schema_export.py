@@ -12,11 +12,13 @@ from chd_atlas.fs import write_bytes_atomically
 from chd_atlas.models.assertion import AssertionFile
 from chd_atlas.models.dataset import Dataset
 from chd_atlas.models.functional import FunctionalFile
+from chd_atlas.models.gene_literature import GeneLiteratureFile
 from chd_atlas.models.literature import FeaturedFile, PhenotypeFile, PublicationFile
 
 EXPORTED_MODELS: Final[dict[str, type[BaseModel]]] = {
     "assertion_file": AssertionFile,
     "functional_file": FunctionalFile,
+    "gene_literature_file": GeneLiteratureFile,
     "publication_file": PublicationFile,
     "featured_file": FeaturedFile,
     "phenotype_file": PhenotypeFile,

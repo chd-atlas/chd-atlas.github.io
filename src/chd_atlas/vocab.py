@@ -256,6 +256,10 @@ class StudyType(StrEnum):
     TRANSCRIPTOMICS = "transcriptomics"
     REVIEW = "review"
     META_ANALYSIS = "meta_analysis"
+    CASE_REPORT = "case_report"
+    COHORT_SEQUENCING = "cohort_sequencing"
+    GWAS = "gwas"
+    CANDIDATE_VARIANT = "candidate_variant"
 
 
 class BurdenComparator(StrEnum):
@@ -612,3 +616,61 @@ MODEL_ORGANISMS: Final[dict[str, str]] = {
     "NCBITaxon:9031": "Gallus gallus",
     "NCBITaxon:9823": "Sus scrofa",
 }
+
+
+class FindingDesign(StrEnum):
+    """What kind of study a literature finding reports (one per finding)."""
+
+    CASE_REPORT = "case_report"
+    FAMILY_SEGREGATION = "family_segregation"
+    COHORT_SCREEN = "cohort_screen"
+    RARE_VARIANT_ASSOCIATION = "rare_variant_association"
+    COMMON_VARIANT_ASSOCIATION = "common_variant_association"
+
+
+class DetectionMethod(StrEnum):
+    """How the variants a finding reports were detected."""
+
+    TARGETED_SEQUENCING = "targeted_sequencing"
+    GENE_PANEL = "gene_panel"
+    EXOME = "exome"
+    GENOME = "genome"
+    CHROMOSOMAL_MICROARRAY = "chromosomal_microarray"
+    KARYOTYPE_OR_FISH = "karyotype_or_fish"
+    GENOTYPING_ARRAY = "genotyping_array"
+    TARGETED_GENOTYPING = "targeted_genotyping"
+
+
+class ScreenUnit(StrEnum):
+    """What a finding's `screened` count counts."""
+
+    PROBANDS = "probands"
+    FAMILIES = "families"
+
+
+class FindingVariantClass(StrEnum):
+    """The coarse class of variant a finding reports."""
+
+    SNV_INDEL = "snv_indel"
+    CNV = "cnv"
+    CHROMOSOMAL = "chromosomal"
+
+
+class TriageDecision(StrEnum):
+    """What was decided about one PubMed hit."""
+
+    INCLUDED = "included"
+    EXCLUDED = "excluded"
+    PENDING = "pending"
+
+
+class ExclusionReason(StrEnum):
+    """Why a PubMed hit was excluded."""
+
+    NOT_PEER_REVIEWED = "not_peer_reviewed"
+    REVIEW_ARTICLE = "review_article"
+    NOT_HUMAN_GENETICS = "not_human_genetics"
+    NO_FINDING_IN_GENE = "no_finding_in_gene"
+    NOT_CHD = "not_chd"
+    SAME_DATA_AS = "same_data_as"
+    OTHER = "other"

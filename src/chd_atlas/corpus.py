@@ -15,6 +15,7 @@ from chd_atlas.models.assertion import AssertionFile, LesionAssertion
 from chd_atlas.models.cohort import Cohort, CohortFile
 from chd_atlas.models.dataset import Dataset
 from chd_atlas.models.functional import FunctionalEvidence, FunctionalFile
+from chd_atlas.models.gene_literature import GeneLiteratureFile
 from chd_atlas.models.literature import (
     FeaturedFile,
     FeaturedManuscript,
@@ -41,6 +42,10 @@ class Corpus:
     chd_scope: tuple[ScopeEntry, ...] = ()
     cohorts: tuple[Cohort, ...] = ()
     cardiac_phases: CardiacPhaseFile | None = None
+    # One entry per `curation/literature/*.yaml`, filename-sorted. The path is
+    # kept because the file name is part of the record (LIT009) and names the
+    # location of an error.
+    literature: tuple[tuple[Path, GeneLiteratureFile], ...] = ()
 
 
 @dataclass
@@ -134,7 +139,7 @@ def unexpected_curation_entries(root: Path) -> list[ValidationIssue]:
         "phenotypes.yaml",
         "publications.yaml",
     }
-    expected_dirs = {"assertions", "datasets", "functional"}
+    expected_dirs = {"assertions", "datasets", "functional", "literature"}
     issues: list[ValidationIssue] = []
 
     def error(entry: Path, message: str) -> None:
@@ -202,6 +207,12 @@ def load_curation(root: Path) -> tuple[Corpus, list[ValidationIssue]]:
         if parsed_dataset is not None:
             datasets.append(parsed_dataset)
 
+    literature: list[tuple[Path, GeneLiteratureFile]] = []
+    for path in _record_files(curation / "literature"):
+        parsed_literature = _parse(GeneLiteratureFile, path, acc)
+        if parsed_literature is not None:
+            literature.append((path, parsed_literature))
+
     publications: tuple[Publication, ...] = ()
     publications_path = curation / "publications.yaml"
     if publications_path.is_file():
@@ -253,5 +264,6 @@ def load_curation(root: Path) -> tuple[Corpus, list[ValidationIssue]]:
         chd_scope=chd_scope,
         cohorts=cohorts,
         cardiac_phases=cardiac_phases,
+        literature=tuple(literature),
     )
     return corpus, acc.issues
