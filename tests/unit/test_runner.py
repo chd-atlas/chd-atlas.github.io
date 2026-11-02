@@ -1,3 +1,4 @@
+import json
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -1390,3 +1391,128 @@ def test_a_header_only_gene_registry_skips_only_the_cell_type_gene_check(tmp_pat
 
     assert "REF001" in codes
     assert sorted({code for code in codes if code.startswith("CTP")}) == ["CTP001"]
+
+
+# ---- literature records (LIT001-LIT013) reached through validate_repository ----
+
+
+def _literature_repo(tmp_path: Path, *, stem: str = "TBX5", gene: str = "HGNC:11604", **tweak):  # type: ignore[no-untyped-def]
+    """A copy of the committed repository plus one clean literature file.
+
+    PMID:8988165 is the real TBX5 paper already in `publications.yaml`. Counts
+    differ from one another: one search, one new hit, one finding.
+    """
+    root = _real_repo(tmp_path)
+    (root / "curation" / ".id_registry.yaml").write_text("prefixes:\n  AST: 2\n  LIT: 2\n")
+    finding = {
+        "id": "CHDA:LIT:0000001",
+        "publication": "PMID:8988165",
+        "design": "cohort_screen",
+        "methods": ["exome"],
+        "count_unit": "probands",
+        "screened": 7,
+        "carriers": {"de_novo": 2, "inherited": 1, "origin_unknown": 3},
+        "variant_classes": ["snv_indel"],
+        "phenotypes": ["HP:0001631"],
+        "lesion_groups": ["septal"],
+        "syndromic": "both",
+        "shares_probands_with": "unknown",
+        "locators": [{"kind": "in_text", "element": "Table 2"}],
+        "summary": "Six of seven probands carry a variant.",
+        "extracted_by": "agent:extract/test",
+        "approved_by": "A. Curator",
+        "approved_on": "2026-11-05",
+    }
+    finding.update(tweak.pop("finding", {}))
+    raw = {
+        "gene": gene,
+        "searches": [
+            {
+                "id": 1,
+                "source": "pubmed",
+                "query": "q",
+                "run_on": "2026-11-02",
+                "hits": 1,
+                "new_hits": 1,
+            }
+        ],
+        "triage": [{"pmid": finding["publication"], "search": 1, "decision": "included"}],
+        "findings": [finding],
+    }
+    raw.update(tweak)
+    directory = root / "curation" / "literature"
+    directory.mkdir()
+    (directory / f"{stem}.yaml").write_text(json.dumps(raw))  # JSON is YAML
+    return root
+
+
+def _codes_of(root: Path) -> set[str]:
+    return {issue.code for issue in validate_repository(root).issues}
+
+
+def test_a_clean_literature_file_adds_no_issue(tmp_path: Path) -> None:
+    baseline = validate_repository(_real_repo(tmp_path / "a")).issues
+    report = validate_repository(_literature_repo(tmp_path / "b"))
+    assert report.issues == baseline
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "code"),
+    [
+        (
+            {
+                "searches": [
+                    {
+                        "id": 1,
+                        "source": "pubmed",
+                        "query": "q",
+                        "run_on": "2026-11-02",
+                        "hits": 2,
+                        "new_hits": 2,
+                    }
+                ]
+            },
+            "LIT001",
+        ),
+        ({"stem": "HOS"}, "LIT009"),
+        ({"gene": "HGNC:10477", "stem": "RXRA"}, "LIT013"),
+        ({"finding": {"publication": "PMID:1004"}}, "LIT011"),
+        ({"finding": {"cohorts": ["no_such_cohort"]}}, "LIT012"),
+        ({"finding": {"phenotypes": ["HP:9999999"]}}, "ONT001"),
+        ({"finding": {"id": "CHDA:LIT:0000009"}}, "ID002"),
+    ],
+)
+def test_each_literature_check_is_reached_through_the_repository_validator(
+    tmp_path: Path, kwargs: dict[str, object], code: str
+) -> None:
+    root = _literature_repo(tmp_path, **kwargs)  # type: ignore[arg-type]
+    assert code in _codes_of(root)
+
+
+@pytest.mark.parametrize(
+    ("removed", "cause", "silenced"),
+    [("publications.yaml", "CUR003", "LIT011"), ("cohorts.yaml", "CUR004", "LIT012")],
+)
+def test_a_missing_registry_a_finding_needs_is_reported_once_not_skipped(
+    tmp_path: Path, removed: str, cause: str, silenced: str
+) -> None:
+    """R4: the registry's absence skips LIT011/LIT012, so the cause is an error.
+
+    Everything else that would raise the same code is removed, so only the
+    literature file can be the reason it appears.
+    """
+    root = _literature_repo(
+        tmp_path, finding={"cohorts": ["ddd"]} if removed == "cohorts.yaml" else {}
+    )
+    (root / "mirrors" / "burden.tsv").unlink()
+    (root / "mirrors" / "burden_combined.tsv").unlink(missing_ok=True)
+    shutil.rmtree(root / "curation" / "assertions")
+    (root / "curation" / "assertions").mkdir()
+    (root / "curation" / removed).unlink()
+
+    report = validate_repository(root)
+    codes = {issue.code for issue in report.issues if issue.severity is Severity.ERROR}
+
+    assert cause in codes
+    assert silenced not in codes
+    assert report.ok is False
