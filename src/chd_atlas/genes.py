@@ -179,6 +179,29 @@ class GeneRegistry:
         """
         return tuple(sorted(self._approved))
 
+    def approved_symbol(self, gene: str) -> str | None:
+        """The current approved symbol of an HGNC id, or None when the id is unknown."""
+        for symbol, hgnc_id in self._approved.items():
+            if hgnc_id == gene:
+                return symbol
+        return None
+
+    def previous_symbols(self, gene: str) -> tuple[str, ...]:
+        """The retired names that `resolve` answers with `gene`, sorted.
+
+        Defined through `resolve` rather than the raw index so the answer is
+        exactly the set of names a search may attach to this gene: a name two
+        genes retired (`MADH7`) and one a live alias outranks (`ODD`) both
+        resolve to something other than `Resolution.PREVIOUS` for this gene, and
+        are left out.
+        """
+        names = []
+        for name in self._previous:
+            resolved = self.resolve(name)
+            if resolved.resolution is Resolution.PREVIOUS and resolved.gene == gene:
+                names.append(name)
+        return tuple(sorted(names))
+
     def resolve(self, symbol: str) -> Resolved:
         """One symbol, resolved or reported. Never guesses, never raises.
 

@@ -420,3 +420,37 @@ def test_a_published_genes_identity_ids_are_held_to_the_rule_the_build_refuses_o
     assert (empty.code, empty.severity) == ("GEN004", Severity.ERROR)
     assert empty.message.startswith("the gene registry holds no gene rows, and 2 published")
     assert validate_identity_ids({}, set(), "mirrors/genes.tsv") == []
+
+
+def test_previous_symbols_drop_ambiguous_and_alias_shadowed_names() -> None:
+    """`MADH7` (retired by two genes) and `ODD` (a live alias elsewhere) are not
+    names a search may attach to one gene; a clean retired name is, sorted."""
+    registry = GeneRegistry(
+        [
+            {
+                "hgnc_id": "HGNC:6772",
+                "symbol": "SMAD6",
+                "aliases": "",
+                "prev_symbols": "MADH6|MADH7",
+            },
+            {"hgnc_id": "HGNC:6773", "symbol": "SMAD7", "aliases": "", "prev_symbols": "MADH7"},
+            {"hgnc_id": "HGNC:4274", "symbol": "GJA1", "aliases": "ODD", "prev_symbols": ""},
+            {
+                "hgnc_id": "HGNC:8111",
+                "symbol": "OSR1",
+                "aliases": "",
+                "prev_symbols": "ZZ9|ODD|AA1",
+            },
+        ]
+    )
+    assert registry.previous_symbols("HGNC:6772") == ("MADH6",)
+    assert registry.previous_symbols("HGNC:6773") == ()
+    assert registry.previous_symbols("HGNC:8111") == ("AA1", "ZZ9")
+    assert registry.previous_symbols("HGNC:4274") == ()
+    assert registry.previous_symbols("HGNC:0") == ()
+
+
+def test_approved_symbol_of_an_id() -> None:
+    registry = GeneRegistry(_ROWS)
+    assert registry.approved_symbol("HGNC:11604") == "TBX5"
+    assert registry.approved_symbol("HGNC:0") is None
