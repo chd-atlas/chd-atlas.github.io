@@ -1,0 +1,44 @@
+# curation/datasets/hoc.yaml
+#
+# Farah et al. 2024 developing human heart scRNA-seq (UCSC Cell Browser
+# dataset hoc/all-heart), aggregated to per-heart pseudobulks.
+id: hoc
+archive: ucsc_cell_browser
+technology: scrnaseq
+design: cell_type_profile
+tissue: heart
+developmental_stage: 9 to 15 weeks post conception
+organism: NCBITaxon:9606
+# Hearts, the replicates.
+n_samples: 8
+licence: >-
+  Not stated by the UCSC Cell Browser; data accompany a CC BY 4.0 article
+  (PMID:38480880) and are attributed to Farah et al. 2024
+publication: PMID:38480880
+# Labels are from the Fig. 1 legend of Farah et al. 2024 (PMC10972757), which
+# spells out "platelet-red blood cell" and "non-chambered cardiomyocyte";
+# Endocardial and Neuronal are named in its prose, not abbreviated. Compartments
+# are the paper's five (Fig. 1a) and UCSC's compartment datasets
+# hoc/{cardiomyocyte,mesenchymal,endothelial,blood,neuronal}, each of which
+# lists its classes. Order approved by the owner 2026-11-02.
+cell_types:
+  - {token: aCM, label: Atrial cardiomyocytes, compartment: Cardiomyocyte}
+  - {token: vCM, label: Ventricular cardiomyocytes, compartment: Cardiomyocyte}
+  - {token: ncCM, label: Non-chambered cardiomyocytes, compartment: Cardiomyocyte}
+  - {token: Fibro, label: Fibroblasts, compartment: Mesenchymal}
+  - {token: SMC, label: Smooth muscle cells, compartment: Mesenchymal}
+  - {token: Epicardial, label: Epicardial cells, compartment: Mesenchymal}
+  - {token: Endocardial, label: Endocardial cells, compartment: Endothelial}
+  - {token: BEC, label: Blood endothelial cells, compartment: Endothelial}
+  - {token: LEC, label: Lymphatic endothelial cells, compartment: Endothelial}
+  - {token: P-RBC, label: Platelet-red blood cells, compartment: Blood}
+  - {token: WBC, label: White blood cells, compartment: Blood}
+  - {token: Neuronal, label: Neuronal cells, compartment: Neuronal}
+regions: [LA, RA, LV, RV, IVS]
+# D5. The Human Protein Atlas's "not detected" cut, matching this atlas's 1 TPM
+# floor for bulk expression.
+detection_floor: 1.0
+floor_source: >-
+  The Human Protein Atlas's "not detected" cut, and the same 1 unit floor this
+  atlas applies to bulk expression (1 TPM).
+quantile_estimator: linear

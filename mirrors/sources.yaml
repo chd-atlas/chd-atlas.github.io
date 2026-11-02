@@ -221,3 +221,27 @@ sources:
     # mandated across resources, and this experiment's IDF declares none.
     licence: EMBL-EBI Terms of Use
     redistribution: permitted_with_attribution
+  - id: farah2024_hoc
+    name: >-
+      Farah et al. 2024 developing human heart scRNA-seq, UCSC Cell Browser
+      dataset hoc/all-heart (142,946 cells), aggregated to per-heart pseudobulks
+    # The version is the sha256 of the h5ad, which is NOT committed (3.3 GB).
+    # Reproduce with scripts/hpc/submit_farah_celltypes.sh (hvantk 96ceafb4,
+    # job 21367175, 2026-11-02; the two `hvantk expression summarize` commands
+    # are in scripts/hpc/farah_celltypes.sbatch). Its pseudobulk.tsv (sha256
+    # 3414fe0cf47b5f2ce4c46460fed151131dce365b14ca2d2eae06671be9dd59d9) is
+    # turned into mirrors/cell_type_profiles/hoc.tsv by
+    # scripts/convert_farah2024.py.
+    version: "sha256:19a1d4961c2f38194b7589e86dc53cae45c272fc0f9d8a7e907edeefe3215c2c"
+    # The h5ad's build date (its uns/hvantk_metadata/build_date, hvantk 0.1.0,
+    # built from UCSC's exprMatrix.tsv.bgz); the raw download date is not
+    # recorded.
+    retrieved_on: 2026-04-18
+    url: https://cells.ucsc.edu/?ds=hoc+all-heart
+    # UCSC's hoc/desc.json and hoc/dataset.json (fetched 2026-11-02) state no
+    # licence. Owner decision 2026-11-02: treat the data as attributable to
+    # Farah et al. 2024, whose article is CC BY 4.0.
+    licence: >-
+      Not stated by the UCSC Cell Browser; data accompany a CC BY 4.0 article
+      (PMID:38480880) and are attributed to Farah et al. 2024
+    redistribution: permitted_with_attribution

@@ -501,3 +501,35 @@ publications:
     doi: 10.1002/ajmg.a.37830
     pmcid: PMC5003181
     own_lab: false
+  - id: PMID:38480880
+    title: >-
+      Spatially organized cellular communities form the developing human heart.
+    journal: Nature
+    year: 2024
+    authors:
+      - Farah EN
+      - Hu RK
+      - Kern C
+      - Zhang Q
+      - Lu TY
+      - Ma Q
+      - Tran S
+      - Zhang B
+      - Carlin D
+      - Monell A
+      - Blair AP
+      - Wang Z
+      - Eschbach J
+      - Li B
+      - Destici E
+      - Ren B
+      - Evans SM
+      - Chen S
+      - Zhu Q
+      - Chi NC
+    # A single-cell RNA-seq atlas of the developing heart: no case-control or
+    # family study, cited here only as the origin of an expression dataset.
+    study_type: transcriptomics
+    doi: 10.1038/s41586-024-07171-z
+    pmcid: PMC10972757
+    own_lab: false
