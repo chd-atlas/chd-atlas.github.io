@@ -50,10 +50,10 @@ What the build produced, and a checksum for every file in it.
 {
   "counts": {
     "assertions": 2, "burden_combined": 108, "burden_rows": 1210,
-    "burden_surviving_genes": 32, "cell_type_datasets": 0, "cell_type_genes": 0,
-    "cohort_families": 2, "cohorts": 20, "datasets": 1, "featured": 1, "functional": 0,
+    "burden_surviving_genes": 32, "cell_type_datasets": 1, "cell_type_genes": 118,
+    "cohort_families": 2, "cohorts": 20, "datasets": 2, "featured": 1, "functional": 0,
     "genes": 119, "phenotypes": 8, "profile_datasets": 1, "profile_genes": 119,
-    "publications": 10, "scope_terms": 105
+    "publications": 11, "scope_terms": 105
   },
   "files": {
     "genes/index.json": "sha256:<64 hex>",
@@ -128,9 +128,9 @@ wrong by the next one.
     not.
   - `cell_type_genes` (since `2.20`) is the number of published genes whose
     [`cell_type_expression`](#the-bundles-cell_type_expression-object-a-cell-type-profile-never-a-contrast)
-    is non-empty. It is 0 until a cell-type mirror is committed.
+    is non-empty.
   - `cell_type_datasets` (since `2.20`) is the number of cell-type datasets
-    those bundles name, 0 likewise.
+    those bundles name.
 
   Each of the nine counts only what the published genes' bundles carry, except
   `cohort_families`, which groups the whole burden mirror's cohorts: restricting
@@ -415,9 +415,9 @@ and each carries an `id`, so a page can link the paragraph it shortens.
   single-cell layer, how a cell-type value is computed (counts per million,
   the median across hearts, a heart counting only with 10 or more cells of a
   type), its detection floor, what a dot's size is, and what a cell-type
-  figure does not say. A gene page keeps a one-line form of the first and
-  links here, and each expression chart's folded key, and the cell-type
-  block's reading fold, end with a link here.
+  figure does not say. A gene page keeps a one-line form of the first, which
+  links here on a page with no cell-type data; each expression chart's folded
+  key, and the cell-type block's reading fold, end with a link here.
 
 Like the other pages it is for people: its markup is not a contract, and no
 payload depends on it.
@@ -731,7 +731,7 @@ abridged, and each is documented in full further down.
     ]
   },
   "expression_profile": { "datasets": [ { "dataset": "E-MTAB-6814", … } ] },
-  "cell_type_expression": { "datasets": [] }
+  "cell_type_expression": { "datasets": [ { "dataset": "hoc", … } ] }
 }
 ```
 
@@ -1532,34 +1532,35 @@ data.
 ### The bundle's `cell_type_expression` object: a cell-type profile, never a contrast
 
 On every gene bundle. Always present, and `{"datasets": []}` for a gene no
-cell-type dataset covers; no cell-type mirror is committed yet, so that is
-every bundle today and `counts.cell_type_genes` and `counts.cell_type_datasets`
-are both 0.
+cell-type dataset covers. `hoc` (Farah et al. 2024) covers 118 of the 119
+published genes. CRIPTO has none: the source uses its previous symbol, TDGF1,
+and only approved symbols are joined.
 
 A low or absent value is not evidence against a gene: it describes the cells
 sampled, not the gene's role. Per-region values pool 9 to 15 weeks of
-development, so they are not a stage series. A cell type or region that is
-absent means no heart had at least 10 cells there. `below_floor` marks a
+development, so they are not a stage series. An absent cell type or region
+means no heart had at least 10 cells there. `below_floor` marks a
 median under the dataset's `detection_floor`. `specificity` is tau over the
 pooled medians, with its inputs; its `cell_types` are those with a pooled value,
 in the dataset's declared order. It is `null` when fewer than two cell types
-have a pooled value, or when every pooled median is below the floor.
+have a pooled value, or when every pooled median is below the floor. TBX5's,
+abridged:
 
 ```json
 {"datasets": [{"dataset": "hoc", "unit": "cpm", "detection_floor": 1.0, "n_donors": 8,
-  "specificity": {"tau": 0.591, "scale": "log2(x+1)", "method": "<cell_types.CELL_TYPE_TAU_METHOD>",
+  "specificity": {"tau": 0.5906522736630974, "scale": "log2(x+1)",
     "cell_types": ["aCM", "vCM", "ncCM", "Fibro", "SMC", "Epicardial", "Endocardial",
                    "BEC", "LEC", "P-RBC", "WBC", "Neuronal"],
     "n_cell_types": 12, "highest_in": "aCM",
-    "medians": {"aCM": 220.67, "vCM": 41.48, "ncCM": 159.96, "Fibro": 11.16, "SMC": 4.26,
-                "Epicardial": 20.75, "Endocardial": 8.3, "BEC": 2.7, "LEC": 0.41,
-                "P-RBC": 0.2, "WBC": 7.38, "Neuronal": 6.84}},
+    "medians": {"aCM": 220.668602399468, "vCM": 41.483159752402315, … }, … },
   "cell_types": [{"cell_type": "aCM", "label": "Atrial cardiomyocytes",
-    "pooled": {"median": 220.67, "q25": 194.18, "q75": 241.99, "n_donors": 8,
-               "n_cells": 20268, "fraction_expressing": 0.837, "below_floor": false},
-    "regions": [{"region": "LA", "median": 228.06, "q25": 198.51, "q75": 241.66,
-                 "n_donors": 8, "n_cells": 7437, "fraction_expressing": 0.823,
-                 "below_floor": false}]}]}]}
+    "pooled": {"median": 220.668602399468, "q25": 194.17867106703545,
+               "q75": 241.9852643490237, "n_donors": 8, "n_cells": 20268,
+               "fraction_expressing": 0.8365403591868956, "below_floor": false},
+    "regions": [{"region": "LA", "median": 228.0646351556208, "q25": 198.50797603218314,
+                 "q75": 241.65763260755813, "n_donors": 8, "n_cells": 7437,
+                 "fraction_expressing": 0.8230469275245395, "below_floor": false}, …]},
+    …]}]}
 ```
 
 ## `genes/<slug>.html`
@@ -1784,9 +1785,14 @@ to [`methods.html#rare-variants`](#methodshtml), which states the key in
 general.
 
 The developmental expression section, last on the page, opens with one visible
-line: "Every measurement below is from bulk tissue: a low or absent
-figure is not evidence a gene is unimportant to heart development." It links
-[`methods.html#expression`](#methodshtml) as *How to read these figures*; that
+line. On a page with cell-type data and a bulk profile it reads "Cell-type values pool 8 hearts at
+9 to 15 weeks and the timeline below is from bulk tissue; a low or absent value
+is not evidence a gene is unimportant to heart development." and the cell-type
+block follows, its folded key ending with a link, *How to read cell-type
+figures*, to `methods.html#expression`. On a page without, CRIPTO's alone
+today, it reads "Every measurement below is from bulk tissue: a low or absent
+figure is not evidence a gene is unimportant to heart development." and links
+[`methods.html#expression`](#methodshtml) as *How to read these figures*. That
 section states the argument in full with the reading notes this section folded
 before this release — how a median is placed against its organ's percentile
 grid, why none is placed below a dataset's detection floor, and why percentiles
@@ -2172,15 +2178,29 @@ the same guarantee every cardiac term gets.
         { "token": "19 week post conception", "wpc": 19.0, "order": 13 },
         { "token": "neonate", "wpc": null, "order": 14 },
         { "token": "elderly", "wpc": null, "order": 21 }
-      ]
+      ],
+      "cell_types": [], "regions": []
+    },
+    {
+      "id": "hoc", "archive": "ucsc_cell_browser", "design": "cell_type_profile",
+      "technology": "scrnaseq", "tissue": "heart",
+      "developmental_stage": "9 to 15 weeks post conception", "n_samples": 8,
+      "publication": "PMID:38480880", "detection_floor": 1.0,
+      "cell_types": [
+        { "token": "aCM", "label": "Atrial cardiomyocytes", "compartment": "Cardiomyocyte" },
+        …
+      ],
+      "regions": ["LA", "RA", "LV", "RV", "IVS"],
+      …
     }
   ]
 }
 ```
 
 `stages` and `floor_source` are abridged above — the real record declares all
-21 stage tokens and spells the floor's provenance out in full. Every other
-value is copied from a build of the committed corpus.
+21 stage tokens and spells the floor's provenance out in full — and so is the
+`hoc` record, marked `…`. Every other value is copied from a build of the
+committed corpus.
 
 One record per omics dataset, serialised generically from the curated model
 (`build/literature.py`'s `_dump`, the same function `publications.json`,
@@ -2211,7 +2231,7 @@ every record except a `"cell_type_profile"`-design one, the single-cell design
 that is indexed by cell type and region instead of by stage; the curation model
 rejects them on any other design. On that design each region appears once and
 is one of `LA`, `RA`, `LV`, `RV` and `IVS`; the pooled `all` is never declared.
-No such record is curated yet.
+`hoc` is the one curated today, with 12 cell types in five compartments.
 
 `stages` is one entry per developmental stage the dataset declares. Each
 carries the stage's own `token` — the literal string the mirror's rows use,

@@ -4421,18 +4421,18 @@ _BULK_TISSUE_NOTICE: Final = (
 
 # The banner of a gene that has cell-type data, in place of `_BULK_TISSUE_NOTICE`
 # (never beside it: that notice says every measurement below is bulk, which is
-# false once a cell-type block opens the section). It keeps the same caveat
-# sentence, unconditional, and says what the two layers are.
+# false once a cell-type block opens the section). It keeps the same caveat,
+# unconditional, in one sentence that also says what the two layers are.
 _CELL_TYPE_NOTICE: Final = (
-    '<p class="notice-inline">Cell-type values pool 8 hearts at 9 to 15 weeks; the timeline '
-    "below is from bulk tissue. A low or absent value is not evidence a gene is unimportant "
-    "to heart development.</p>"
+    '<p class="notice-inline">Cell-type values pool 8 hearts at 9 to 15 weeks and the '
+    "timeline below is from bulk tissue; a low or absent value is not evidence a gene is "
+    "unimportant to heart development.</p>"
 )
 
 # The same, for a gene with cell-type data and no bulk profile: there is no
 # timeline below, so the banner must not claim one.
 _CELL_TYPE_ONLY_NOTICE: Final = (
-    '<p class="notice-inline">Cell-type values pool 8 hearts at 9 to 15 weeks. A low or '
+    '<p class="notice-inline">Cell-type values pool 8 hearts at 9 to 15 weeks; a low or '
     "absent value is not evidence a gene is unimportant to heart development.</p>"
 )
 
@@ -5580,8 +5580,9 @@ def _no_trajectory_sentence(
     (ZIC3, NODAL), `moderate` (DAW1, FGF8), `limited` (USP44) and none at all
     (SEMA3E, GDF1). They are laterality and outflow-tract genes acting in rare
     lineages, which is exactly the dilution `methods.html#expression` states
-    in full. `_BULK_TISSUE_NOTICE`, the line above every dataset block, has
-    said nothing of dilution since 2026-10-26 (bulk tissue, and a low figure
+    in full. `_BULK_TISSUE_NOTICE`, the line above every dataset block
+    (`_CELL_TYPE_NOTICE` where the gene has cell-type data, which says no more
+    of it), has said nothing of dilution since 2026-10-26 (bulk tissue, and a low figure
     is not evidence the gene is unimportant, then the link), so on these
     pages this sentence is the only statement of the mechanism: measured on a
     build of 802d694, "diluted" appears on 7 gene pages, these seven, once

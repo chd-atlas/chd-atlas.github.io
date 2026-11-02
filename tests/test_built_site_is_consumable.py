@@ -615,6 +615,38 @@ def test_every_cohort_a_published_burden_row_cites_resolves_with_its_caveat(site
     assert "outside this atlas's scope" in registry["taa_cases"]["description"]
 
 
+def test_every_cell_type_dataset_a_bundle_names_resolves_in_datasets_json(site: Path) -> None:
+    """A bundle's `cell_type_expression` names its dataset by bare id; the record is
+    in `datasets.json`, the way a burden row's cohorts are in `cohorts.json`.
+
+    The id is the only route from a value to what produced it: the hearts and
+    weeks sampled, the detection floor's basis, the publication. Asserted over
+    the real build since Farah et al. 2024 landed (2026-11-02, 118 bundles
+    naming `hoc`), with each resolved record held to what the bundle carries
+    beside the id: the design, the floor, the hearts, and every cell type and
+    region a bundle publishes being one the record declares, under the label
+    the record gives it.
+    """
+    records = {record["id"]: record for record in _read(site, "datasets.json")["datasets"]}
+    named = 0
+    for path in sorted((site / "genes").glob("HGNC_*.json")):
+        for entry in json.loads(path.read_text(encoding="utf-8"))["cell_type_expression"][
+            "datasets"
+        ]:
+            named += 1
+            record = records.get(entry["dataset"])
+            assert record is not None, f"{path.name}: {entry['dataset']} resolves to nothing"
+            assert record["design"] == "cell_type_profile", path.name
+            assert entry["detection_floor"] == record["detection_floor"], path.name
+            assert entry["n_donors"] == record["n_samples"], path.name
+            labels = {item["token"]: item["label"] for item in record["cell_types"]}
+            for item in entry["cell_types"]:
+                assert labels.get(item["cell_type"]) == item["label"], (path.name, item)
+                for region in item["regions"]:
+                    assert region["region"] in record["regions"], (path.name, region)
+    assert named, "no published bundle names a cell-type dataset, so this proves nothing"
+
+
 def test_methods_html_lists_every_cohort_cohorts_json_publishes(site: Path) -> None:
     """The registry for a reader, `cohorts.json` for a program: the same records (P4).
 
@@ -1809,6 +1841,7 @@ _ATTRIBUTED_ON_THE_FRONT_PAGE: dict[str, str] = {
     "mondo_sssom": "Mondo's disease mappings are mirrored under CC BY 4.0",
     "expression_atlas_e_mtab_6814": "EMBL-EBI Expression Atlas's (E-MTAB-6814), "
     "under EMBL-EBI's Terms of Use",
+    "farah2024_hoc": "Cell-type expression is the UCSC Cell Browser data of Farah et al. 2024.",
     "audain2026_sd3": "Audain et al. 2026 and Sierant et al. 2025, both CC BY 4.0",
     "sierant2025_ds6": "Audain et al. 2026 and Sierant et al. 2025, both CC BY 4.0",
 }
@@ -1817,11 +1850,16 @@ _ATTRIBUTED_ON_THE_FRONT_PAGE: dict[str, str] = {
 _ALSO_ON_THE_FRONT_PAGE: dict[str, str] = {"audain2021_s6": "and of Audain et al. 2021, CC0."}
 # The words the sentence states each `sources.json` licence in. HPO's licence is
 # a URL the sentence does not state, so it is the one source held to its name
-# alone.
+# alone. Farah et al. 2024's record states no licence, only that the data "are
+# attributed to Farah et al. 2024" (owner decision 2026-11-02), so the words for
+# it are that attribution: a licence recorded for it later is a key missing here,
+# and fails.
 _LICENCE_WORDS: dict[str, str] = {
     "CC-BY-4.0": "CC BY 4.0",
     "CC0-1.0": "CC0",
     "EMBL-EBI Terms of Use": "EMBL-EBI's Terms of Use",
+    "Not stated by the UCSC Cell Browser; data accompany a CC BY 4.0 article "
+    "(PMID:38480880) and are attributed to Farah et al. 2024": "Farah et al. 2024",
 }
 _LICENCE_NOT_STATED: frozenset[str] = frozenset({"hpo"})
 
@@ -1838,7 +1876,15 @@ def test_the_front_page_names_every_source_that_requires_attribution(site: Path)
     the page names it and a phrase is pinned; each phrase must be on the page,
     with the licence where it is CC BY. Measured on a real build the day it was
     written: 7 such sources. Since the doorway page (2026-10-27) the section is
-    "Sources", one paragraph of 123 words, and the sentence is three.
+    "Sources", one paragraph of 118 words (tags deleted outright, the method
+    below), and the sentence is three. Farah et al. 2024's cell-type data made it 8
+    sources on 2026-11-02, named in one 13-word sentence. Measured on builds of fe94116, the
+    paragraph's HTML between `<p>` and `</p>` (heading not counted) with entities unescaped and
+    split on whitespace: 118 words without the sentence and 131 with it when
+    tags are deleted outright, 123 and 136 when each tag is replaced by a
+    space (a tag inside a word, as in `<strong>Orphanet</strong>'s`, then
+    splits it). The 118-word figure above is the first method; the second is
+    given only to show the spread.
 
     **Every licence the sentence states is held to `sources.json`** (review,
     2026-10-27), not only CC BY: "Audain et al. 2021, CC0" and "EMBL-EBI's
@@ -1955,11 +2001,12 @@ _SENTENCE = re.compile(r"(?<=[.!?])\s+(?=[A-Z(\"'“])")
 # (b)'s share: a sentence on at least this fraction of gene pages is boilerplate.
 _BOILERPLATE_SHARE = 0.9
 
-# Measured after the owner's answers of 2026-10-27 (the registry qualifier on
-# the gene cards), with the headroom owner decision E4 keeps: (a) 964 x 1.03
-# rounded up, (b) 21 + 1. See the test for the series and the rule. Lower each
-# when a page sheds prose; raising one is a decision, and its commit says why.
-_MEDIAN_VISIBLE_WORDS = 993
+# Measured after the one-sentence cell-type banner (owner decision 2026-11-02):
+# (a) 1,000 x 1.03 rounded up, the headroom owner decision E4 keeps; (b) stays 22,
+# the 22 measured, with NO +1 headroom this time (the owner: "unchanged"). See the
+# test for the series and the rule. Lower each when a page sheds prose; raising
+# one is a decision, and its commit says why.
+_MEDIAN_VISIBLE_WORDS = 1030
 _BOILERPLATE_SENTENCES = 22
 
 
@@ -2081,6 +2128,8 @@ def test_a_gene_page_carries_no_more_visible_prose_than_its_measured_budget(site
     review fixes to batch 3, 2026-10-27          957  1,066  21 sentences, 430 words
     owner answers 2026-10-27 (A1, A2)            964  1,073  21 sentences, 430 words
     review fixes to owner answers, 2026-10-27    964  1,073  21 sentences, 430 words
+    fe94116, Farah, two-sentence banner          999  1,117  23 sentences, 454 words
+    dd34b8b, one-sentence banner (HEAD)        1,000  1,118  22 sentences, 455 words
     =========================================  =====  =====  ======================
 
     The 2f6300a row is the owner's wording decisions of 2026-10-26 (E1, E2, R4,
@@ -2171,6 +2220,15 @@ def test_a_gene_page_carries_no_more_visible_prose_than_its_measured_budget(site
     rule, 964 x 1.03 rounded up is 993 and 21 + 1 is 22, so both constants
     stay.
 
+    The row after it is Farah et al. 2024's cell-type layer and the owner's
+    decision of 2026-11-02 on its banner, measured with this parser on fresh
+    builds of fe94116 with and without the change: the two-sentence banner
+    read 999 and 23 / 454; as one
+    sentence it reads 1,000 and 22 / 455 (119 pages). The banner's second
+    sentence was the 23rd boilerplate sentence and is gone; the median moved
+    by one word. By the rule (a) is 1,000 x 1.03 rounded up, 1,030, and (b)
+    is 22 with no headroom, as the owner decided.
+
     "cells" is the history: (a) with cells counted, the figure this test
     asserted until review, 957 at zero headroom. (b) never counted them, and
     the review's fixes to methods.html left every gene page's bytes as at
@@ -2182,8 +2240,9 @@ def test_a_gene_page_carries_no_more_visible_prose_than_its_measured_budget(site
     on a gene page sits in a table cell.
 
     **Headroom, because a curation-only change must not fail the suite.**
-    (a) is held at 993, the last row's 964 x 1.03 rounded up, and (b) at 22,
-    one more than 21 (owner decision E4 keeps both margins; they were 986 and
+    (a) is held at 1,030, the last row's 1,000 x 1.03, and (b) at 22, the
+    measured 22 with no margin (owner decision E4 keeps (a)'s; the owner left
+    (b) unchanged on 2026-11-02). They were 993 and 22, one over 21, after the previous row; 986 and
     22 over the three rows before it, 971 and 22 over the batch-2 row, 909 and
     22 over 9a8f14d's, 922 and 23 over 2f6300a's, and 867 and 22 over
     802d694's). **When this fails,

@@ -1,4 +1,5 @@
 # tests/unit/test_build_runner.py
+import csv
 import gzip
 import hashlib
 import json
@@ -631,156 +632,132 @@ def test_the_registry_reads_each_genes_identity_with_blank_cells_as_none(tmp_pat
     assert read_gene_identities(tmp_path) is None
 
 
-def test_the_cell_type_census_reaches_the_manifest_by_key(
-    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_the_committed_cell_type_mirror_reaches_every_bundle_page_and_count_it_covers(
+    repo: Path, tmp_path: Path
 ) -> None:
-    """`build_site` publishes `genes` under `cell_type_genes`, never swapped.
+    """The real Farah et al. 2024 mirror, built, against the mirror read without the build.
 
-    Fixed, distinct answers (as `profile_census` is given above), because a
-    real build has no cell-type mirror yet and publishes 0 for both; the empty
-    case is asserted too, on the unpatched build.
+    Until 2026-11-02 no cell-type data was committed, so this was two tests: a
+    monkeypatched census (`CellTypeCensus(genes=5, datasets=2)`) proving
+    `build_site` publishes `genes` under `cell_type_genes`, and a synthetic
+    two-gene `hoc` dataset written over the corpus, because a real build
+    published `{"datasets": []}` on every bundle and deleting `cell_types=` from
+    either runner call passed the whole suite (review, 2026-10-28). The real
+    mirror made the synthetic one collide with it and replaced it. The
+    monkeypatched census came back as
+    `test_the_cell_type_census_is_published_under_its_own_keys`, because the
+    real corpus cannot do its job (see the section 4.30 note below).
+
+    It asks the bundle, page and count questions of every published gene: each bundle
+    carries exactly the mirror's medians for it, pooled and by region, in the
+    dataset's declared order; each page draws the block exactly where its bundle
+    has data; and `counts` and the front-page card state the number of published
+    genes the mirror covers, with one dataset. That count is derived here from
+    the mirror and `genes/index.json`, not from `cell_type_census`.
+
+    **The corpus must keep separating the figures** (CLAUDE.md section 4.30).
+    Measured 2026-11-02: 118 covered genes of 119 published (CRIPTO's source
+    symbol is its previous one, TDGF1, and the converter joins approved
+    symbols only), one dataset, and 181 mirrored genes. A covered count equal
+    to `genes` would let `counts.genes` published under `cell_type_genes` pass,
+    and one equal to the mirror's gene count would let a census of the whole
+    mirror pass, so either equality fails here and asks for a fixture instead.
+
+    **Two equalities that guard cannot see** (measured 2026-11-02 on a real
+    build's `manifest.json` `counts`): the covered count 118 equals the burden
+    census's gene count (118), and the one dataset equals `profile_datasets`
+    (1). So `cell_type_genes` published from the burden census, or
+    `cell_type_datasets` from the profile census, passes here. The
+    monkeypatched `test_the_cell_type_census_is_published_under_its_own_keys`
+    below kills both.
+
+    Mutants, each applied to `build/runner.py` and run against this test alone
+    (2026-11-02): `cell_types=` deleted from the `build_genes` call or the
+    `build_gene_pages` call (both a TypeError, as the argument is required),
+    `cell_types={}` passed to either call, `cell_type_genes` dropped from
+    `counts`, `len(published)` published under it, the census's `genes` and
+    `datasets` swapped, and the census taken over every mirrored gene rather
+    than the published ones. 8 of 8 killed.
     """
     out = tmp_path / "dist"
     build_site(repo, out)
-    counts = json.loads((out / "manifest.json").read_text())["counts"]
-    assert counts["cell_type_genes"] == 0
-    assert counts["cell_type_datasets"] == 0
 
-    monkeypatch.setattr(
-        "chd_atlas.build.runner.cell_type_census",
-        lambda expression, published: CellTypeCensus(genes=5, datasets=2),
-    )
-    patched = tmp_path / "patched"
-    build_site(repo, patched)
-    counts = json.loads((patched / "manifest.json").read_text())["counts"]
-    assert counts["cell_type_genes"] == 5
-    assert counts["cell_type_datasets"] == 2
+    pooled: dict[str, dict[str, float]] = {}
+    regional: dict[str, dict[tuple[str, str], float]] = {}
+    with (repo / "mirrors" / "cell_type_profiles" / "hoc.tsv").open(encoding="utf-8") as handle:
+        for row in csv.DictReader(handle, delimiter="\t"):
+            median = float(row["median_abundance"])
+            if row["region"] == "all":
+                pooled.setdefault(row["gene"], {})[row["cell_type"]] = median
+            else:
+                regional.setdefault(row["gene"], {})[(row["cell_type"], row["region"])] = median
+    corpus, _ = load_curation(repo)
+    (hoc,) = [dataset for dataset in corpus.datasets if str(dataset.id) == "hoc"]
+    declared = [cell_type.token for cell_type in hoc.cell_types]
 
-
-# The cell-type layer on a real build. No committed dataset has `design:
-# cell_type_profile` yet, so a build of the corpus alone publishes `{"datasets":
-# []}` on every bundle and cannot see the layer: deleting `cell_types=` from
-# either runner call passed the whole suite (review, 2026-10-28). One dataset
-# over two published genes, so `cell_type_genes` (2) differs from both
-# `cell_type_datasets` (1) and 0 (CLAUDE.md section 4.30). It carries the values
-# the block's fixed copy states, which `cell_type_block` refuses to render
-# without.
-_HOC_DATASET = """\
-id: hoc
-archive: ucsc_cell_browser
-technology: scrnaseq
-design: cell_type_profile
-tissue: heart
-developmental_stage: 9 to 15 weeks post conception
-organism: NCBITaxon:9606
-n_samples: 8
-licence: CC-BY-4.0
-publication: PMID:38480880
-cell_types:
-  - {token: aCM, label: Atrial cardiomyocytes, compartment: Cardiomyocytes}
-  - {token: Fibro, label: Fibroblasts, compartment: Stromal}
-regions: [LA, LV]
-detection_floor: 1.0
-floor_source: test fixture
-quantile_estimator: linear
-"""
-_HOC_PUBLICATION = """\
-  - id: PMID:38480880
-    title: Test fixture standing in for the cell-type dataset's publication.
-    journal: Test fixture
-    year: 2024
-    authors:
-      - Fixture A
-    study_type: transcriptomics
-"""
-_HOC_SOURCE = """\
-  - id: hoc_fixture
-    name: Test fixture standing in for the cell-type pseudobulk
-    version: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
-    retrieved_on: 2026-10-28
-    url: https://cells.ucsc.edu/?ds=hoc
-    licence: CC-BY-4.0
-    redistribution: permitted_with_attribution
-"""
-# TBX5 and GATA4: each gene's pooled atrial-cardiomyocyte median, distinct so a
-# bundle carrying the other gene's entry fails.
-_HOC_ACM_MEDIANS = {"HGNC:11604": 220.67, "HGNC:4173": 41.48}
-
-
-def _hoc_shard() -> str:
-    rows = []
-    for gene, acm in _HOC_ACM_MEDIANS.items():
-        for cell_type, median in (("aCM", acm), ("Fibro", 11.16)):
-            for region in ("LA", "LV", "all"):
-                cells = 8000 if region == "all" else 4000
-                rows.append(
-                    (
-                        gene,
-                        cell_type,
-                        region,
-                        f"{median}\tcpm\t{median * 0.9}\t{median * 1.1}"
-                        f"\t8\t{cells}\t0.5\thoc_fixture",
-                    )
-                )
-    return (
-        "dataset\tgene\tcell_type\tregion\tmedian_abundance\tunit\tq25\tq75\t"
-        "n_donors\tn_cells\tfraction_expressing\tsource\n"
-        + "".join(f"hoc\t{g}\t{c}\t{r}\t{rest}\n" for g, c, r, rest in sorted(rows))
-    )
-
-
-@pytest.fixture(scope="module")
-def cell_type_build(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """The committed corpus plus the synthetic cell-type dataset above, built."""
-    root = tmp_path_factory.mktemp("cell_type_build")
-    repo = root / "repo"
-    repo.mkdir()
-    for name in ("curation", "mirrors"):
-        shutil.copytree(REPO / name, repo / name)
-    (repo / "ontologies").symlink_to(REPO / "ontologies")
-    (repo / "curation" / "datasets" / "hoc.yaml").write_text(_HOC_DATASET, encoding="utf-8")
-    for path, entry in (
-        (repo / "curation" / "publications.yaml", _HOC_PUBLICATION),
-        (repo / "mirrors" / "sources.yaml", _HOC_SOURCE),
-    ):
-        path.write_text(path.read_text(encoding="utf-8") + entry, encoding="utf-8")
-    shard = repo / "mirrors" / "cell_type_profiles"
-    shard.mkdir()
-    (shard / "hoc.tsv").write_text(_hoc_shard(), encoding="utf-8")
-    out = root / "dist"
-    build_site(repo, out)
-    return out
-
-
-def test_a_cell_type_dataset_reaches_the_bundle_the_page_the_manifest_and_the_front_page(
-    cell_type_build: Path,
-) -> None:
-    out = cell_type_build
-    heading = '<section class="cell-types"><h3>Cell types (Farah 2024)</h3>'
     index = json.loads((out / "genes" / "index.json").read_text())
     published = [row["gene"] for row in index["genes"]]
-    assert set(_HOC_ACM_MEDIANS) <= set(published)
-    without = next(gene for gene in published if gene not in _HOC_ACM_MEDIANS)
-
-    for gene, median in _HOC_ACM_MEDIANS.items():
-        slug = gene.replace(":", "_")
-        bundle = json.loads((out / "genes" / f"{slug}.json").read_text())
-        (entry,) = bundle["cell_type_expression"]["datasets"]
-        assert entry["dataset"] == "hoc"
-        assert [c["cell_type"] for c in entry["cell_types"]] == ["aCM", "Fibro"]
-        assert entry["cell_types"][0]["pooled"]["median"] == median
-        page = (out / "genes" / f"{slug}.html").read_text()
-        section = page.split("<h2>Developmental expression</h2>", 1)[1].split("<h2", 1)[0]
-        assert heading in section
-
-    other = without.replace(":", "_")
-    assert json.loads((out / "genes" / f"{other}.json").read_text())["cell_type_expression"] == {
-        "datasets": []
-    }
-    assert heading not in (out / "genes" / f"{other}.html").read_text()
-
+    covered = [gene for gene in published if gene in pooled]
     counts = json.loads((out / "manifest.json").read_text())["counts"]
-    assert counts["cell_type_genes"] == len(_HOC_ACM_MEDIANS) == 2
+    assert len({len(covered), len(published), len(pooled), 1, 0}) == 5, (
+        "the committed corpus no longer separates the covered genes from the published "
+        "ones, the mirrored ones, the dataset count or none; build a fixture that does"
+    )
+    # Not a guard against 118 = burden genes or 1 = profile_datasets: see the docstring.
+    assert counts["cell_type_genes"] == len(covered)
     assert counts["cell_type_datasets"] == 1
     landing = (out / "index.html").read_text()
-    assert "<dt>Genes with cell-type expression data</dt><dd>2</dd>" in landing
+    assert f"<dt>Genes with cell-type expression data</dt><dd>{len(covered)}</dd>" in landing
+
+    heading = '<section class="cell-types"><h3>Cell types (Farah 2024)</h3>'
+    for gene in published:
+        slug = gene.replace(":", "_")
+        expression = json.loads((out / "genes" / f"{slug}.json").read_text())[
+            "cell_type_expression"
+        ]
+        page = (out / "genes" / f"{slug}.html").read_text()
+        section = page.split("<h2>Developmental expression</h2>", 1)[1].split("<h2", 1)[0]
+        if gene not in pooled:
+            assert expression == {"datasets": []}, gene
+            assert heading not in page, gene
+            continue
+        (entry,) = expression["datasets"]
+        assert entry["dataset"] == "hoc", gene
+        tokens = [item["cell_type"] for item in entry["cell_types"]]
+        assert tokens == [token for token in declared if token in pooled[gene]], gene
+        assert {item["cell_type"]: item["pooled"]["median"] for item in entry["cell_types"]} == (
+            pooled[gene]
+        ), gene
+        assert {
+            (item["cell_type"], region["region"]): region["median"]
+            for item in entry["cell_types"]
+            for region in item["regions"]
+        } == regional.get(gene, {}), gene
+        assert heading in section, gene
+
+
+def test_the_cell_type_census_is_published_under_its_own_keys(
+    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`build_site` publishes the cell-type census under `cell_type_*`, from nothing else.
+
+    The real-build test above cannot separate `cell_type_genes` from the burden
+    census's gene count (both 118) or `cell_type_datasets` from `profile_datasets`
+    (both 1): CLAUDE.md section 4.30. A patched census whose values appear in no
+    other count makes every cross-wire visible. Measured 2026-11-02, no value in
+    a real build's `counts` is 5 or 3 (they are 0, 1, 2, 8, 11, 20, 32, 105,
+    108, 118, 119 and 1,210), and the first two assertions re-check that on
+    this build, so a new count equal to either fails loudly here.
+    """
+    monkeypatch.setattr(
+        "chd_atlas.build.runner.cell_type_census",
+        lambda expression, published: CellTypeCensus(genes=5, datasets=3),
+    )
+    out = tmp_path / "patched"
+    build_site(repo, out)
+    counts = json.loads((out / "manifest.json").read_text())["counts"]
+    others = {key: value for key, value in counts.items() if not key.startswith("cell_type_")}
+    assert 5 not in others.values()
+    assert 3 not in others.values()
+    assert counts["cell_type_genes"] == 5
+    assert counts["cell_type_datasets"] == 3

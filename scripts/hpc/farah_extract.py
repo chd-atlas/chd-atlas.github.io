@@ -15,8 +15,9 @@ rows take each group's own Region. `--pooled` is the run without Region; its
 rows are tagged `all`. `library_size` is the group's `sum` row summed over every
 gene in the file, before the registry filter.
 
-The obs column names are those hvantk's documentation gives; they have not been
-checked against a real output, so a missing column stops the run naming it.
+The obs column and layer names are those hvantk's documentation gives. Job
+21367175 (hvantk 96ceafb4, 2026-11-02) found every one in a real output and
+wrote 81,993 rows; a missing one still stops the run naming it.
 """
 
 from __future__ import annotations

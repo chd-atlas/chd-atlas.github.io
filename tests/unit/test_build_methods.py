@@ -936,8 +936,10 @@ def test_expression_states_what_every_gene_page_shortened_or_folded(page: str) -
     """The expression reading notes, moved off every gene page (2026-10-26, D50).
 
     Eight paragraphs, pinned whole. The first is the bulk-dilution notice in
-    full: a gene page keeps one line of it (`pages._BULK_TISSUE_NOTICE`,
-    one of the ten caveats the spec keeps visible) and links here. The next
+    full: a gene page keeps one line of it, one of the ten caveats the spec
+    keeps visible -- `pages._BULK_TISSUE_NOTICE`, which links here, or, where
+    the gene has cell-type data, `pages._CELL_TYPE_NOTICE`, which does not
+    (the cell-type block's fold links here instead). The next
     two were the page's folded "How to read these figures" notes. The next
     two define tau and the developmental phases, which 118 and 119 gene pages
     print and nothing on the site defined until review (2026-10-26; each
@@ -1051,15 +1053,21 @@ def test_every_timeline_dataset_is_the_bulk_tissue_the_expression_notes_say(
     corpus: Corpus,
 ) -> None:
     """`#expression` opens "Every measurement on a developmental timeline in this
-    atlas is from bulk tissue", and a gene page without cell-type data says
-    "Every measurement below is from bulk tissue" above its timeline blocks.
+    atlas is from bulk tissue", and every gene page says the same of its own
+    timeline: "Every measurement below is from bulk tissue" where the gene has
+    no cell-type data (`pages._BULK_TISSUE_NOTICE`), and "the timeline below is
+    from bulk tissue" where it has (`pages._CELL_TYPE_NOTICE`).
 
-    Both are unconditional by design -- a caveat beside only the bad news reads
-    as an excuse -- so neither reads the data it describes. This is what does:
-    a `profile`-design dataset of any other technology (single-cell,
-    proteomics) would put a non-bulk measurement on a timeline and make both
-    sentences false, and fails here rather than on a reader. Measured
-    2026-10-26: one curated dataset, E-MTAB-6814, `bulk_rnaseq`.
+    All three are unconditional by design -- a caveat beside only the bad news
+    reads as an excuse -- so none reads the data it describes. This is what
+    does: a `profile`-design dataset of any other technology (single-cell,
+    proteomics) would put a non-bulk measurement on a timeline and make all
+    three false, and fails here rather than on a reader. Measured 2026-10-26:
+    one curated dataset, E-MTAB-6814, `bulk_rnaseq`. Measured 2026-11-02, when
+    Farah et al. 2024 landed: two, and E-MTAB-6814 still the only timeline;
+    `hoc` is `scrnaseq` with design `cell_type_profile`. On a real build that
+    day the cell-type line opened 118 gene pages and the bulk line one,
+    CRIPTO's, and `methods.html` still opened `#expression` with the sentence.
 
     **Timeline datasets only, since the final review (2026-10-28).** It took
     every curated dataset from review (2026-10-26), while the sentence named
@@ -1068,8 +1076,8 @@ def test_every_timeline_dataset_is_the_bulk_tissue_the_expression_notes_say(
     made that sentence false, so it was scoped to the timeline, which only a
     `profile` dataset draws: a contrast dataset compares two conditions, and a
     `cell_type_profile` one pools 9 to 15 weeks. Checking every dataset would
-    fail the moment the Farah record is curated, over a sentence that record
-    does not contradict.
+    fail on the Farah record, curated since 2026-11-02, over a sentence that
+    record does not contradict.
     """
     timeline = [d for d in corpus.datasets if d.design is DatasetDesign.PROFILE]
     assert timeline, "no profile dataset curated; the check would pass vacuously"
@@ -1081,7 +1089,8 @@ def test_every_timeline_dataset_is_the_bulk_tissue_the_expression_notes_say(
     assert not other, (
         "re-read methods.html#expression's 'Every measurement on a developmental timeline in "
         "this atlas is from bulk tissue' and the gene page's 'Every measurement below "
-        f"is from bulk tissue' (pages._BULK_TISSUE_NOTICE) against: {other}"
+        "is from bulk tissue' (pages._BULK_TISSUE_NOTICE) and 'the timeline below is from "
+        f"bulk tissue' (pages._CELL_TYPE_NOTICE) against: {other}"
     )
 
 

@@ -310,10 +310,8 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
     profile_stats = profile_census(expression_profiles, published)
     # Derived once, like the profiles above: `build_genes` restricts it to
     # `published`, and `cell_type_census` counts the same objects the bundles
-    # carry, so the manifest cannot disagree with them. Tasks 7 and 8 hand it to
-    # the gene pages and the front page too. `mirrors/cell_type_profiles/` is
-    # not committed yet, so a build today publishes `{"datasets": []}` on every
-    # bundle and 0 for both counts.
+    # carry, so the manifest cannot disagree with them. The gene pages and the
+    # front page are handed the same mapping and census below.
     cell_type_expression = gene_cell_type_expression(root, corpus.datasets)
     cell_type_stats = cell_type_census(cell_type_expression, published)
     # The one flat read of the `Placement`s just computed above -- never a

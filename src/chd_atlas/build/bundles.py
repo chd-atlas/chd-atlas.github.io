@@ -337,10 +337,13 @@ def build_genes(
 
     `cell_types` is `gene_cell_type_expression`'s return, published or not, and
     restricted here the way `profiles` is below. Required, with no default,
-    unlike `combined` and `identities`: no committed dataset carries cell-type
-    data yet, so a real build cannot tell a dropped mapping from an empty one,
-    and with a default, deleting it from the runner's call passed the whole
-    suite while every bundle published `{"datasets": []}` (review, 2026-10-28).
+    unlike `combined` and `identities`: no committed dataset carried cell-type
+    data then, so a real build could not tell a dropped mapping from an empty
+    one, and with a default, deleting it from the runner's call passed the
+    whole suite while every bundle published `{"datasets": []}` (review,
+    2026-10-28). Since Farah et al. 2024's mirror landed (2026-11-02) a real
+    build tells them apart too
+    (`test_build_runner.py::test_the_committed_cell_type_mirror_reaches_every_bundle_page_and_count_it_covers`).
     A caller with no cell-type data passes `{}`.
 
     `profiles` is `gene_expression_profiles`' return (`build/profiles.py`):
