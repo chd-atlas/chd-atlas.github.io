@@ -5,8 +5,11 @@ of what the curator wrote.
 Two files, two strategies, chosen by what each needs to preserve:
 
 - ``curation/literature/<SYMBOL>.yaml`` is rewritten through ruamel's
-  round-trip loader, so a curator's comments and the existing entries survive a
-  re-run of ``search``. New entries are appended; nothing is reordered.
+  round-trip loader with ONE canonical indent (mappings 2, sequences 4, dashes
+  at offset 2; ruling R20, no indent detection). A file already in that style
+  is byte-preserved outside the appended region. A file in another indent
+  style is re-indented once, on the next write, with its comments and values
+  kept. New entries are appended; nothing is reordered.
 - ``curation/publications.yaml`` is *appended to as text*: its comments sit
   between records, folded titles are wrapped by hand, and a round trip would
   re-flow them. Every existing byte stays; one record is added at the end

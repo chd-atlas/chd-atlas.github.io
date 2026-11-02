@@ -20,6 +20,7 @@ No `email` parameter is sent (ruling R9); the one identifying parameter is
 
 from __future__ import annotations
 
+import http.client
 import json
 import re
 import time
@@ -213,21 +214,28 @@ def esummary(
         result = _json_object(fetch(url), "esummary").get("result")
         if not isinstance(result, dict):
             raise PubMedError("esummary: no result in the response")
-        for uid in result.get("uids", []):
-            record = result[uid]
-            year = _year(record)
-            if year is None:
-                raise PubMedError(f"esummary: PMID {uid} has no publication year")
-            ids = {a.get("idtype"): a.get("value") for a in record.get("articleids", [])}
-            found[str(uid)] = PaperMeta(
-                pmid=str(uid),
-                title=" ".join(str(record.get("title", "")).split()),
-                journal=str(record.get("fulljournalname", "")),
-                year=year,
-                authors=tuple(str(a["name"]) for a in record.get("authors", []) if a.get("name")),
-                doi=ids.get("doi") or None,
-                pmcid=ids.get("pmc") or None,
-            )
+        try:
+            for uid in result.get("uids", []):
+                record = result[uid]
+                year = _year(record)
+                if year is None:
+                    raise PubMedError(f"esummary: PMID {uid} has no publication year")
+                ids = {a.get("idtype"): a.get("value") for a in record.get("articleids", [])}
+                found[str(uid)] = PaperMeta(
+                    pmid=str(uid),
+                    title=" ".join(str(record.get("title", "")).split()),
+                    journal=str(record.get("fulljournalname", "")),
+                    year=year,
+                    authors=tuple(
+                        str(a["name"]) for a in record.get("authors", []) if a.get("name")
+                    ),
+                    doi=ids.get("doi") or None,
+                    pmcid=ids.get("pmc") or None,
+                )
+        except (KeyError, AttributeError, TypeError) as exc:
+            raise PubMedError(
+                f"esummary: an unexpected record shape ({type(exc).__name__})"
+            ) from None
     return found
 
 
@@ -314,5 +322,5 @@ def urllib_fetch(url: str) -> bytes:
             return body
     except urllib.error.HTTPError as exc:
         raise PubMedError(f"PubMed answered HTTP {exc.code} {exc.reason}") from None
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+    except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError) as exc:
         raise PubMedError(f"could not reach PubMed: {type(exc).__name__}") from None

@@ -360,3 +360,56 @@ def test_requests_are_spaced_to_the_ncbi_limits(url: str, gap: float) -> None:
     assert slept == []
     throttle.wait(url)
     assert slept == [pytest.approx(gap)]
+
+
+@pytest.mark.parametrize(
+    ("total", "counts", "pages_fetched"),
+    [(1000, None, 2), (1001, None, 3)],
+    ids=["exact-multiple-of-500", "one-past-a-multiple"],
+)
+def test_paging_fetches_exactly_the_pages_the_count_needs(
+    total: int, counts: list[int] | None, pages_fetched: int
+) -> None:
+    ids = [str(n) for n in range(1, total + 1)]
+    pages = _Pages(ids, counts)
+    assert esearch_all("q", pages, api_key=None) == (total, ids)
+    assert len(pages.urls) == pages_fetched
+
+
+def test_a_count_that_changes_on_the_last_page_refuses() -> None:
+    """Page 3 of 3 disagrees; pages 1 and 2 agree (the earlier test changes page 2)."""
+    pages = _Pages([str(n) for n in range(1, 1201)], counts=[1200, 1200, 1199])
+    with pytest.raises(PubMedError, match="changed"):
+        esearch_all("q", pages, api_key=None)
+
+
+def _summary(result: dict[str, object]) -> bytes:
+    return json.dumps({"result": result}).encode()
+
+
+MALFORMED_ESUMMARY = {
+    "uid-listed-but-absent": _summary({"uids": ["5"]}),
+    "record-not-a-dict": _summary({"uids": ["5"], "5": "oops"}),
+    "article-id-not-a-dict": _summary(
+        {"uids": ["5"], "5": {"pubdate": "2000", "articleids": ["doi"]}}
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(MALFORMED_ESUMMARY))
+def test_a_malformed_esummary_is_a_pubmed_error_not_a_traceback(name: str) -> None:
+    with pytest.raises(PubMedError, match="esummary"):
+        esummary(["5"], lambda url: MALFORMED_ESUMMARY[name])
+
+
+def test_a_truncated_body_is_a_pubmed_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    import http.client
+
+    class Truncated(io.BytesIO):
+        def read(self, *args: Any) -> bytes:
+            raise http.client.IncompleteRead(b"par", 10)
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout=None: Truncated())
+    monkeypatch.setattr(pubmed, "_throttle", pubmed._Throttle(lambda: 0.0, lambda s: None))
+    with pytest.raises(PubMedError, match="IncompleteRead"):
+        urllib_fetch("https://x/y?api_key=sekrit")

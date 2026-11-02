@@ -500,3 +500,67 @@ def test_add_publication_refusals_leave_the_file_untouched(
     assert path.read_bytes() == before
     if args[0] == "111":
         assert "already in publications.yaml" in result.stdout
+
+
+def test_a_malformed_esummary_exits_1_and_leaves_publications_untouched(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = root / "curation" / "publications.yaml"
+    before = path.read_bytes()
+    _install(monkeypatch, _Boom(None, b'{"result": {"uids": ["333"]}}'))
+
+    result = runner.invoke(
+        app,
+        ["literature", "add-publication", "333", "--study-type", "gwas", "--root", str(root)],
+    )
+
+    assert result.exit_code == 1, result.stdout
+    assert result.stdout.startswith("error: esummary")
+    assert path.read_bytes() == before
+
+
+_CANONICAL = (
+    "# top comment\n"
+    "gene: HGNC:11604\n"
+    "searches:\n"
+    "  - id: 1\n"
+    "    source: pubmed\n"
+    "    query: q\n"
+    "    run_on: 2026-11-02\n"
+    "    hits: 1\n"
+    "    new_hits: 1\n"
+    "triage:\n"
+    "  # about the first paper\n"
+    "  - pmid: PMID:9\n"
+    "    search: 1\n"
+    "    decision: included\n"
+)
+
+
+def test_a_canonical_file_keeps_every_line_and_another_indent_is_normalised_once(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = root / "curation" / "literature" / "TBX5.yaml"
+    path.parent.mkdir(parents=True)
+    _install(monkeypatch, FakePubMed(_papers("9", "25")))
+
+    path.write_text(_CANONICAL)
+    assert _search(root, "TBX5", "--run-on", "2026-12-01").exit_code == 0  # type: ignore[attr-defined]
+    # Only additions: the old lines survive unchanged and in order.
+    old_lines = _CANONICAL.splitlines()
+    remaining = iter(path.read_text().splitlines())
+    assert all(line in remaining for line in old_lines)
+
+    # Column-0 dashes: not the tool's style.
+    path.write_text(
+        _CANONICAL.replace("  - ", "- ").replace("    ", "  ").replace("  # about", "# about")
+    )
+    old = _load(path)
+    assert _search(root, "TBX5", "--run-on", "2026-12-01").exit_code == 0  # type: ignore[attr-defined]
+    text = path.read_text()
+    assert "# about the first paper" in text
+    assert "# top comment" in text
+    new = _load(path)
+    assert new["searches"][0] == old["searches"][0]  # type: ignore[index]
+    assert new["triage"][0] == old["triage"][0]  # type: ignore[index]
+    assert "\n  - id: 1\n    source: pubmed\n" in text  # now canonical
