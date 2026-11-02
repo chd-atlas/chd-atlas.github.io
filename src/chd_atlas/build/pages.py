@@ -5220,7 +5220,8 @@ def _band_caption(
     so is the difference between an ordinal axis and a false linear one.
 
     **And the vertical axis is fitted to this gene alone**, which is the
-    second trap. Every gene's curve fills the same 112 px whatever it spans:
+    second trap. Every gene's curve spans the same 104 units whatever its range
+    (the 112-unit plot less its 8-unit floor gap):
     measured 2026-08-20, PKD1L1 runs 1 to 2 tpm in heart and TBX20 runs 1 to
     526, and the two were drawn as the same full-height excursion under a
     caption that named neither number. The range is printed so a reader can

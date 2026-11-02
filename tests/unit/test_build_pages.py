@@ -5449,8 +5449,9 @@ def test_the_trajectory_says_what_its_vertical_axis_spans(tmp_path: Path) -> Non
 
     The trajectory contained **zero `<text>` elements** -- no ticks, no
     labels, no numbers -- and its vertical axis is fitted to this gene's own
-    placed heart values, so every gene's curve filled the same 104 px whatever it spanned (112 px
-    since the phase strip, 2026-11-02). Measured 2026-08-20 on the built corpus: PKD1L1 runs 1 to 2
+    placed heart values, so every gene's curve filled the same 104 px whatever it
+    spanned (104 viewBox units, unchanged by the 2026-11-02 redesign). Measured
+    2026-08-20 on the built corpus: PKD1L1 runs 1 to 2
     tpm and TBX20 runs 1 to 526 tpm, and the two were drawn as the same
     full-height excursion; 8 of the 85 charted genes span under 5-fold and 39
     span 20-fold or more. The caption prints the range for that reason, and
@@ -6137,7 +6138,8 @@ def test_the_grid_draws_one_cell_per_row_and_none_where_there_is_no_row(tmp_path
     assert svg.count('<rect class="heat-') == 8
     assert _organ_labels(svg) == ["Heart", "Brain", "Liver"]
     assert svg.count('class="chart-tick-label cardiac"') == 1
-    # Three stages would give 162 px columns; they are capped at 40 px less a 2 px gutter.
+    # Three stages would give 240-unit columns (`_half_step(3)` x 2); they are
+    # capped at 40 px less a 2 px gutter.
     assert set(
         re.findall(r'<rect class="heat-[0-9]" x="[^"]*" y="[^"]*" width="([^"]*)"', svg)
     ) == {"38.0"}
