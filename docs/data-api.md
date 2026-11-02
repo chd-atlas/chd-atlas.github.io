@@ -1797,23 +1797,18 @@ section states the argument in full with the reading notes this section folded
 before this release — how a median is placed against its organ's percentile
 grid, why none is placed below a dataset's detection floor, and why percentiles
 are not comparable across organs or developmental stages — and defines τ and
-the developmental phases each stage names. Each chart — a phase-banded
-trajectory per cardiac organ where one can be drawn, and the organ small
-multiples — shows one line of its caption: its axes, in stage order rather than
-elapsed time, and the range of its abundance axis. Under a trajectory that ticks
-a stage below the dataset's detection floor, the same line says what the ticks
-mark, with the floor's value, and names any other reason a tick on it was
-drawn for. The rest of its key is folded under *How to read
-this chart*, ending with a link, *How to read expression figures*, to
-`methods.html#expression`. Under a trajectory the fold always names the shaded
-phases and their source; why the line breaks where this dataset has no row for
-the organ, and what a tick means on a figure with no tick for the floor, it
-adds only where the figure shows one. Under the small multiples it always says why
-the panels share one axis, which organ is drawn heavier as this atlas's
-declared cardiac tissue (or, where this dataset placed nothing there, that no
-panel is drawn heavier), that only medians placed against the percentile grid
-are drawn, and that every figure is in the table below; why a line breaks, and
-which sampled organs have no panel, it adds only where the panels show one.
+the developmental phases each stage names. Each dataset's figure is a phase strip, the heart chart over the stages, and
+every organ on the same stages as a grid of four fixed shades, with a legend
+that keys the shades and any stage the heart has no row for, greyed. Its one
+visible line states the heart chart's axis: stage order rather than elapsed
+time, and the range the axis is fitted to, the gene's own placed medians, so
+heights compare nothing across genes. The chart draws placed medians only. Under
+a chart that ticks a stage below the dataset's detection floor, the same line
+says what the ticks mark, with the floor's value. The rest of its key is folded
+under *How to read this chart*, ending with a link, *How to read expression
+figures*, to `methods.html#expression`; that fold names the phases and their
+source, says where the line breaks, and says the grid's shades are fixed bins.
+Every figure is in the two tables folded under *every figure, all 21 stages*.
 
 For the 117 genes published today with no curation here, the card's curation
 sentence says exactly that:
