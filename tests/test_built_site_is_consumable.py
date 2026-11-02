@@ -1809,6 +1809,7 @@ _ATTRIBUTED_ON_THE_FRONT_PAGE: dict[str, str] = {
     "mondo_sssom": "Mondo's disease mappings are mirrored under CC BY 4.0",
     "expression_atlas_e_mtab_6814": "EMBL-EBI Expression Atlas's (E-MTAB-6814), "
     "under EMBL-EBI's Terms of Use",
+    "farah2024_hoc": "Cell-type expression is the UCSC Cell Browser data of Farah et al. 2024.",
     "audain2026_sd3": "Audain et al. 2026 and Sierant et al. 2025, both CC BY 4.0",
     "sierant2025_ds6": "Audain et al. 2026 and Sierant et al. 2025, both CC BY 4.0",
 }
@@ -1817,11 +1818,16 @@ _ATTRIBUTED_ON_THE_FRONT_PAGE: dict[str, str] = {
 _ALSO_ON_THE_FRONT_PAGE: dict[str, str] = {"audain2021_s6": "and of Audain et al. 2021, CC0."}
 # The words the sentence states each `sources.json` licence in. HPO's licence is
 # a URL the sentence does not state, so it is the one source held to its name
-# alone.
+# alone. Farah et al. 2024's record states no licence, only that the data "are
+# attributed to Farah et al. 2024" (owner decision 2026-11-02), so the words for
+# it are that attribution: a licence recorded for it later is a key missing here,
+# and fails.
 _LICENCE_WORDS: dict[str, str] = {
     "CC-BY-4.0": "CC BY 4.0",
     "CC0-1.0": "CC0",
     "EMBL-EBI Terms of Use": "EMBL-EBI's Terms of Use",
+    "Not stated by the UCSC Cell Browser; data accompany a CC BY 4.0 article "
+    "(PMID:38480880) and are attributed to Farah et al. 2024": "Farah et al. 2024",
 }
 _LICENCE_NOT_STATED: frozenset[str] = frozenset({"hpo"})
 
@@ -1838,7 +1844,11 @@ def test_the_front_page_names_every_source_that_requires_attribution(site: Path)
     the page names it and a phrase is pinned; each phrase must be on the page,
     with the licence where it is CC BY. Measured on a real build the day it was
     written: 7 such sources. Since the doorway page (2026-10-27) the section is
-    "Sources", one paragraph of 123 words, and the sentence is three.
+    "Sources", one paragraph of 123 words, and the sentence is three. Farah et
+    al. 2024's cell-type data made it 8 sources on 2026-11-02, named in one
+    13-word sentence: the paragraph measured 118 words on a build of 862013f
+    and 131 with it (tags stripped, split on whitespace, the heading not
+    counted).
 
     **Every licence the sentence states is held to `sources.json`** (review,
     2026-10-27), not only CC BY: "Audain et al. 2021, CC0" and "EMBL-EBI's
