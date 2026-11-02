@@ -230,8 +230,8 @@ class Specificity(TypedDict):
     is what makes a page's wording safe -- tau measures concentration, not
     location, so an organ-naming gloss keyed on tau alone can state the
     opposite of the truth for a gene concentrated elsewhere. (The page said
-    "heart-preferential" until 2026-08-21; `pages._specificity_sentence`
-    records why the adjective went and why this gate stayed.)
+    "heart-preferential" until 2026-08-21; `pages._highest_cell`
+    and `_tau_cell` record why the adjective went and why this gate stayed.)
 
     - `scale` -- names the transform (D39(a)); the same input reads
       tissue-specific on linear and broad on log2, so this is not decoration.

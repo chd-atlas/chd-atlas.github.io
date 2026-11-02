@@ -718,8 +718,8 @@ _EXPRESSION: Final = (
     # defined (review, 2026-10-26; counted on a build of 802d694). Each clause
     # read off the code that day: `profiles.specificity` and `TAU_METHOD`
     # (log2(median + 1), raw medians even below the floor, the peak gated
-    # `< floor`), `pages._specificity_sentence` (the argmax organ, or "the
-    # peak is tied") and `pages._specificity_gap_sentence` (a reason for every
+    # `< floor`), `pages._highest_cell` (the argmax organ, or
+    # "tied") and `pages._tau_cell` (a reason for every
     # gap). 0 and 1 are the formula's own bounds, not a banding of the values
     # between: D39(c) keeps every adjective about a tau off the site. A
     # negative median is clamped to zero (`TAU_METHOD` says so); none of the

@@ -94,7 +94,6 @@ from chd_atlas.build.profiles import (
     PhaseInfo,
     PhaseOutcome,
     ProfileGap,
-    Specificity,
     StageProfileEntry,
     TissueProfileEntry,
 )
@@ -4359,8 +4358,6 @@ _SPECIFICITY_GAP_CLAUSE: Final[dict[str, str]] = {
     ProfileGap.UNDEFINED.value: "it could not be computed for this gene at this stage",
 }
 
-_EXPRESSION_HEADERS: Final = ("tissue", "median abundance", "percentile")
-
 # The shape `bundles._expression_profile` publishes for a gene no curated bulk
 # RNA-seq dataset mentions at all (`EMPTY_EXPRESSION_PROFILE`, imported rather
 # than reconstructed here, so the two cannot drift on what "empty" means).
@@ -4442,127 +4439,6 @@ _CELL_TYPE_ONLY_NOTICE: Final = (
 # (D50).
 
 
-def _phase_sentence(phase: PhaseInfo) -> str:
-    """Where a stage falls in the curated cardiac-phase vocabulary, or why not.
-
-    **Every branch names a state; none renders blank.** A stage the curated
-    vocabulary does not cover resolves to `OUTSIDE_WINDOW` with a reason
-    naming where it misses -- this function says exactly that rather than
-    omitting the line or rendering an empty one, which is the difference
-    between a documented gap and what reads as a rendering bug.
-
-    **`MATCHED` may name several phases, never just the first.** Human
-    cardiac morphogenesis runs several processes concurrently -- at 6 wpc an
-    AVSD gene needs "atrial septation" and a TGA gene needs "outflow tract
-    septation", and both are true at once (see `models/phases.py`'s module
-    docstring for the measured concurrency table) -- so `profiles.PhaseInfo.
-    phase_ids` is a tuple, already sorted deterministically by
-    `CardiacPhaseFile.phases_for`, and every id in it is rendered, joined by
-    commas, with the noun pluralised for two or more. `phase_ids` is non-empty
-    exactly when `reason` is `None` (`profiles.PhaseAssignment` guarantees the
-    two are never both set), so an unreachable empty-tuple-under-MATCHED case
-    still renders a named state rather than raising. The underscore-to-space
-    rewrite is the only transformation applied to each id, because a phase id
-    is this atlas's own slug (`curation/cardiac_phases.yaml`), not
-    third-party mirrored text.
-
-    Every other branch renders `reason` verbatim, through `html.escape` like
-    every other value this function assembles by hand. `profiles.py` already
-    wrote those as short, reader-facing clauses -- "outside the curated
-    window", "post-natal", "stage not declared by this dataset", "no
-    developmental stage recorded for this measurement" -- and a second,
-    parallel vocabulary here could only ever repeat them or drift from them.
-    """
-    if phase["outcome"] == PhaseOutcome.MATCHED.value:
-        ids = phase["phase_ids"]
-        if not ids:
-            return "Developmental phase: <strong>unnamed phase</strong>."
-        labels = [html.escape(phase_id.replace("_", " ")) or "unnamed phase" for phase_id in ids]
-        noun = "phase" if len(labels) == 1 else "phases"
-        joined = ", ".join(f"<strong>{label}</strong>" for label in labels)
-        return f"Developmental {noun}: {joined}."
-    reason = phase["reason"] or "not available"
-    return f"Developmental phase: {html.escape(reason)}."
-
-
-def _specificity_sentence(spec: Specificity, cardiac_tissues: frozenset[str]) -> str:
-    """tau, with its scale and its organ list, and the argmax-gated gloss.
-
-    **No branch omits the scale or the tissue list.** They sit in the one
-    f-string that also carries the number, so there is no code path that
-    renders tau without them -- the same guarantee `_effect` keeps for its
-    measure label, after the same near miss: a bare number under a header that
-    does not say what it measures.
-
-    **It said "Expression is heart-preferential at this stage" until
-    2026-08-21, and that was an adjective this function's own last paragraph
-    already forbade.** The phrase was gated correctly -- on `highest_in` being
-    one of this dataset's declared `cardiac_tissues`, never on tau alone,
-    because tau measures concentration and not location. What it was not
-    gated on was *how much* preference the number supports. Measured over the
-    committed corpus: 445 stage blocks carried it, median tau 0.708, but **65
-    below 0.30, 30 below 0.20 and 16 below 0.15** -- at the extreme, TAB2 at
-    4 wpc with tau 0.046, where heart's 124 leads ovary's 116 and hindbrain's
-    115 across seven organs. A 7% lead is an argmax; "preferential" reads as
-    a finding.
-
-    So the argmax gate stays and the adjective goes. Three mutually exclusive
-    endings -- the argmax is cardiac, the argmax is some other organ, or the
-    peak is tied (`highest_in is None`) -- each naming the organ and leaving
-    the reader to weigh it against the tau printed in the same sentence.
-
-    No adjective and no band on the number itself: this function states the
-    scale, the organs and the argmax and stops there, never "highly specific"
-    or "broadly expressed" -- D39(c) reserves that judgement from the atlas.
-    """
-    tissues = ", ".join(html.escape(tissue) for tissue in spec["tissues"])
-    base = (
-        f"τ = {_fmt(spec['tau'])} ({html.escape(spec['scale'])} scale) across "
-        f"{tissues} ({spec['n_tissues']} organs sampled)."
-    )
-    highest = spec["highest_in"]
-    if highest is None:
-        peak = "No single organ has the highest median at this stage; the peak is tied."
-    elif highest in cardiac_tissues:
-        peak = (
-            f"Expression peaks in {html.escape(highest)} at this stage, one of "
-            "this dataset's cardiac tissues."
-        )
-    else:
-        peak = (
-            f"Expression peaks in {html.escape(highest)} at this stage, which this "
-            "dataset does not treat as a cardiac tissue."
-        )
-    return f'<p class="method">{base} {peak}</p>'
-
-
-def _specificity_gap_sentence(reason: str | None, floor: float | None, unit: str) -> str:
-    """Why tau is absent for a stage, in the same voice as `_specificity_sentence`.
-
-    `peak_below_detection_floor` is kept out of `_SPECIFICITY_GAP_CLAUSE`
-    because it is the one reason with a number to show: the floor value, named
-    for the same reason rule 5 requires it beside a tissue's own placement gap
-    -- a reader told a figure is missing because of a floor is owed the floor.
-
-    **And its unit (2026-10-26).** It read "(detection floor 1)" in 115 stage
-    blocks on 28 pages of a build of 0fc451a, directly above table cells
-    quoting the same floor as "(detection floor 1 tpm)" -- the `_count`/
-    `count_unit` defect in a new place. `unit` is the stage's own (`_stage_block`
-    reads it off the stage's measurements, as each cell reads its own); where
-    there is none to read, the number stands alone rather than beside a
-    dangling space.
-    """
-    if reason == ProfileGap.PEAK_BELOW_DETECTION_FLOOR.value:
-        measured = f" {html.escape(unit)}" if unit else ""
-        qualifier = f" (detection floor {_fmt(floor)}{measured})" if floor is not None else ""
-        return (
-            "τ is not available: every organ sampled at this stage is below the "
-            f"detection floor{qualifier}."
-        )
-    clause = _SPECIFICITY_GAP_CLAUSE.get(reason or "", "no reason was recorded for this gap")
-    return f"τ is not available: {clause}."
-
-
 def _abundance(tissue: TissueProfileEntry) -> str:
     """ "100 rpkm (n=3 samples)" -- never the number alone.
 
@@ -4576,71 +4452,255 @@ def _abundance(tissue: TissueProfileEntry) -> str:
     return f"{_fmt(tissue['median_abundance'])} {unit} (n={tissue['n_samples']} {noun})"
 
 
-def _percentile_cell(tissue: TissueProfileEntry, floor: float | None) -> str:
-    """The percentile band, or why there is none -- never the words "not detected".
+def _phases_cell(phase: PhaseInfo) -> str:
+    """Where a stage falls in the curated phase vocabulary, or why not -- never blank.
 
-    **`below_detection_floor` is the one reason with its own required wording
-    (rule 5).** "Not detected" is a positive-sounding negative assertion a
-    clinical reader takes as evidence against a gene, and this atlas measured
-    no such thing: a value below a bulk assay's detection floor is a
-    measurement this atlas does not vouch for, not an absence. The floor's own
-    value is shown beside it, because a reader cannot judge how far below
-    without it.
+    - **Every id, never the first.** Human cardiac morphogenesis runs several
+      processes at once (at 6 wpc an AVSD gene needs atrial septation and a
+      TGA gene outflow-tract septation, both true together), so a MATCHED stage
+      names every phase id, joined by ", " with "_" read as a space and no other
+      rewrite: an id is this atlas's own slug, not mirrored third-party text.
+    - **An empty MATCHED stage reads "unnamed phase"**, a named state rather
+      than a blank that reads as a rendering bug.
+    - **Any other outcome renders `reason` verbatim** (`profiles.py` wrote it as
+      a short reader-facing clause), or "not available"; a second vocabulary
+      here could only repeat or drift from it. `data_table` escapes the cell.
+    """
+    if phase["outcome"] == PhaseOutcome.MATCHED.value:
+        ids = phase["phase_ids"]
+        if not ids:
+            return "unnamed phase"
+        return ", ".join(phase_id.replace("_", " ") or "unnamed phase" for phase_id in ids)
+    return phase["reason"] or "not available"
+
+
+def _entry_unit(entry: DatasetProfileEntry) -> str:
+    """The first unit this entry's measurements carry, or "".
+
+    One dataset quotes every organ in one unit because validation makes it:
+    PRF008 is an ERROR for a dataset whose `median_abundance` comes in more than
+    one unit, and the build refuses a corpus with any error. It names the unit
+    in a header and in the floor clauses, where no single cell supplies it.
+    """
+    return next(
+        (cell["unit"] for stage in entry["stages"] for cell in stage["tissues"] if cell["unit"]),
+        "",
+    )
+
+
+def _floor_words(floor: float | None, unit: str) -> str:
+    """ "1 tpm" for the floor value with its unit, "" where the floor is unknown."""
+    if floor is None:
+        return ""
+    return " ".join(part for part in (_fmt(floor), unit) if part)
+
+
+def _tissue_percentile(tissue: TissueProfileEntry, floor: float | None, *, with_grid: bool) -> str:
+    """The percentile, or the named reason there is none -- never "not detected".
+
+    **`below_detection_floor` has its own required wording (rule 5).** "Not
+    detected" is a negative assertion a clinical reader takes as evidence
+    against a gene, and this atlas measured no such thing: a value below a bulk
+    assay's floor is one it does not vouch for. The floor's value and unit sit
+    beside it, because a reader cannot judge how far below without them. Every
+    other gap resolves through `_PLACEMENT_GAP_CLAUSE`, the one place that says
+    why a placement is missing.
     """
     placed = tissue["placement"]
     if placed is not None:
-        band = ""
+        text = f"{placed['median_percentile']}"
         if placed["q25_percentile"] is not None and placed["q75_percentile"] is not None:
-            band = f", IQR {placed['q25_percentile']}-{placed['q75_percentile']}"
-        return f"{placed['median_percentile']} of {placed['n_genes']:,} genes{band}"
+            text += f" (IQR {placed['q25_percentile']}–{placed['q75_percentile']})"
+        if with_grid:
+            text += f" of {placed['n_genes']:,} genes"
+        return text
     reason = tissue["not_placed_reason"]
     if reason == ProfileGap.BELOW_DETECTION_FLOOR.value:
-        qualifier = (
-            f" (detection floor {_fmt(floor)} {tissue['unit']})" if floor is not None else ""
-        )
-        return f"below the detection floor in {tissue['tissue']} at this stage{qualifier}"
-    fallback = "no percentile is available for this measurement"
-    return _PLACEMENT_GAP_CLAUSE.get(reason or "", fallback)
+        words = _floor_words(floor, tissue["unit"])
+        return f"below the {words} floor" if words else "below the detection floor"
+    return _PLACEMENT_GAP_CLAUSE.get(
+        reason or "", "no percentile is available for this measurement"
+    )
 
 
-def _tissue_table(tissues: Sequence[TissueProfileEntry], floor: float | None) -> str:
-    """One row per organ measured at one stage. A list, never a cross-organ grid.
+def _tau_cell(stage: StageProfileEntry, floor: float | None, unit: str) -> str:
+    """tau, or "not available: " and the reason it is absent -- never blank.
 
-    Rows, not columns: laying organs out side by side would itself be the
-    layout rule 8 warns against, since a table invites a reader's eye to
-    compare adjacent cells. What a list alone cannot say -- that percentiles
-    are not comparable across organs or stages -- was rendered beside it until
-    2026-10-26 and is stated once on `methods.html#expression` since (D50).
+    **No adjective and no band on the number** (D39(c) reserves that judgement
+    from the atlas): the scale is in the column header and the organs are in
+    the highest-median column, and the reader weighs one against the other.
+    `peak_below_detection_floor` is kept out of `_SPECIFICITY_GAP_CLAUSE`
+    because it is the one reason with a number to show -- the floor, with its
+    unit, as rule 5 owes a reader told a figure is missing because of one.
     """
-    rows = [
-        Row(cells=(tissue["tissue"], _abundance(tissue), _percentile_cell(tissue, floor)))
-        for tissue in tissues
-    ]
-    return data_table(_EXPRESSION_HEADERS, rows)
-
-
-def _stage_block(
-    stage: StageProfileEntry, cardiac_tissues: frozenset[str], floor: float | None
-) -> str:
-    """One (dataset, stage) cross-section: its phase, its tau, its organs."""
-    label = html.escape(_stage_label(stage))
     spec = stage["specificity"]
     if spec is not None:
-        specificity_html = _specificity_sentence(spec, cardiac_tissues)
+        return _fmt(spec["tau"])
+    reason = stage["specificity_unavailable_reason"]
+    if reason == ProfileGap.PEAK_BELOW_DETECTION_FLOOR.value:
+        words = _floor_words(floor, unit)
+        qualifier = f" {words}" if words else " detection"
+        return f"not available: every organ sampled is below the{qualifier} floor"
+    clause = _SPECIFICITY_GAP_CLAUSE.get(reason or "", "no reason was recorded for this gap")
+    return f"not available: {clause}"
+
+
+def _highest_cell(stage: StageProfileEntry) -> str:
+    """The organ with the highest median, "tied", or "-" where there is no tau.
+
+    tau measures concentration, not location, so an organ-naming cell keyed on
+    tau alone can state the opposite of the truth for a gene concentrated
+    elsewhere: the organ is `highest_in`, the argmax. A tie (`highest_in` null)
+    reads "tied" rather than naming an arbitrary winner.
+    """
+    spec = stage["specificity"]
+    if spec is None:
+        return "–"
+    return spec["highest_in"] or "tied"
+
+
+def _other_organ_cell(
+    cell: TissueProfileEntry | None, floor: float | None, *, with_grid: bool
+) -> str:
+    """One other-organ cell: the median with its n, then the percentile or the reason."""
+    if cell is None:
+        return "–"
+    figure = _abundance(cell)
+    if cell["placement"] is None and cell["not_placed_reason"] == (
+        ProfileGap.BELOW_DETECTION_FLOOR.value
+    ):
+        return f"{figure}; below floor"
+    return f"{figure}; {_tissue_percentile(cell, floor, with_grid=with_grid)}"
+
+
+def _stage_tables(entry: DatasetProfileEntry, cardiac: frozenset[str], floor: float | None) -> str:
+    """Every figure of one dataset: a table per cardiac tissue, one for the other organs.
+
+    This replaced 21 near-identical per-stage blocks per dataset (59% of the
+    section's text was verbatim repetition) without taking a figure out of the
+    HTML: a chart that replaced them would be the characteristic defect, curated
+    work reaching no page, in a redesign. Decisions the blocks made, kept here:
+
+    - **The caption restates rule 8.** Rows laid out across stages invite
+      comparing percentiles that come from different grids, so it says a
+      percentile places this gene among N genes in the same organ and stage.
+      Where `n_genes` differs between cells it says so and every percentile cell
+      carries its own " of N genes".
+    - **The heart table has a row for every stage**, sampled or not, so the
+      stage-level facts (phases, tau, highest median) survive for a stage the
+      tissue lacks; its median cell reads "not sampled", its percentile "-".
+    - **Phases:** every id, never the first (`_phases_cell`). **tau:** no
+      adjective; the scale is in the header and a tie reads "tied"
+      (`_highest_cell`). **Every gap is a named state**, never blank, and
+      rule 5's below-floor wording never reads "not detected".
+    - **Stage-level facts never depend on a tissue.** With no cardiac tissue
+      sampled, one table of stages carries phases, tau and the highest median.
+    - **One tau scale per table.** Its header names the scale, so two stages
+      disagreeing raise: a bypassed gate must fail rather than publish a header
+      false for some rows.
+    """
+    stages = entry["stages"]
+    unit = _entry_unit(entry)
+    scales = {stage["specificity"]["scale"] for stage in stages if stage["specificity"]}
+    if len(scales) > 1:
+        raise ValueError(f"τ scales differ across stages: {sorted(scales)}")
+    tau_header = f"τ ({next(iter(scales))})" if scales else "τ"
+    grids = {
+        cell["placement"]["n_genes"]
+        for stage in stages
+        for cell in stage["tissues"]
+        if cell["placement"] is not None
+    }
+    uniform = len(grids) == 1
+    with_grid = not uniform
+    if uniform:
+        caption = (
+            f"A percentile places this gene among {next(iter(grids)):,} genes in the same "
+            "organ and stage, so it compares nothing across rows."
+        )
     else:
-        # The first unit the stage's own measurements carry. One dataset quotes
-        # every organ in one unit because validation makes it: PRF008 is an
-        # ERROR for a dataset whose `profiles.median_abundance` comes in more
-        # than one unit, and the build refuses a corpus with any error.
-        unit = next((cell["unit"] for cell in stage["tissues"] if cell["unit"]), "")
-        gap = _specificity_gap_sentence(stage["specificity_unavailable_reason"], floor, unit)
-        specificity_html = f'<p class="method">{gap}</p>'
-    return (
-        f"<h4>{label}</h4>"
-        f'<p class="method">{_phase_sentence(stage["phase"])}</p>'
-        f"{specificity_html}"
-        f"{_tissue_table(stage['tissues'], floor)}"
-    )
+        caption = (
+            "A percentile compares this gene only with genes in the same organ and stage, "
+            "never across rows."
+        )
+    organs = _organ_order(entry, cardiac)
+    heart = [organ for organ in organs if organ in cardiac]
+    others = [organ for organ in organs if organ not in cardiac]
+    median_header = f"median {unit} (n)" if unit else "median (n)"
+    parts = [f'<p class="method">{html.escape(caption)}</p>']
+    for organ in heart:
+        rows = []
+        for stage in stages:
+            cell = next((c for c in stage["tissues"] if c["tissue"] == organ), None)
+            rows.append(
+                Row(
+                    cells=(
+                        _stage_label(stage),
+                        _phases_cell(stage["phase"]),
+                        _abundance(cell) if cell is not None else "not sampled",
+                        _tissue_percentile(cell, floor, with_grid=with_grid)
+                        if cell is not None
+                        else "–",
+                        _tau_cell(stage, floor, unit),
+                        _highest_cell(stage),
+                    )
+                )
+            )
+        headers = (
+            "stage",
+            "phases",
+            median_header,
+            "percentile (IQR)",
+            tau_header,
+            "highest median",
+        )
+        parts.append(
+            f'<p class="method"><strong>{html.escape(organ)}</strong></p>'
+            f'<div class="scroll">{data_table(headers, rows)}</div>'
+        )
+    if not heart:
+        # No cardiac tissue was sampled (or the dataset declares none), so no
+        # heart table carries the stage-level facts -- the phase, tau and the
+        # highest organ belong to the stage, not to a tissue, and would reach no
+        # byte of the page. One table of stages holds them instead.
+        rows = [
+            Row(
+                cells=(
+                    _stage_label(stage),
+                    _phases_cell(stage["phase"]),
+                    _tau_cell(stage, floor, unit),
+                    _highest_cell(stage),
+                )
+            )
+            for stage in stages
+        ]
+        stage_headers = ("stage", "phases", tau_header, "highest median")
+        parts.append(
+            '<p class="method"><strong>All stages</strong></p>'
+            f'<div class="scroll">{data_table(stage_headers, rows)}</div>'
+        )
+    if others:
+        rows = [
+            Row(
+                cells=(
+                    _stage_label(stage),
+                    *(
+                        _other_organ_cell(
+                            next((c for c in stage["tissues"] if c["tissue"] == organ), None),
+                            floor,
+                            with_grid=with_grid,
+                        )
+                        for organ in others
+                    ),
+                )
+            )
+            for stage in stages
+        ]
+        parts.append(
+            '<p class="method"><strong>Other organs</strong></p>'
+            f'<div class="scroll">{data_table(("stage", *others), rows)}</div>'
+        )
+    return "".join(parts)
 
 
 # --- The trajectory chart ----------------------------------------------------
@@ -4909,9 +4969,8 @@ def _stage_axis(labels: Sequence[str], unsampled: frozenset[int], baseline: floa
 def _stage_label(stage: StageProfileEntry) -> str:
     """A stage's own token, or the state a null one is in.
 
-    The same fallback `_stage_block` renders as its heading, taken from one
-    place so a chart's axis and the heading under it cannot spell a null stage
-    two different ways.
+    The one spelling of a null stage, taken from one place so a chart's axis
+    and the tables' stage column cannot spell it two different ways.
     """
     return stage["stage"] if stage["stage"] is not None else "no stage recorded"
 
@@ -6103,7 +6162,7 @@ def _dataset_block(
         lede = _no_trajectory_sentence(entry, cardiac, floor)
     glance = "".join(_glance_line(entry, tissue, floor) for tissue in sorted(cardiac))
     figure = _bulk_figure(entry, dataset, phases)
-    stages = "".join(_stage_block(stage, cardiac, floor) for stage in entry["stages"])
+    stages = _stage_tables(entry, cardiac, floor)
     total = len(entry["stages"])
     noun = "stage" if total == 1 else "stages"
     folded = (
