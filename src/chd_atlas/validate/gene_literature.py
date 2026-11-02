@@ -1,5 +1,5 @@
 # src/chd_atlas/validate/gene_literature.py
-"""LIT001-LIT013: a gene's literature file against itself and the registries.
+"""LIT001-LIT014: a gene's literature file against itself and the registries.
 
 The single-record rules live in the model (`models/gene_literature.py`); these
 are the ones a model cannot see because they compare a triage list with a
@@ -29,7 +29,8 @@ from chd_atlas.corpus import Corpus
 from chd_atlas.genes import GeneRegistry, Resolution
 from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.models.gene_literature import GeneLiteratureFile
-from chd_atlas.vocab import TriageDecision
+from chd_atlas.validate.referential import lesion_group_faults
+from chd_atlas.vocab import LesionGroup, TriageDecision
 
 
 def _approved_symbol_of(symbols: GeneRegistry, gene: str) -> str | None:
@@ -45,6 +46,7 @@ def validate_gene_literature(
     symbols: GeneRegistry | None,
     known_publications: set[str] | None,
     known_cohorts: set[str] | None,
+    burden_studies: dict[str, set[str]] | None,
     published_genes: set[str] | None = None,
 ) -> list[ValidationIssue]:
     """Check every literature file; `None` for a registry skips only its checks.
@@ -52,10 +54,21 @@ def validate_gene_literature(
     - `symbols` None skips LIT009 (TBL008 reports an unreadable registry).
     - `known_publications` None skips LIT011; `known_cohorts` None skips LIT012.
     - `published_genes` None skips LIT013.
+    - `burden_studies` (gene -> the studies `mirrors/burden.tsv` has rows for) None
+      skips LIT014; it is None only when that table is unreadable, which TBL000 or
+      TBL001 reports. A missing table is `{}`: a finding linking a burden study then
+      has nothing to link to.
+
+    Lesion-group consistency (REF007/REF009, the assertion rules) runs on every
+    finding against `corpus.phenotypes`; an unmapped phenotype is exempt.
     """
     issues: list[ValidationIssue] = []
     all_finding_ids: set[str] = {
         finding.id for _, literature in corpus.literature for finding in literature.findings
+    }
+
+    lesion_group_of: dict[str, LesionGroup | None] = {
+        term.id: term.lesion_group for term in corpus.phenotypes
     }
 
     for path, literature in corpus.literature:
@@ -64,9 +77,11 @@ def validate_gene_literature(
             path,
             literature,
             all_finding_ids,
+            lesion_group_of,
             symbols,
             known_publications,
             known_cohorts,
+            burden_studies,
             published_genes,
         )
     return issues
@@ -77,9 +92,11 @@ def _check_file(
     path: Path,
     literature: GeneLiteratureFile,
     all_finding_ids: set[str],
+    lesion_group_of: dict[str, LesionGroup | None],
     symbols: GeneRegistry | None,
     known_publications: set[str] | None,
     known_cohorts: set[str] | None,
+    burden_studies: dict[str, set[str]] | None,
     published_genes: set[str] | None,
 ) -> None:
     def add(code: str, severity: Severity, location: str, message: str) -> None:
@@ -173,6 +190,23 @@ def _check_file(
             for other in finding.shares_probands_with:
                 if other not in all_finding_ids:
                     error("LIT007", where, f"shares_probands_with names unknown finding {other}")
+                elif other == finding.id:
+                    error("LIT007", where, "shares_probands_with names the finding itself")
+        for code, message in lesion_group_faults(
+            finding.phenotypes, finding.lesion_groups, lesion_group_of
+        ):
+            error(code, f"{here}:finding {finding.id}", message)
+        if (
+            burden_studies is not None
+            and finding.burden_study is not None
+            and finding.burden_study not in burden_studies.get(literature.gene, set())
+        ):
+            error(
+                "LIT014",
+                where,
+                f"burden_study {finding.burden_study} has no row for {literature.gene} "
+                f"in mirrors/burden.tsv, so there is nothing for the page to link",
+            )
         found_by = searches.get(first_search.get(finding.publication, -1))
         if (
             finding.approved_on is not None

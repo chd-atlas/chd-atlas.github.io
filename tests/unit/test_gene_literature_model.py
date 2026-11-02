@@ -89,9 +89,9 @@ def test_valid_findings_load() -> None:
 @pytest.mark.parametrize(
     ("changes", "field"),
     [
-        # carriers sum: 3 + 3 + 3 = 9 > screened 7 (a sum mutant needs distinct values)
+        # 3 + 3 + 3 = 9 > screened 7, though every arm alone is under 7: only the sum exceeds it
         ({"carriers": {"de_novo": 3, "inherited": 3, "origin_unknown": 3}}, "carriers"),
-        # 2 + 1 + 3 = 6 <= 7 but one arm alone does not decide it
+        # 0 + 0 + 8 = 8 > screened 7: one arm alone exceeds it
         ({"carriers": {"de_novo": 0, "inherited": 0, "origin_unknown": 8}}, "carriers"),
         ({"design": "case_report"}, "screened"),  # screened is 7, not 1
         ({"count_unit": None}, "count_unit"),
@@ -117,6 +117,12 @@ def test_valid_findings_load() -> None:
         ({"p_value": 0.0}, "p_value"),
         ({"p_value": 1.5}, "p_value"),
         ({"odds_ratio": 0}, "odds_ratio"),
+        # `.inf` and `.nan` are YAML floats; an infinite odds ratio validated and then
+        # crashed the build (allow_nan=False) until allow_inf_nan=False (final review I5).
+        ({"odds_ratio": float("inf")}, "odds_ratio"),
+        ({"odds_ratio": float("nan")}, "odds_ratio"),
+        ({"p_value": float("inf")}, "p_value"),
+        ({"p_value": float("nan")}, "p_value"),
         ({"approved_by": "A. Curator"}, "approved_by"),  # no approved_on
         ({"approved_on": "2026-11-02"}, "approved_by"),  # no approved_by
         ({"review_status": "not_accessible"}, "review_note"),

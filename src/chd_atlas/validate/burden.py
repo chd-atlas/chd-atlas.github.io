@@ -317,6 +317,27 @@ def validate_burden(root: Path) -> list[ValidationIssue]:
     return issues
 
 
+def burden_studies_by_gene(root: Path) -> dict[str, set[str]] | None:
+    """Gene -> the studies `mirrors/burden.tsv` has at least one row for.
+
+    `{}` when the table is absent (there is no burden mirror before one is
+    curated); `None` when it is unreadable or lacks `study` or `gene`, which
+    `validate_table` reports as TBL000/TBL001. Read by LIT014: a literature
+    finding that links a burden study must find that study's rows for its gene.
+    """
+    path = root / "mirrors" / "burden.tsv"
+    if not path.is_file():
+        return {}
+    frame, _ = read_table(path, BURDEN)
+    if frame is None or not {"study", "gene"} <= set(frame.columns):
+        return None
+    studies: dict[str, set[str]] = {}
+    for study, gene in zip(frame["study"].to_list(), frame["gene"].to_list(), strict=True):
+        if study is not None and gene is not None:
+            studies.setdefault(str(gene), set()).add(str(study))
+    return studies
+
+
 def validate_burden_references(
     root: Path,
     *,

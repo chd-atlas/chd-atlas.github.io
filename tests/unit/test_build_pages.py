@@ -10061,8 +10061,8 @@ def _lit_finding(**changes: object) -> dict[str, object]:
         "controls": None,
         "p_value": None,
         "odds_ratio": None,
-        "phenotypes": ["HP:0001631"],
-        "lesion_groups": ["septal", "conotruncal"],
+        "phenotypes": ["HP:0001631", "HP:0001680"],  # septal + lvoto, as phenotypes.yaml maps them
+        "lesion_groups": ["septal", "lvoto"],
         "syndromic": "both",
         "cohorts": [],
         "shares_probands_with": "unknown",
@@ -10214,7 +10214,7 @@ def test_the_findings_table_gives_every_figure_its_unit_and_links_the_paper(
         "<td>cohort screen</td><td>exome, gene panel</td>"
         "<td>7 carriers among 70 probands</td>"
         "<td>2 de novo, 1 inherited, 4 origin unknown</td>"
-        "<td>septal, conotruncal</td>"
+        "<td>septal, lvoto</td>"
         "<td>Seven of seventy probands carried a variant.</td>"
         "<td>A. Curator</td></tr>"
     ) in section

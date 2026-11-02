@@ -1,6 +1,8 @@
 # tests/unit/test_corpus.py
 from pathlib import Path
 
+import pytest
+
 from chd_atlas.corpus import load_curation, unexpected_curation_entries
 
 ASSERTION_YAML = """\
@@ -304,3 +306,35 @@ def test_a_bad_literature_file_is_an_issue_and_a_stray_file_is_reported(tmp_path
     stray = unexpected_curation_entries(tmp_path)
     assert [i.code for i in stray] == ["CUR001"]
     assert "x.txt" in stray[0].location
+
+
+_SHORTHAND_BODIES = [
+    ("anchor &s", "x: &s 1\n"),
+    ("anchor &s", "x: &s 1\ny: *s\n"),  # an alias needs an anchor, which is reported first
+    ("merge key <<", "x: {a: 1}\ny:\n  <<: {a: 2}\n"),
+]
+
+
+@pytest.mark.parametrize(("named", "extra"), _SHORTHAND_BODIES)
+def test_a_literature_file_with_yaml_shorthand_is_refused_and_publishes_nothing(
+    tmp_path: Path, named: str, extra: str
+) -> None:
+    """A merge key copies one finding's approval onto another, so the file is refused (R34).
+
+    Measured on the pre-fix loader: `- <<: *a` with a new id loaded as a valid,
+    approved finding. Anchors and aliases alone are refused too, because the
+    loader cannot tell which of them carries an approval. The extra keys sit
+    outside the model, so `extra="forbid"` would also refuse them; the test
+    therefore asserts the code is YAML002 and that nothing else is reported.
+    """
+    _write_minimal_corpus(tmp_path)
+    directory = tmp_path / "curation" / "literature"
+    directory.mkdir()
+    (directory / "TBX5.yaml").write_text(LITERATURE_YAML + extra)
+
+    corpus, issues = load_curation(tmp_path)
+
+    assert corpus.literature == ()
+    assert [i.code for i in issues] == ["YAML002"]
+    assert issues[0].message.startswith(named)
+    assert issues[0].location.endswith("TBX5.yaml")

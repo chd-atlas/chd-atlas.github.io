@@ -1,5 +1,5 @@
 # tests/unit/test_validate_gene_literature.py
-"""LIT001-LIT013: one gene's literature file against itself and the registries.
+"""LIT001-LIT014: one gene's literature file against itself and the registries.
 
 The base file is clean and every count in it differs from its neighbours
 (§4.30): search 1 found 3 new papers, search 2 found 1 new of 4 hits, so a
@@ -19,12 +19,20 @@ from chd_atlas.corpus import Corpus
 from chd_atlas.genes import GeneRegistry
 from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.models.gene_literature import GeneLiteratureFile
+from chd_atlas.models.literature import PhenotypeTerm
 from chd_atlas.validate.gene_literature import validate_gene_literature
+from chd_atlas.vocab import LesionGroup
 
 TBX5 = "HGNC:11604"
 OTHER = "HGNC:1100"
 F1 = "CHDA:LIT:0000001"
 F2 = "CHDA:LIT:0000002"
+PHENOTYPES = (
+    PhenotypeTerm(id="HP:0001631", label="atrial septal defect", lesion_group=LesionGroup.SEPTAL),
+    PhenotypeTerm(id="HP:0001680", label="coarctation of aorta", lesion_group=LesionGroup.LVOTO),
+)
+# Gene -> studies with burden rows; PMID:1005 is the study the burden test links.
+BURDEN = {TBX5: {"PMID:1005"}}
 PUBS = {"PMID:1001", "PMID:1002", "PMID:1003", "PMID:1004", "PMID:1005"}
 
 SYMBOLS = GeneRegistry(
@@ -95,9 +103,10 @@ def _base() -> dict[str, Any]:
     }
 
 
-def _corpus(*files: tuple[str, dict[str, Any]]) -> Corpus:
+def _corpus(*files: tuple[str, dict[str, Any]], phenotypes: Any = PHENOTYPES) -> Corpus:
     return Corpus(
         root=Path("/r"),
+        phenotypes=tuple(phenotypes),
         literature=tuple(
             (
                 Path("/r/curation/literature") / f"{stem}.yaml",
@@ -113,10 +122,12 @@ def _run(raw: dict[str, Any] | None = None, stem: str = "TBX5", **kw: Any) -> li
         "symbols": SYMBOLS,
         "known_publications": PUBS,
         "known_cohorts": set(),
+        "burden_studies": BURDEN,
         "published_genes": {TBX5},
     }
     args.update(kw)
-    return validate_gene_literature(_corpus((stem, raw or _base())), **args)
+    phenotypes = args.pop("phenotypes", PHENOTYPES)
+    return validate_gene_literature(_corpus((stem, raw or _base()), phenotypes=phenotypes), **args)
 
 
 def _codes(issues: list[ValidationIssue]) -> list[str]:
@@ -246,9 +257,74 @@ def test_same_as_naming_an_included_paper_is_not_lit006_even_if_uncited() -> Non
     assert _codes(_run(raw)) == ["LIT003"]
 
 
-def test_unknown_probands_and_a_pending_count_are_not_errors() -> None:
-    """The literal "unknown" is never LIT007."""
+def test_unknown_probands_are_not_lit007_and_a_pending_hit_is_only_a_warning() -> None:
+    """The literal "unknown" is never LIT007; LIT002 (pending hits) is a warning, not an error."""
     assert "LIT007" not in _codes(_run())
+    raw = _base()
+    _pending(raw)
+    issues = _run(raw)
+    assert _codes(issues) == ["LIT002"]
+    assert issues[0].severity is Severity.WARNING
+
+
+def test_a_finding_cannot_share_probands_with_itself() -> None:
+    raw = _base()
+    raw["findings"][0]["shares_probands_with"] = [F1]
+    issues = _run(raw)
+    assert _codes(issues) == ["LIT007"]
+    assert issues[0].location.endswith(f":finding {F1}") and "itself" in issues[0].message
+    # Naming the other finding is not self-reference.
+    raw["findings"][0]["shares_probands_with"] = [F2]
+    assert _codes(_run(raw)) == []
+
+
+@pytest.mark.parametrize(
+    ("phenotypes", "groups", "expected"),
+    [
+        (["HP:0001631"], ["septal"], []),
+        (["HP:0001631", "HP:0001680"], ["septal", "lvoto"], []),
+        (["HP:0001631"], ["septal", "conotruncal"], ["REF009"]),  # a group nothing justifies
+        (["HP:0001631", "HP:0001680"], ["septal"], ["REF007"]),  # lvoto is missing
+        (["HP:0001631"], ["conotruncal"], ["REF007", "REF009"]),  # both directions at once
+        # An unmapped term exempts the finding from both (no REF012 analogue, R29).
+        (["HP:0001631", "HP:0009999"], ["septal", "conotruncal"], []),
+        (["HP:0009999"], ["conotruncal"], []),
+    ],
+)
+def test_a_findings_lesion_groups_must_agree_with_its_mapped_phenotypes(
+    phenotypes: list[str], groups: list[str], expected: list[str]
+) -> None:
+    """Final review I3: the assertion rules REF007/REF009 now run on findings too.
+
+    The cases differ in which of the two vocabularies is wrong, so a check keyed on
+    the wrong one (or dropped) changes the answer (§4.30).
+    """
+    raw = _base()
+    raw["findings"][0]["phenotypes"] = phenotypes
+    raw["findings"][0]["lesion_groups"] = groups
+    issues = _run(raw)
+    assert _codes(issues) == expected
+    assert all(i.location.endswith(f":finding {F1}") for i in issues)
+
+
+@pytest.mark.parametrize(
+    ("burden_studies", "expected"),
+    [
+        ({TBX5: {"PMID:1005"}}, []),
+        ({TBX5: {"PMID:1001"}}, ["LIT014"]),  # a study, but not the one linked
+        ({OTHER: {"PMID:1005"}}, ["LIT014"]),  # the right study, another gene's rows
+        ({}, ["LIT014"]),  # no burden mirror at all
+        (None, []),  # unreadable mirror: TBL000/TBL001 report it, so skip
+    ],
+)
+def test_a_linked_burden_study_needs_a_burden_row_for_this_gene(
+    burden_studies: dict[str, set[str]] | None, expected: list[str]
+) -> None:
+    raw = _base()
+    raw["findings"][0]["burden_study"] = "PMID:1005"
+    issues = _run(raw, burden_studies=burden_studies)
+    assert _codes(issues) == expected
+    assert all(i.location.endswith(f":finding {F1}") and "PMID:1005" in i.message for i in issues)
 
 
 def test_included_pmids_without_a_registered_publication_are_refused() -> None:
@@ -332,6 +408,7 @@ def test_findings_may_share_probands_across_files_and_order_is_deterministic() -
         symbols=SYMBOLS,
         known_publications=PUBS,
         known_cohorts=set(),
+        burden_studies=BURDEN,
         published_genes={TBX5, OTHER},
     )
     # BRCA1's finding names a finding that lives in TBX5's file: resolved. Its

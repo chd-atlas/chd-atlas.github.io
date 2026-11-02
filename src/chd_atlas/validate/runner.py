@@ -26,6 +26,7 @@ from chd_atlas.tables import (
     validate_table,
 )
 from chd_atlas.validate.burden import (
+    burden_studies_by_gene,
     validate_burden,
     validate_burden_combined,
     validate_burden_combined_references,
@@ -705,7 +706,7 @@ def validate_repository(root: Path) -> ValidationReport:
         # mirrors-missing (TBL012) branches.
         # The gate's population, once, for PRF009 and GEN004 below.
         published = _gate_published_genes(root, corpus)
-        # LIT001-LIT013. Same branch as the other reference checks: the
+        # LIT001-LIT014. Same branch as the other reference checks: the
         # registries below come from the curation a failed load empties. Each
         # is passed as None when empty so a missing registry skips its own
         # check, and CUR003/CUR004 above are the paired errors for the two the
@@ -725,6 +726,7 @@ def validate_repository(root: Path) -> ValidationReport:
                 symbols=_symbol_registry(root) or None,
                 known_publications=study_ids or None,
                 known_cohorts=cohort_ids or None,
+                burden_studies=burden_studies_by_gene(root),
                 published_genes=published or None,
             )
         )

@@ -784,8 +784,7 @@ triage:
   - {pmid: PMID:900006, search: 1, decision: pending}
   - {pmid: PMID:900007, search: 1, decision: pending}
 findings:
-  - &base
-    id: CHDA:LIT:0000001
+  - id: CHDA:LIT:0000001
     publication: PMID:8988165
     design: cohort_screen
     methods: [exome]
@@ -802,12 +801,21 @@ findings:
     extracted_by: agent:extract/test
     approved_by: A. Curator
     approved_on: 2026-11-05
-  - <<: *base
-    id: CHDA:LIT:0000002
+  - id: CHDA:LIT:0000002
     publication: PMID:40127276
+    design: cohort_screen
+    methods: [exome]
+    count_unit: probands
+    screened: 70
+    carriers: {de_novo: 2, inherited: 1, origin_unknown: 4}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001631]
+    lesion_groups: [septal]
+    syndromic: both
+    shares_probands_with: unknown
+    locators: [{kind: in_text, element: Table 2}]
     summary: An extraction nobody approved yet.
-    approved_by: null
-    approved_on: null
+    extracted_by: agent:extract/test
 """
 
 

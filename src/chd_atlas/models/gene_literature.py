@@ -143,8 +143,8 @@ class Finding(BaseModel):
     variant_classes: list[FindingVariantClass] = Field(default_factory=list)
     cases: int | None = Field(default=None, ge=1)
     controls: int | None = Field(default=None, ge=1)
-    p_value: float | None = Field(default=None, gt=0, le=1)
-    odds_ratio: float | None = Field(default=None, gt=0)
+    p_value: float | None = Field(default=None, gt=0, le=1, allow_inf_nan=False)
+    odds_ratio: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     phenotypes: list[PhenotypeId] = Field(min_length=1)
     lesion_groups: list[LesionGroup] = Field(min_length=1)
     syndromic: SyndromicStatus

@@ -8,6 +8,7 @@ from typing import Any, Final
 from pydantic import BaseModel, ValidationError
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
+from ruamel.yaml.events import AliasEvent, NodeEvent, ScalarEvent
 
 from chd_atlas.fs import list_dir
 from chd_atlas.issues import Severity, ValidationIssue
@@ -101,6 +102,28 @@ def _parse[ModelT: BaseModel](model: type[ModelT], path: Path, acc: _Accumulator
             location = ".".join(str(part) for part in error["loc"])
             acc.error("SCHEMA001", f"{path}:{location}", error["msg"])
         return None
+
+
+def _yaml_shorthand(path: Path) -> str | None:
+    """Name the first anchor, alias or merge key in a YAML file, or None.
+
+    A finding is approved by the person named on that finding. `<<: *a` copies
+    another finding's `approved_by`, `approved_on` and `verified_by` onto a
+    record nobody approved, and it publishes under that person's name
+    (final review I1, measured: pending_approval 0 and `review` listing
+    nothing). An unreadable file returns None; `_read_yaml` reports it.
+    """
+    try:
+        for event in YAML(typ="safe").parse(path.read_text(encoding="utf-8")):
+            if isinstance(event, AliasEvent):
+                return f"alias *{event.anchor}"
+            if isinstance(event, NodeEvent) and event.anchor is not None:
+                return f"anchor &{event.anchor}"
+            if isinstance(event, ScalarEvent) and event.value == "<<" and not event.style:
+                return "merge key <<"
+    except (YAMLError, UnicodeDecodeError, ValueError, OSError):
+        return None
+    return None
 
 
 def _record_files(directory: Path) -> list[Path]:
@@ -209,6 +232,15 @@ def load_curation(root: Path) -> tuple[Corpus, list[ValidationIssue]]:
 
     literature: list[tuple[Path, GeneLiteratureFile]] = []
     for path in _record_files(curation / "literature"):
+        shorthand = _yaml_shorthand(path)
+        if shorthand is not None:
+            acc.error(
+                "YAML002",
+                path,
+                f"{shorthand}: anchors, aliases and merge keys are not allowed in a "
+                f"literature file; an approval must be written on the finding it approves",
+            )
+            continue
         parsed_literature = _parse(GeneLiteratureFile, path, acc)
         if parsed_literature is not None:
             literature.append((path, parsed_literature))

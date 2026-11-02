@@ -35,7 +35,11 @@ convention only a person can check.
   (`LIT009`). `search` accepts an old name but writes the approved one.
 - A finding id is `CHDA:LIT:<7-digit ordinal>`, taken from the `LIT` counter in
   `curation/.id_registry.yaml`, which you bump in the same edit. An id beyond the counter
-  is refused (`ID002`); a repeated id is refused (`ID003`).
+  is refused (`ID002`); an id repeated within one file is refused (`SCHEMA001`), and one
+  used in two files is refused (`ID003`).
+- Write every value out on the record it belongs to. A literature file with a YAML anchor
+  (`&a`), alias (`*a`) or merge key (`<<`) is refused whole (`YAML002`), because `<<: *a`
+  would copy one finding's approval onto a finding nobody approved.
 - Every cited PMID needs a record in `curation/publications.yaml`, added with
   `add-publication` (`LIT011`). A cohort must be in `curation/cohorts.yaml` (`LIT012`).
 - A literature file for a gene outside the publication gate reaches no page (`LIT013`,
@@ -46,7 +50,8 @@ convention only a person can check.
 - Every hit is triaged once (`LIT005`), to a search the file records (`LIT010`). Each
   search's `new_hits` must equal the triage entries attributed to it (`LIT001`). Never
   change a `pmid` or a `search` on a triage entry.
-- A hit still `pending` is a warning (`LIT002`). Leave none when you hand off.
+- A hit still `pending` is a warning (`LIT002`). A triage hand-off leaves none; the
+  search hand-off ends with every new hit pending, by design.
 - Exclude only for a reason the abstract shows. When unsure, include.
 - An excluded paper needs a `reason` (`SCHEMA001`). `same_data_as` needs `same_as`, which
   must name a PMID included in the same file (`SCHEMA001`, `LIT006`). `other` needs a
@@ -63,12 +68,25 @@ convention only a person can check.
   `case_report` screens exactly one; a `rare_variant_association` has a comparator other
   than `none`; a `common_variant_association` has `cases` and `controls` and no carrier
   counts; the genotyping methods appear only with `common_variant_association`. All
-  `SCHEMA001`.
-- Independence: list `cohorts` from the registry, and set `shares_probands_with` to the
-  finding ids that share probands, or to `unknown`. Never leave it out and never guess
-  (`SCHEMA001`). A named id must exist (`LIT007`). The curator checks independence by
+  `SCHEMA001`. An infinite or NaN `p_value` or `odds_ratio` (`.inf`, `.nan`) is refused
+  (`SCHEMA001`): write the bound the paper gives, or leave the field out.
+- `carriers` and `screened` are counted in `count_unit`. With `probands` or `individuals`
+  a carrier is a person. With `families`, `screened` is families and each origin count is
+  carrier families, so how many relatives carry the variant goes in the `summary` with a
+  locator, not in a count.
+- `lesion_groups` agree with the `phenotypes` that `curation/phenotypes.yaml` maps to a
+  group (`REF007`, `REF009`); a phenotype it does not map is not checked.
+- `burden_study` links a study `mirrors/burden.tsv` already holds for this gene; with no
+  such row the finding is refused (`LIT014`).
+- Independence: list `cohorts` from the registry. Set `shares_probands_with` to the
+  finding ids that share probands. `[]` asserts that no proband is shared with any other
+  finding: write it only where the paper states its cohort is new. Otherwise write
+  `unknown`. Leaving the field out is refused (`SCHEMA001`); not guessing is a convention
+  nothing enforces. A named id must exist and must not be the finding's own (`LIT007`);
+  it may name a finding not yet approved. The curator checks independence by
   reading this field in the `chd-atlas literature review` listing; `diff` does not
-  compare it.
+  compare it. The blind verifier is the one exception to naming ids: it always writes
+  `unknown`, because its ids are local to its own file.
 
 ## Attribution and approval
 

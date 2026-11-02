@@ -1393,7 +1393,7 @@ def test_a_header_only_gene_registry_skips_only_the_cell_type_gene_check(tmp_pat
     assert sorted({code for code in codes if code.startswith("CTP")}) == ["CTP001"]
 
 
-# ---- literature records (LIT001-LIT013) reached through validate_repository ----
+# ---- literature records (LIT001-LIT014) reached through validate_repository ----
 
 
 def _literature_repo(tmp_path: Path, *, stem: str = "TBX5", gene: str = "HGNC:11604", **tweak):  # type: ignore[no-untyped-def]
@@ -1480,6 +1480,9 @@ def test_a_clean_literature_file_adds_no_issue(tmp_path: Path) -> None:
         ({"finding": {"cohorts": ["no_such_cohort"]}}, "LIT012"),
         ({"finding": {"phenotypes": ["HP:9999999"]}}, "ONT001"),
         ({"finding": {"id": "CHDA:LIT:0000009"}}, "ID002"),
+        # PMID:8988165 has no burden rows (final review I6); septal-only HP:0001631 (I3).
+        ({"finding": {"burden_study": "PMID:8988165"}}, "LIT014"),
+        ({"finding": {"lesion_groups": ["septal", "conotruncal"]}}, "REF009"),
     ],
 )
 def test_each_literature_check_is_reached_through_the_repository_validator(
