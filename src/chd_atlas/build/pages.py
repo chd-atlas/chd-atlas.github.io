@@ -269,6 +269,15 @@ _VALIDITY_HEADERS: Final = (
     "report",
 )
 
+# `_orphanet_notes`'s scope table: one row per disease a gene carries that is in
+# scope because Orphanet records a structural heart malformation at or above the
+# frequency floor. Display-only wording; see `orphanet_scope.warrant`.
+_ORPHANET_SCOPE_HEADERS: Final = (
+    "disease",
+    "why it is in scope",
+    "structural heart malformations Orphanet records",
+)
+
 # ClinGen's mode-of-inheritance codes in GenCC's words, so both groups of the
 # validity section read one vocabulary (D51). Measured 2026-10-25 against the
 # committed mirrors: ClinGen uses exactly these six codes (AR 1,833 rows, AD
@@ -2026,55 +2035,66 @@ def _orphanet_notes(
     atlas with a Noonan grade and nothing saying why Noonan counts, and a reader
     would take the grade for a grade for heart disease.
 
-    One paragraph per distinct Orphanet-scoped disease among the gene's records,
-    sorted by disease id, outside every fold: it is particular to this gene. They
-    are rendered at the top of the validity section, above both groups. The
-    phenotype labels and bands are Orphanet's, verbatim; a subtype also says which
-    syndrome its warrant is inherited from, and through which OMIM mapping.
+    One row per distinct Orphanet-scoped disease among the gene's records,
+    sorted by disease id, in a table above both groups of classifications: it is
+    particular to this gene. The table's third column names the malformations
+    Orphanet records for the disease and the band it records them at, both
+    verbatim; the second says how the disease is reached -- its own cases, or a
+    validated subtype of a parent syndrome, with the OMIM-to-Orphanet mapping
+    that certificates it.
 
-    **Each note's last sentence names its own disease.** It read "The
-    classifications below are for the syndrome, not for heart disease" until
-    2026-10-26, above a table that is not only that syndrome's: NOTCH1's lists
-    an admitting record for a term a ClinGen expert panel scoped (NOTCH1-related
-    AOS spectrum disorder) and an Orphanet record for familial bicuspid aortic
-    valve beneath its two Adams-Oliver notes. "The classifications below for
-    Adams-Oliver syndrome" is true above that table; "the classifications
-    below" was not.
+    **The lead-in does not name any one disease for the whole table's sake.**
+    It read "The classifications below are for the syndrome, not for heart
+    disease" until 2026-10-26, above a table that is not only that syndrome's:
+    NOTCH1's lists an admitting record for a term a ClinGen expert panel scoped
+    (NOTCH1-related AOS spectrum disorder) and an Orphanet record for familial
+    bicuspid aortic valve beneath its two Adams-Oliver notes, so a single
+    undirected sentence was false on that page. The whole-table lead-in says
+    *each* disease's classifications are for *that* disease, which is true no
+    matter how many diseases the section below names; the caveat names no
+    parent, so "the syndrome" cannot read as one row's parent.
 
-    **And it ends on "that disease", not "the syndrome"** (review, the same
-    day). A subtype's note names its parent syndrome in the sentence before --
-    "... of cases of Noonan syndrome, the syndrome it is a subtype of" -- so
-    "for Noonan syndrome 4 are for the syndrome as a whole" had the parent as
-    its nearest antecedent, and read as saying the subtype's grades are the
-    parent's.
+    **The lead-in ends on "that disease", not "the syndrome"** (review,
+    2026-10-26): a subtype's row names its parent syndrome in the "why" cell --
+    "subtype of Noonan syndrome ..." -- so "the syndrome as a whole" would read
+    as the parent's.
     """
     diseases = sorted({record.disease for record in gene_validity.records} & set(warrants))
-    notes = []
+    if not diseases:
+        return ""
+    rows: list[Row] = []
     for disease in diseases:
         found = warrants[disease]
         label = html.escape(labels.get(disease, disease))
-        phenotypes = "; ".join(
+        malformation_cells = "; ".join(
             f"{html.escape(a.label)} at <em>{html.escape(a.frequency or '')}</em>"
             for a in found.phenotypes
-        )
+        ) + (f" (Orphanet, {html.escape(found.orpha)})" if found.via == "direct" else "")
         if found.via == "subtype":
-            claim = (
-                f"<strong>{label} is in scope because Orphanet records a structural heart "
-                f"malformation in at least 30% of cases of {html.escape(found.name)}</strong>, "
-                f"the syndrome it is a subtype of (Orphanet maps {html.escape(found.omim or '')} "
-                f"under {html.escape(found.orpha)}): {phenotypes}."
+            why = (
+                "Subtype of "
+                + html.escape(found.name)
+                + "; Orphanet records a structural heart malformation in at least 30% of its "
+                "cases (Orphanet maps "
+                + html.escape(found.omim or "")
+                + " under "
+                + html.escape(found.orpha)
+                + ")"
             )
         else:
-            claim = (
-                f"<strong>{label} is in scope because Orphanet records a structural heart "
-                f"malformation in at least 30% of its cases</strong>: {phenotypes} "
-                f"(Orphanet, {html.escape(found.orpha)})."
+            why = (
+                "Orphanet records a structural heart malformation in at least 30% of this "
+                "disease's cases"
             )
-        notes.append(
-            f'<p class="notice-inline">{claim} The classifications below for {label} are for '
-            "that disease as a whole, not for heart disease.</p>"
-        )
-    return "".join(notes)
+        rows.append(Row(cells=(label, Markup(why), Markup(malformation_cells))))
+    return (
+        "<h3>Why these diseases are in scope</h3>"
+        '<p class="notice-inline">These diseases count as congenital heart disease in '
+        "this atlas because Orphanet records a structural heart malformation in at least "
+        "30% of their cases. Each disease&#x27;s classifications in the tables below are "
+        "for that disease as a whole, not for heart disease alone.</p>"
+        + data_table(_ORPHANET_SCOPE_HEADERS, rows)
+    )
 
 
 def _evidence_section(

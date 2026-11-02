@@ -1646,34 +1646,44 @@ def test_every_orphanet_warrant_scope_json_publishes_reaches_the_pages_that_list
         records = bundle["validity"]["records"]
 
         diseases = sorted({record["disease"] for record in records} & orphanet.keys())
-        notes = [
-            note
-            for note in re.findall(r'<p class="notice-inline">(.*?)</p>', section)
-            if "is in scope because Orphanet records" in note
-        ]
-        assert page.count("is in scope because Orphanet records") == len(notes), entry["gene"]
-        assert len(notes) == len(diseases), (entry["gene"], diseases)
-        for disease, note in zip(diseases, notes, strict=True):
+        if diseases:
+            # The scope table has exactly the disease rows, above the validity
+            # groups; slice to it so a six-cell validity row cannot be confused
+            # with a three-cell scope row by the regex below.
+            scope_start = section.index("<h3>Why these diseases are in scope</h3>")
+            scope_end = section.index('id="validity-table"')
+            rows = re.findall(
+                r"<tr><td>(.*?)</td><td>(.*?)</td><td>(.*?)</td></tr>",
+                section[scope_start:scope_end],
+            )
+        else:
+            assert "<h3>Why these diseases are in scope</h3>" not in section, entry["gene"]
+            rows = []
+        assert len(rows) == len(diseases), (entry["gene"], diseases)
+        for disease, (label_cell, why_cell, malformations_cell) in zip(diseases, rows, strict=True):
             term = orphanet[disease]
             label = html.escape(term["label"])
-            assert note.startswith(f"<strong>{label} is in scope because"), (entry["gene"], note)
-            assert note.endswith(
-                f"The classifications below for {label} are for that disease as a whole, "
-                "not for heart disease."
-            ), (entry["gene"], note)
+            assert label_cell == label, (entry["gene"], label_cell)
             warrant = term["orphanet"]
+            note = why_cell + malformations_cell
             assert warrant["code"] in note, (entry["gene"], disease)
             if warrant["via"] == "subtype":
                 subtype_notes += 1
-                assert f"of {html.escape(warrant['name'])}</strong>" in note, entry["gene"]
-                assert warrant["omim"] in note, entry["gene"]
+                assert f"Subtype of {html.escape(warrant['name'])}; " in why_cell, entry["gene"]
+                assert warrant["omim"] in why_cell, entry["gene"]
+                # The "its cases" in the why cell is the parent's, so the row
+                # carries the code only in the subtype mapping, and the
+                # malformations cell for a subtype carries no "Orphanet, ...".
+                assert f"(Orphanet, {warrant['code']})" not in malformations_cell, entry["gene"]
+            else:
+                assert f"(Orphanet, {warrant['code']})" in malformations_cell, entry["gene"]
             for phenotype in warrant["phenotypes"]:
                 stated = (
                     f"{html.escape(phenotype['label'])} at "
                     f"<em>{html.escape(phenotype['frequency'])}</em>"
                 )
-                assert stated in note, (entry["gene"], disease, phenotype["hpo"])
-        noted += bool(notes)
+                assert stated in malformations_cell, (entry["gene"], disease, phenotype["hpo"])
+        noted += bool(rows)
 
         headline = bundle["headline_confidence"]
         graded = [

@@ -6744,7 +6744,7 @@ def test_an_orphanet_scoped_syndrome_says_why_it_counts_as_chd_above_both_groups
 
     A Noonan grade is a grade for the syndrome. Without this note a reader meets
     it in a CHD atlas with nothing saying why the syndrome counts, and takes it
-    for a grade for heart disease. The notes sit above both groups of
+    for a grade for heart disease. The scope table sits above both groups of
     classifications, because a warrant concerns the disease, which either group
     may grade. The scope rule at the top of the page named the Orphanet path
     too, and was checked here on the built element; it moved to
@@ -6752,20 +6752,22 @@ def test_an_orphanet_scoped_syndrome_says_why_it_counts_as_chd_above_both_groups
     `scope.json` parenthetical are pinned there, by `test_build_methods.py`.
     The page keeps a short form that names neither.
 
-    **Each note's last sentence names its disease (2026-10-26).** It read "The
-    classifications below are for the syndrome, not for heart disease" on all
-    74 notes over 27 pages, and on NOTCH1's page the classifications below
-    include an admitting record for NOTCH1-related AOS spectrum disorder, a term
-    a ClinGen expert panel scoped, and an Orphanet record for familial bicuspid
-    aortic valve. This fixture carries the same shape: a Holt-Oram record,
-    scoped by an authority, below two Noonan notes. The subtype's literal now
-    runs to the end of its note, so a note that names the wrong one of its two
-    diseases (the syndrome its warrant is inherited from) fails too.
+    **The whole-table lead-in names no one disease (2026-10-26).** The single
+    sentences over the old paragraphs read "The classifications below are for the
+    syndrome, not for heart disease", and above a table that was not only that
+    syndrome's -- NOTCH1's lists an admitting record for a term a ClinGen expert
+    panel scoped, and an Orphanet record for familial bicuspid aortic valve,
+    beneath its two Adams-Oliver notes -- a single undirected sentence was false
+    on that page. This fixture carries the same shape: a Holt-Oram record, scoped
+    by an authority, below two Noonan rows. The lead-in says *each* disease's
+    classifications are for *that* disease, which is true however many diseases
+    the section below names; it names no parent, so it cannot be misread as one
+    row's.
 
-    **It ends on "that disease as a whole"**, not "the syndrome as a whole"
-    (review, 2026-10-26): in a subtype's note the sentence before names the
-    parent -- "of cases of Noonan syndrome, the syndrome it is a subtype of" --
-    so "the syndrome" had the parent as its nearest antecedent. Asserted absent.
+    **It ends on "that disease", not "the syndrome"** (review, 2026-10-26): in a
+    subtype's row the "why" cell names the parent -- "Subtype of Noonan syndrome
+    ..." -- so "the syndrome as a whole" would have the parent as its nearest
+    antecedent. Asserted absent.
     """
     emitter = Emitter(root=tmp_path)
     build_gene_pages(
@@ -6797,36 +6799,39 @@ def test_an_orphanet_scoped_syndrome_says_why_it_counts_as_chd_above_both_groups
     page = _page(tmp_path, "HGNC_4173.html")
     section = _slice_between(page, "<h2>Mirrored gene&ndash;disease validity</h2>", ("<h2",))
 
-    direct = (
-        "<strong>Noonan syndrome is in scope because Orphanet records a structural heart "
-        "malformation in at least 30% of its cases</strong>: Abnormal pulmonary valve "
-        "morphology at <em>Frequent (79-30%)</em> (Orphanet, ORPHA:648). The classifications "
-        "below for Noonan syndrome are for that disease as a whole, not for heart disease."
+    direct_row = (
+        "<td>Noonan syndrome</td>"
+        "<td>Orphanet records a structural heart malformation in at least 30% of this "
+        "disease's cases</td>"
+        "<td>Abnormal pulmonary valve morphology at <em>Frequent (79-30%)</em> "
+        "(Orphanet, ORPHA:648)</td>"
     )
-    subtype = (
-        "<strong>Noonan syndrome 4 is in scope because Orphanet records a structural heart "
-        "malformation in at least 30% of cases of Noonan syndrome</strong>, the syndrome it "
-        "is a subtype of (Orphanet maps OMIM:610733 under ORPHA:648): Abnormal pulmonary "
-        "valve morphology at <em>Frequent (79-30%)</em>. The classifications below for "
-        "Noonan syndrome 4 are for that disease as a whole, not for heart disease."
+    subtype_row = (
+        "<td>Noonan syndrome 4</td>"
+        "<td>Subtype of Noonan syndrome; Orphanet records a structural heart "
+        "malformation in at least 30% of its cases (Orphanet maps OMIM:610733 under "
+        "ORPHA:648)</td>"
+        "<td>Abnormal pulmonary valve morphology at <em>Frequent (79-30%)</em></td>"
     )
-    assert direct in section and subtype in section
-    # Each note names its own disease, because the table below it is not only
-    # that syndrome's: Holt-Oram syndrome's record sits under both notes here,
-    # as NOTCH1-related AOS spectrum disorder's does under NOTCH1's.
+    assert "Why these diseases are in scope" in section
+    assert "Each disease&#x27;s classifications in the tables below are for that " in section
+    assert direct_row in section and subtype_row in section
+    # The lead-in names no one disease and no parent, because the validity table
+    # below is not only these syndromes': Holt-Oram's record sits under both rows
+    # here, as NOTCH1-related AOS spectrum disorder's does under NOTCH1's.
     assert "The classifications below are for the syndrome" not in section
-    # And it ends on "that disease": after a subtype's "the syndrome it is a
-    # subtype of", "the syndrome as a whole" reads as the parent's.
+    # And it ends on "that disease": after a subtype's "Subtype of Noonan
+    # syndrome", "the syndrome as a whole" reads as the parent's.
     assert "for the syndrome as a whole" not in section
     # Sorted by disease id: MONDO:0012547 before MONDO:0018997.
-    assert section.index(subtype) < section.index(direct)
-    # Above both groups, not under either.
-    first_group = section.index("<table")
-    assert section.index(subtype) < first_group and section.index(direct) < first_group
-    # A disease an expert panel curated as CHD gets no Orphanet sentence, and a
-    # scope term the gene has no record for gets none at all: the page would
-    # explain a disease it never lists.
-    assert "Holt-Oram syndrome is in scope because" not in section
+    assert section.index(subtype_row) < section.index(direct_row)
+    # The scope table sits above both classification groups, not under either.
+    scope_table = section[section.index("<table") : section.index('id="validity-table"')]
+    assert "Why these diseases are in scope" in section[: section.index("<table")]
+    # Exactly the two Noonan rows -- a disease an expert panel curated as CHD
+    # (Holt-Oram) and a scope term the gene has no record for (NSML) get no row.
+    assert scope_table.count("<tr><td>") == 2
+    assert "Holt-Oram" not in scope_table
     assert "multiple lentigines" not in page
 
 
