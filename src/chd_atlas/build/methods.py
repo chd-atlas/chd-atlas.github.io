@@ -614,10 +614,12 @@ def _cohorts(cohorts: Mapping[str, Cohort]) -> str:
 
 
 # How to read a gene page's developmental expression section (2026-10-26, D50,
-# D57). The page keeps a one-line short form of the first paragraph
-# (`pages._BULK_TISSUE_NOTICE`, one of the ten caveats the spec keeps
-# visible) and links here; the next two were its folded "How to read these
-# figures" notes, and left it; the next two define tau and the developmental
+# D57). The page keeps a one-line short form of the first paragraph, one of
+# the ten caveats the spec keeps visible: `pages._BULK_TISSUE_NOTICE`, which
+# links here, or, where the gene has cell-type data, `pages._CELL_TYPE_NOTICE`,
+# which does not (the cell-type block's fold does); the next two were its
+# folded "How to read these figures" notes, and left it; the next two define
+# tau and the developmental
 # phases, which the pages print and nothing defined (review, the same day, each
 # recorded where it is written); the sixth states in general the axes each
 # chart's visible caption line states of its own figure, and is where every
@@ -782,6 +784,8 @@ _EXPRESSION: Final = (
     "are below this atlas's detection floor, which borrows the Human Protein Atlas's "
     '"not detected" cut of 1. '
     "A dot's size is the share of that type's cells with at least one count.</p>"
+    # "all four ages": the source's `Age` takes exactly 9, 11, 13 and 15 (pcw),
+    # read off the h5ad's obs on the cluster when the data landed (2026-11-02).
     "<p>Regions pool all four ages. τ is computed across cell types as for organs above. "
     "Single-cell methods dissociate tissue, so how many cells of a type were captured "
     "reflects the method, not the heart. A high share of cells describes that cell type, "

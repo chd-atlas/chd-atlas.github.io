@@ -5580,8 +5580,9 @@ def _no_trajectory_sentence(
     (ZIC3, NODAL), `moderate` (DAW1, FGF8), `limited` (USP44) and none at all
     (SEMA3E, GDF1). They are laterality and outflow-tract genes acting in rare
     lineages, which is exactly the dilution `methods.html#expression` states
-    in full. `_BULK_TISSUE_NOTICE`, the line above every dataset block, has
-    said nothing of dilution since 2026-10-26 (bulk tissue, and a low figure
+    in full. `_BULK_TISSUE_NOTICE`, the line above every dataset block
+    (`_CELL_TYPE_NOTICE` where the gene has cell-type data, which says no more
+    of it), has said nothing of dilution since 2026-10-26 (bulk tissue, and a low figure
     is not evidence the gene is unimportant, then the link), so on these
     pages this sentence is the only statement of the mechanism: measured on a
     build of 802d694, "diluted" appears on 7 gene pages, these seven, once
