@@ -196,6 +196,7 @@ STYLESHEET: Final = """
     font-variant-numeric: tabular-nums; white-space: nowrap;
   }
   .strip-legend { color: var(--muted); font-size: 0.85rem; margin: 0.5rem 0 0; }
+  .glance { margin: 0.25rem 0 0.5rem; }
   /* One legend entry -- a glyph and the sentence it captions -- as a single
      unbreakable unit. Without this the line can break immediately after the
      glyph, orphaning "not tested by that dataset" from any mark at ordinary

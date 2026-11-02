@@ -5010,6 +5010,86 @@ def _tissue_unit(entry: DatasetProfileEntry, tissue: str) -> str:
     return ""
 
 
+def _glance_line(entry: DatasetProfileEntry, tissue: str, floor: float | None) -> str:
+    """The one-sentence summary a reader meets before any chart, for one cardiac tissue.
+
+    Every number is read off the bundle's own fields and nothing is re-derived
+    (spec B1), so the sentence says no more than the payload publishes. Returns
+    `""` when no stage of `tissue` is placed: there is then no peak to state,
+    and `_dataset_block` says why in the lede instead.
+
+    **The floor clause is conditional, and the condition is read off the gaps.**
+    "Above the floor" is true only when every stage this tissue sampled and did
+    not place was below the floor. A stage left unplaced for a reference reason
+    (no percentile grid) is a hole in the atlas, not a low reading, so one such
+    stage forces the neutral "placed at" wording.
+
+    **The highest-count carries no denominator, deliberately.** It counts the
+    stages whose published `highest_in` is this tissue and does not say "of N".
+    tau is absent at some sampled stages (measured 2026-11-02 on the committed
+    corpus: 28 of 119 gene bundles carry a dataset stage with no tau), so the
+    stages where the tissue could have been highest are not the stages
+    sampled; and a tie is not a win (`highest_in` is `None` there: 120 of
+    the 2,499 dataset stages), so the stages where it was not highest are not
+    the complement either. "Of 19" would be false for both reasons.
+
+    **The peak is named at its earliest stage.** Stages arrive in developmental
+    order, so the first placed stage carrying the peak value is the earliest;
+    any later equal value is counted as a tie, not as a further peak.
+    """
+    series = _tissue_medians(entry, tissue)
+    placed = [measured for measured in series if measured.value is not None]
+    if not placed:
+        return ""
+    unit = _tissue_unit(entry, tissue)
+    below_floor_only = all(
+        measured.gap == ProfileGap.BELOW_DETECTION_FLOOR
+        for measured in series
+        if measured.value is None
+    )
+    if floor is not None and below_floor_only:
+        clause = (
+            f"above the {_fmt(floor)} {unit} floor at {len(placed)} of {len(series)} stages sampled"
+        )
+    else:
+        clause = f"placed at {len(placed)} of {len(series)} stages sampled"
+
+    values = [measured.value for measured in placed if measured.value is not None]
+    peak_value = max(values)
+    at_peak = [measured for measured in placed if measured.value == peak_value]
+    earliest = at_peak[0]
+    other_peaks = len(at_peak) - 1
+    if other_peaks == 0:
+        tie_clause = ""
+    elif other_peaks == 1:
+        tie_clause = " and 1 other stage"
+    else:
+        tie_clause = f" and {other_peaks} other stages"
+    prenatal = _PRENATAL_STAGE.fullmatch(earliest.label)
+    stage = f"{prenatal.group(1)} weeks post conception" if prenatal else earliest.label
+
+    wins = sum(
+        1
+        for stage_entry in entry["stages"]
+        if stage_entry["specificity"] is not None
+        and stage_entry["specificity"]["highest_in"] == tissue
+    )
+    if wins == 0:
+        highest = "no stage"
+    elif wins == 1:
+        highest = "1 stage"
+    else:
+        highest = f"{wins} stages"
+
+    name = html.escape(tissue[:1].upper() + tissue[1:], quote=False)
+    return (
+        f'<p class="glance"><strong>{name}:</strong> {clause}; '
+        f"peak {_fmt(peak_value)} {html.escape(unit, quote=False)} at "
+        f"{html.escape(stage, quote=False)}{tie_clause}; "
+        f"the highest of the organs sampled at {highest}.</p>"
+    )
+
+
 def _banded_phases(
     entry: DatasetProfileEntry, phases: CardiacPhaseFile | None
 ) -> list[tuple[CardiacPhase, int, int]]:
@@ -6021,6 +6101,7 @@ def _dataset_block(
         lede = _unbanded_sentence(entry, cardiac)
     else:
         lede = _no_trajectory_sentence(entry, cardiac, floor)
+    glance = "".join(_glance_line(entry, tissue, floor) for tissue in sorted(cardiac))
     figure = _bulk_figure(entry, dataset, phases)
     stages = "".join(_stage_block(stage, cardiac, floor) for stage in entry["stages"])
     total = len(entry["stages"])
@@ -6029,7 +6110,7 @@ def _dataset_block(
         f'<details class="stage-figures"><summary>every figure, all {total} {noun}'
         f"</summary>{stages}</details>"
     )
-    return heading + lede + figure + folded
+    return heading + glance + lede + figure + folded
 
 
 def _expression_section(

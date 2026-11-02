@@ -266,6 +266,28 @@ def test_tbx5_publishes_its_mirrored_validity_with_the_provenance_behind_it(
     ]
 
 
+def test_tbx5_summary_line_on_the_real_build(site: Path) -> None:
+    """TBX5's one summary line, as the committed corpus builds it.
+
+    Measured 2026-11-02 on a build of the committed corpus: exactly one
+    `class="glance"` on `HGNC_11604.html` (one dataset, one cardiac tissue),
+    and its text is the sentence spec B1 gives as its own example. The literal
+    is pinned rather than derived, so a change to the peak, the floor clause,
+    the tie count or the highest-count fails here on real data and not only on
+    a fixture.
+    """
+    page = (site / "genes" / "HGNC_11604.html").read_text(encoding="utf-8")
+
+    assert page.count('<p class="glance">') == 1
+    start = page.index('<p class="glance">')
+    line = page[start : page.index("</p>", start) + len("</p>")]
+    assert line == (
+        '<p class="glance"><strong>Heart:</strong> above the 1 tpm floor at 19 of 19 stages '
+        "sampled; peak 275 tpm at 9 weeks post conception; the highest of the organs sampled "
+        "at 19 stages.</p>"
+    )
+
+
 def _burden_rows(gene: str, bundle: dict[str, Any]) -> list[BurdenRow]:
     """A bundle's published burden rows as the `BurdenRow`s the renderers read."""
     return [

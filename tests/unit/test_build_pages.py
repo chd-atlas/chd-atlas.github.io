@@ -27,6 +27,7 @@ from chd_atlas.build.pages import (
     _count,
     _date,
     _forest_text,
+    _glance_line,
     _inheritance,
     _phase_sentence,
     _phase_strip,
@@ -5308,7 +5309,12 @@ def _dataset_lede(section: str) -> str:
     own "How to read this chart" toggle (D57), and the lede is the chart and
     its one visible caption line.
     """
-    return _slice_between(section, "</h3>", ("<details",))
+    lede = _slice_between(section, "</h3>", ("<details",))
+    # The summary line (`_glance_line`) sits between the heading and the lede and
+    # is pinned on its own; a lede assertion must not read its counts.
+    if lede.startswith('<p class="glance">'):
+        lede = lede[lede.index("</p>") + len("</p>") :]
+    return lede
 
 
 def _band_caption_text(section: str) -> str:
@@ -6244,6 +6250,182 @@ def test_the_bulk_block_has_one_fold_and_no_dashed_lines_or_panels(tmp_path: Pat
         assert gone not in emitter_page
     fold = section[section.index('<details class="chart-notes">') :]
     assert "The grid's shades are fixed bins" in fold[: fold.index("</details>")]
+
+
+# --- The summary line (spec B1) ----------------------------------------------
+
+
+def _glance_entry(
+    *rows: tuple[str, float | None, str | None, str | None],
+) -> DatasetProfileEntry:
+    """One heart row per stage: `(label, median, not_placed_reason, highest_in)`.
+
+    A `None` median is a stage sampled and not placed, for the reason given. A
+    Liver row sits beside every heart row at 1 tpm, so `highest_in` is a fact a
+    reader could check against a second organ and not a value that only heart
+    reports.
+    """
+    return _dataset_profile_entry(
+        stages=tuple(
+            _stage_entry(
+                stage=label,
+                specificity=_specificity(tissues=("Heart", "Liver"), highest_in=highest_in),
+                tissues=(
+                    _tissue_entry(
+                        tissue="Heart",
+                        median=median if median is not None else 0.3,
+                        unit="rpkm",
+                        placement=_placement() if median is not None else None,
+                        not_placed_reason=not_placed_reason,
+                    ),
+                    _tissue_entry(tissue="Liver", median=1.0, unit="rpkm"),
+                ),
+            )
+            for label, median, not_placed_reason, highest_in in rows
+        )
+    )
+
+
+def test_the_summary_line_reads_the_bundle_s_own_counts() -> None:
+    """Every field of the sentence, from one fixture where each count differs.
+
+    Placed 3 of 4 sampled stages, the fourth below the floor; peak 50 at a
+    prenatal stage; `highest_in` is Heart at two stages, Liver at one and null
+    at one. A fixture where any two of those counts agreed would let a mutant
+    that published one in place of the other pass, so none of them agree.
+    """
+    line = _glance_line(
+        _glance_entry(
+            ("4 week post conception", 10.0, None, "Liver"),
+            ("5 week post conception", 20.0, None, "Heart"),
+            ("6 week post conception", 50.0, None, "Heart"),
+            ("7 week post conception", None, "below_detection_floor", None),
+        ),
+        "Heart",
+        1.0,
+    )
+
+    assert line == (
+        '<p class="glance"><strong>Heart:</strong> above the 1 rpkm floor at 3 of 4 stages '
+        "sampled; peak 50 rpkm at 6 weeks post conception; the highest of the organs sampled "
+        "at 2 stages.</p>"
+    )
+
+
+@pytest.mark.parametrize(
+    ("rows", "floor", "fragment"),
+    [
+        pytest.param(
+            (
+                ("5 week post conception", 50.0, None, "Heart"),
+                ("6 week post conception", 50.0, None, "Heart"),
+            ),
+            1.0,
+            "peak 50 rpkm at 5 weeks post conception and 1 other stage;",
+            id="tied-peak-names-the-earliest-stage-and-the-other",
+        ),
+        pytest.param(
+            (("5 week post conception", 50.0, None, None),),
+            1.0,
+            "at no stage.",
+            id="zero-wins-reads-no-stage",
+        ),
+        pytest.param(
+            (("5 week post conception", 50.0, None, "Heart"),),
+            1.0,
+            "at 1 stage.",
+            id="one-win-reads-singular",
+        ),
+        pytest.param(
+            (
+                ("5 week post conception", 50.0, None, "Heart"),
+                ("6 week post conception", None, "no_quantile_grid", None),
+            ),
+            1.0,
+            "placed at ",
+            id="a-non-floor-gap-forbids-the-floor-clause",
+        ),
+        pytest.param(
+            (
+                ("5 week post conception", 50.0, None, "Heart"),
+                ("6 week post conception", None, "below_detection_floor", None),
+            ),
+            None,
+            "placed at ",
+            id="an-unknown-floor-forbids-the-floor-clause",
+        ),
+    ],
+)
+def test_the_summary_line_s_branches(
+    rows: tuple[tuple[str, float | None, str | None, str | None], ...],
+    floor: float | None,
+    fragment: str,
+) -> None:
+    """Each wording the sentence can take, against a fixture that forces it.
+
+    Each row differs from the others in one respect, so each assertion is the
+    only thing a mutant could break: a tie that is counted as a win, a zero
+    that reads "1 stage", a grid gap that is called a low reading, and a floor
+    that is announced without being known.
+    """
+    assert fragment in _glance_line(_glance_entry(*rows), "Heart", floor)
+
+
+def test_no_summary_line_without_a_placed_heart_stage(tmp_path: Path) -> None:
+    """Nothing placed means no summary line, and the lede still says why.
+
+    Pins the wiring, not the wording: a dataset whose heart is below the floor
+    at every stage must not gain a summary, and must keep the sentence that
+    explains why there is no chart at all (D42).
+    """
+    section = _expression_section_text(
+        _expression_page(
+            tmp_path,
+            {GATA4: _heart_series(("4wpc", None), ("5wpc", None))},
+            _HEART_DATASET,
+            phases=_cardiac_phases(),
+        )
+    )
+
+    assert 'class="glance"' not in section
+    assert "so there is no trajectory to draw" in section
+
+
+def test_the_summary_line_reaches_the_page_before_the_chart(tmp_path: Path) -> None:
+    """The line is the first thing under the dataset heading, as spec B1 places it.
+
+    The literal is the one the unit test pins, so a page that drifted from the
+    function (a line emitted after the figure, or a second copy) fails here.
+    """
+    section = _expression_section_text(
+        _expression_page(
+            tmp_path,
+            {
+                GATA4: _organ_panel(
+                    ("Heart", (5.0, 40.0, 275.0)),
+                    stages=(
+                        "3 week post conception",
+                        "4 week post conception",
+                        "6 week post conception",
+                    ),
+                    highest_in="Heart",
+                )
+            },
+            _CAPITAL_HEART,
+            phases=_cardiac_phases(),
+        )
+    )
+    heading_end = section.index("</h3>") + len("</h3>")
+    glance_start = section.index('<p class="glance">')
+    glance_end = section.index("</p>", glance_start) + len("</p>")
+
+    assert section.count('<p class="glance">') == 1
+    assert glance_start == heading_end
+    assert section[glance_start:glance_end] == (
+        '<p class="glance"><strong>Heart:</strong> above the 1 tpm floor at 3 of 3 stages '
+        "sampled; peak 275 tpm at 6 weeks post conception; the highest of the organs sampled "
+        "at 3 stages.</p>"
+    )
 
 
 # --- Organ fixtures (the small multiples were deleted 2026-11-02) -------------
