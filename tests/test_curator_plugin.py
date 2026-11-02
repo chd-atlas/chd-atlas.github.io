@@ -28,6 +28,7 @@ from chd_atlas import vocab
 from chd_atlas.cli import app
 from chd_atlas.models.assertion import InTextLocator, SupplementaryLocator
 from chd_atlas.models.gene_literature import Carriers, Finding, Search, TriageEntry
+from chd_atlas.models.literature import Publication
 from chd_atlas.models.review import ReviewStatus
 
 REPO = Path(__file__).parent.parent
@@ -41,7 +42,9 @@ DESIGN_TO_STUDY_TYPE = [
     ("case_report", "case_report"),
     ("family_segregation", "family_linkage"),
     ("cohort_screen", "cohort_sequencing"),
-    ("rare_variant_association", "case_control"),
+    ("rare_variant_association with control_cohort", "case_control"),
+    ("rare_variant_association with mutation_model and exome", "trio_wes"),
+    ("rare_variant_association with mutation_model and genome", "trio_wgs"),
     ("common_variant_association with genotyping_array", "gwas"),
     ("common_variant_association otherwise", "candidate_variant"),
 ]
@@ -83,6 +86,7 @@ def _model_fields() -> set[str]:
         | set(Search.model_fields)
         | set(TriageEntry.model_fields)
         | set(Carriers.model_fields)
+        | set(Publication.model_fields)
         | set(InTextLocator.model_fields)
         | set(SupplementaryLocator.model_fields)
         | {"findings", "triage", "searches", "gene"}

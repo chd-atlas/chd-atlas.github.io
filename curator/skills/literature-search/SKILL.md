@@ -58,5 +58,6 @@ uses no judgment, so any agent or person can run it.
 - Never edit `searches` or any `pmid` or `search` value by hand.
 - Never run this for a gene outside the publication gate: the command refuses it with
   exit 2.
-- If the command exits 1 (PubMed failed), it wrote nothing. Report the error; do not
+- If the command exits 1 (PubMed failed, or the literature file is damaged), it wrote
+  nothing. Report the error; do not
   retry in a loop.

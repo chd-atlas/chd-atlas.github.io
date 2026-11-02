@@ -1,25 +1,29 @@
 # src/chd_atlas/gene_literature_io.py
-"""Reading and writing the curator-edited literature files without losing a byte
-of what the curator wrote.
+"""Reading and writing the curator-edited literature files without losing a value
+or a comment of what the curator wrote.
 
 Two files, two strategies, chosen by what each needs to preserve:
 
 - ``curation/literature/<SYMBOL>.yaml`` is rewritten through ruamel's
   round-trip loader with ONE canonical indent (mappings 2, sequences 4, dashes
-  at offset 2; ruling R20, no indent detection). A file already in that style
-  is byte-preserved outside the appended region. A file in another indent
-  style is re-indented once, on the next write, with its comments and values
-  kept. New entries are appended; nothing is reordered.
+  at offset 2; ruling R20, no indent detection). Values and comments are kept.
+  A file already in that style changes only in the lines a command adds
+  (measured 2026-11-03: ``--mark-verified`` on such a file changed one line, the
+  added ``verified_by``). A wrapped plain scalar is reflowed onto one line, and
+  a file in another indent style is re-indented, both once, on its first write
+  (measured: a summary hand-wrapped over two lines became one, and a file at
+  mapping indent 4 changed in 19 lines for one added line). New entries are
+  appended; nothing is reordered.
 - ``curation/publications.yaml`` is *appended to as text*: its comments sit
   between records, folded titles are wrapped by hand, and a round trip would
   re-flow them. Every existing byte stays; one record is added at the end
   (ruling R7 -- the file is in curation order, not sorted, and no validator
   sorts it).
 
-`with_findings_updated` sets fields on named findings (verification, approval,
-a review mark) under the same rule: the lines it adds are the only change, and
-a blank line or comment that followed the entry (even after a nested list or
-mapping) moves to the new last line with it.
+`with_findings_updated` sets fields on named findings under the same rule: on a
+file in the canonical style the lines it adds are the only change, and a blank
+line or comment that followed the entry (even after a nested list or mapping)
+moves to the new last line with it.
 
 Both return **bytes** and write nothing: the caller serialises, validates and
 only then writes (`fs.write_bytes_atomically`), so a failure anywhere leaves the

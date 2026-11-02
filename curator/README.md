@@ -28,12 +28,19 @@ Use `.venv/bin/chd-atlas` from the repository root. For one published gene:
    `local/literature/<SYMBOL>.verify.yaml`; `chd-atlas literature diff` compares and, with
    `--mark-verified`, records agreement.
 5. You review: `.venv/bin/chd-atlas literature review <SYMBOL>` lists the unapproved
-   findings with their PubMed links and locators. Approve with `--approve <id> --by "<your
-   name>"`, or mark one with `--pending-review <id> --note "<what differs>"`. Only a named
-   person approves; the command refuses a name starting `agent:`.
+   findings with every field they will publish (methods, comparator, counts and their
+   unit, phenotypes, lesion groups, cohorts, who shares probands, locators, the summary)
+   and the paper's `study_type` and `own_lab`. Add `--against <the verifier's file>` to
+   see, under each finding, the fields the blind second pass read differently. Approve
+   with `--approve <id> --by "<your name>"`, or mark one with `--pending-review <id>
+   --note "<what differs>"`. Only a named person approves; the command refuses a name
+   starting `agent:`, a date before the search that found the paper, and a date in the
+   future. A finding whose fields differed from the verifier's is not auto-verified:
+   settle the difference in the file, or approve it with `--allow-unverified` and say
+   why in your hand-off.
 
 `NCBI_API_KEY` is optional, read from the environment only, and never written to a file.
-The search and abstracts commands need the network.
+The `search`, `abstracts` and `add-publication` commands need the network.
 
 Run `.venv/bin/chd-atlas validate` after each step. The plugin lives outside `curation/`,
 so it does not change validation.

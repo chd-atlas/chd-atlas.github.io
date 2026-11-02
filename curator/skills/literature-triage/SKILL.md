@@ -31,12 +31,12 @@ Triage reads an abstract and applies a short rule list.
 
    | reason | use when the abstract shows |
    |---|---|
-   | `not_peer_reviewed` | a preprint, thesis, abstract-only item or other unreviewed item |
+   | `not_peer_reviewed` | a preprint, thesis, a conference or meeting abstract, or other unreviewed item |
    | `review_article` | a review or commentary with no new data |
    | `not_human_genetics` | animal, cell or protein work with no human genetic finding |
-   | `no_finding_in_gene` | no result about this gene (it is only named or in a long list) |
+   | `no_finding_in_gene` | the gene named only as background, or nothing reported about a variant in it; a gene among a study's reported results is a finding: include |
    | `not_chd` | no congenital heart phenotype |
-   | `same_data_as` | the same patients as another included paper (add `same_as`) |
+   | `same_data_as` | the same patients and the same result reported again (add `same_as`); a paper with new results on the same patients is included, and its finding names the other in `shares_probands_with` |
    | `other` | none of the above (add `note` saying why) |
 
    ```yaml
@@ -51,8 +51,7 @@ Triage reads an abstract and applies a short rule list.
    - pmid: PMID:10000003
      search: 1
      decision: excluded
-     reason: other
-     note: A case of an unrelated gene in a family with a heart defect.
+     reason: no_finding_in_gene
    ```
 4. A paper whose abstract is missing or whose full text you cannot reach is not excluded
    for that. Include it; the extract step records it as `not_accessible`.
