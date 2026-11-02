@@ -431,6 +431,8 @@ def test_add_publication_appends_and_keeps_every_existing_byte(
             "333",
             "--study-type",
             "cohort_sequencing",
+            "--reading",
+            "Methods: exome sequencing of 500 probands.\nNo controls are described.",
             "--root",
             str(root),
         ],
@@ -452,6 +454,15 @@ def test_add_publication_appends_and_keeps_every_existing_byte(
         "10.1000/t333",
     )
     assert added.study_type.value == "cohort_sequencing"
+    # The reading sits beside the value it justifies (publications.yaml's head comment).
+    assert (
+        new[len(old) :].count(
+            "    # Methods: exome sequencing of 500 probands.\n"
+            "    # No controls are described.\n"
+            "    study_type: cohort_sequencing\n"
+        )
+        == 1
+    )
 
 
 def test_add_publication_to_a_file_without_a_final_newline(
@@ -463,7 +474,17 @@ def test_add_publication_to_a_file_without_a_final_newline(
 
     result = runner.invoke(
         app,
-        ["literature", "add-publication", "PMID:333", "--study-type", "gwas", "--root", str(root)],
+        [
+            "literature",
+            "add-publication",
+            "PMID:333",
+            "--study-type",
+            "gwas",
+            "--reading",
+            "GWAS design in the abstract.",
+            "--root",
+            str(root),
+        ],
     )
 
     assert result.exit_code == 0, result.stdout
@@ -482,8 +503,19 @@ def test_add_publication_to_a_file_without_a_final_newline(
         (["abc", "--study-type", "gwas"], 2, FakePubMed(_papers("333"))),
         (["333", "--study-type", "gwas"], 1, _Boom(urllib.error.URLError("down"))),
         (["999", "--study-type", "gwas"], 1, FakePubMed(_papers("333"))),
+        # F8/R33: the reading is required, and a blank one is no reading.
+        (["333", "--study-type", "gwas", "--reading", "  "], 2, FakePubMed(_papers("333"))),
+        (["333", "--study-type", "gwas", "--reading", ""], 2, FakePubMed(_papers("333"))),
     ],
-    ids=["already-present", "bad-study-type", "bad-pmid", "network-down", "pmid-unknown-to-pubmed"],
+    ids=[
+        "already-present",
+        "bad-study-type",
+        "bad-pmid",
+        "network-down",
+        "pmid-unknown-to-pubmed",
+        "blank-reading",
+        "empty-reading",
+    ],
 )
 def test_add_publication_refusals_leave_the_file_untouched(
     root: Path,
@@ -496,12 +528,29 @@ def test_add_publication_refusals_leave_the_file_untouched(
     before = path.read_bytes()
     _install(monkeypatch, fetch)
 
-    result = runner.invoke(app, ["literature", "add-publication", *args, "--root", str(root)])
+    reading = [] if "--reading" in args else ["--reading", "r"]
+    result = runner.invoke(
+        app, ["literature", "add-publication", *args, *reading, "--root", str(root)]
+    )
 
     assert result.exit_code == code, result.stdout
     assert path.read_bytes() == before
     if args[0] == "111":
         assert "already in publications.yaml" in result.stdout
+
+
+def test_add_publication_without_a_reading_is_refused_by_the_command_line(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = root / "curation" / "publications.yaml"
+    before = path.read_bytes()
+    _install(monkeypatch, FakePubMed(_papers("333")))
+    result = runner.invoke(
+        app,
+        ["literature", "add-publication", "333", "--study-type", "gwas", "--root", str(root)],
+    )
+    assert result.exit_code == 2
+    assert path.read_bytes() == before
 
 
 def test_a_malformed_esummary_exits_1_and_leaves_publications_untouched(
@@ -513,7 +562,17 @@ def test_a_malformed_esummary_exits_1_and_leaves_publications_untouched(
 
     result = runner.invoke(
         app,
-        ["literature", "add-publication", "333", "--study-type", "gwas", "--root", str(root)],
+        [
+            "literature",
+            "add-publication",
+            "333",
+            "--study-type",
+            "gwas",
+            "--reading",
+            "r",
+            "--root",
+            str(root),
+        ],
     )
 
     assert result.exit_code == 1, result.stdout
@@ -976,18 +1035,38 @@ def test_the_review_listing_pins_one_finding(root: Path, lit_path: Path) -> None
     one = next(b for b in blocks if b.startswith("CHDA:LIT:0000001"))
     assert one == (
         "CHDA:LIT:0000001  https://pubmed.ncbi.nlm.nih.gov/8988165/  cohort_screen  UNVERIFIED\n"
+        "  paper: not in curation/publications.yaml\n"
+        "  methods: exome\n"
+        "  comparator: none\n"
+        "  burden study: none\n"
+        "  variant classes: snv_indel\n"
         "  screened 7 probands; carriers 6 (de novo 2, inherited 1, origin unknown 3)\n"
+        "  phenotypes: HP:0001631\n"
+        "  lesion groups: septal\n"
+        "  syndromic: both\n"
+        "  cohorts: alpha_cohort\n"
         "  locators: Table 2 & <3>\n"
         "  shares probands with: unknown\n"
+        "  extracted by: agent:extract/test\n"
         "  Six of seven probands carry a variant."
     )
     two = next(b for b in blocks if b.startswith("CHDA:LIT:0000002"))
     assert two == (
         "CHDA:LIT:0000002  https://pubmed.ncbi.nlm.nih.gov/111/  common_variant_association"
         "  agent:verify/earlier\n"
+        "  paper: study_type case_report; own_lab no\n"
+        "  methods: genotyping_array\n"
+        "  comparator: none\n"
+        "  burden study: none\n"
+        "  variant classes: none\n"
         "  cases 11, controls 13, p 0.02, OR 1.5\n"
+        "  phenotypes: HP:0001631\n"
+        "  lesion groups: septal\n"
+        "  syndromic: isolated\n"
+        "  cohorts: none\n"
         "  locators: s1.xlsx / Sheet 1 / row 4\n"
         "  shares probands with: unknown\n"
+        "  extracted by: agent:extract/test\n"
         "  A GWAS hit."
     )
     # CHDA:LIT:0000003 is approved: not listed. Order is by id.
@@ -996,6 +1075,58 @@ def test_the_review_listing_pins_one_finding(root: Path, lit_path: Path) -> None
         "CHDA:LIT:0000002",
         "CHDA:LIT:0000004",
     ]
+
+
+def test_the_review_listing_shows_floats_unrounded_and_the_papers_own_lab(
+    root: Path, lit_path: Path
+) -> None:
+    """Final review I2: `:g` showed 1.23456789e-9 as 1.23457e-09; own_lab is from the registry."""
+    lit_path.write_text(
+        lit_path.read_text()
+        .replace("p_value: 0.02", "p_value: 1.23456789e-9")
+        .replace("odds_ratio: 1.5", "odds_ratio: 2.718281828")
+    )
+    (root / "curation" / "publications.yaml").write_text(
+        PUBLICATIONS.replace("study_type: case_report", "study_type: gwas\n    own_lab: true")
+    )
+    two = next(b for b in _review(root).stdout.split("\n\n") if b.startswith("CHDA:LIT:0000002"))
+    assert "\n  cases 11, controls 13, p 1.23456789e-09, OR 2.718281828\n" in two
+    assert "\n  paper: study_type gwas; own_lab yes\n" in two
+
+
+def test_the_review_listing_prints_the_verifiers_differences_under_each_finding(
+    root: Path, lit_path: Path
+) -> None:
+    """R35: `--against` shows what the blind pass disagreed on, finding by finding."""
+    # Only the first block, with `screened` changed: finding 1 is paired and differs;
+    # findings 2 and 4 have no partner in this pass.
+    first_only = VERIFIER.split("  - id: CHDA:LIT:0000002")[0].replace(
+        "    screened: 7\n", "    screened: 8\n", 1
+    )
+    second = _second(root, first_only)
+    result = _review(root, "--against", str(second))
+    assert result.exit_code == 0, result.stdout
+    blocks = result.stdout.split("\n\n")
+    one = next(b for b in blocks if b.startswith("CHDA:LIT:0000001"))
+    assert one.endswith("\n  differs: screened: first 7 | second 8")
+    assert "no partner" not in one
+    for other in ("CHDA:LIT:0000002", "CHDA:LIT:0000004"):
+        block = next(b for b in blocks if b.startswith(other))
+        assert block.endswith("\n  second pass: no partner finding")
+        assert "differs:" not in block
+    # A paired finding that agrees prints neither line.
+    agreeing = _second(root, VERIFIER.split("  - id: CHDA:LIT:0000003")[0])
+    agreed = _review(root, "--against", str(agreeing)).stdout.split("\n\n")
+    two = next(b for b in agreed if b.startswith("CHDA:LIT:0000002"))
+    assert "differs:" not in two and "no partner" not in two
+    # Without the option nothing about the second pass is printed.
+    assert "differs:" not in _review(root).stdout
+    # Refused alongside an action; a missing file is a bad argument.
+    assert (
+        _review(root, "--against", str(second), "--pending-review", "CHDA:LIT:0000001").exit_code
+        == 2
+    )
+    assert _review(root, "--against", str(root / "nope.yaml")).exit_code == 2
 
 
 def test_the_review_listing_names_the_findings_that_share_probands(
@@ -1067,6 +1198,20 @@ def test_approve_defaults_the_date_to_today_and_takes_several_ids(
         (["--approve", "CHDA:LIT:0000002"], "--by"),
         (["--approve", "CHDA:LIT:0000002", "--by", "A", "--on", "2026-13-40"], "--on"),
         (["--approve", "CHDA:LIT:0000009", "--by", "A"], "CHDA:LIT:0000009"),
+        # M1: a date LIT008 would refuse (search 1 ran 2026-11-02) or one not yet reached.
+        (
+            [
+                "--approve",
+                "CHDA:LIT:0000001",
+                "--by",
+                "A",
+                "--allow-unverified",
+                "--on",
+                "2026-11-01",
+            ],
+            "LIT008",
+        ),
+        (["--approve", "CHDA:LIT:0000002", "--by", "A", "--on", "2999-01-01"], "future"),
         (["--approve", "CHDA:LIT:0000003", "--by", "Someone Else"], "already approved"),
         (["--approve", "CHDA:LIT:0000001", "--by", "A"], "unverified"),
         # one bad id refuses the whole request: nothing is written for the good one
@@ -1093,6 +1238,21 @@ def test_every_refusal_exits_two_and_writes_nothing(
     assert result.exit_code == 2, result.stdout
     assert needle in result.stdout
     assert lit_path.read_bytes() == before
+
+
+def test_approval_on_the_day_of_the_search_is_accepted(root: Path, lit_path: Path) -> None:
+    """LIT008 refuses only a date *before* the search that found the paper."""
+    result = _review(
+        root,
+        "--approve",
+        "CHDA:LIT:0000001",
+        "--by",
+        "A",
+        "--allow-unverified",
+        "--on",
+        "2026-11-02",
+    )
+    assert result.exit_code == 0, result.stdout
 
 
 def test_pending_review_sets_the_pair_and_nothing_else(root: Path, lit_path: Path) -> None:

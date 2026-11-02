@@ -27,7 +27,8 @@ from chd_atlas.gene_literature_io import (
     with_search,
 )
 from chd_atlas.models.assertion import InTextLocator, Locator
-from chd_atlas.models.gene_literature import Finding
+from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile
+from chd_atlas.models.literature import Publication
 from chd_atlas.models.review import ReviewStatus
 from chd_atlas.pubmed import Fetch, PubMedError, urllib_fetch
 from chd_atlas.schema_export import export_schemas
@@ -301,6 +302,11 @@ def literature_add_publication(
     study_type: str = typer.Option(
         ..., "--study-type", help="The curator's reading of the design."
     ),
+    reading: str = typer.Option(
+        ...,
+        "--reading",
+        help="Why that design: what the paper says. Written as a comment beside the record.",
+    ),
     root: Path = typer.Option(Path("."), help="Repository root."),
 ) -> None:
     """Append a Publication record, built from PubMed, to curation/publications.yaml."""
@@ -313,6 +319,8 @@ def literature_add_publication(
     except ValueError:
         allowed = ", ".join(t.value for t in StudyType)
         raise _fail(f"--study-type {study_type!r} is not one of: {allowed}", 2) from None
+    if not reading.strip():
+        raise _fail("--reading (what the paper says about its design) must not be blank", 2)
     path = root / "curation" / "publications.yaml"
     if not path.is_file():
         raise _fail(f"{path} does not exist", 1)
@@ -321,7 +329,9 @@ def literature_add_publication(
         found = pubmed.esummary([digits], _fetch, api_key=key).get(digits)
         if found is None:
             raise PubMedError(f"PubMed returned no record for PMID:{digits}")
-        content = with_publication(path.read_bytes(), pubmed.publication_from_meta(found, kind))
+        content = with_publication(
+            path.read_bytes(), pubmed.publication_from_meta(found, kind), reading
+        )
     except (PubMedError, urllib.error.URLError, LiteratureFileError, ValueError) as exc:
         raise _fail(_redact(str(exc), key), 1) from None
     write_bytes_atomically(path, content)
@@ -423,14 +433,63 @@ def _counts_text(finding: Finding) -> str:
         for text in (
             f"cases {finding.cases}" if finding.cases is not None else "",
             f"controls {finding.controls}" if finding.controls is not None else "",
-            f"p {finding.p_value:g}" if finding.p_value is not None else "",
-            f"OR {finding.odds_ratio:g}" if finding.odds_ratio is not None else "",
+            f"p {finding.p_value!r}" if finding.p_value is not None else "",
+            f"OR {finding.odds_ratio!r}" if finding.odds_ratio is not None else "",
         )
         if text
     ]
     if tail:
         groups.append(", ".join(tail))
     return "; ".join(groups) or "no counts"
+
+
+def _today() -> date:
+    """Today's date; a test replaces it, so the 'not in the future' rule is measurable."""
+    return date.today()
+
+
+def _listing(finding: Finding, paper: Publication | None) -> list[str]:
+    """Every field of a finding a person approves, except the bookkeeping ones.
+
+    Omitted on purpose: `id` and the link (the heading line), `approved_*`
+    (a listed finding has none) and `verified_by` (the heading line). Floats go
+    through `repr`, so 1.23456789e-9 is not shown as 1.23457e-09 (final review
+    I2). The paper's `study_type` and `own_lab` come from publications.yaml,
+    where an agent's reading of the design may be the only copy (R32).
+    """
+    link = f"https://pubmed.ncbi.nlm.nih.gov/{finding.publication.removeprefix('PMID:')}/"
+    if paper is None:
+        paper_line = "paper: not in curation/publications.yaml"
+    else:
+        own_lab = "yes" if paper.own_lab else "no"
+        paper_line = f"paper: study_type {paper.study_type.value}; own_lab {own_lab}"
+    shared = finding.shares_probands_with
+    lines = [
+        f"{finding.id}  {link}  {finding.design.value}  {finding.verified_by or 'UNVERIFIED'}",
+        f"  {paper_line}",
+        f"  methods: {', '.join(m.value for m in finding.methods)}",
+        f"  comparator: {finding.comparator.value if finding.comparator else 'none'}",
+        f"  burden study: {finding.burden_study or 'none'}",
+        f"  variant classes: {_ids([v.value for v in finding.variant_classes])}",
+        f"  {_counts_text(finding)}",
+        f"  phenotypes: {', '.join(finding.phenotypes)}",
+        f"  lesion groups: {', '.join(g.value for g in finding.lesion_groups)}",
+        f"  syndromic: {finding.syndromic.value}",
+        f"  cohorts: {_ids(finding.cohorts)}",
+        f"  locators: {'; '.join(_locator_text(loc) for loc in finding.locators)}",
+        f"  shares probands with: {shared if isinstance(shared, str) else _ids(shared)}",
+    ]
+    if finding.review_status is not None:
+        lines.append(f"  review: {finding.review_status.value}: {finding.review_note}")
+    lines.append(f"  extracted by: {finding.extracted_by}")
+    lines.append(f"  {finding.summary}")
+    return lines
+
+
+def _first_search_run_on(record: GeneLiteratureFile, finding: Finding) -> date | None:
+    """The run date of the search that first found the finding's paper (the LIT008 rule)."""
+    first = next((e.search for e in record.triage if e.pmid == finding.publication), None)
+    return next((s.run_on for s in record.searches if s.id == first), None)
 
 
 @literature_app.command("review")
@@ -443,6 +502,11 @@ def literature_review(
     on: str = typer.Option("", "--on", help="Approval date, YYYY-MM-DD (default today)."),
     allow_unverified: bool = typer.Option(
         False, "--allow-unverified", help="Approve a finding no verifier has compared."
+    ),
+    against: Path | None = typer.Option(
+        None,
+        "--against",
+        help="Listing only: the blind second pass; prints each finding's field differences.",
     ),
     pending_review: str = typer.Option(
         "", "--pending-review", help="A finding id to mark pending_review."
@@ -463,15 +527,19 @@ def literature_review(
         raise _fail("--by, --on and --allow-unverified only apply with --approve", 2)
     if not pending_review and note:
         raise _fail("--note only applies with --pending-review", 2)
+    if against is not None and (approve or pending_review):
+        raise _fail("--against only applies to the listing, not to the two actions", 2)
     if approve:
         if not by.strip():
             raise _fail("--by (the approving person's name) is required with --approve", 2)
         if _is_agent(by):
             raise _fail(f"--by {by!r} names an agent; a person must approve", 2)
         try:
-            when = date.fromisoformat(on) if on else date.today()
+            when = date.fromisoformat(on) if on else _today()
         except ValueError:
             raise _fail(f"--on {on!r} is not a YYYY-MM-DD date", 2) from None
+        if when > _today():
+            raise _fail(f"--on {when.isoformat()} is in the future", 2)
     if pending_review and not note.strip():
         raise _fail("--note (the measured disagreement) is required with --pending-review", 2)
 
@@ -487,20 +555,30 @@ def literature_review(
         waiting = sorted((f for f in record.findings if f.approved_by is None), key=lambda f: f.id)
         if not waiting:
             typer.echo(f"{approved_symbol}: no findings awaiting approval")
+        papers = {p.id: p for p in load_curation(root)[0].publications}
+        differences: dict[str, list[tuple[str, Any, Any]]] = {}
+        unpaired: set[str] = set()
+        if against is not None:
+            if not against.is_file():
+                raise _fail(f"--against {against} is not a file", 2)
+            try:
+                second = parse_findings_file(against.read_bytes())
+            except LiteratureFileError as exc:
+                raise _fail(str(exc), 1) from None
+            diff = diff_findings(record.findings, second)
+            differences = {k: list(v) for k, v in diff.fields.items()}
+            unpaired = set(diff.only_first)
         for f in waiting:
-            typer.echo(
-                f"{f.id}  https://pubmed.ncbi.nlm.nih.gov/{f.publication.removeprefix('PMID:')}/"
-                f"  {f.design.value}  {f.verified_by or 'UNVERIFIED'}"
-            )
-            typer.echo(f"  {_counts_text(f)}")
-            typer.echo(f"  locators: {'; '.join(_locator_text(loc) for loc in f.locators)}")
-            shared = f.shares_probands_with
-            typer.echo(
-                f"  shares probands with: {shared if isinstance(shared, str) else _ids(shared)}"
-            )
-            if f.review_status is not None:
-                typer.echo(f"  review: {f.review_status.value}: {f.review_note}")
-            typer.echo(f"  {f.summary}")
+            for line in _listing(f, papers.get(f.publication)):
+                typer.echo(line)
+            if against is not None:
+                if f.id in unpaired:
+                    typer.echo("  second pass: no partner finding")
+                for name, mine, theirs in differences.get(f.id, []):
+                    typer.echo(
+                        f"  differs: {name}: first {json.dumps(mine, sort_keys=True)}"
+                        f" | second {json.dumps(theirs, sort_keys=True)}"
+                    )
             typer.echo("")
         return
 
@@ -531,6 +609,13 @@ def literature_review(
                 raise _fail(
                     f"{finding_id} is already approved by {target.approved_by}; "
                     f"approving again would erase who approved it",
+                    2,
+                )
+            found_on = _first_search_run_on(record, target)
+            if found_on is not None and when < found_on:
+                raise _fail(
+                    f"--on {when.isoformat()} is before search {found_on.isoformat()} "
+                    f"found {target.publication}; an approval cannot predate it (LIT008)",
                     2,
                 )
             if target.verified_by is None and not allow_unverified:

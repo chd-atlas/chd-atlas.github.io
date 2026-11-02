@@ -260,8 +260,17 @@ def with_search(
     return content, search_id, len(fresh)
 
 
-def with_publication(existing: bytes, publication: Publication) -> bytes:
-    """`publications.yaml` with one record appended; every existing byte kept."""
+def with_publication(existing: bytes, publication: Publication, reading: str) -> bytes:
+    """`publications.yaml` with one record appended; every existing byte kept.
+
+    `reading` is why the study_type was read that way. `publications.yaml`'s head
+    comment says the reading is recorded alongside the value, so it is written as
+    comment lines directly above `study_type:` in the appended record (a blank
+    reading is refused). The comment does not parse, so the record is unchanged.
+    """
+    lines_of_reading = [line.strip() for line in reading.splitlines() if line.strip()]
+    if not lines_of_reading:
+        raise LiteratureFileError("the reading of the study design must not be blank")
     try:
         before = PublicationFile.model_validate(YAML(typ="safe").load(existing))
     except Exception as exc:
@@ -283,6 +292,13 @@ def with_publication(existing: bytes, publication: Publication) -> bytes:
             record[field] = value
     text = dump_bytes({"publications": [record]}).decode("utf-8")
     snippet = text.split("\n", 1)[1]  # drop the "publications:" line, keep the item's indent
+    commented: list[str] = []
+    for line in snippet.split("\n"):
+        if line.strip().startswith("study_type:"):
+            indent = line[: len(line) - len(line.lstrip())]
+            commented.extend(f"{indent}# {text_line}" for text_line in lines_of_reading)
+        commented.append(line)
+    snippet = "\n".join(commented)
 
     separator = b"" if existing.endswith(b"\n") else b"\n"
     content = existing + separator + snippet.encode("utf-8")
