@@ -115,13 +115,12 @@ def _trailing_slot(node: Any, key: Any) -> tuple[Any, Any, int] | None:
     """`(container, key, slot)` of the deepest comment trailing `node[key]`.
 
     ruamel hangs whatever follows a block (a `# note`, or a blank line before
-    the next list item) on the last element inside it. In a mapping that is
-    the comment slot of a key (slot 2); in a sequence it is the slot of an item
-    index (slot 0), which is only reached when the item is a scalar -- a
-    mapping item is walked into, so its last key (slot 2) holds the comment.
-    This walks down through last values that are collections and returns the
-    deepest slot holding a comment, so a same-line comment on the collection's
-    own key (`carriers:  # why`) does not shadow the blank line below it.
+    the next list item) on the last element inside it. At each level this
+    checks the element's own comment slot -- slot 2 for a mapping key, slot 0
+    for a sequence index -- and then walks into the last value if it is a
+    non-empty collection. The deepest slot holding a comment wins, so a
+    same-line comment on a collection's own key (`carriers:  # why`) does not
+    shadow the blank line below it. Returns None when no level holds one.
     """
     found: tuple[Any, Any, int] | None = None
     while True:
