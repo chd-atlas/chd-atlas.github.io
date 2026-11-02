@@ -80,6 +80,7 @@ from chd_atlas.build.concordance import (
     FamilyState,
     deciding_rows,
     family_state,
+    is_upward,
     survives_own_correction,
 )
 from chd_atlas.build.derive import GeneFacts
@@ -2316,8 +2317,28 @@ def _corrected(row: BurdenRow) -> str:
     return f"{row.pvalue_adjusted:.3g} ({label})" if label else f"{row.pvalue_adjusted:.3g}"
 
 
-def _study_mechanism_summary(study_rows: Sequence[BurdenRow]) -> str:
-    """Highlight the biological mechanism (LoF vs Missense) for clinicians and biologists."""
+def _finding_detail(row: BurdenRow) -> str:
+    """A card's " (effect, statistic)": `_effect` and `_statistic`, so the card
+    names the measure and the correction as the matrix cell and the forest do.
+    `_statistic` calls a family-wise p "corrected p", never q."""
+    parts = [part for part in (_effect(row), _statistic(row)) if part != _EM_DASH]
+    return f" ({html.escape(', '.join(parts))})" if parts else ""
+
+
+def _study_finding_summary(study_rows: Sequence[BurdenRow]) -> str:
+    """The study's finding at this gene: which consequence classes survive its
+    own correction, as its rows state it, and nothing more.
+
+    **No mechanism.** No study here states one, and inferring haploinsufficiency
+    or gain of function from which class survives is a conclusion no source
+    reached. "Loss-of-function variants show no enrichment" was false on GDF1,
+    SMAD2 and MYH6, whose LoF rows were nominal (p 0.009 to 0.023); the card now
+    says only that they do not survive, and says it only of a class the study
+    tested -- PMID:34324492 tests deletions alone, and a missing class is not a
+    null result. Measured 2026-11-02, before this: 31 of 93 cards named a
+    mechanism, 10 called a family-wise p "q", and 35 said a PMID:42230622 row
+    "does not reach" a correction that study never published.
+    """
     lof_surv = [r for r in study_rows if r.consequence_class == "lof" and _survived_correction(r)]
     ms_surv = [
         r
@@ -2327,82 +2348,72 @@ def _study_mechanism_summary(study_rows: Sequence[BurdenRow]) -> str:
     union_surv = [
         r for r in study_rows if r.consequence_class == "damaging" and _survived_correction(r)
     ]
+    tested = {r.consequence_class for r in study_rows}
 
     if lof_surv and not ms_surv:
-        r = lof_surv[0]
-        eff_str = _effect(r)
-        q_str = f"q = {r.pvalue_adjusted:.3g}" if r.pvalue_adjusted is not None else ""
         return (
             '<div class="finding-card finding-lof">'
-            '<div class="finding-badge">★ Loss-of-Function Driven (Haploinsufficiency)</div>'
-            f'<div class="finding-summary">Statistically significant enrichment driven by '
-            "<strong>loss-of-function variants</strong> "
-            f"({html.escape(eff_str)}{', ' + html.escape(q_str) if q_str else ''}). "
-            "Damaging missense variants do not survive multiple-testing correction.</div>"
-            "</div>"
+            '<div class="finding-badge">★ Loss-of-Function Significant</div>'
+            '<div class="finding-summary">Enrichment of <strong>loss-of-function variants</strong> '
+            f"survives this study's correction{_finding_detail(lof_surv[0])}."
+            f"{' Damaging missense variants do not.' if 'missense_damaging' in tested else ''}"
+            "</div></div>"
         )
     if ms_surv and not lof_surv:
-        r = ms_surv[0]
-        eff_str = _effect(r)
-        q_str = f"q = {r.pvalue_adjusted:.3g}" if r.pvalue_adjusted is not None else ""
-        lof_row = next(
-            (
-                x
-                for x in study_rows
-                if x.consequence_class == "lof" and x.comparator == r.comparator
-            ),
-            None,
-        )
-        lof_note = (
-            f" (LoF: q = {lof_row.pvalue_adjusted:.1f})"
-            if lof_row and lof_row.pvalue_adjusted is not None
-            else ""
-        )
         return (
             '<div class="finding-card finding-missense">'
-            '<div class="finding-badge">★ Missense Driven (Activating / Gain-of-Function)</div>'
-            f'<div class="finding-summary">Statistically significant enrichment driven by '
+            '<div class="finding-badge">★ Damaging Missense Significant</div>'
+            '<div class="finding-summary">Enrichment of '
             "<strong>damaging missense variants</strong> "
-            f"({html.escape(eff_str)}{', ' + html.escape(q_str) if q_str else ''}). "
-            "Loss-of-function variants show no enrichment"
-            f"{html.escape(lof_note)} &mdash; consistent with a gain-of-function mechanism.</div>"
-            "</div>"
+            f"survives this study's correction{_finding_detail(ms_surv[0])}."
+            f"{' Loss-of-function variants do not.' if 'lof' in tested else ''}"
+            "</div></div>"
         )
     if lof_surv and ms_surv:
         return (
             '<div class="finding-card finding-both">'
             '<div class="finding-badge">★ Both LoF & Missense Significant</div>'
             '<div class="finding-summary">Both <strong>loss-of-function</strong> and '
-            "<strong>damaging missense</strong> variants survive multiple-testing correction.</div>"
+            "<strong>damaging missense</strong> variants survive this study's correction.</div>"
             "</div>"
         )
     if union_surv:
-        r = union_surv[0]
-        eff_str = _effect(r)
-        q_str = f"q = {r.pvalue_adjusted:.3g}" if r.pvalue_adjusted is not None else ""
         return (
             '<div class="finding-card finding-union">'
             '<div class="finding-badge">★ Damaging Composite Significant</div>'
-            '<div class="finding-summary">Significant enrichment across combined '
-            f"<strong>damaging variants</strong> "
-            f"({html.escape(eff_str)}{', ' + html.escape(q_str) if q_str else ''}).</div>"
+            '<div class="finding-summary">Enrichment of combined '
+            "<strong>damaging variants</strong> survives this study's correction"
+            f"{_finding_detail(union_surv[0])}.</div>"
             "</div>"
         )
 
+    # "Enrichment" only of a row that points to it (`is_upward`), so a
+    # depleted p below 0.05 earns no card.
     nominals = [
         r
         for r in study_rows
-        if r.pvalue is not None and r.pvalue < 0.05 and r.consequence_class != "synonymous"
+        if r.pvalue is not None
+        and r.pvalue < 0.05
+        and r.consequence_class != "synonymous"
+        and is_upward(r)
     ]
-    if nominals:
+    if not nominals:
+        return ""
+    if all(r.pvalue_adjusted is None for r in nominals):
         return (
             '<div class="finding-card finding-nominal">'
-            '<div class="finding-badge">Nominal Enrichment (Uncorrected)</div>'
-            '<div class="finding-summary">Nominal enrichment observed (<em>p</em> &lt; 0.05), '
-            "but does not reach study-wide multiple-testing correction.</div>"
+            '<div class="finding-badge">Uncorrected p only</div>'
+            '<div class="finding-summary">Nominal enrichment (<em>p</em> &lt; 0.05); this '
+            "study publishes no corrected p for this gene.</div>"
             "</div>"
         )
-    return ""
+    return (
+        '<div class="finding-card finding-nominal">'
+        '<div class="finding-badge">Nominal Enrichment (Uncorrected)</div>'
+        '<div class="finding-summary">Nominal enrichment (<em>p</em> &lt; 0.05) that does not '
+        "survive this study's correction.</div>"
+        "</div>"
+    )
 
 
 # The de novo (mutation-model) structured consequence table's columns. A
@@ -2638,7 +2649,7 @@ def _burden_section(
             f'<a href="{html.escape(_pubmed(study))}">'
             f"{html.escape(_study_label(study, publications))}</a></h3>"
             f'<p class="study-analyses">{analyses}</p>'
-            f"{_study_mechanism_summary(study_rows)}"
+            f"{_study_finding_summary(study_rows)}"
             f"{_disclosure(study, publications)}"
             f"{warning}"
             f"{counted}"

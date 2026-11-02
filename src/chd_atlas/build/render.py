@@ -529,10 +529,9 @@ STYLESHEET: Final = """
     display: inline-block; margin: 0.2rem 0 0.75rem;
   }
 
-  /* The biological-mechanism callout that leads each study card: it makes the
-     LoF-vs-missense contrast (the disease-mechanism takeaway) visible at a
-     glance instead of burying it in repeated forest-plot rows. Emitted by
-     `_study_mechanism_summary`. */
+  /* The finding callout that leads each study card: which consequence classes
+     survive the study's own correction, visible at a glance instead of buried
+     in repeated forest-plot rows. Emitted by `_study_finding_summary`. */
   .finding-card {
     border-radius: 10px; padding: 0.9rem 1.05rem; margin: 0.75rem 0 0.5rem;
     border: 1px solid var(--border); border-left-width: 4px;

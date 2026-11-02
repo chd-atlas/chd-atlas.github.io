@@ -2255,3 +2255,21 @@ def test_a_gene_page_carries_no_more_visible_prose_than_its_measured_budget(site
     assert median > 0, report
     assert median <= _MEDIAN_VISIBLE_WORDS, report
     assert len(boilerplate) <= _BOILERPLATE_SENTENCES, report
+
+
+def test_no_finding_card_states_a_mechanism_or_a_null_its_rows_do_not(site: Path) -> None:
+    """The negative half of `test_a_study_card_states_what_its_rows_show_and_no_mechanism`,
+    on published bytes and whatever code path wrote them (CLAUDE.md section 4.35).
+
+    Scoped to the cards: TBX5's and EP300's pages carry "haploinsufficiency"
+    legitimately, from their curated assertions.
+    """
+    cards = [
+        card
+        for path in sorted((site / "genes").glob("HGNC_*.html"))
+        for card in re.findall(r'<div class="finding-card.*?</div></div>', path.read_text(), re.S)
+    ]
+    assert cards, "no finding card was published; the assertions below would pass vacuously"
+    for card in cards:
+        for phrase in ("aploinsufficiency", "ain-of-function", "ain-of-Function", "no enrichment"):
+            assert phrase not in card, (phrase, card)
