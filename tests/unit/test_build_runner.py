@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 
 from chd_atlas.build.burden import BurdenRow, load_burden
+from chd_atlas.build.cell_types import CellTypeCensus
 from chd_atlas.build.concordance import survives_own_correction
 from chd_atlas.build.identity import GeneIdentity, read_gene_identities
 from chd_atlas.build.profiles import ProfileCensus
@@ -642,9 +643,12 @@ def test_the_committed_cell_type_mirror_reaches_every_bundle_page_and_count_it_c
     two-gene `hoc` dataset written over the corpus, because a real build
     published `{"datasets": []}` on every bundle and deleting `cell_types=` from
     either runner call passed the whole suite (review, 2026-10-28). The real
-    mirror makes both redundant, and the synthetic one collided with it.
+    mirror made the synthetic one collide with it and replaced it. The
+    monkeypatched census came back as
+    `test_the_cell_type_census_is_published_under_its_own_keys`, because the
+    real corpus cannot do its job (see the section 4.30 note below).
 
-    It asks every question they asked, of every published gene: each bundle
+    It asks the bundle, page and count questions of every published gene: each bundle
     carries exactly the mirror's medians for it, pooled and by region, in the
     dataset's declared order; each page draws the block exactly where its bundle
     has data; and `counts` and the front-page card state the number of published
@@ -658,6 +662,14 @@ def test_the_committed_cell_type_mirror_reaches_every_bundle_page_and_count_it_c
     to `genes` would let `counts.genes` published under `cell_type_genes` pass,
     and one equal to the mirror's gene count would let a census of the whole
     mirror pass, so either equality fails here and asks for a fixture instead.
+
+    **Two equalities that guard cannot see** (measured 2026-11-02 on a real
+    build's `manifest.json` `counts`): the covered count 118 equals the burden
+    census's gene count (118), and the one dataset equals `profile_datasets`
+    (1). So `cell_type_genes` published from the burden census, or
+    `cell_type_datasets` from the profile census, passes here. The
+    monkeypatched `test_the_cell_type_census_is_published_under_its_own_keys`
+    below kills both.
 
     Mutants, each applied to `build/runner.py` and run against this test alone
     (2026-11-02): `cell_types=` deleted from the `build_genes` call or the
@@ -691,6 +703,7 @@ def test_the_committed_cell_type_mirror_reaches_every_bundle_page_and_count_it_c
         "the committed corpus no longer separates the covered genes from the published "
         "ones, the mirrored ones, the dataset count or none; build a fixture that does"
     )
+    # Not a guard against 118 = burden genes or 1 = profile_datasets: see the docstring.
     assert counts["cell_type_genes"] == len(covered)
     assert counts["cell_type_datasets"] == 1
     landing = (out / "index.html").read_text()
@@ -721,3 +734,30 @@ def test_the_committed_cell_type_mirror_reaches_every_bundle_page_and_count_it_c
             for region in item["regions"]
         } == regional.get(gene, {}), gene
         assert heading in section, gene
+
+
+def test_the_cell_type_census_is_published_under_its_own_keys(
+    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`build_site` publishes the cell-type census under `cell_type_*`, from nothing else.
+
+    The real-build test above cannot separate `cell_type_genes` from the burden
+    census's gene count (both 118) or `cell_type_datasets` from `profile_datasets`
+    (both 1): CLAUDE.md section 4.30. A patched census whose values appear in no
+    other count makes every cross-wire visible. Measured 2026-11-02, no value in
+    a real build's `counts` is 5 or 3 (they are 0, 1, 2, 8, 11, 20, 32, 105,
+    108, 118, 119 and 1,210), and the first two assertions re-check that on
+    this build, so a new count equal to either fails loudly here.
+    """
+    monkeypatch.setattr(
+        "chd_atlas.build.runner.cell_type_census",
+        lambda expression, published: CellTypeCensus(genes=5, datasets=3),
+    )
+    out = tmp_path / "patched"
+    build_site(repo, out)
+    counts = json.loads((out / "manifest.json").read_text())["counts"]
+    others = {key: value for key, value in counts.items() if not key.startswith("cell_type_")}
+    assert 5 not in others.values()
+    assert 3 not in others.values()
+    assert counts["cell_type_genes"] == 5
+    assert counts["cell_type_datasets"] == 3
