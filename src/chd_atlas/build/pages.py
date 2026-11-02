@@ -4421,18 +4421,18 @@ _BULK_TISSUE_NOTICE: Final = (
 
 # The banner of a gene that has cell-type data, in place of `_BULK_TISSUE_NOTICE`
 # (never beside it: that notice says every measurement below is bulk, which is
-# false once a cell-type block opens the section). It keeps the same caveat
-# sentence, unconditional, and says what the two layers are.
+# false once a cell-type block opens the section). It keeps the same caveat,
+# unconditional, in one sentence that also says what the two layers are.
 _CELL_TYPE_NOTICE: Final = (
-    '<p class="notice-inline">Cell-type values pool 8 hearts at 9 to 15 weeks; the timeline '
-    "below is from bulk tissue. A low or absent value is not evidence a gene is unimportant "
-    "to heart development.</p>"
+    '<p class="notice-inline">Cell-type values pool 8 hearts at 9 to 15 weeks and the '
+    "timeline below is from bulk tissue; a low or absent value is not evidence a gene is "
+    "unimportant to heart development.</p>"
 )
 
 # The same, for a gene with cell-type data and no bulk profile: there is no
 # timeline below, so the banner must not claim one.
 _CELL_TYPE_ONLY_NOTICE: Final = (
-    '<p class="notice-inline">Cell-type values pool 8 hearts at 9 to 15 weeks. A low or '
+    '<p class="notice-inline">Cell-type values pool 8 hearts at 9 to 15 weeks; a low or '
     "absent value is not evidence a gene is unimportant to heart development.</p>"
 )
 

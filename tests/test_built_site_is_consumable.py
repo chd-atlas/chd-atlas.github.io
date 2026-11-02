@@ -1878,9 +1878,12 @@ def test_the_front_page_names_every_source_that_requires_attribution(site: Path)
     written: 7 such sources. Since the doorway page (2026-10-27) the section is
     "Sources", one paragraph of 123 words, and the sentence is three. Farah et
     al. 2024's cell-type data made it 8 sources on 2026-11-02, named in one
-    13-word sentence: the paragraph measured 118 words on a build of 862013f
-    and 131 with it (tags stripped, split on whitespace, the heading not
-    counted).
+    13-word sentence. Measured on builds of fe94116, the paragraph's HTML
+    between `<p>` and `</p>` (heading not counted) with entities unescaped and
+    split on whitespace: 118 words without the sentence and 131 with it when
+    tags are deleted outright, 123 and 136 when each tag is replaced by a
+    space (a tag inside a word, as in `<strong>Orphanet</strong>'s`, then
+    splits it). The first method is the one the figures above use.
 
     **Every licence the sentence states is held to `sources.json`** (review,
     2026-10-27), not only CC BY: "Audain et al. 2021, CC0" and "EMBL-EBI's
@@ -1997,11 +2000,12 @@ _SENTENCE = re.compile(r"(?<=[.!?])\s+(?=[A-Z(\"'“])")
 # (b)'s share: a sentence on at least this fraction of gene pages is boilerplate.
 _BOILERPLATE_SHARE = 0.9
 
-# Measured after the owner's answers of 2026-10-27 (the registry qualifier on
-# the gene cards), with the headroom owner decision E4 keeps: (a) 964 x 1.03
-# rounded up, (b) 21 + 1. See the test for the series and the rule. Lower each
-# when a page sheds prose; raising one is a decision, and its commit says why.
-_MEDIAN_VISIBLE_WORDS = 993
+# Measured after the one-sentence cell-type banner (owner decision 2026-11-02):
+# (a) 1,000 x 1.03 rounded up, the headroom owner decision E4 keeps; (b) stays 22,
+# the 22 measured, with NO +1 headroom this time (the owner: "unchanged"). See the
+# test for the series and the rule. Lower each when a page sheds prose; raising
+# one is a decision, and its commit says why.
+_MEDIAN_VISIBLE_WORDS = 1030
 _BOILERPLATE_SENTENCES = 22
 
 
@@ -2213,6 +2217,15 @@ def test_a_gene_page_carries_no_more_visible_prose_than_its_measured_budget(site
     rule, 964 x 1.03 rounded up is 993 and 21 + 1 is 22, so both constants
     stay.
 
+    The row after it is Farah et al. 2024's cell-type layer and the owner's
+    decision of 2026-11-02 on its banner, measured with this parser on fresh
+    builds of fe94116 with and without the change: the two-sentence banner
+    read 999 and 23 / 454; as one
+    sentence it reads 1,000 and 22 / 455 (119 pages). The banner's second
+    sentence was the 23rd boilerplate sentence and is gone; the median moved
+    by one word. By the rule (a) is 1,000 x 1.03 rounded up, 1,030, and (b)
+    is 22 with no headroom, as the owner decided.
+
     "cells" is the history: (a) with cells counted, the figure this test
     asserted until review, 957 at zero headroom. (b) never counted them, and
     the review's fixes to methods.html left every gene page's bytes as at
@@ -2224,8 +2237,9 @@ def test_a_gene_page_carries_no_more_visible_prose_than_its_measured_budget(site
     on a gene page sits in a table cell.
 
     **Headroom, because a curation-only change must not fail the suite.**
-    (a) is held at 993, the last row's 964 x 1.03 rounded up, and (b) at 22,
-    one more than 21 (owner decision E4 keeps both margins; they were 986 and
+    (a) is held at 1,030, the last row's 1,000 x 1.03, and (b) at 22, the
+    measured 22 with no margin (owner decision E4 keeps (a)'s; the owner left
+    (b) unchanged on 2026-11-02). They were 993 and 22, one over 21, after the previous row; 986 and
     22 over the three rows before it, 971 and 22 over the batch-2 row, 909 and
     22 over 9a8f14d's, 922 and 23 over 2f6300a's, and 867 and 22 over
     802d694's). **When this fails,

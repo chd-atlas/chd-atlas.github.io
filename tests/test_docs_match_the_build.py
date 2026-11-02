@@ -1491,9 +1491,9 @@ def test_the_page_sentences_the_doc_reports_are_the_ones_the_pages_render(site: 
         "multiple types, 6 (2021); see the validity table.",
         "Every measurement below is from bulk tissue: a low or absent figure is not "
         "evidence a gene is unimportant to heart development.",
-        "Cell-type values pool 8 hearts at 9 to 15 weeks; the timeline below is from bulk "
-        "tissue. A low or absent value is not evidence a gene is unimportant to heart "
-        "development.",
+        "Cell-type values pool 8 hearts at 9 to 15 weeks and the timeline below is from "
+        "bulk tissue; a low or absent value is not evidence a gene is unimportant to "
+        "heart development.",
     ):
         assert f'"{sentence}"' in doc, sentence
         assert sentence in shown, f"no page renders {sentence!r}"
@@ -1503,7 +1503,7 @@ def test_the_page_sentences_the_doc_reports_are_the_ones_the_pages_render(site: 
     # is all the loop above can see; it read "opens with" the bulk line, true of
     # every page until Farah et al. 2024 landed and then of one.
     bulk = "Every measurement below is from bulk tissue"
-    cell = "Cell-type values pool 8 hearts at 9 to 15 weeks; the timeline below"
+    cell = "Cell-type values pool 8 hearts at 9 to 15 weeks and the timeline below"
     without = []
     for bundle in _bundles(site):
         page = pages[bundle["gene"].replace(":", "_")]
