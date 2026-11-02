@@ -47,6 +47,9 @@ here, and "this page" here names a page with no gene on it.
 * `#cohorts` is curated data under one written paragraph: every record of
   `curation/cohorts.yaml`, the same ones `cohorts.json` publishes. A gene page
   keeps the notes of its own cohorts, folded, and links here (P4).
+* `#literature` was written new (2026-11-02): what a gene page's literature
+  section records and how it was searched; each clause was read off the code,
+  and it names no count.
 * `#expression` is both (2026-10-26): two paragraphs moved off the gene pages
   (the folded reading notes: the placement note from every page with data,
   the comparability notice from every page that laid out more than one
@@ -489,6 +492,29 @@ _RARE_VARIANTS: Final = (
     "so its block shows its counts and p-values in a table instead of a plot.</p>"
 )
 
+# Written new (2026-11-02, plan Task 6). Every clause was read off the code it
+# describes: the query off `pubmed.build_query` (symbol and unambiguous
+# previous symbols, the CHD terms and the gene's in-scope disease names, with
+# preprints and reviews excluded), the triage off `models.gene_literature`
+# (every hit carries a decision, `pending` included), the two axes off `vocab.FindingDesign` and
+# `vocab.DetectionMethod`, and the approval rule off `Finding`
+# (`approved_by`, a named person). It names no count.
+_LITERATURE: Final = (
+    '<h2 id="literature">Literature</h2>'
+    "<p>For a gene with a literature record, the atlas keeps each PubMed search it ran, "
+    "built from the gene's approved symbol and previous symbols together with congenital "
+    "heart disease terms, and excluding preprints and reviews; the gene page states the "
+    "date of the latest. Every paper a search returns is triaged: included, excluded for "
+    "a stated reason, or counted as not yet triaged. Only human genetics is kept. Each "
+    "finding is classified on two axes, the design of the study and the method that "
+    "detected the variants, and every count states what was counted. A carrier is "
+    "whatever the authors counted as one; the atlas records their definition and does not "
+    "re-classify the variants. A named curator approves each finding before it is "
+    "published; findings still awaiting approval are counted on the gene page and not "
+    "shown.</p>"
+)
+
+
 # Every collection the rare-variant rows cite, with its curated description
 # (P4, 2026-10-26). A gene page folds the notes of only the collections its own
 # rows cite (`pages._cohort_notes`, whose fold ends on a link here) and keeps
@@ -805,8 +831,8 @@ _INTRO: Final = (
     "<p>What every gene page assumes, written once: which genes are here and what each "
     "classification means, how the validity records are listed, what the atlas's own "
     "curated evidence is, how to read the rare-variant results, every sample collection "
-    "the rare-variant results name, and how to read the developmental expression "
-    "figures.</p>"
+    "the rare-variant results name, how to read the developmental expression "
+    "figures, and what the literature section of a gene page records.</p>"
 )
 
 
@@ -825,6 +851,7 @@ def build_methods(emitter: Emitter, *, cohorts: Mapping[str, Cohort]) -> None:
         + _RARE_VARIANTS
         + _cohorts(cohorts)
         + _EXPRESSION
+        + _LITERATURE
     )
     emitter.write_text(
         METHODS_PAGE,

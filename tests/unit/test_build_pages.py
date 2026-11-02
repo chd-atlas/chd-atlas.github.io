@@ -22,6 +22,7 @@ from chd_atlas.build.cell_types import CellTypeExpression
 from chd_atlas.build.concordance import cohort_families, evidence_axes, gene_concordance
 from chd_atlas.build.derive import GeneFacts
 from chd_atlas.build.emit import Emitter
+from chd_atlas.build.gene_literature import GeneLiterature
 from chd_atlas.build.identity import GeneIdentity
 from chd_atlas.build.pages import (
     _EM_DASH,
@@ -272,6 +273,7 @@ def test_an_uncurated_gene_page_says_the_atlas_has_not_curated_it(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -323,6 +325,7 @@ def test_a_curated_gene_page_carries_its_evidence_quote_and_pmid(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     page = _page(tmp_path, "HGNC_11604.html")
@@ -380,6 +383,7 @@ def test_a_symbol_carrying_markup_is_escaped(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -434,6 +438,7 @@ def test_a_non_http_report_url_never_becomes_a_link(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -483,6 +488,7 @@ def test_panelapp_australias_homepage_link_opens_the_genes_own_page_and_nothing_
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     groups = _validity_table(_page(tmp_path, "HGNC_4173.html"))
@@ -531,6 +537,7 @@ def test_an_uncurated_notice_never_denies_functional_records_the_rail_counts(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -563,6 +570,7 @@ def test_a_mirrored_disease_label_carrying_markup_is_escaped(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     assert "<img src=x" not in _page(tmp_path, "HGNC_4173.html")
@@ -674,6 +682,7 @@ def test_a_contested_gene_is_never_chipped_as_settled(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -739,6 +748,7 @@ def test_every_gene_in_the_facts_gets_exactly_one_page(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     assert sorted(path.name for path in (tmp_path / "genes").iterdir()) == [
@@ -1048,6 +1058,7 @@ def test_a_gene_definitive_for_two_in_scope_diseases_names_both_in_a_fixed_order
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     browse = _page(tmp_path, "index.html")
@@ -1105,6 +1116,7 @@ def test_both_page_kinds_state_the_rule_that_admits_a_gene_to_this_atlas(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     for name in ("index.html", "HGNC_11604.html", "HGNC_4173.html"):
@@ -1185,6 +1197,7 @@ def test_a_gene_page_names_the_disease_beside_the_chip_that_says_definitive(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -1213,6 +1226,7 @@ def test_every_browse_row_links_to_a_page_that_was_written(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
     build_gene_index_page(facts_two, emitter, symbols={}, validity=validity_two, burden_counts={})
 
@@ -1467,6 +1481,7 @@ def _burden_page(
         families=families if families is not None else cohort_families(rows, registry),
         axes=axes if axes is not None else evidence_axes(rows),
         cell_types={},
+        literature={},
     )
     return _page(tmp_path, name)
 
@@ -4334,6 +4349,7 @@ def test_the_rail_names_the_grade_the_panel_gave_and_the_disease_it_gave_it_for(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     page = _page(tmp_path, "HGNC_11604.html")
@@ -4371,6 +4387,7 @@ def test_a_gene_no_panel_graded_names_the_submitters_that_admitted_it(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -4431,6 +4448,7 @@ def test_both_page_kinds_leave_the_grade_key_to_methods_html(tmp_path: Path) -> 
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     for name in ("index.html", "HGNC_11604.html"):
@@ -4621,6 +4639,8 @@ def _expression_page(
     name: str = "HGNC_4173.html",
     phases: CardiacPhaseFile | None = None,
     cell_types: dict[str, CellTypeExpression] | None = None,
+    literature: dict[str, GeneLiterature] | None = None,
+    publications: dict[str, Publication] | None = None,
 ) -> str:
     """One gene page, built only to exercise the expression section.
 
@@ -4642,13 +4662,14 @@ def _expression_page(
         symbols={GATA4: "GATA4", TBX5: "TBX5"},
         validity={GATA4: _validity(), TBX5: _validity()},
         assertions={},
-        publications={},
+        publications=publications or {},
         burden={},
         cohorts={},
         profiles=profiles,
         datasets=datasets or {},
         phases=phases,
         cell_types=cell_types or {},
+        literature=literature or {},
     )
     return _page(tmp_path, name)
 
@@ -7344,6 +7365,7 @@ def test_a_study_s_own_combination_is_stated_in_its_block_and_labelled_for_what_
         axes=evidence_axes(rows),
         combined={GATA4: [_combined()]},
         cell_types={},
+        literature={},
     )
     section = _burden_section_text(_page(tmp_path, "HGNC_4173.html"))
     block = _study_block(section, "40127276")
@@ -7455,6 +7477,7 @@ def test_an_orphanet_scoped_syndrome_says_why_it_counts_as_chd_above_both_groups
             _NSML: "Noonan syndrome with multiple lentigines",
         },
         cell_types={},
+        literature={},
     )
     page = _page(tmp_path, "HGNC_4173.html")
     section = _slice_between(page, "<h2>Mirrored gene&ndash;disease validity</h2>", ("<h2",))
@@ -7645,6 +7668,7 @@ def test_clingens_own_gencc_copy_is_listed_only_where_it_differs_from_the_panel(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -7692,6 +7716,7 @@ def test_a_copy_spelling_the_panels_rung_differently_is_still_folded(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     others = _validity_table(_page(tmp_path, "HGNC_4173.html"))
@@ -7749,6 +7774,7 @@ def test_the_validity_section_groups_by_authority_and_reads_one_vocabulary(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     section = _validity_table(_page(tmp_path, "HGNC_4173.html"))
@@ -7819,6 +7845,7 @@ def test_an_empty_authority_group_is_a_sentence_not_an_empty_table(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     section = _validity_table(_page(tmp_path, "HGNC_4173.html"))
@@ -7855,6 +7882,7 @@ def test_a_gene_page_names_its_gene_and_links_gnomad_and_clinvar_first(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     rail = _slice_between(_page(tmp_path, "HGNC_4173.html"), '<aside class="rail">', ("</aside>",))
@@ -7897,6 +7925,7 @@ def test_the_rails_identity_text_is_escaped(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
 
     rail = _slice_between(_page(tmp_path, "HGNC_4173.html"), '<aside class="rail">', ("</aside>",))
@@ -7931,6 +7960,7 @@ def test_a_gene_page_that_cannot_carry_its_required_links_is_refused(
             burden={},
             cohorts={},
             cell_types={},
+            literature={},
         )
 
 
@@ -8780,6 +8810,7 @@ def _card_page(
         scope_warrants=warrants,
         scope_terms=scope_terms,
         cell_types={},
+        literature={},
     )
     return _rail_of(_page(tmp_path, "HGNC_4173.html"))
 
@@ -9759,6 +9790,7 @@ def test_the_card_says_in_plain_words_what_the_atlas_itself_curated(
         burden={},
         cohorts={},
         cell_types={},
+        literature={},
     )
     page = _page(tmp_path, "HGNC_4173.html")
     rail = _rail_of(page)
@@ -9829,6 +9861,7 @@ def test_every_value_the_card_interpolates_is_escaped(tmp_path: Path) -> None:
         axes=evidence_axes(rows),
         scope_warrants=_ORPHANET_WARRANTS,
         cell_types={},
+        literature={},
     )
     rail = _rail_of(_page(tmp_path, "HGNC_4173.html"))
 
@@ -9997,3 +10030,228 @@ def test_the_cell_type_block_adds_at_most_41_visible_words_to_a_gene_page(
         return sum(_words(text) for text in _prose(page))
 
     assert words(with_cells) - words(plain) <= 41
+
+
+# --- Literature section (plan Task 6) -------------------------------------------------
+
+
+_LIT_PUBLICATION = Publication(
+    id="PMID:8988165",  # type: ignore[arg-type]
+    title="Mutations in human TBX5 cause limb and cardiac malformation.",
+    journal="Nature genetics",
+    year=1997,
+    authors=["Basson CT"],
+    study_type="family_linkage",  # type: ignore[arg-type]
+)
+
+
+def _lit_finding(**changes: object) -> dict[str, object]:
+    base: dict[str, object] = {
+        "id": "CHDA:LIT:0000001",
+        "publication": "PMID:8988165",
+        "design": "cohort_screen",
+        "methods": ["exome", "gene_panel"],
+        "comparator": None,
+        "burden_study": None,
+        "count_unit": "probands",
+        "screened": 70,
+        "carriers": {"de_novo": 2, "inherited": 1, "origin_unknown": 4},
+        "variant_classes": ["snv_indel"],
+        "cases": None,
+        "controls": None,
+        "p_value": None,
+        "odds_ratio": None,
+        "phenotypes": ["HP:0001631"],
+        "lesion_groups": ["septal", "conotruncal"],
+        "syndromic": "both",
+        "cohorts": [],
+        "shares_probands_with": "unknown",
+        "locators": [{"kind": "in_text", "element": "Table 2"}],
+        "summary": "Seven of seventy probands carried a variant.",
+        "extracted_by": "agent:extract/test",
+        "verified_by": None,
+        "approved_by": "A. Curator",
+        "approved_on": "2026-11-05",
+        "review_status": None,
+        "review_note": None,
+    }
+    base.update(changes)
+    return base
+
+
+def _lit(
+    findings: list[dict[str, object]] | None = None,
+    *,
+    pending: int = 6,
+    waiting: int = 2,
+    excluded: dict[str, int] | None = None,
+) -> GeneLiterature:
+    """15 papers over two searches, 4 included, 5 excluded, 6 pending, 2 awaiting review.
+
+    Every count differs from the others (CLAUDE.md section 4.30).
+    """
+    return GeneLiterature(
+        searches=[
+            {
+                "source": "pubmed",
+                "query": "q1",
+                "run_on": "2026-11-02",
+                "hits": 9,
+                "new_hits": 9,
+            },
+            {
+                "source": "pubmed",
+                "query": "q2",
+                "run_on": "2026-11-09",
+                "hits": 10,
+                "new_hits": 6,
+            },
+        ],
+        triage={
+            "included": 4,
+            "excluded": {"not_chd": 3, "no_finding_in_gene": 2} if excluded is None else excluded,
+            "pending": pending,
+        },
+        pending_approval=waiting,
+        findings=findings or [],
+    )
+
+
+def _literature_html(page: str) -> str:
+    """The Literature section: from its heading to the `</div></div>` closing the layout."""
+    start = page.index("<h2>Literature</h2>")
+    return page[start : page.index("</div></div>", start)]
+
+
+def _lit_page(tmp_path: Path, literature: GeneLiterature | None) -> str:
+    return _literature_html(
+        _expression_page(
+            tmp_path,
+            {},
+            literature=None if literature is None else {GATA4: literature},
+            publications={"PMID:8988165": _LIT_PUBLICATION},
+        )
+    )
+
+
+def test_a_gene_with_no_literature_file_says_so_in_three_words_and_has_no_table(
+    tmp_path: Path,
+) -> None:
+    assert _lit_page(tmp_path, None) == "<h2>Literature</h2><p>Not yet curated.</p>"
+
+
+def test_the_literature_line_states_what_the_search_found_and_decided(tmp_path: Path) -> None:
+    section = _lit_page(tmp_path, _lit())
+    assert section.startswith(
+        '<h2>Literature</h2><p class="method">PubMed, searched 2026-11-09: 15 papers; '
+        "4 included, 5 excluded, 6 not yet triaged; 2 findings await review.</p>"
+    )
+
+
+@pytest.mark.parametrize(
+    ("pending", "waiting", "tail"),
+    [
+        (6, 0, "4 included, 5 excluded, 6 not yet triaged."),
+        (0, 2, "4 included, 5 excluded; 2 findings await review."),
+        (0, 0, "4 included, 5 excluded."),
+        (6, 1, "4 included, 5 excluded, 6 not yet triaged; 1 finding awaits review."),
+    ],
+    ids=["no-awaiting", "no-pending", "neither", "one-awaiting"],
+)
+def test_an_optional_clause_is_absent_when_its_count_is_zero_and_nothing_reads_zero(
+    tmp_path: Path, pending: int, waiting: int, tail: str
+) -> None:
+    section = _lit_page(tmp_path, _lit(pending=pending, waiting=waiting))
+    assert section.startswith(
+        f'<h2>Literature</h2><p class="method">PubMed, searched 2026-11-09: 15 papers; {tail}</p>'
+    )
+    assert " 0 " not in section.split("</p>")[0]
+
+
+def test_one_paper_is_not_pluralised(tmp_path: Path) -> None:
+    literature = _lit()
+    literature["searches"] = [literature["searches"][0] | {"new_hits": 1}]
+    assert "searched 2026-11-02: 1 paper; " in _lit_page(tmp_path, literature)
+
+
+def test_the_exclusion_tally_lists_each_reason_with_its_count_and_is_absent_when_none(
+    tmp_path: Path,
+) -> None:
+    with_tally = _lit_page(tmp_path, _lit(excluded={"no_finding_in_gene": 2, "not_chd": 3}))
+    assert (
+        "<details><summary>Excluded papers, by reason</summary><ul>"
+        "<li>no finding in this gene: 2</li><li>not about congenital heart disease: 3</li>"
+        "</ul></details>"
+    ) in with_tally
+    assert "Excluded papers" not in _lit_page(tmp_path, _lit(excluded={}))
+
+
+def test_an_unknown_exclusion_reason_is_shown_by_its_token_not_dropped(tmp_path: Path) -> None:
+    section = _lit_page(tmp_path, _lit(excluded={"zz_new_reason": 7, "not_chd": 3}))
+    assert "<li>not about congenital heart disease: 3</li><li>zz_new_reason: 7</li>" in section
+
+
+def test_the_findings_table_gives_every_figure_its_unit_and_links_the_paper(
+    tmp_path: Path,
+) -> None:
+    common = _lit_finding(
+        id="CHDA:LIT:0000002",
+        design="common_variant_association",
+        methods=["genotyping_array"],
+        count_unit=None,
+        screened=None,
+        carriers=None,
+        variant_classes=[],
+        cases=1200,
+        controls=3400,
+        summary="A locus.",
+    )
+    section = _lit_page(tmp_path, _lit([_lit_finding(), common]))
+    assert "<details><summary>2 approved findings</summary><table>" in section
+    assert (
+        "<tr><td>1997</td>"
+        '<td><a href="https://pubmed.ncbi.nlm.nih.gov/8988165/">PMID:8988165</a></td>'
+        "<td>cohort screen</td><td>exome, gene panel</td>"
+        "<td>7 carriers among 70 probands</td>"
+        "<td>2 de novo, 1 inherited, 4 origin unknown</td>"
+        "<td>septal, conotruncal</td>"
+        "<td>Seven of seventy probands carried a variant.</td>"
+        "<td>A. Curator</td></tr>"
+    ) in section
+    assert (
+        "<td>common variant association</td><td>genotyping array</td>"
+        "<td>1,200 cases, 3,400 controls</td><td>—</td>"
+    ) in section
+    assert [h for h in re.findall(r"<th[^>]*>([^<]*)</th>", section)] == [
+        "year",
+        "paper",
+        "design",
+        "methods",
+        "counts",
+        "carriers by origin",
+        "lesions",
+        "finding",
+        "approved by",
+    ]
+
+
+def test_a_review_mark_is_shown_beside_the_approved_finding_it_qualifies(tmp_path: Path) -> None:
+    marked = _lit_finding(review_status="pending_review", review_note="Source disagrees.")
+    section = _lit_page(tmp_path, _lit([marked]))
+    assert "Seven of seventy probands carried a variant. <strong>" in section
+    assert "Source disagrees.</td>" in section
+    assert "<summary>1 approved finding</summary>" in section
+
+
+def test_a_summary_a_review_note_a_query_and_a_curator_name_are_escaped(tmp_path: Path) -> None:
+    hostile = _lit_finding(
+        summary='A<b> & "C" <script>',
+        review_status="pending_review",
+        review_note='Note <i> & "q"',
+        approved_by="O'Neil <x>",
+    )
+    section = _lit_page(tmp_path, _lit([hostile]))
+    assert "A&lt;b&gt; &amp; &quot;C&quot; &lt;script&gt;" in section
+    assert "Note &lt;i&gt; &amp; &quot;q&quot;" in section
+    assert "O&#x27;Neil &lt;x&gt;" in section
+    assert "<b>" not in section and "<script>" not in section and "<i>" not in section

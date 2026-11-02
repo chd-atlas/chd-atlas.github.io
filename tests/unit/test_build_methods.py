@@ -147,8 +147,9 @@ def test_the_page_sits_at_the_site_root_under_its_own_title(page: str) -> None:
         "rare-variants",
         "cohorts",
         "expression",
+        "literature",
     ]
-    assert page.count("<h2") == 6
+    assert page.count("<h2") == 7
     # The page's own account of what it holds (CLAUDE.md section 4.29: a
     # summary that omits what the page publishes passes every other check).
     # The cohort list joined it on 2026-10-26, and the same day it stopped
@@ -160,8 +161,8 @@ def test_the_page_sits_at_the_site_root_under_its_own_title(page: str) -> None:
         "<p>What every gene page assumes, written once: which genes are here and what each "
         "classification means, how the validity records are listed, what the atlas's own "
         "curated evidence is, how to read the rare-variant results, every sample collection "
-        "the rare-variant results name, and how to read the developmental expression "
-        "figures.</p>"
+        "the rare-variant results name, how to read the developmental expression "
+        "figures, and what the literature section of a gene page records.</p>"
     ) in page
 
 
@@ -1225,3 +1226,31 @@ def test_the_key_follows_the_rule_its_dispute_sentence_points_back_to(page: str)
     rule = section.index('<p class="scope-rule">')
     key = section.index('<div class="grade-key">')
     assert rule < key, "the grade key renders before the rule it says is above it"
+
+
+def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> None:
+    """`#literature` (plan Task 6, 2026-11-02): pinned whole, against a literal.
+
+    Each clause is true of the code: the query template is `pubmed.build_query`
+    (symbol and previous symbols, CHD terms, `NOT preprint[pt] NOT review[pt]`),
+    the triage has the three decisions `vocab.TriageDecision` names, the two
+    axes are `FindingDesign` and `DetectionMethod`, and approval is a named
+    person (`Finding.approved_by`). Measured: 137 words with its heading, under
+    the 160 the plan allows. The wording awaits the owner's approval (ruling R15).
+    """
+    assert _section(page, "literature") == (
+        '<h2 id="literature">Literature</h2>'
+        "<p>For a gene with a literature record, the atlas keeps each PubMed search it ran, "
+        "built from the gene's approved symbol and previous symbols together with congenital "
+        "heart disease terms, and excluding preprints and reviews; the gene page states the "
+        "date of the latest. Every paper a search returns is triaged: included, excluded for "
+        "a stated reason, or counted as not yet triaged. Only human genetics is kept. Each "
+        "finding is classified on two axes, the design of the study and the method that "
+        "detected the variants, and every count states what was counted. A carrier is "
+        "whatever the authors counted as one; the atlas records their definition and does not "
+        "re-classify the variants. A named curator approves each finding before it is "
+        "published; findings still awaiting approval are counted on the gene page and not "
+        "shown.</p>"
+    )
+    words = len(re.sub(r"<[^>]+>", "", _section(page, "literature")).split())
+    assert words <= 160

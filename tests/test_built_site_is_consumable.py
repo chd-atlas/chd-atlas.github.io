@@ -2315,6 +2315,16 @@ def test_a_gene_page_carries_no_more_visible_prose_than_its_measured_budget(site
     reads 20 and 399 words on both builds. By the rule (a) is 968 x 1.03
     rounded up, 998, and (b) is the measured 20.
 
+    The row after it is the literature section (plan Task 6, 2026-11-02),
+    measured with this parser on fresh builds of the committed corpus, af836f6
+    with and without the change: 968 words and 20 sentences before, 972 and 20
+    after (119 pages). Every page gains `<h2>Literature</h2><p>Not yet
+    curated.</p>`, four words, below the six-word boilerplate threshold, so
+    (b) does not move; the median moves by those four. No page carries a
+    literature record yet, so this is the cost of the empty line and not of a
+    populated section, which would add its summary line and a folded table to
+    that gene's page only. Both constants stay at 998 and 20.
+
     "cells" is the history: (a) with cells counted, the figure this test
     asserted until review, 957 at zero headroom. (b) never counted them, and
     the review's fixes to methods.html left every gene page's bytes as at

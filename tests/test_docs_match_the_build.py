@@ -1563,7 +1563,9 @@ def test_the_doc_documents_the_cell_type_expression_bundle_key(site: Path) -> No
     )
     assert heading in doc
     section = doc[doc.index(heading) + len(heading) :]
-    section = section[: section.index("\n## ")]
+    # To the next heading of either rank: `### The bundle's literature object`
+    # follows this section, and a slice to the next `##` would count its prose.
+    section = re.split(r"\n#{2,3} ", section)[0]
     prose = " ".join(re.sub(r"```.*?```", "", section, flags=re.S).split())
     assert len(prose.split()) <= 150
     assert counts["cell_type_datasets"] == 1
@@ -1580,3 +1582,39 @@ def test_the_doc_documents_the_cell_type_expression_bundle_key(site: Path) -> No
     assert block, "no JSON example in the cell-type section"
     _agrees(_abridged(block.group(1)), tbx5["cell_type_expression"], "cell_type_expression")
     assert "`2.20`" in " ".join(doc.split())
+
+
+def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
+    """The section exists, its example is the real built empty shape, its counts are the build's.
+
+    The committed corpus carries no `curation/literature` file, so every bundle
+    holds the empty shape and both counts are 0 (measured on the build under
+    test: asserted below, so a corpus that gains a file fails here and asks for
+    a populated example). The example is held to a real bundle through `_agrees`
+    with no `...`: an unmarked object must be complete.
+    """
+    counts = json.loads((site / "manifest.json").read_text())["counts"]
+    bundles = _bundles(site)
+    assert all(b["literature"]["searches"] == [] for b in bundles), (
+        "a literature file landed; document a populated example"
+    )
+    assert counts["literature_genes"] == 0
+    assert counts["literature_findings"] == 0
+
+    doc = DOC.read_text()
+    heading = "### The bundle's `literature` object: searches, a triage tally and approved findings"
+    assert heading in doc
+    section = doc[doc.index(heading) + len(heading) :]
+    section = re.split(r"\n#{2,3} ", section)[0]
+    block = re.search(r"```json\n(.*?)```", section, re.S)
+    assert block, "no JSON example in the literature section"
+    tbx5 = json.loads((site / "genes" / "HGNC_11604.json").read_text())
+    _agrees(_abridged(block.group(1)), tbx5["literature"], "literature")
+    assert "`2.21`" in " ".join(doc.split())
+    prose = " ".join(section.split())
+    for needle in (
+        "`pending_approval` counts findings no named person has approved",
+        "sorted by publication year, then numeric PMID, then finding id",
+        "A finding carrying a `review_status` is published with it",
+    ):
+        assert needle in prose, needle

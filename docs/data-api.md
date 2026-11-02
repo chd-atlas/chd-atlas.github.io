@@ -52,14 +52,14 @@ What the build produced, and a checksum for every file in it.
     "assertions": 2, "burden_combined": 108, "burden_rows": 1210,
     "burden_surviving_genes": 32, "cell_type_datasets": 1, "cell_type_genes": 118,
     "cohort_families": 2, "cohorts": 20, "datasets": 2, "featured": 1, "functional": 0,
-    "genes": 119, "phenotypes": 8, "profile_datasets": 1, "profile_genes": 119,
+    "genes": 119, "literature_findings": 0, "literature_genes": 0, "phenotypes": 8, "profile_datasets": 1, "profile_genes": 119,
     "publications": 11, "scope_terms": 105
   },
   "files": {
     "genes/index.json": "sha256:<64 hex>",
     "publications.json": "sha256:<64 hex>"
   },
-  "schema_version": "2.20",
+  "schema_version": "2.21",
   "source_commit": "<40-hex commit sha, or null outside a git checkout>",
   "status": "in-development"
 }
@@ -91,7 +91,7 @@ wrong by the next one.
   classification rather than on curation done here. Read `atlas_curation` on the
   browse row to tell the two apart.
 
-  The other nine keys are computed by the build, and the first three below were
+  The other eleven keys are computed by the build, and the first three below were
   added because the object read as a census of the atlas while describing only
   its curation: through `2.6` it published `assertions: 1, datasets: 0,
   functional: 0` for a site serving 23 genes and 290 burden statistics — the
@@ -131,8 +131,13 @@ wrong by the next one.
     is non-empty.
   - `cell_type_datasets` (since `2.20`) is the number of cell-type datasets
     those bundles name.
+  - `literature_genes` (since `2.21`) is the number of published genes whose
+    [`literature`](#the-bundles-literature-object-searches-a-triage-tally-and-approved-findings)
+    records at least one search.
+  - `literature_findings` (since `2.21`) is the number of approved findings in
+    those bundles. Both are `0` until the first `curation/literature` file lands.
 
-  Each of the nine counts only what the published genes' bundles carry, except
+  Each of the eleven counts only what the published genes' bundles carry, except
   `cohort_families`, which groups the whole burden mirror's cohorts: restricting
   it to the published genes could split one family into what then reads as two
   independent ones. `index.html` states these six keys too: `genes`,
@@ -288,6 +293,9 @@ wrong by the next one.
   `[]` on every design but the new `"cell_type_profile"`, and the archive
   `"ucsc_cell_browser"`, whose datasets are named by a lowercase slug (`hoc`)
   rather than an accession, so a dataset id may now be one. Additive.
+  `2.21` added [`literature`](#the-bundles-literature-object-searches-a-triage-tally-and-approved-findings)
+  to every gene bundle, `{"searches": [], …}` where the gene has no literature
+  record, and `literature_genes` and `literature_findings` to `counts`. Additive.
 - `status` is the atlas's own readiness, so a program can read it without
   scraping `index.html`'s prose. Today it is always `"in-development"` — one
   curated gene-disease assertion alongside mirrored ClinGen/GenCC validity for
@@ -731,7 +739,9 @@ abridged, and each is documented in full further down.
     ]
   },
   "expression_profile": { "datasets": [ { "dataset": "E-MTAB-6814", … } ] },
-  "cell_type_expression": { "datasets": [ { "dataset": "hoc", … } ] }
+  "cell_type_expression": { "datasets": [ { "dataset": "hoc", … } ] },
+  "literature": { "searches": [], "triage": { "included": 0, "excluded": {}, "pending": 0 },
+                  "pending_approval": 0, "findings": [] }
 }
 ```
 
@@ -1562,6 +1572,28 @@ abridged:
                  "fraction_expressing": 0.8230469275245395, "below_floor": false}, …]},
     …]}]}
 ```
+
+### The bundle's `literature` object: searches, a triage tally and approved findings
+
+On every gene bundle (since `2.21`). Always present; a gene with no
+`curation/literature` file carries exactly the empty shape below, which is also
+what the build publishes for every gene today.
+
+```json
+{ "searches": [], "triage": { "included": 0, "excluded": {}, "pending": 0 },
+  "pending_approval": 0, "findings": [] }
+```
+
+- `searches` lists each recorded PubMed search: `source`, `query`, `run_on` (an
+  ISO date), `hits` (the total the search returned) and `new_hits` (the hits no
+  earlier search in the record had returned).
+- `triage` is a tally, not the per-paper decisions: `included`, `pending` (not
+  yet triaged) and `excluded`, an object keyed by exclusion reason.
+- `pending_approval` counts findings no named person has approved. Their content
+  is not published; the count is what stops their absence being silent.
+- `findings` holds the approved findings only, each as curated, sorted by
+  publication year, then numeric PMID, then finding id. A finding carrying a
+  `review_status` is published with it and its `review_note`.
 
 ## `genes/<slug>.html`
 

@@ -38,6 +38,7 @@ from chd_atlas.build.burden import BurdenRow, CombinedRow, burden_payload, combi
 from chd_atlas.build.cell_types import EMPTY_CELL_TYPE_EXPRESSION, CellTypeExpression
 from chd_atlas.build.derive import GeneFacts, gene_facts
 from chd_atlas.build.emit import Emitter, Json
+from chd_atlas.build.gene_literature import EMPTY_GENE_LITERATURE, GeneLiterature
 from chd_atlas.build.identity import EMPTY_IDENTITY, GeneIdentity, identity_payload
 from chd_atlas.build.omics import ModalitySummary
 from chd_atlas.build.paths import gene_bundle_path
@@ -154,6 +155,16 @@ def _cell_type_expression(cell_types: Mapping[str, CellTypeExpression], gene: st
     for the reason `_expression_profile` is: a `TypedDict` is never a `Json`.
     """
     return cast(Json, cell_types.get(gene, EMPTY_CELL_TYPE_EXPRESSION))
+
+
+def _literature(literature: Mapping[str, GeneLiterature], gene: str) -> Json:
+    """One gene's curated literature record, always present.
+
+    `EMPTY_GENE_LITERATURE` for a gene with no `curation/literature` file -- the
+    rule `_cell_type_expression` keeps -- so a consumer reads one shape. Cast
+    for the reason `_expression_profile` is: a `TypedDict` is never a `Json`.
+    """
+    return cast(Json, literature.get(gene, EMPTY_GENE_LITERATURE))
 
 
 def _validity_record(record: ValidityRecord) -> dict[str, Json]:
@@ -278,6 +289,7 @@ def build_genes(
     identities: Mapping[str, GeneIdentity] | None = None,
     *,
     cell_types: Mapping[str, CellTypeExpression],
+    literature: Mapping[str, GeneLiterature],
 ) -> dict[str, GeneFacts]:
     """Emit `genes/index.json` and one bundle per published gene, and return the facts.
 
@@ -345,6 +357,14 @@ def build_genes(
     build tells them apart too
     (`test_build_runner.py::test_the_committed_cell_type_mirror_reaches_every_bundle_page_and_count_it_covers`).
     A caller with no cell-type data passes `{}`.
+
+    `literature` is `gene_literature`'s return, published or not: a gene absent
+    from `published` takes no bundle, so a file for one reaches none (LIT013
+    warns at validate time). Required, with no default, for the reason
+    `cell_types` is: the committed corpus carries no literature file, so a real
+    build cannot tell a dropped mapping from an empty one
+    (`test_build_runner.py::test_a_literature_file_reaches_its_bundle_page_and_the_counts`).
+    A caller with no literature passes `{}`.
 
     `profiles` is `gene_expression_profiles`' return (`build/profiles.py`):
     the derived percentile placement, tau and phase assignment for every gene
@@ -508,6 +528,10 @@ def build_genes(
                 # filtered on the index and then fetched the bundle reads one
                 # answer rather than two.
                 "independent_datasets": _concordance_for(concordance, gene),
+                # Always present, empty (`EMPTY_GENE_LITERATURE`) when the gene
+                # has no literature file, for the reason `omics` is. Approved
+                # findings only; `pending_approval` counts the rest.
+                "literature": _literature(literature, gene),
             },
         )
 

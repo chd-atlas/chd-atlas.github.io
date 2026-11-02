@@ -85,6 +85,7 @@ from chd_atlas.build.concordance import (
 )
 from chd_atlas.build.derive import GeneFacts
 from chd_atlas.build.emit import Emitter, Json
+from chd_atlas.build.gene_literature import EMPTY_GENE_LITERATURE, GeneLiterature
 from chd_atlas.build.identity import EMPTY_IDENTITY, GeneIdentity, external_links
 from chd_atlas.build.paths import GENE_INDEX_PAGE, gene_bundle_path, gene_page_path
 from chd_atlas.build.profiles import (
@@ -128,6 +129,7 @@ from chd_atlas.models.cohort import Cohort
 from chd_atlas.models.dataset import Dataset
 from chd_atlas.models.literature import Publication
 from chd_atlas.models.phases import CardiacPhase, CardiacPhaseFile
+from chd_atlas.models.review import ReviewStatus
 from chd_atlas.models.scope import ScopeAuthority, ScopeEntry
 from chd_atlas.orphanet_scope import Warrant
 from chd_atlas.tables import CHD_CASE_SPLITS
@@ -6266,6 +6268,165 @@ def _expression_section(
     return "<h2>Developmental expression</h2>" + notice + cells + blocks
 
 
+# P7 (plan decision): a gene with no literature file says so in three words,
+# which keeps the page under the gene-page budget test's six-word boilerplate
+# threshold on all 119 pages. Rendered unconditionally for such a gene, for the
+# reason `_NOT_CURATED_EXPRESSION` is: omitting the section would make "the
+# atlas has not searched for this gene" read the same as "the atlas has not
+# built this feature". It is not a claim that the literature holds nothing.
+_NOT_CURATED_LITERATURE: Final = "<p>Not yet curated.</p>"
+
+# What the exclusion tally calls each reason (`vocab.ExclusionReason`), in
+# that enum's order. A reason with no entry renders its raw token, so a reason
+# added to the vocabulary is shown rather than dropped.
+_EXCLUSION_LABELS: Final = (
+    ("not_peer_reviewed", "not peer reviewed"),
+    ("review_article", "review article"),
+    ("not_human_genetics", "not human genetics"),
+    ("no_finding_in_gene", "no finding in this gene"),
+    ("not_chd", "not about congenital heart disease"),
+    ("same_data_as", "same data as another paper"),
+    ("other", "other"),
+)
+
+_FINDING_HEADERS: Final = (
+    "year",
+    "paper",
+    "design",
+    "methods",
+    "counts",
+    "carriers by origin",
+    "lesions",
+    "finding",
+    "approved by",
+)
+
+
+def _words(token: str) -> str:
+    """A vocabulary token as words: `family_segregation` -> `family segregation`."""
+    return token.replace("_", " ")
+
+
+def _finding_counts(finding: Mapping[str, Json]) -> str:
+    """A finding's counts, always with what was counted (the `count_unit` rule).
+
+    Raises `ValueError` for a finding with neither shape of count: the model
+    refuses one, so reaching it means a bypassed gate, and a blank cell would
+    pass for a finding with no denominator.
+    """
+    screened, unit, carriers = finding["screened"], finding["count_unit"], finding["carriers"]
+    if isinstance(screened, int) and isinstance(unit, str) and isinstance(carriers, dict):
+        total = sum(v for v in carriers.values() if isinstance(v, int))
+        return f"{total:,} carriers among {screened:,} {_words(unit)}"
+    cases, controls = finding["cases"], finding["controls"]
+    if isinstance(cases, int) and isinstance(controls, int):
+        return f"{cases:,} cases, {controls:,} controls"
+    raise ValueError(f"{finding['id']}: a published finding has no counts")
+
+
+def _finding_carriers(finding: Mapping[str, Json]) -> str:
+    carriers = finding["carriers"]
+    if not isinstance(carriers, dict):
+        return "\u2014"
+    return (
+        f"{carriers['de_novo']} de novo, {carriers['inherited']} inherited, "
+        f"{carriers['origin_unknown']} origin unknown"
+    )
+
+
+def _literature_exclusions(excluded: Mapping[str, int]) -> str:
+    """The exclusion tally by reason, folded; `""` where nothing was excluded."""
+    if not excluded:
+        return ""
+    known = [token for token, _ in _EXCLUSION_LABELS]
+    labels = dict(_EXCLUSION_LABELS)
+    order = [t for t in known if t in excluded] + sorted(t for t in excluded if t not in labels)
+    items = "".join(
+        f"<li>{html.escape(labels.get(token, token))}: {excluded[token]}</li>" for token in order
+    )
+    return f"<details><summary>Excluded papers, by reason</summary><ul>{items}</ul></details>"
+
+
+def _literature_section(
+    literature: GeneLiterature,
+    publications: Mapping[str, Publication],
+) -> str:
+    """The gene's curated literature: one summary line, the exclusion tally, the findings.
+
+    No search recorded: `_NOT_CURATED_LITERATURE` and nothing else. Otherwise a
+    visible line counting what the search returned and what was decided --
+    every clause that is a count is omitted when the count is 0 (`, N not yet
+    triaged`, `; N findings await review`), so no clause reads `0 ...` -- then
+    the exclusion tally, then the approved findings in a folded table. The
+    table lists approved findings only, which is all the bundle carries; the
+    `await review` clause is what stops the unapproved ones being invisible. A
+    finding's `review_status` and `review_note` are rendered beside its summary
+    (ruling R24): the mark qualifies a published finding and never hides it.
+
+    `publications` supplies each finding's year; its absence raises, because
+    validation refuses a finding whose paper is unregistered (LIT011).
+    """
+    searches = literature["searches"]
+    if not searches:
+        return "<h2>Literature</h2>" + _NOT_CURATED_LITERATURE
+    triage = literature["triage"]
+    papers = sum(search["new_hits"] for search in searches)
+    excluded_total = sum(triage["excluded"].values())
+    line = (
+        f"PubMed, searched {html.escape(max(search['run_on'] for search in searches))}: "
+        f"{papers} {'paper' if papers == 1 else 'papers'}; "
+        f"{triage['included']} included, {excluded_total} excluded"
+    )
+    if triage["pending"]:
+        line += f", {triage['pending']} not yet triaged"
+    waiting = literature["pending_approval"]
+    if waiting:
+        line += f"; {waiting} {'finding awaits' if waiting == 1 else 'findings await'} review"
+    out = f'<h2>Literature</h2><p class="method">{line}.</p>' + _literature_exclusions(
+        triage["excluded"]
+    )
+    findings = literature["findings"]
+    if findings:
+        rows = []
+        for finding in findings:
+            pmid = str(finding["publication"])
+            publication = publications.get(pmid)
+            if publication is None:
+                raise ValueError(f"{finding['id']}: {pmid} is not a registered publication")
+            status, note = finding["review_status"], finding["review_note"]
+            mark = review_status_note(
+                str(finding["id"]),
+                ReviewStatus(status) if isinstance(status, str) else None,
+                note if isinstance(note, str) else None,
+            )
+            rows.append(
+                Row(
+                    (
+                        str(publication.year),
+                        Link(pmid, _pubmed(pmid)),
+                        _words(str(finding["design"])),
+                        ", ".join(_words(str(m)) for m in _as_list(finding["methods"])),
+                        _finding_counts(finding),
+                        _finding_carriers(finding),
+                        ", ".join(_words(str(g)) for g in _as_list(finding["lesion_groups"])),
+                        Markup(html.escape(str(finding["summary"])) + mark),
+                        str(finding["approved_by"]),
+                    )
+                )
+            )
+        noun = "finding" if len(findings) == 1 else "findings"
+        out += (
+            f"<details><summary>{len(findings)} approved {noun}</summary>"
+            + data_table(_FINDING_HEADERS, rows)
+            + "</details>"
+        )
+    return out
+
+
+def _as_list(value: Json) -> list[Json]:
+    return value if isinstance(value, list) else []
+
+
 def build_gene_pages(
     facts: Mapping[str, GeneFacts],
     emitter: Emitter,
@@ -6287,6 +6448,7 @@ def build_gene_pages(
     identities: Mapping[str, GeneIdentity] | None = None,
     scope_terms: Mapping[str, ScopeEntry] | None = None,
     cell_types: Mapping[str, CellTypeExpression],
+    literature: Mapping[str, GeneLiterature],
 ) -> None:
     """Emit one HTML page per gene in `facts`.
 
@@ -6335,6 +6497,12 @@ def build_gene_pages(
     with no default, for the reason `build_genes` gives: with one, deleting it
     from the runner's call passed the whole suite (review, 2026-10-28). A
     caller with no cell-type data passes `{}`.
+
+    `literature` is `gene_literature`'s return; a gene absent from it gets
+    `EMPTY_GENE_LITERATURE` and the "Not yet curated" line. Required, with no
+    default, for the reason `cell_types` is: the committed corpus carries no
+    literature file, so a real build cannot tell a dropped mapping from an
+    empty one. A caller with no literature passes `{}`.
 
     Sorted, like every loop in this build that iterates a mapping: `sort_keys`
     orders dict keys in a JSON payload and has nothing to say about the order
@@ -6416,6 +6584,8 @@ def build_gene_pages(
                 cell_types.get(gene, EMPTY_CELL_TYPE_EXPRESSION),
                 gene=symbol,
             )
+            # After expression, for the same reason expression is after burden.
+            + _literature_section(literature.get(gene, EMPTY_GENE_LITERATURE), publications)
             + "</div></div>"
         )
         emitter.write_text(

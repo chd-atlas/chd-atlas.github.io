@@ -484,7 +484,23 @@ from chd_atlas.corpus import Corpus
 #   Browser's name for a dataset, as well as an archive accession: in
 #   `datasets.json`'s `id` and in the `dataset` an assertion's evidence names
 #   (`identifiers.AccessionId`). `hoc`, curated 2026-11-02, was the first.
-SCHEMA_VERSION: Final = "2.20"
+#
+# 2.21 (curated literature, issue #83). MINOR, additive:
+#
+# * Every gene bundle gains `literature`, always present, and
+#   `build.gene_literature.EMPTY_GENE_LITERATURE` for a gene with no
+#   `curation/literature` file: `searches` (`source`, `query`, `run_on`,
+#   `hits`, `new_hits`), `triage` (the tally -- `included`, `excluded` by
+#   reason, `pending` -- never the per-paper decisions), `pending_approval`
+#   (findings no named person has approved yet; their content is not
+#   published) and `findings` (approved only, sorted by publication year, then
+#   numeric PMID, then id). A finding carrying a `review_status` is published
+#   with it.
+# * `counts` gains `literature_genes` and `literature_findings`, the published
+#   genes whose bundle records at least one search and the approved findings in
+#   those bundles (`gene_literature.literature_census`). Both are 0 until the
+#   first `curation/literature` file lands.
+SCHEMA_VERSION: Final = "2.21"
 
 # What `status` publishes today. A literal rather than something derived from
 # the corpus, unlike every field in `counts`: there is no measurement of "is
@@ -588,7 +604,9 @@ def write_manifest(
     of cohort families, and the developmental-expression layer's own
     `profile_datasets`/`profile_genes` (`profiles.profile_census`) and the
     single-cell layer's `cell_type_datasets`/`cell_type_genes`
-    (`cell_types.cell_type_census`). They are
+    (`cell_types.cell_type_census`) and the literature layer's
+    `literature_genes`/`literature_findings`
+    (`gene_literature.literature_census`). They are
     passed in rather than recomputed for the reason `runner.py` threads
     `published` to three builders — the front page, the browse payload and this
     manifest must state one census, and the only way they cannot disagree is to
