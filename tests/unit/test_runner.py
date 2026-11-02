@@ -1516,3 +1516,36 @@ def test_a_missing_registry_a_finding_needs_is_reported_once_not_skipped(
     assert cause in codes
     assert silenced not in codes
     assert report.ok is False
+
+
+def test_a_degraded_publication_gate_does_not_report_every_literature_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`_gate_published_genes` degrades to an empty set; LIT013 must skip, not
+    fire for every file. The empty set is passed as None (`published or None`)."""
+
+    def boom(*args: object, **kwargs: object) -> None:
+        raise ValueError("unmapped classification")
+
+    monkeypatch.setattr("chd_atlas.validate.runner.gene_validity", boom)
+
+    codes = _codes_of(_literature_repo(tmp_path))
+
+    assert "LIT013" not in codes
+
+
+def test_a_header_only_gene_registry_skips_lit009_and_still_names_its_cause(
+    tmp_path: Path,
+) -> None:
+    """An empty registry is not None; without `or None` every literature file
+    reported LIT009 and buried the registry. The cause stays an error."""
+    root = _literature_repo(tmp_path)
+    header = (root / "mirrors" / "genes.tsv").read_text().splitlines()[0]
+    (root / "mirrors" / "genes.tsv").write_text(header + "\n")
+
+    report = validate_repository(root)
+    errors = {i.code for i in report.issues if i.severity is Severity.ERROR}
+
+    assert "LIT009" not in errors
+    assert errors & {"REF001", "GEN004"}
+    assert report.ok is False

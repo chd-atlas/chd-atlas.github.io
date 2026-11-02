@@ -712,11 +712,17 @@ def validate_repository(root: Path) -> ValidationReport:
         # findings cite. `symbols` is None only when `_symbol_registry` is,
         # i.e. a missing or unreadable genes.tsv, which TBL008/TBL001 report.
         # `published or None`: `_gate_published_genes` returns an empty set
-        # when it degrades, and every file would then report LIT013.
+        # when it degrades, and every file would then report LIT013. The
+        # degrade is already an error elsewhere (its docstring: TBL000/TBL001
+        # or the unmapped term's schema error), and LIT013 is only a warning,
+        # so skipping it needs no paired error of its own.
+        # `symbols or None`: a header-only genes.tsv is an empty registry (falsy
+        # by `__len__`), which would make every file report LIT009; REF001 or
+        # GEN004 names the real cause.
         issues.extend(
             validate_gene_literature(
                 corpus,
-                symbols=_symbol_registry(root),
+                symbols=_symbol_registry(root) or None,
                 known_publications=study_ids or None,
                 known_cohorts=cohort_ids or None,
                 published_genes=published or None,
