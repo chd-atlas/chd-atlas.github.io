@@ -16,8 +16,8 @@
 # cell class and Region; then without Region), and flattens both into
 # $OUT_DIR/pseudobulk.tsv for scripts/convert_farah2024.py.
 # Resources are from the first real run (seff, job 21367175, 2026-11-02):
-# wall-clock 2m30s, MaxRSS 6.39 GB of 48G requested, CPU efficiency 10.5%. Keep
-# the time at or under all_cpu.p's MaxTime (2h): that site sets
+# wall-clock 2m30s, MaxRSS 6.39 GB of the 48G requested then, CPU efficiency
+# 10.5%. Keep the time at or under all_cpu.p's MaxTime (2h): that site sets
 # EnforcePartLimits=NO, so a longer request is accepted and then never starts
 # (measured 2026-11-02).
 
@@ -63,8 +63,7 @@ unset PYTHONPATH
 # imports only with the checkout on the path. Set per call below, so the code
 # that runs is the commit recorded below (measured 2026-11-02: the venv alone
 # raises "No module named hvantk").
-HVANTK_PATH="$HVANTK_REPO"
-PYTHONPATH="$HVANTK_PATH" "$HVANTK_PYTHON" -c "import hvantk" \
+PYTHONPATH="$HVANTK_REPO" "$HVANTK_PYTHON" -c "import hvantk" \
   || { echo "ERROR: cannot import hvantk from $HVANTK_REPO" >&2; exit 1; }
 
 # Captured rather than echoed inline: a command substitution inside `echo`
@@ -99,11 +98,11 @@ echo "input:        $INPUT_H5AD"
 echo "out:          $OUT_DIR"
 echo "input sha256: $(sha256sum "$INPUT_H5AD" | cut -d' ' -f1)"
 
-PYTHONPATH="$HVANTK_PATH" "$HVANTK_PYTHON" -m hvantk expression summarize -m "$INPUT_H5AD" \
+PYTHONPATH="$HVANTK_REPO" "$HVANTK_PYTHON" -m hvantk expression summarize -m "$INPUT_H5AD" \
   --group-by Age --group-by Rep --group-by major_cell_class --group-by Region \
   --min-cells "$MIN_CELLS" -o "$BY_REGION"
 
-PYTHONPATH="$HVANTK_PATH" "$HVANTK_PYTHON" -m hvantk expression summarize -m "$INPUT_H5AD" \
+PYTHONPATH="$HVANTK_REPO" "$HVANTK_PYTHON" -m hvantk expression summarize -m "$INPUT_H5AD" \
   --group-by Age --group-by Rep --group-by major_cell_class \
   --min-cells "$MIN_CELLS" -o "$POOLED"
 
