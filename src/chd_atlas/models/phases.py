@@ -122,7 +122,7 @@ class CardiacPhase(BaseModel):
     """One named developmental process and the window it occupies.
 
     `id` is this atlas's own slug, rendered on a gene page by replacing
-    underscores with spaces (`build/pages.py::_phase_sentence`) -- distinct
+    underscores with spaces (`build/pages.py::_phases_cell`) -- distinct
     from `go_id`, which is the transcribed Gene Ontology accession and is
     never rendered directly. Every boundary field below exists so a reader can
     check this atlas's transcription against the source without taking this

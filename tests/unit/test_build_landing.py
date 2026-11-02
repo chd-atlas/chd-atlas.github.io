@@ -1085,7 +1085,8 @@ def test_the_front_page_names_orphanet_and_attributes_it_as_its_licence_requires
         # R10); `test_built_site_is_consumable.py` holds the set it names to
         # `sources.json`.
         "Developmental expression is the <strong>EMBL-EBI Expression Atlas</strong>'s "
-        "(E-MTAB-6814), under EMBL-EBI's Terms of Use. Rare-variant results come from the "
+        "(E-MTAB-6814), under EMBL-EBI's Terms of Use. Cell-type expression is the UCSC Cell "
+        "Browser data of Farah et al. 2024. Rare-variant results come from the "
         "supplements of Audain et al. 2026 and Sierant et al. 2025, both CC BY 4.0, and of "
         'Audain et al. 2021, CC0. <a href="sources.json">sources.json</a> identifies each '
         "mirrored file and its licence terms.</p> "

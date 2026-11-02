@@ -343,7 +343,10 @@ def _render(
     # `permitted_with_attribution` (owner decision 2026-10-26, R10), with the
     # licence where it is CC BY; `test_the_front_page_names_every_source_that_
     # requires_attribution` fails the day `sources.json` gains one it does not
-    # name. Audain et al. 2021's S6 Table is CC0-1.0, so it is named apart. The
+    # name. Audain et al. 2021's S6 Table is CC0-1.0, so it is named apart. Farah
+    # et al. 2024's cell-type data carry no licence of their own (the UCSC Cell
+    # Browser states none; owner decision 2026-11-02), so the sentence names
+    # whom they are attributed to and states no licence for them. The
     # Orphadata citation is Orphadata's own requested form, its "Data version"
     # each file's own header (R11, `_orphadata_version`).
     orphadata = _orphadata_version(sources)
@@ -417,7 +420,8 @@ def _render(
     <em>Orphadata Science: Free access data from Orphanet. &copy; INSERM 1999. Available on
     <a href="http://sciences.orphadata.com/">http://sciences.orphadata.com/</a>.{orphadata}</em>
     Developmental expression is the <strong>EMBL-EBI Expression Atlas</strong>'s
-    (E-MTAB-6814), under EMBL-EBI's Terms of Use. Rare-variant results come from the
+    (E-MTAB-6814), under EMBL-EBI's Terms of Use. Cell-type expression is the UCSC Cell
+    Browser data of Farah et al. 2024. Rare-variant results come from the
     supplements of Audain et al. 2026 and Sierant et al. 2025, both CC BY 4.0, and of
     Audain et al. 2021, CC0. <a href="sources.json">sources.json</a> identifies each
     mirrored file and its licence terms.</p>

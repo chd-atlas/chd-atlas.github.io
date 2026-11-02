@@ -333,9 +333,11 @@ def test_the_stylesheet_sets_no_fill_opacity_on_a_class_the_region_grid_draws() 
 
 def test_every_coordinate_the_block_draws_has_coordinate_s_fixed_shape() -> None:
     """The site-wide scan (`test_every_geometry_the_pages_publish_...`) reads the
-    real build, which has no cell-type mirror yet, so it could not see this
-    block's `r="6.97"`. The same check, over a fixture with whiskers, a dot in
-    every grid state and the legend."""
+    real build, which had no cell-type data when this was written, so it could
+    not see this block's `r="6.97"`. It has read the block on 118 gene pages
+    since Farah et al. 2024 landed (2026-11-02), but only the states that data
+    happens to hold; this is the same check over a fixture with whiskers, a dot
+    in every grid state and the legend, by construction."""
     low = values(0.4, fraction=0.21, donors=5, cells=300)
     block = cell_type_block(
         payload(extra=[entry("SMC", low, LA=low, RA=low)], spec=specificity()), dataset(), GENE

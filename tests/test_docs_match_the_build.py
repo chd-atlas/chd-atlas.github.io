@@ -963,6 +963,11 @@ def test_the_doc_states_the_population_the_build_publishes(site: Path) -> None:
     # 21 it is null": only a grade can be mistaken for an assessment.
     assert f"presents {graded} of the {genes} published genes" in doc
     assert f"On the other {ungraded} genes not yet curated here it is `null`" in doc
+    # The uncurated count itself, stated three times; all three still read 118
+    # after NR2F2's assertion (2026-11-01) made it 117.
+    assert f"has not yet curated — {len(uncurated)} of the {genes} published today." in doc
+    assert f"when it holds none — {len(uncurated)} of the {genes} rows published today." in doc
+    assert f"On the {len(uncurated)} genes published today without curation here" in doc
     # The empty-map paragraph: the same figure twice, and it read 97 and 75.
     rows = json.loads((site / "genes" / "index.json").read_text())["genes"]
     empty = sum(
@@ -1319,6 +1324,11 @@ def test_the_examples_that_claim_to_be_real_are_the_ones_the_build_publishes(sit
     complete. Two more unmarked abridgements in the bundle example were marked
     with it: `burden_combined` showed one of TBX5's 3 objects, and the
     assertion object 3 of its 13 keys.
+
+    **The `datasets.json` example's `hoc` record since 2026-11-02**, when
+    Farah et al. 2024 became the first curated `cell_type_profile` dataset:
+    the example showed E-MTAB-6814's record alone, as the whole array and
+    without the `cell_types` and `regions` it publishes.
     """
     doc = DOC.read_text()
     tbx5 = json.loads((site / "genes" / "HGNC_11604.json").read_text())
@@ -1329,6 +1339,23 @@ def test_the_examples_that_claim_to_be_real_are_the_ones_the_build_publishes(sit
         return text[opening : text.index("\n```", opening)]
 
     _agrees(_abridged(block("## `genes/<slug>.json`")), tbx5, "bundle")
+
+    # The `datasets.json` example's `hoc` record (2026-11-02), and the sentence
+    # counting its declarations. The E-MTAB-6814 record beside it abridges a
+    # string and stages from the middle of an array, which `_agrees` cannot
+    # read, so it is not compared here.
+    hoc = next(
+        record
+        for record in json.loads((site / "datasets.json").read_text())["datasets"]
+        if record["id"] == "hoc"
+    )
+    _agrees(_abridged(block("## `datasets.json`"))["datasets"][1], hoc, "hoc")
+    declared = hoc["cell_types"]
+    compartments = {cell_type["compartment"] for cell_type in declared}
+    assert (
+        f"`hoc` is the one curated today, with {len(declared)} cell types in "
+        f"{_WORDS[len(compartments)]} compartments."
+    ) in " ".join(doc.split())
     _agrees(_abridged(block("## `omics/<modality>/<accession>.json`")), {"omics": tbx5["omics"]})
 
     variants = json.loads((site / "variants" / "index.json").read_text())
@@ -1464,15 +1491,36 @@ def test_the_page_sentences_the_doc_reports_are_the_ones_the_pages_render(site: 
         "multiple types, 6 (2021); see the validity table.",
         "Every measurement below is from bulk tissue: a low or absent figure is not "
         "evidence a gene is unimportant to heart development.",
+        "Cell-type values pool 8 hearts at 9 to 15 weeks and the timeline below is from "
+        "bulk tissue; a low or absent value is not evidence a gene is unimportant to "
+        "heart development.",
     ):
         assert f'"{sentence}"' in doc, sentence
         assert sentence in shown, f"no page renders {sentence!r}"
+    # Which of the two opens the expression section, as the doc says (2026-11-02):
+    # the cell-type line wherever the bundle has cell-type data, the bulk line on
+    # every other page, and the doc names those. Both lines rendered on some page
+    # is all the loop above can see; it read "opens with" the bulk line, true of
+    # every page until Farah et al. 2024 landed and then of one.
+    bulk = "Every measurement below is from bulk tissue"
+    cell = "Cell-type values pool 8 hearts at 9 to 15 weeks and the timeline below"
+    without = []
+    for bundle in _bundles(site):
+        page = pages[bundle["gene"].replace(":", "_")]
+        has_cells = bool(bundle["cell_type_expression"]["datasets"])
+        assert (cell in page, bulk in page) == (has_cells, not has_cells), bundle["symbol"]
+        if not has_cells:
+            without.append(bundle["symbol"])
+    assert without, "every page opens with the cell-type line; reword the doc's 'without'"
+    for symbol in without:
+        assert f"On a page without, {symbol}'s alone today, it reads" in doc, symbol
     for anchor, label in (
         ("", "How to read this page"),
         ("#rare-variants", "How to read these results"),
         ("#rare-variants", "How to read rare-variant results"),
         ("#expression", "How to read these figures"),
         ("#expression", "How to read expression figures"),
+        ("#expression", "How to read cell-type figures"),
         ("#curated-evidence", "How to read curated evidence"),
     ):
         assert f"*{label}*" in doc, label
@@ -1493,15 +1541,21 @@ def test_the_page_sentences_the_doc_reports_are_the_ones_the_pages_render(site: 
 
 
 def test_the_doc_documents_the_cell_type_expression_bundle_key(site: Path) -> None:
-    """The section exists, its example's keys are the real shape, its claims are there.
+    """The section exists, its example is TBX5's real entry, its census is the build's.
 
-    A real build has no cell-type mirror yet, so every bundle publishes the
-    empty shape and the counts are 0; the section must not claim otherwise.
+    Written while no cell-type data was committed, this asserted every bundle
+    empty and both counts 0, and the section's example carried rounded values
+    with only its key set checked. Since Farah et al. 2024 landed (2026-11-02)
+    the example is TBX5's own entry, held to the published one through
+    `_agrees` like the other real examples, and the coverage sentence is held
+    to `counts` and to the published genes the dataset leaves out, each named
+    (measured that day: 118 of 119, CRIPTO alone without).
     """
-    bundle = json.loads(next((site / "genes").glob("HGNC_*.json")).read_text())
-    assert bundle["cell_type_expression"] == {"datasets": []}
     counts = json.loads((site / "manifest.json").read_text())["counts"]
-    assert counts["cell_type_genes"] == counts["cell_type_datasets"] == 0
+    bundles = _bundles(site)
+    without = [b["symbol"] for b in bundles if not b["cell_type_expression"]["datasets"]]
+    assert counts["cell_type_genes"] == len(bundles) - len(without)
+    tbx5 = json.loads((site / "genes" / "HGNC_11604.json").read_text())
 
     doc = DOC.read_text()
     heading = (
@@ -1512,12 +1566,17 @@ def test_the_doc_documents_the_cell_type_expression_bundle_key(site: Path) -> No
     section = section[: section.index("\n## ")]
     prose = " ".join(re.sub(r"```.*?```", "", section, flags=re.S).split())
     assert len(prose.split()) <= 150
+    assert counts["cell_type_datasets"] == 1
+    assert (
+        f"`hoc` (Farah et al. 2024) covers {counts['cell_type_genes']} of the "
+        f"{counts['genes']} published genes."
+    ) in prose
+    for symbol in without:
+        assert f"{symbol} has none" in prose, symbol
     assert "not evidence against a gene" in prose
     assert "9 to 15 weeks" in prose
     assert "no heart had at least 10 cells" in prose
-    example = json.loads(re.search(r"```json\n(.*?)```", section, re.S).group(1))  # type: ignore[union-attr]
-    dataset = example["datasets"][0]
-    assert set(dataset) == {
-        "dataset", "unit", "detection_floor", "n_donors", "specificity", "cell_types",
-    }  # fmt: skip
+    block = re.search(r"```json\n(.*?)```", section, re.S)
+    assert block, "no JSON example in the cell-type section"
+    _agrees(_abridged(block.group(1)), tbx5["cell_type_expression"], "cell_type_expression")
     assert "`2.20`" in " ".join(doc.split())

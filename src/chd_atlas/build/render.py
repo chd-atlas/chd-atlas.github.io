@@ -89,6 +89,11 @@ STYLESHEET: Final = """
        there is; absence is drawn as absence rather than as a third colour. */
     --evidence: #0284c7; --evidence-soft: #e0f2fe; --on-evidence: #ffffff;
     --surface: #ffffff;
+    /* The organ grid's four fixed bins, one hue at four steps (an ordered
+       quantity). The dark steps are their own values, not the light ones
+       flipped: on a dark page the low bin must sit near the background and
+       the high bin must be the brightest. */
+    --heat-1: #bae6fd; --heat-2: #38bdf8; --heat-3: #0284c7; --heat-4: #075985;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -101,6 +106,7 @@ STYLESHEET: Final = """
       --grade-1: #94a3b8; --grade-1-fg: #0f172a;
       --evidence: #38bdf8; --evidence-soft: #082f49; --on-evidence: #0b0f17;
       --surface: #131b28;
+      --heat-1: #0c4a6e; --heat-2: #0369a1; --heat-3: #0ea5e9; --heat-4: #7dd3fc;
     }
   }
   * { box-sizing: border-box; }
@@ -190,6 +196,7 @@ STYLESHEET: Final = """
     font-variant-numeric: tabular-nums; white-space: nowrap;
   }
   .strip-legend { color: var(--muted); font-size: 0.85rem; margin: 0.5rem 0 0; }
+  .glance { margin: 0.25rem 0 0.5rem; }
   /* One legend entry -- a glyph and the sentence it captions -- as a single
      unbreakable unit. Without this the line can break immediately after the
      glyph, orphaning "not tested by that dataset" from any mark at ordinary
@@ -350,8 +357,10 @@ STYLESHEET: Final = """
   /* A row gap rather than a margin on `dt`: the margin pushed each chip below
      the first line of its own gloss, since `dd` had none. */
   .grade-key dl { row-gap: 0.6rem; }
-  .layout { display: grid; grid-template-columns: 18rem 1fr; gap: 2.5rem; }
-  @media (max-width: 52rem) { .layout { grid-template-columns: 1fr; } }
+  /* `minmax(0, 1fr)`: a bare `1fr` grows to its widest table, which pushed
+     47 of 119 gene pages past a 1,280px window. */
+  .layout { display: grid; grid-template-columns: 18rem minmax(0, 1fr); gap: 2.5rem; }
+  @media (max-width: 52rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
   .rail {
     font-size: 0.88rem; background: var(--surface); padding: 1.5rem;
     border-radius: 12px; border: 1px solid var(--border); height: fit-content;
@@ -529,10 +538,9 @@ STYLESHEET: Final = """
     display: inline-block; margin: 0.2rem 0 0.75rem;
   }
 
-  /* The biological-mechanism callout that leads each study card: it makes the
-     LoF-vs-missense contrast (the disease-mechanism takeaway) visible at a
-     glance instead of burying it in repeated forest-plot rows. Emitted by
-     `_study_mechanism_summary`. */
+  /* The finding callout that leads each study card: which consequence classes
+     survive the study's own correction, visible at a glance instead of buried
+     in repeated forest-plot rows. Emitted by `_study_finding_summary`. */
   .finding-card {
     border-radius: 10px; padding: 0.9rem 1.05rem; margin: 0.75rem 0 0.5rem;
     border: 1px solid var(--border); border-left-width: 4px;
@@ -606,23 +614,16 @@ STYLESHEET: Final = """
   .ct-ring { fill: none; stroke: var(--muted); stroke-width: 1.2; }
   .chart { width: 100%; height: auto; max-width: 40rem; overflow: visible; }
   .chart-line { fill: none; stroke: var(--link); stroke-width: 2; }
-  .chart-context {
-    fill: none; stroke: var(--muted); stroke-width: 1.2;
-    stroke-dasharray: 4 3; stroke-opacity: 0.7;
-  }
   .chart-hit { fill: none; stroke: none; pointer-events: all; }
-  .chart-context-group:hover .chart-context {
-    stroke: var(--fg); stroke-width: 2.2; stroke-opacity: 1;
-  }
   .chart-point { fill: var(--link); }
   .chart-point-open { fill: var(--bg); stroke: var(--link); stroke-width: 1.6; }
   .chart-axis { stroke: var(--border); }
   .chart-band { fill: var(--notice-bg); }
+  .chart-strip { fill: var(--muted); fill-opacity: 0.55; }
   .chart-absent { fill: var(--border); }
   .chart-control { stroke: var(--muted); fill: none; }
   .chart-control-point { fill: var(--muted); }
   .chart-nointerval { stroke: var(--border); stroke-width: 4; stroke-dasharray: 2 3; }
-  .chart-cardiac { stroke: var(--link); stroke-width: 2; fill: none; }
   .chart-arrow { fill: var(--link); }
   .chart-arrow-open { fill: var(--bg); stroke: var(--link); stroke-width: 1.6; }
   .chart-control-arrow { fill: var(--muted); }
@@ -632,6 +633,8 @@ STYLESHEET: Final = """
      class; the `<tspan>` rule above is the other one that sets a text fill. */
   .chart-label { fill: var(--fg); font-size: 0.6rem; }
   .chart-tick-label { fill: var(--muted); font-size: 0.5rem; }
+  .chart-tick-label.cardiac { fill: var(--fg); font-weight: 700; }
+  .chart-tick-label.unsampled { fill: var(--muted); fill-opacity: 0.5; }
   .chart-axis-title { fill: var(--muted); font-size: 0.55rem; }
   .chart-grid { stroke: var(--border); stroke-dasharray: 2 3; fill: none; }
   /* One marker a forest plot might want is deliberately absent from the list
@@ -644,15 +647,38 @@ STYLESHEET: Final = """
      asserts is absent from a one-study page -- and naming the class here would
      put the very token a page-wide check greps for onto every page. Reason
      and class name both live in the module that emits the geometry. */
-  .sparks {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
-    gap: 0.3rem;
+  /* The bulk figure's own scroller: the svg keeps a floor width, and the figure
+     scrolls inside this box instead of the page scrolling sideways. Measured in
+     headless Chrome in a 390 px iframe (it will not go below 500 px itself):
+     at 560 px the stage labels rendered at 8.96 px and the smallest text at
+     8.80 px; at 640 px they render at 10.24 px and the smallest at 10.06 px. */
+  .chart-scroll { overflow-x: auto; margin: 0.5rem 0; }
+  .chart-scroll .chart { min-width: 640px; max-width: none; }
+  /* The organ grid: a fixed bin per shade (--heat-N), then the two unplaced
+     states drawn as absence rather than as the bottom of the ramp. */
+  .heat-1 { fill: var(--heat-1); }
+  .heat-2 { fill: var(--heat-2); }
+  .heat-3 { fill: var(--heat-3); }
+  .heat-4 { fill: var(--heat-4); }
+  .heat-floor { fill: var(--surface); stroke: var(--border); }
+  .heat-gap { fill: var(--surface); stroke: var(--muted); stroke-dasharray: 2 2; }
+  .cell-dot { fill: var(--muted); }
+  .heat-key .legend-item { margin-right: 0.9rem; }
+  .heat-swatch {
+    display: inline-block; width: 0.8em; height: 0.8em; border-radius: 2px;
+    vertical-align: -0.08em; border: 1px solid var(--border);
   }
-  .spark {
-    margin: 0; border: 1px solid var(--border); border-radius: 4px;
-    padding: 0.2rem;
+  .heat-swatch.heat-1 { background: var(--heat-1); }
+  .heat-swatch.heat-2 { background: var(--heat-2); }
+  .heat-swatch.heat-3 { background: var(--heat-3); }
+  .heat-swatch.heat-4 { background: var(--heat-4); }
+  .heat-swatch.heat-floor { background: var(--surface); position: relative; }
+  .heat-swatch.heat-floor::after {
+    content: ""; position: absolute; left: 50%; top: 50%; width: 3px; height: 3px;
+    margin: -1.5px 0 0 -1.5px; border-radius: 50%; background: var(--muted);
   }
-  .spark figcaption { font-size: 0.6rem; color: var(--muted); }
+  .heat-swatch.heat-gap { background: var(--surface); border: 1px dashed var(--muted); }
+  .heat-swatch.heat-blank { background: transparent; }
   .forest {
     margin: 1rem 0; border: 1px solid var(--border); border-radius: 8px;
     background: var(--surface); padding: 1.25rem;
@@ -661,8 +687,7 @@ STYLESHEET: Final = """
   .forest figcaption { font-size: 0.82rem; color: var(--muted); margin-top: 0.5rem; }
   .forest figcaption p { margin: 0.25rem 0; }
   /* The forest fills its card instead of stopping at 40rem, and its marks scale with it. */
-  .forest .chart, h3 + svg.chart { max-width: none; }
-  h3 + svg.chart { margin: 0.5rem 0; }
+  .forest .chart { max-width: none; }
   svg.chart .chart-tick-label { font-size: 0.56rem; }
   .forest .chart-point, .forest .chart-point-open { r: 4.5; }
   .forest .chart-line, .forest .chart-control { stroke-width: 2.6; }
