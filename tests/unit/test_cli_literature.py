@@ -11,10 +11,12 @@ test replaces it.
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 from collections.abc import Callable
 from datetime import date
 from pathlib import Path
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -564,3 +566,566 @@ def test_a_canonical_file_keeps_every_line_and_another_indent_is_normalised_once
     assert new["searches"][0] == old["searches"][0]  # type: ignore[index]
     assert new["triage"][0] == old["triage"][0]  # type: ignore[index]
     assert "\n  - id: 1\n    source: pubmed\n" in text  # now canonical
+
+
+# --------------------------------------------------------------------------
+# diff / review (Task 4)
+# --------------------------------------------------------------------------
+
+LITERATURE = """\
+# Curator's head comment -- must survive every write.
+gene: HGNC:11604
+searches:
+  - id: 1
+    source: pubmed
+    query: TBX5[tiab]
+    run_on: 2026-11-02
+    hits: 3
+    new_hits: 3
+triage:
+  - pmid: PMID:8988165
+    search: 1
+    decision: included
+findings:
+  - id: CHDA:LIT:0000001
+    publication: PMID:8988165
+    design: cohort_screen
+    methods:
+      - exome
+    count_unit: probands
+    screened: 7
+    carriers:
+      de_novo: 2
+      inherited: 1
+      origin_unknown: 3
+    variant_classes:
+      - snv_indel
+    phenotypes:
+      - HP:0001631
+    lesion_groups:
+      - septal
+    syndromic: both
+    cohorts:
+      - alpha_cohort
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Table 2 & <3>
+    summary: Six of seven probands carry a variant.
+    extracted_by: agent:extract/test
+  # A comment between two findings.
+  - id: CHDA:LIT:0000002
+    publication: PMID:111
+    design: common_variant_association
+    methods:
+      - genotyping_array
+    cases: 11
+    controls: 13
+    p_value: 0.02
+    odds_ratio: 1.5
+    phenotypes:
+      - HP:0001631
+    lesion_groups:
+      - septal
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - kind: supplementary
+        file: s1.xlsx
+        sheet: Sheet 1
+        row: 4
+    summary: A GWAS hit.
+    extracted_by: agent:extract/test
+    verified_by: agent:verify/earlier
+  - id: CHDA:LIT:0000003
+    publication: PMID:222
+    design: case_report
+    methods:
+      - targeted_sequencing
+    count_unit: probands
+    screened: 1
+    carriers:
+      de_novo: 1
+      inherited: 0
+      origin_unknown: 0
+    variant_classes:
+      - snv_indel
+    phenotypes:
+      - HP:0001631
+    lesion_groups:
+      - conotruncal
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: A proband.
+    extracted_by: agent:extract/test
+    approved_by: Dr. Ada Curator
+    approved_on: 2026-10-01
+  - id: CHDA:LIT:0000004
+    publication: PMID:333
+    design: case_report
+    methods:
+      - targeted_sequencing
+    count_unit: probands
+    screened: 1
+    carriers:
+      de_novo: 0
+      inherited: 1
+      origin_unknown: 0
+    variant_classes:
+      - snv_indel
+    phenotypes:
+      - HP:0001631
+    lesion_groups:
+      - septal
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: Another proband.
+    extracted_by: agent:extract/test
+"""
+
+VERIFIER = """\
+findings:
+  - id: CHDA:LIT:0000001
+    publication: PMID:8988165
+    design: cohort_screen
+    methods:
+      - exome
+    count_unit: probands
+    screened: 7
+    carriers:
+      de_novo: 2
+      inherited: 1
+      origin_unknown: 3
+    variant_classes:
+      - snv_indel
+    phenotypes:
+      - HP:0001631
+    lesion_groups:
+      - septal
+    syndromic: both
+    cohorts:
+      - alpha_cohort
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Table 2, worded differently
+    summary: Different words, same finding.
+    extracted_by: agent:verify/blind
+  - id: CHDA:LIT:0000002
+    publication: PMID:111
+    design: common_variant_association
+    methods:
+      - genotyping_array
+    cases: 11
+    controls: 13
+    p_value: 0.02
+    odds_ratio: 1.5
+    phenotypes:
+      - HP:0001631
+    lesion_groups:
+      - septal
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: A GWAS hit.
+    extracted_by: agent:verify/blind
+  - id: CHDA:LIT:0000003
+    publication: PMID:222
+    design: case_report
+    methods:
+      - targeted_sequencing
+    count_unit: probands
+    screened: 1
+    carriers:
+      de_novo: 1
+      inherited: 0
+      origin_unknown: 0
+    variant_classes:
+      - snv_indel
+    phenotypes:
+      - HP:0001631
+    lesion_groups:
+      - conotruncal
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: A proband.
+    extracted_by: agent:verify/blind
+  - id: CHDA:LIT:0000004
+    publication: PMID:333
+    design: case_report
+    methods:
+      - targeted_sequencing
+    count_unit: probands
+    screened: 1
+    carriers:
+      de_novo: 1
+      inherited: 0
+      origin_unknown: 0
+    variant_classes:
+      - snv_indel
+    phenotypes:
+      - HP:0001631
+    lesion_groups:
+      - septal
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: Another proband, counted differently.
+    extracted_by: agent:verify/blind
+  - id: CHDA:LIT:0000005
+    publication: PMID:999
+    design: case_report
+    methods:
+      - exome
+    count_unit: probands
+    screened: 1
+    carriers:
+      de_novo: 1
+      inherited: 0
+      origin_unknown: 0
+    variant_classes:
+      - snv_indel
+    phenotypes:
+      - HP:0001631
+    lesion_groups:
+      - septal
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: Only the blind pass found this.
+    extracted_by: agent:verify/blind
+"""
+
+FINDING_ID = re.compile(r"(?m)^  - id: (CHDA:LIT:\d{7})\n")
+
+
+@pytest.fixture
+def lit_path(root: Path) -> Path:
+    path = root / "curation" / "literature" / "TBX5.yaml"
+    path.parent.mkdir()
+    path.write_text(LITERATURE)
+    return path
+
+
+def _blocks(text: str) -> dict[str, str]:
+    """Each finding's exact text, by id; "head" is everything before the first."""
+    marks = list(FINDING_ID.finditer(text))
+    blocks = {"head": text[: marks[0].start()]}
+    for mark, nxt in zip(marks, [*marks[1:], None], strict=True):
+        blocks[mark.group(1)] = text[mark.start() : nxt.start() if nxt else len(text)]
+    return blocks
+
+
+def _second(root: Path, text: str = VERIFIER) -> Path:
+    path = root / "local" / "second.yaml"
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(text)
+    return path
+
+
+def _diff(root: Path, against: Path, *args: str) -> Any:
+    return runner.invoke(
+        app,
+        ["literature", "diff", "TBX5", "--against", str(against), *args, "--root", str(root)],
+    )
+
+
+def _review(root: Path, *args: str) -> Any:
+    return runner.invoke(app, ["literature", "review", "TBX5", *args, "--root", str(root)])
+
+
+def test_the_diff_prints_what_differs_and_writes_nothing(root: Path, lit_path: Path) -> None:
+    before = lit_path.read_bytes()
+    result = _diff(root, _second(root))
+
+    assert result.exit_code == 0, result.stdout  # differences are output, not an error
+    assert result.stdout == (
+        "agreed (3): CHDA:LIT:0000001, CHDA:LIT:0000002, CHDA:LIT:0000003\n"
+        "only in the first pass (0): none\n"
+        "only in the second pass (1): CHDA:LIT:0000005\n"
+        "differ (1):\n"
+        "  CHDA:LIT:0000004\n"
+        '    carriers: first {"de_novo": 0, "inherited": 1, "origin_unknown": 0}'
+        ' | second {"de_novo": 1, "inherited": 0, "origin_unknown": 0}\n'
+    )
+    assert lit_path.read_bytes() == before
+
+
+def test_mark_verified_stamps_only_agreeing_unverified_findings(root: Path, lit_path: Path) -> None:
+    before = _blocks(lit_path.read_text())
+    result = _diff(root, _second(root), "--mark-verified", "agent:verify/blind")
+
+    assert result.exit_code == 0, result.stdout
+    assert result.stdout.endswith("marked verified (2): CHDA:LIT:0000001, CHDA:LIT:0000003\n")
+    after = _blocks(lit_path.read_text())
+    assert after["head"] == before["head"]
+    # 1 and 3 agreed and were unverified: one line each, right after extracted_by.
+    assert after["CHDA:LIT:0000001"] == before["CHDA:LIT:0000001"].replace(
+        "    extracted_by: agent:extract/test\n",
+        "    extracted_by: agent:extract/test\n    verified_by: agent:verify/blind\n",
+    )
+    assert after["CHDA:LIT:0000003"] == before["CHDA:LIT:0000003"].replace(
+        "    extracted_by: agent:extract/test\n",
+        "    extracted_by: agent:extract/test\n    verified_by: agent:verify/blind\n",
+    )
+    # 2 agreed but already carries a verifier: untouched. 4 differs: untouched.
+    assert after["CHDA:LIT:0000002"] == before["CHDA:LIT:0000002"]
+    assert after["CHDA:LIT:0000004"] == before["CHDA:LIT:0000004"]
+    assert (
+        "approved_by: Dr. Ada Curator\n    approved_on: 2026-10-01\n" in after["CHDA:LIT:0000003"]
+    )
+
+
+def test_a_second_pass_key_shared_by_two_findings_verifies_nothing(
+    root: Path, lit_path: Path
+) -> None:
+    twin = (
+        VERIFIER.split("  - id: CHDA:LIT:0000002")[0]
+        .removeprefix("findings:\n")
+        .replace("CHDA:LIT:0000001", "CHDA:LIT:0000006")
+    )
+    before = lit_path.read_bytes()
+    second = _second(
+        root, VERIFIER.replace("  - id: CHDA:LIT:0000002", twin + "  - id: CHDA:LIT:0000002", 1)
+    )
+
+    result = _diff(root, second, "--mark-verified", "agent:verify/blind")
+
+    assert result.exit_code == 0, result.stdout
+    assert "only in the first pass (1): CHDA:LIT:0000001" in result.stdout
+    assert (
+        "only in the second pass (3): CHDA:LIT:0000001, CHDA:LIT:0000005, CHDA:LIT:0000006"
+        in result.stdout
+    )
+    assert result.stdout.endswith("marked verified (1): CHDA:LIT:0000003\n")
+    assert (
+        "verified_by: agent:verify/blind" not in _blocks(lit_path.read_text())["CHDA:LIT:0000001"]
+    )
+    assert lit_path.read_bytes() != before
+
+
+@pytest.mark.parametrize(
+    ("args", "needle"),
+    [
+        (["--mark-verified", "Dr. Ada"], "agent:"),
+        (["--mark-verified", ""], "agent:"),
+    ],
+)
+def test_diff_refuses_a_verifier_that_is_not_an_agent(
+    root: Path, lit_path: Path, args: list[str], needle: str
+) -> None:
+    before = lit_path.read_bytes()
+    result = _diff(root, _second(root), *args)
+    assert result.exit_code == 2 and needle in result.stdout
+    assert lit_path.read_bytes() == before
+
+
+def test_diff_names_a_missing_file_a_missing_verifier_and_a_bad_verifier(
+    root: Path, lit_path: Path
+) -> None:
+    missing = runner.invoke(
+        app,
+        ["literature", "diff", "GATA4", "--against", str(_second(root)), "--root", str(root)],
+    )
+    assert missing.exit_code == 2
+    assert str(root / "curation" / "literature" / "GATA4.yaml") in missing.stdout
+
+    absent = _diff(root, root / "local" / "nope.yaml")
+    assert absent.exit_code == 2 and "nope.yaml" in absent.stdout
+
+    broken = _diff(root, _second(root, "findings:\n  - id: CHDA:LIT:0000001\n"))
+    assert broken.exit_code == 1 and "error:" in broken.stdout
+
+    duplicate = _diff(root, _second(root, VERIFIER + VERIFIER.split("findings:\n", 1)[1]))
+    assert duplicate.exit_code == 1 and "duplicate" in duplicate.stdout
+
+    # a verifier pass is held to the same per-record rules (approved_by an agent)
+    approved = _diff(
+        root,
+        _second(
+            root,
+            VERIFIER.replace(
+                "    summary: A GWAS hit.\n",
+                "    summary: A GWAS hit.\n    approved_by: agent:x\n    approved_on: 2026-11-02\n",
+            ),
+        ),
+    )
+    assert approved.exit_code == 1 and "approved_by" in approved.stdout
+
+
+def test_the_review_listing_pins_one_finding(root: Path, lit_path: Path) -> None:
+    result = _review(root)
+
+    assert result.exit_code == 0, result.stdout
+    blocks = result.stdout.split("\n\n")
+    one = next(b for b in blocks if b.startswith("CHDA:LIT:0000001"))
+    assert one == (
+        "CHDA:LIT:0000001  https://pubmed.ncbi.nlm.nih.gov/8988165/  cohort_screen  UNVERIFIED\n"
+        "  screened 7 probands; carriers 6 (de novo 2, inherited 1, origin unknown 3)\n"
+        "  locators: Table 2 & <3>\n"
+        "  Six of seven probands carry a variant."
+    )
+    two = next(b for b in blocks if b.startswith("CHDA:LIT:0000002"))
+    assert two == (
+        "CHDA:LIT:0000002  https://pubmed.ncbi.nlm.nih.gov/111/  common_variant_association"
+        "  agent:verify/earlier\n"
+        "  cases 11, controls 13, p 0.02, OR 1.5\n"
+        "  locators: s1.xlsx / Sheet 1 / row 4\n"
+        "  A GWAS hit."
+    )
+    # CHDA:LIT:0000003 is approved: not listed. Order is by id.
+    assert [b[:16] for b in blocks if b.strip()] == [
+        "CHDA:LIT:0000001",
+        "CHDA:LIT:0000002",
+        "CHDA:LIT:0000004",
+    ]
+
+
+def test_approve_sets_both_fields_and_changes_no_other_byte(root: Path, lit_path: Path) -> None:
+    before = lit_path.read_text()
+    result = _review(
+        root, "--approve", "CHDA:LIT:0000002", "--by", "Dr. Grace Hopper", "--on", "2026-11-03"
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert result.stdout == "approved CHDA:LIT:0000002 (Dr. Grace Hopper, 2026-11-03)\n"
+    old, new = _blocks(before), _blocks(lit_path.read_text())
+    assert new["CHDA:LIT:0000002"] == old["CHDA:LIT:0000002"].replace(
+        "    verified_by: agent:verify/earlier\n",
+        "    verified_by: agent:verify/earlier\n"
+        "    approved_by: Dr. Grace Hopper\n    approved_on: 2026-11-03\n",
+    )
+    for other in ("head", "CHDA:LIT:0000001", "CHDA:LIT:0000003", "CHDA:LIT:0000004"):
+        assert new[other] == old[other]
+
+
+def test_approve_defaults_the_date_to_today_and_takes_several_ids(
+    root: Path, lit_path: Path
+) -> None:
+    result = _review(
+        root,
+        "--approve",
+        "CHDA:LIT:0000004",
+        "--approve",
+        "CHDA:LIT:0000002",
+        "--by",
+        "Dr. Grace Hopper",
+        "--allow-unverified",
+    )
+    assert result.exit_code == 0, result.stdout
+    today = date.today().isoformat()
+    assert result.stdout == (
+        f"approved CHDA:LIT:0000002 (Dr. Grace Hopper, {today})\n"
+        f"approved CHDA:LIT:0000004 (Dr. Grace Hopper, {today})\n"
+    )
+    new = _blocks(lit_path.read_text())
+    assert new["CHDA:LIT:0000004"].endswith(
+        f"    extracted_by: agent:extract/test\n    approved_by: Dr. Grace Hopper\n"
+        f"    approved_on: {today}\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("args", "needle"),
+    [
+        (["--approve", "CHDA:LIT:0000002", "--by", "agent:review/x"], "agent"),
+        (["--approve", "CHDA:LIT:0000002", "--by", "  Agent:review/x"], "agent"),
+        (["--approve", "CHDA:LIT:0000002", "--by", "   "], "--by"),
+        (["--approve", "CHDA:LIT:0000002"], "--by"),
+        (["--approve", "CHDA:LIT:0000002", "--by", "A", "--on", "2026-13-40"], "--on"),
+        (["--approve", "CHDA:LIT:0000009", "--by", "A"], "CHDA:LIT:0000009"),
+        (["--approve", "CHDA:LIT:0000003", "--by", "Someone Else"], "already approved"),
+        (["--approve", "CHDA:LIT:0000001", "--by", "A"], "unverified"),
+        # one bad id refuses the whole request: nothing is written for the good one
+        (
+            ["--approve", "CHDA:LIT:0000002", "--approve", "CHDA:LIT:0000001", "--by", "A"],
+            "unverified",
+        ),
+        (
+            ["--approve", "CHDA:LIT:0000002", "--pending-review", "CHDA:LIT:0000001", "--by", "A"],
+            "not both",
+        ),
+        (["--pending-review", "CHDA:LIT:0000001"], "--note"),
+        (["--pending-review", "CHDA:LIT:0000001", "--note", "  "], "--note"),
+        (["--pending-review", "CHDA:LIT:0000009", "--note", "x"], "CHDA:LIT:0000009"),
+        (["--note", "x"], "--pending-review"),
+        (["--by", "A"], "--approve"),
+    ],
+)
+def test_every_refusal_exits_two_and_writes_nothing(
+    root: Path, lit_path: Path, args: list[str], needle: str
+) -> None:
+    before = lit_path.read_bytes()
+    result = _review(root, *args)
+    assert result.exit_code == 2, result.stdout
+    assert needle in result.stdout
+    assert lit_path.read_bytes() == before
+
+
+def test_pending_review_sets_the_pair_and_nothing_else(root: Path, lit_path: Path) -> None:
+    before = _blocks(lit_path.read_text())
+    result = _review(
+        root, "--pending-review", "CHDA:LIT:0000003", "--note", "Table 2 says 7; the text says 8."
+    )
+
+    assert result.exit_code == 0, result.stdout
+    after = _blocks(lit_path.read_text())
+    assert after["CHDA:LIT:0000003"] == before["CHDA:LIT:0000003"] + (
+        "    review_status: pending_review\n    review_note: Table 2 says 7; the text says 8.\n"
+    )
+    for other in ("head", "CHDA:LIT:0000001", "CHDA:LIT:0000002", "CHDA:LIT:0000004"):
+        assert after[other] == before[other]
+    # a second mark would overwrite the first note
+    again = _review(root, "--pending-review", "CHDA:LIT:0000003", "--note", "other")
+    assert again.exit_code == 2 and "already" in again.stdout
+
+
+def test_review_without_a_file_names_the_expected_path(root: Path) -> None:
+    result = _review(root)
+    assert result.exit_code == 2
+    assert str(root / "curation" / "literature" / "TBX5.yaml") in result.stdout
+
+
+def test_a_write_the_model_would_refuse_is_never_made(lit_path: Path) -> None:
+    from chd_atlas.gene_literature_io import LiteratureFileError, with_findings_updated
+
+    raw = lit_path.read_bytes()
+    with pytest.raises(LiteratureFileError):
+        with_findings_updated(raw, {"CHDA:LIT:0000004": {"approved_by": "Dr. A"}})
+    with pytest.raises(LiteratureFileError):
+        with_findings_updated(
+            raw,
+            {"CHDA:LIT:0000004": {"approved_by": "agent:x", "approved_on": date(2026, 11, 2)}},
+        )
+    with pytest.raises(LiteratureFileError):
+        with_findings_updated(raw, {"CHDA:LIT:0000099": {"verified_by": "agent:x"}})
+
+
+def test_the_review_listing_is_ordered_by_id_not_by_file_order(root: Path, lit_path: Path) -> None:
+    blocks = _blocks(lit_path.read_text())
+    ids = ["CHDA:LIT:0000004", "CHDA:LIT:0000002", "CHDA:LIT:0000001"]
+    lit_path.write_text(blocks["head"] + "".join(blocks[i] for i in ids))
+
+    result = _review(root)
+
+    assert result.exit_code == 0, result.stdout
+    assert [line[:16] for line in result.stdout.splitlines() if line.startswith("CHDA:")] == [
+        "CHDA:LIT:0000001",
+        "CHDA:LIT:0000002",
+        "CHDA:LIT:0000004",
+    ]

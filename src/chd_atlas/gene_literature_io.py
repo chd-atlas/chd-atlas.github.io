@@ -16,6 +16,10 @@ Two files, two strategies, chosen by what each needs to preserve:
   (ruling R7 -- the file is in curation order, not sorted, and no validator
   sorts it).
 
+`with_findings_updated` sets fields on named findings (verification, approval,
+a review mark) under the same rule: the lines it adds are the only change, and
+a comment that followed the entry moves to the new last line with it.
+
 Both return **bytes** and write nothing: the caller serialises, validates and
 only then writes (`fs.write_bytes_atomically`), so a failure anywhere leaves the
 file as it was.
@@ -23,15 +27,18 @@ file as it was.
 
 from __future__ import annotations
 
+import copy
 from datetime import date
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict, Field
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
-from chd_atlas.models.gene_literature import GeneLiteratureFile
+from chd_atlas.duplicates import duplicates
+from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile
 from chd_atlas.models.literature import Publication, PublicationFile
 
 
@@ -76,6 +83,96 @@ def parse_literature(raw: bytes) -> GeneLiteratureFile:
         return GeneLiteratureFile.model_validate(data)
     except Exception as exc:  # YAMLError or pydantic.ValidationError
         raise LiteratureFileError(str(exc)) from exc
+
+
+class _FindingsFile(BaseModel):
+    """A verifier's output: `findings:` and nothing else (ruling R10)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    findings: list[Finding] = Field(default_factory=list)
+
+
+def parse_findings_file(raw: bytes) -> list[Finding]:
+    """The findings of a blind second pass, or `LiteratureFileError` naming why not.
+
+    Each is held to the same per-record rules as a curated finding. Ids are
+    local to the file and are not checked against the id registry; duplicates
+    within the file are refused.
+    """
+    try:
+        loaded = _FindingsFile.model_validate(YAML(typ="safe").load(raw))
+    except Exception as exc:  # YAMLError or pydantic.ValidationError
+        raise LiteratureFileError(str(exc)) from exc
+    repeated = duplicates(f.id for f in loaded.findings)
+    if repeated:
+        raise LiteratureFileError(f"duplicate finding ids: {repeated}")
+    return loaded.findings
+
+
+def _carry_trailing_comment(entry: CommentedMap, old_last: str, new_last: str) -> None:
+    """Move the comment lines that followed an entry's last key to its new last key.
+
+    ruamel hangs the comment between two list items (`# a note` above the next
+    finding) on the previous item's last key. Appending a key after that one
+    would leave the note stranded between two fields of the same finding; a
+    same-line comment (`key: v  # why`) stays where it was.
+    """
+    slot = entry.ca.items.get(old_last)
+    token = slot[2] if slot else None
+    if (
+        token is None
+        or not isinstance(token.value, str)
+        or isinstance(entry[old_last], list | dict)
+    ):
+        return
+    first, newline, rest = token.value.partition("\n")
+    if not rest.strip():
+        return
+    moved = copy.copy(token)
+    moved.value = "\n" + rest
+    token.value = first + newline if first.strip() else ""
+    if not token.value:
+        entry.ca.items.pop(old_last)
+    entry.ca.items[new_last] = [None, None, moved, None]
+
+
+def with_findings_updated(existing: bytes, updates: dict[str, dict[str, Any]]) -> bytes:
+    """The file's new content with fields set on the named findings.
+
+    `updates` maps a finding id to `{field: value}`. A field already in the
+    entry keeps its place; a new one goes right after the last field that
+    precedes it in `Finding`'s own order, so the entry reads in model order.
+    Everything else is round-tripped as `load_round_trip` keeps it. A date is
+    copied per entry, never shared. The result
+    is checked through `GeneLiteratureFile` before it is returned, so a change
+    the model would refuse is never produced; an unknown id is refused too.
+    """
+    data = load_round_trip(existing)
+    entries = {str(f.get("id")): f for f in data.get("findings") or []}
+    missing = sorted(set(updates) - set(entries))
+    if missing:
+        raise LiteratureFileError(f"no such finding: {', '.join(missing)}")
+    order = list(Finding.model_fields)
+    for finding_id, fields in updates.items():
+        entry = entries[finding_id]
+        for name, value in fields.items():
+            if isinstance(value, date):
+                # One shared date object would be dumped once as a YAML anchor
+                # and aliased (`*id001`) in every other finding it was set on.
+                value = date(value.year, value.month, value.day)
+            if name in entry:
+                entry[name] = value
+                continue
+            before = [k for k in entry if k in order and order.index(k) < order.index(name)]
+            position = max((list(entry).index(k) for k in before), default=-1) + 1
+            last = list(entry)[-1] if position == len(entry) else None
+            entry.insert(position, name, value)
+            if last is not None:
+                _carry_trailing_comment(entry, last, name)
+    content = dump_bytes(data)
+    parse_literature(content)
+    return content
 
 
 def pmid_key(pmid: str) -> int:
