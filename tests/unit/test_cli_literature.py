@@ -1157,7 +1157,14 @@ _HEADER = (
 )
 
 
-def _entry(number: int, *, last: str | None = None, verified: bool, trailer: str = "") -> str:
+def _entry(
+    number: int,
+    *,
+    last: str | None = None,
+    verified: bool,
+    trailer: str = "",
+    eol: str = "",
+) -> str:
     """One finding; `last` moves that key to the end (hand-ordered files), `trailer`
     is whatever separates it from the next finding."""
     keys = list(_CHUNKS)
@@ -1165,6 +1172,8 @@ def _entry(number: int, *, last: str | None = None, verified: bool, trailer: str
         keys.remove(last)
         keys.append(last)
     body = "".join(_CHUNKS[k].format(pmid=1000 + number) for k in keys)
+    if eol:  # a same-line comment on the last key, which holds a collection
+        body = body.replace(f"    {last}:\n", f"    {last}:  {eol}\n")
     if verified:
         body = body.replace(
             _CHUNKS["extracted_by"], _CHUNKS["extracted_by"] + "    verified_by: agent:v\n"
@@ -1173,12 +1182,14 @@ def _entry(number: int, *, last: str | None = None, verified: bool, trailer: str
 
 
 LAYOUTS = {
-    "blank line": (None, "\n"),
-    "comment then blank": (None, "  # note about the next one\n\n"),
-    "comment": (None, "  # note about the next one\n"),
-    "list last then comment": ("locators", "  # note about the next one\n"),
-    "list last then blank": ("locators", "\n"),
-    "mapping last then comment and blank": ("carriers", "  # note\n\n"),
+    "blank line": (None, "\n", ""),
+    "comment then blank": (None, "  # note about the next one\n\n", ""),
+    "comment": (None, "  # note about the next one\n", ""),
+    "list last then comment": ("locators", "  # note about the next one\n", ""),
+    "list last then blank": ("locators", "\n", ""),
+    "mapping last then comment and blank": ("carriers", "  # note\n\n", ""),
+    "same-line comment on a mapping, then blank": ("carriers", "\n", "# from Table 2"),
+    "same-line comment on a list, then blank": ("locators", "\n", "# from Table 2"),
 }
 
 
@@ -1196,11 +1207,11 @@ def _assert_only_lines_added(before: str, after: str, edited: str, added: list[s
 
 
 def _layout_file(root: Path, layout: str, *, verified: bool) -> tuple[Path, str]:
-    last, trailer = LAYOUTS[layout]
+    last, trailer, eol = LAYOUTS[layout]
     text = (
         _HEADER
         + _entry(1, verified=verified, trailer="\n")
-        + _entry(2, last=last, verified=verified, trailer=trailer)
+        + _entry(2, last=last, verified=verified, trailer=trailer, eol=eol)
         + _entry(3, verified=verified)
     )
     path = root / "curation" / "literature" / "TBX5.yaml"
