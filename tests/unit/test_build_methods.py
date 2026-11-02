@@ -1232,25 +1232,30 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
     """`#literature` (plan Task 6, 2026-11-02): pinned whole, against a literal.
 
     Each clause is true of the code: the query template is `pubmed.build_query`
-    (symbol and previous symbols, CHD terms, `NOT preprint[pt] NOT review[pt]`),
-    the triage has the three decisions `vocab.TriageDecision` names, the two
-    axes are `FindingDesign` and `DetectionMethod`, and approval is a named
-    person (`Finding.approved_by`). Measured: 137 words with its heading, under
-    the 160 the plan allows. The wording awaits the owner's approval (ruling R15).
+    (symbol and previous symbols, CHD terms and the gene's in-scope disease
+    names, `NOT preprint[pt] NOT review[pt]`), the triage has the three
+    decisions `vocab.TriageDecision` names, the two axes are `FindingDesign`
+    and `DetectionMethod`, the carrier's unit is `Finding.count_unit`, approval
+    is a named person (`Finding.approved_by`) and the two marks are
+    `ReviewStatus`. Measured: 156 words counting the heading as a word of its own
+    and 155 by the assertion below (tags removed unspaced, so the heading fuses
+    with the first word), under the 160 the plan allows. The wording awaits the owner's
+    approval (ruling R15).
     """
     assert _section(page, "literature") == (
         '<h2 id="literature">Literature</h2>'
         "<p>For a gene with a literature record, the atlas keeps each PubMed search it ran, "
-        "built from the gene's approved symbol and previous symbols together with congenital "
-        "heart disease terms, and excluding preprints and reviews; the gene page states the "
-        "date of the latest. Every paper a search returns is triaged: included, excluded for "
-        "a stated reason, or counted as not yet triaged. Only human genetics is kept. Each "
-        "finding is classified on two axes, the design of the study and the method that "
-        "detected the variants, and every count states what was counted. A carrier is "
-        "whatever the authors counted as one; the atlas records their definition and does not "
-        "re-classify the variants. A named curator approves each finding before it is "
-        "published; findings still awaiting approval are counted on the gene page and not "
-        "shown.</p>"
+        "built from the gene's approved and previous symbols with congenital heart disease "
+        "terms and the names of the gene's in-scope diseases, excluding preprints and "
+        "reviews; the gene page states the latest date and folds every query. Every paper a "
+        "search returns gets a decision: included, excluded for a stated reason, or pending, "
+        "counted as not yet triaged. Only human genetics is kept. Each finding is classified "
+        "by study design and detection method, and every count states its unit. A carrier is "
+        "whatever the authors counted as one, in people or families as stated; the atlas "
+        "records their counts and does not re-classify the variants. A named curator approves "
+        "each finding before publication; findings awaiting approval are counted, not shown. "
+        "A review mark says a finding's source disagrees with its paper (pending review) or "
+        "could not be read (source not accessible).</p>"
     )
     words = len(re.sub(r"<[^>]+>", "", _section(page, "literature")).split())
-    assert words <= 160
+    assert words == 155  # tags stripped unspaced, so the heading fuses with the first word

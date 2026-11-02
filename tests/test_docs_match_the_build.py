@@ -1618,3 +1618,33 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
         "A finding carrying a `review_status` is published with it",
     ):
         assert needle in prose, needle
+
+
+def test_the_doc_describes_the_literature_section_and_what_publishes_before_approval(
+    site: Path,
+) -> None:
+    """Final review S2, S3, S13, R32, R37: the sentences beside correct output (§4.20, §4.25).
+
+    Held against the build where a build can say it: the methods page has seven
+    `<h2 id>` sections (the doc said six), every gene page ends on the Literature
+    section (the doc said expression was last), and both counts are 0.
+    """
+    doc = " ".join(DOC.read_text().split())
+    methods = (site / "methods.html").read_text()
+    assert len(re.findall(r'<h2 id="[^"]+"', methods)) == 7
+    assert "It has seven sections, in this order" in doc and "six sections" not in doc
+    assert "- `#literature` says how a gene page's Literature section is built" in doc
+    page = (site / "genes" / "HGNC_11604.html").read_text()
+    assert page.rindex("<h2") == page.index("<h2>Literature</h2>")
+    assert "last on the page" not in doc
+    assert "which the Literature section follows" in doc
+    assert 'A gene with no search says only "Not yet curated."' in doc
+    assert "Both are `0` today: no `curation/literature` file exists." in doc
+    assert "`case_report`, `cohort_sequencing`, `gwas` and `candidate_variant`" in doc
+    assert "`[]` is an assertion, not an absence" in doc
+    assert "An id in the list may name a finding that is not yet approved" in doc
+    assert (
+        "publishes that record, with the `study_type` the extracting agent read, in "
+        "[`publications.json`](#publicationsjson) at the next build, whether or not any "
+        "finding of that paper has been approved"
+    ) in doc

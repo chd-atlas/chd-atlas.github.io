@@ -496,10 +496,16 @@ from chd_atlas.corpus import Corpus
 #   published) and `findings` (approved only, sorted by publication year, then
 #   numeric PMID, then id). A finding carrying a `review_status` is published
 #   with it.
+#   A finding's content reaches no byte until a person approves it; the
+#   `Publication` record a curator adds for its paper does, in
+#   `publications.json`, at the next build and whether or not any finding is
+#   approved (R32).
 # * `counts` gains `literature_genes` and `literature_findings`, the published
 #   genes whose bundle records at least one search and the approved findings in
-#   those bundles (`gene_literature.literature_census`). Both are 0 until the
-#   first `curation/literature` file lands.
+#   those bundles (`gene_literature.literature_census`). Both are 0 today: no
+#   `curation/literature` file exists.
+# * `publications.json` records may now carry `study_type` `case_report`,
+#   `cohort_sequencing`, `gwas` or `candidate_variant` (vocab.StudyType).
 SCHEMA_VERSION: Final = "2.21"
 
 # What `status` publishes today. A literal rather than something derived from

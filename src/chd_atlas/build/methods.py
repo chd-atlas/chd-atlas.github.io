@@ -492,26 +492,33 @@ _RARE_VARIANTS: Final = (
     "so its block shows its counts and p-values in a table instead of a plot.</p>"
 )
 
-# Written new (2026-11-02, plan Task 6). Every clause was read off the code it
-# describes: the query off `pubmed.build_query` (symbol and unambiguous
-# previous symbols, the CHD terms and the gene's in-scope disease names, with
-# preprints and reviews excluded), the triage off `models.gene_literature`
-# (every hit carries a decision, `pending` included), the two axes off `vocab.FindingDesign` and
-# `vocab.DetectionMethod`, and the approval rule off `Finding`
-# (`approved_by`, a named person). It names no count.
+# Written new (2026-11-02, plan Task 6); reworded after the final review
+# (S1, S12, R30). Each clause is held to the code it describes: the query off
+# `pubmed.build_query` (the gene's symbol and unambiguous previous symbols; the
+# CHD terms and the gene's in-scope disease names, which the CLI passes in;
+# preprints and reviews excluded), the decisions off `vocab.TriageDecision`
+# (`pending` is what the page's line calls "not yet triaged"), the two axes off
+# `vocab.FindingDesign` and `vocab.DetectionMethod`, the carrier's unit off
+# `Finding.count_unit`, the approval rule off `Finding.approved_by`, and the
+# two review marks off `models.review.ReviewStatus` (labels in
+# `render.review_status_note`). The Finding model has no field defining a
+# carrier, so the section says the atlas records the authors' counts, not a
+# definition. It names no count. 156 words counting the heading, 155 by the
+# test's count (`test_literature_states_how_it_was_searched_and_who_approves`).
 _LITERATURE: Final = (
     '<h2 id="literature">Literature</h2>'
     "<p>For a gene with a literature record, the atlas keeps each PubMed search it ran, "
-    "built from the gene's approved symbol and previous symbols together with congenital "
-    "heart disease terms, and excluding preprints and reviews; the gene page states the "
-    "date of the latest. Every paper a search returns is triaged: included, excluded for "
-    "a stated reason, or counted as not yet triaged. Only human genetics is kept. Each "
-    "finding is classified on two axes, the design of the study and the method that "
-    "detected the variants, and every count states what was counted. A carrier is "
-    "whatever the authors counted as one; the atlas records their definition and does not "
-    "re-classify the variants. A named curator approves each finding before it is "
-    "published; findings still awaiting approval are counted on the gene page and not "
-    "shown.</p>"
+    "built from the gene's approved and previous symbols with congenital heart disease "
+    "terms and the names of the gene's in-scope diseases, excluding preprints and "
+    "reviews; the gene page states the latest date and folds every query. Every paper a "
+    "search returns gets a decision: included, excluded for a stated reason, or pending, "
+    "counted as not yet triaged. Only human genetics is kept. Each finding is classified "
+    "by study design and detection method, and every count states its unit. A carrier is "
+    "whatever the authors counted as one, in people or families as stated; the atlas "
+    "records their counts and does not re-classify the variants. A named curator approves "
+    "each finding before publication; findings awaiting approval are counted, not shown. "
+    "A review mark says a finding's source disagrees with its paper (pending review) or "
+    "could not be read (source not accessible).</p>"
 )
 
 

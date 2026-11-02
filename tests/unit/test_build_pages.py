@@ -10214,7 +10214,9 @@ def test_the_findings_table_gives_every_figure_its_unit_and_links_the_paper(
         "<td>cohort screen</td><td>exome, gene panel</td>"
         "<td>7 carriers among 70 probands</td>"
         "<td>2 de novo, 1 inherited, 4 origin unknown</td>"
+        "<td>—</td>"
         "<td>septal, lvoto</td>"
+        "<td>probands: unknown</td>"
         "<td>Seven of seventy probands carried a variant.</td>"
         "<td>A. Curator</td></tr>"
     ) in section
@@ -10229,10 +10231,112 @@ def test_the_findings_table_gives_every_figure_its_unit_and_links_the_paper(
         "methods",
         "counts",
         "carriers by origin",
+        "result",
         "lesions",
+        "independence",
         "finding",
         "approved by",
     ]
+
+
+def test_the_result_and_independence_cells_state_what_a_reader_acts_on(tmp_path: Path) -> None:
+    """Final review I7/S9 (R31, R37): a rare-variant association names its comparator and
+    statistics unrounded, and every finding says whose probands it shares.
+
+    Four findings that differ in every figure these two cells render (§4.30): a
+    mutation-model association with two cohorts and a shared-probands list, a
+    control-cohort association sharing none, a cohort screen with unknown sharing, and a
+    common-variant finding with only a p.
+    """
+    shared = _lit_finding(
+        id="CHDA:LIT:0000002",
+        design="rare_variant_association",
+        comparator="mutation_model",
+        p_value=1.23456789e-9,
+        odds_ratio=3.5,
+        cohorts=["ddd", "pcgc"],
+        shares_probands_with=["CHDA:LIT:0000001", "CHDA:LIT:0000009"],
+        summary="Two.",
+    )
+    none_shared = _lit_finding(
+        id="CHDA:LIT:0000003",
+        design="rare_variant_association",
+        comparator="control_cohort",
+        p_value=0.02,
+        shares_probands_with=[],
+        summary="Three.",
+    )
+    only_p = _lit_finding(
+        id="CHDA:LIT:0000004",
+        design="common_variant_association",
+        p_value=5e-8,
+        shares_probands_with="unknown",
+        summary="Four.",
+    )
+    section = _lit_page(tmp_path, _lit([_lit_finding(), shared, none_shared, only_p]))
+    assert (
+        "<td>compared with mutation model, p 1.23456789e-09, OR 3.5</td><td>septal, lvoto</td>"
+        "<td>cohorts: ddd, pcgc; probands shared with: CHDA:LIT:0000001, CHDA:LIT:0000009</td>"
+        "<td>Two.</td>"
+    ) in section
+    assert (
+        "<td>compared with control cohort, p 0.02</td><td>septal, lvoto</td>"
+        "<td>probands: none shared</td><td>Three.</td>"
+    ) in section
+    assert (
+        "<td>p 5e-08</td><td>septal, lvoto</td><td>probands: unknown</td><td>Four.</td>" in section
+    )
+
+
+@pytest.mark.parametrize(
+    ("changes", "cell"),
+    [
+        (
+            {"screened": 1, "carriers": {"de_novo": 1, "inherited": 0, "origin_unknown": 0}},
+            "1 carrier among 1 proband",
+        ),
+        ({"screened": 70}, "7 carriers among 70 probands"),
+        (
+            {
+                "count_unit": "families",
+                "screened": 1,
+                "carriers": {"de_novo": 0, "inherited": 1, "origin_unknown": 0},
+            },
+            "1 carrier family among 1 family",
+        ),
+        ({"count_unit": "families", "screened": 4}, "7 carrier families among 4 families"),
+        ({"count_unit": "clans", "screened": 70}, "7 carriers among 70 clans"),
+    ],
+)
+def test_the_counts_cell_agrees_in_number_and_names_what_a_carrier_is_counted_in(
+    tmp_path: Path, changes: dict[str, object], cell: str
+) -> None:
+    section = _lit_page(tmp_path, _lit([_lit_finding(**changes)]))
+    assert f"<td>{cell}</td>" in section
+
+
+def test_an_acronym_keeps_its_capitals_in_a_method_label(tmp_path: Path) -> None:
+    finding = _lit_finding(methods=["karyotype_or_fish", "chromosomal_microarray"])
+    assert "<td>karyotype or FISH, chromosomal microarray</td>" in _lit_page(
+        tmp_path, _lit([finding])
+    )
+
+
+def test_every_search_is_folded_with_its_exact_query_escaped(tmp_path: Path) -> None:
+    literature = _lit()
+    literature["searches"][1]["query"] = '("A&B"[tiab]) OR <script>x</script> NOT review[pt]'
+    section = _lit_page(tmp_path, literature)
+    assert (
+        "<details><summary>Searches run</summary><ul>"
+        "<li>2026-11-02: 9 hits, 9 new; <code>q1</code></li>"
+        "<li>2026-11-09: 10 hits, 6 new; "
+        "<code>(&quot;A&amp;B&quot;[tiab]) OR &lt;script&gt;x&lt;/script&gt; NOT review[pt]"
+        "</code></li></ul></details>"
+    ) in section
+    assert "<script>" not in section
+    one = _lit()
+    one["searches"] = [one["searches"][0] | {"hits": 1}]
+    assert "<li>2026-11-02: 1 hit, 9 new;" in _lit_page(tmp_path, one)
 
 
 def test_a_review_mark_is_shown_beside_the_approved_finding_it_qualifies(tmp_path: Path) -> None:

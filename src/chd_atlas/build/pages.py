@@ -85,7 +85,7 @@ from chd_atlas.build.concordance import (
 )
 from chd_atlas.build.derive import GeneFacts
 from chd_atlas.build.emit import Emitter, Json
-from chd_atlas.build.gene_literature import EMPTY_GENE_LITERATURE, GeneLiterature
+from chd_atlas.build.gene_literature import EMPTY_GENE_LITERATURE, GeneLiterature, SearchRecord
 from chd_atlas.build.identity import EMPTY_IDENTITY, GeneIdentity, external_links
 from chd_atlas.build.paths import GENE_INDEX_PAGE, gene_bundle_path, gene_page_path
 from chd_atlas.build.profiles import (
@@ -6296,15 +6296,35 @@ _FINDING_HEADERS: Final = (
     "methods",
     "counts",
     "carriers by origin",
+    "result",
     "lesions",
+    "independence",
     "finding",
     "approved by",
 )
 
+# Tokens whose words are not the token with its underscores removed: an acronym
+# keeps its capitals (`karyotype_or_fish` read "karyotype or fish").
+_TOKEN_LABELS: Final = {"karyotype_or_fish": "karyotype or FISH"}
+
 
 def _words(token: str) -> str:
     """A vocabulary token as words: `family_segregation` -> `family segregation`."""
-    return token.replace("_", " ")
+    return _TOKEN_LABELS.get(token, token.replace("_", " "))
+
+
+def _number(n: int, singular: str, plural: str) -> str:
+    """`1 proband`, `2 probands`: the count with its noun in agreement."""
+    return f"{n:,} {singular if n == 1 else plural}"
+
+
+# What one counted person or family is called, by `count_unit`: the singular of
+# the unit, and the carrier noun in that unit (R30: with `families`, each origin
+# count is carrier families, so "carriers" would be a different quantity).
+_UNIT_NOUNS: Final = {
+    "probands": ("proband", "probands", "carrier", "carriers"),
+    "families": ("family", "families", "carrier family", "carrier families"),
+}
 
 
 def _finding_counts(finding: Mapping[str, Json]) -> str:
@@ -6317,10 +6337,15 @@ def _finding_counts(finding: Mapping[str, Json]) -> str:
     screened, unit, carriers = finding["screened"], finding["count_unit"], finding["carriers"]
     if isinstance(screened, int) and isinstance(unit, str) and isinstance(carriers, dict):
         total = sum(v for v in carriers.values() if isinstance(v, int))
-        return f"{total:,} carriers among {screened:,} {_words(unit)}"
+        # An unknown unit renders its raw token rather than nothing (the
+        # `count_unit` rule), in the plural for both nouns.
+        one, many, carrier_one, carrier_many = _UNIT_NOUNS.get(
+            unit, (unit, unit, "carrier", "carriers")
+        )
+        return f"{_number(total, carrier_one, carrier_many)} among {_number(screened, one, many)}"
     cases, controls = finding["cases"], finding["controls"]
     if isinstance(cases, int) and isinstance(controls, int):
-        return f"{cases:,} cases, {controls:,} controls"
+        return f"{_number(cases, 'case', 'cases')}, {_number(controls, 'control', 'controls')}"
     raise ValueError(f"{finding['id']}: a published finding has no counts")
 
 
@@ -6332,6 +6357,65 @@ def _finding_carriers(finding: Mapping[str, Json]) -> str:
         f"{carriers['de_novo']} de novo, {carriers['inherited']} inherited, "
         f"{carriers['origin_unknown']} origin unknown"
     )
+
+
+def _finding_result(finding: Mapping[str, Json]) -> str:
+    """What the finding measured against, and the statistics exactly as stored.
+
+    A rare-variant association names its comparator (a control cohort and a
+    mutation model are different questions); `p` and `OR` print through `repr`,
+    unrounded, so 1.23456789e-09 is not shown as 0. `\u2014` where the finding
+    states none of them (a case report, a cohort screen).
+    """
+    parts = []
+    comparator = finding["comparator"]
+    if isinstance(comparator, str):
+        parts.append(f"compared with {_words(comparator)}")
+    p_value, odds_ratio = finding["p_value"], finding["odds_ratio"]
+    if p_value is not None:
+        parts.append(f"p {p_value!r}")
+    if odds_ratio is not None:
+        parts.append(f"OR {odds_ratio!r}")
+    return ", ".join(parts) or "\u2014"
+
+
+def _finding_independence(finding: Mapping[str, Json]) -> str:
+    """Which collections the finding drew on and whether its probands are shared (R31, R37).
+
+    `unknown` is a value the curator wrote and `[]` is an assertion (the paper
+    states its cohort shares no probands with any other finding), so they are
+    told apart rather than both rendering as blank. A named id may belong to a
+    finding that is not yet approved and so not on any page.
+    """
+    parts = []
+    cohorts = _as_list(finding["cohorts"])
+    if cohorts:
+        parts.append("cohorts: " + ", ".join(str(c) for c in cohorts))
+    shared = finding["shares_probands_with"]
+    if isinstance(shared, list):
+        parts.append(
+            "probands shared with: " + ", ".join(str(i) for i in shared)
+            if shared
+            else "probands: none shared"
+        )
+    else:
+        parts.append(f"probands: {shared}")
+    return "; ".join(parts)
+
+
+def _literature_searches(searches: Sequence[SearchRecord]) -> str:
+    """Every recorded search, folded: its date, its arithmetic and the exact query.
+
+    The query is the published statement of what was searched; it is escaped and
+    shown in `<code>` unaltered. Nothing here is visible until opened.
+    """
+    items = "".join(
+        f"<li>{html.escape(str(search['run_on']))}: "
+        f"{_number(int(str(search['hits'])), 'hit', 'hits')}, {search['new_hits']} new; "
+        f"<code>{html.escape(str(search['query']))}</code></li>"
+        for search in searches
+    )
+    return f"<details><summary>Searches run</summary><ul>{items}</ul></details>"
 
 
 def _literature_exclusions(excluded: Mapping[str, int]) -> str:
@@ -6382,8 +6466,10 @@ def _literature_section(
     waiting = literature["pending_approval"]
     if waiting:
         line += f"; {waiting} {'finding awaits' if waiting == 1 else 'findings await'} review"
-    out = f'<h2>Literature</h2><p class="method">{line}.</p>' + _literature_exclusions(
-        triage["excluded"]
+    out = (
+        f'<h2>Literature</h2><p class="method">{line}.</p>'
+        + _literature_exclusions(triage["excluded"])
+        + _literature_searches(searches)
     )
     findings = literature["findings"]
     if findings:
@@ -6408,7 +6494,9 @@ def _literature_section(
                         ", ".join(_words(str(m)) for m in _as_list(finding["methods"])),
                         _finding_counts(finding),
                         _finding_carriers(finding),
+                        _finding_result(finding),
                         ", ".join(_words(str(g)) for g in _as_list(finding["lesion_groups"])),
+                        _finding_independence(finding),
                         Markup(html.escape(str(finding["summary"])) + mark),
                         str(finding["approved_by"]),
                     )
