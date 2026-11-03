@@ -462,7 +462,8 @@ def test_curated_evidence_says_what_an_assertion_is_and_that_it_changes_nothing_
     assert _section(page, "curated-evidence") == (
         '<h2 id="curated-evidence">Curated evidence</h2>'
         "<p>Where this atlas holds a lesion assertion for a gene, its page carries a "
-        "<strong>Curated evidence</strong> section. Each entry is a <strong>lesion assertion</strong>: a "
+        "<strong>Curated evidence</strong> section. Each entry is a "
+        "<strong>lesion assertion</strong>: a "
         "curator's record that the gene belongs to one or more congenital heart disease lesion "
         "groups, with its inheritance, its mechanism and whether it is isolated, syndromic or "
         "both. Each item of evidence behind an assertion cites one publication, and gives the "
