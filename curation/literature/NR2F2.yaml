@@ -1,0 +1,105 @@
+gene: HGNC:7976
+searches:
+  - id: 1
+    source: pubmed
+    query: ("NR2F2"[tiab] OR "ARP1"[tiab] OR "TFCOUP2"[tiab]) AND ("Heart Defects, Congenital"[mh] OR "congenital heart"[tiab] OR "heart defect"[tiab] OR "heart defects"[tiab] OR "cardiac defect"[tiab] OR "cardiac defects"[tiab] OR "heart malformation"[tiab] OR "heart malformations"[tiab] OR "cardiac malformation"[tiab] OR "cardiac malformations"[tiab] OR "septal defect"[tiab] OR "septal defects"[tiab] OR "tetralogy of Fallot"[tiab] OR "transposition of the great arteries"[tiab] OR "hypoplastic left heart"[tiab] OR "heterotaxy"[tiab] OR "conotruncal"[tiab] OR "outflow tract"[tiab] OR "atrioventricular septal defect"[tiab] OR "coarctation"[tiab] OR "NR2F2 related multiple congenital anomalies/dysmorphic syndrome"[tiab] OR "congenital heart defects, multiple types, 4"[tiab]) NOT preprint[pt] NOT review[pt]
+    run_on: 2026-11-03
+    hits: 32
+    new_hits: 32
+triage:
+  - pmid: PMID:17404209
+    search: 1
+    decision: pending
+  - pmid: PMID:17931990
+    search: 1
+    decision: pending
+  - pmid: PMID:21172461
+    search: 1
+    decision: pending
+  - pmid: PMID:21242650
+    search: 1
+    decision: pending
+  - pmid: PMID:22962329
+    search: 1
+    decision: pending
+  - pmid: PMID:24479926
+    search: 1
+    decision: pending
+  - pmid: PMID:24702954
+    search: 1
+    decision: pending
+  - pmid: PMID:27363585
+    search: 1
+    decision: pending
+  - pmid: PMID:28863274
+    search: 1
+    decision: pending
+  - pmid: PMID:29089047
+    search: 1
+    decision: pending
+  - pmid: PMID:29157563
+    search: 1
+    decision: pending
+  - pmid: PMID:29222010
+    search: 1
+    decision: pending
+  - pmid: PMID:29478779
+    search: 1
+    decision: pending
+  - pmid: PMID:29498561
+    search: 1
+    decision: pending
+  - pmid: PMID:29663647
+    search: 1
+    decision: pending
+  - pmid: PMID:29866040
+    search: 1
+    decision: pending
+  - pmid: PMID:29903739
+    search: 1
+    decision: pending
+  - pmid: PMID:30720060
+    search: 1
+    decision: pending
+  - pmid: PMID:30721228
+    search: 1
+    decision: pending
+  - pmid: PMID:31687637
+    search: 1
+    decision: pending
+  - pmid: PMID:32037394
+    search: 1
+    decision: pending
+  - pmid: PMID:32819587
+    search: 1
+    decision: pending
+  - pmid: PMID:34530895
+    search: 1
+    decision: pending
+  - pmid: PMID:34619368
+    search: 1
+    decision: pending
+  - pmid: PMID:36010266
+    search: 1
+    decision: pending
+  - pmid: PMID:36874970
+    search: 1
+    decision: pending
+  - pmid: PMID:37039367
+    search: 1
+    decision: pending
+  - pmid: PMID:37500725
+    search: 1
+    decision: pending
+  - pmid: PMID:40015456
+    search: 1
+    decision: pending
+  - pmid: PMID:40883017
+    search: 1
+    decision: pending
+  - pmid: PMID:42418116
+    search: 1
+    decision: pending
+  - pmid: PMID:42428666
+    search: 1
+    decision: pending
