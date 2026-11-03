@@ -10595,6 +10595,10 @@ def test_the_section_reads_line_timeline_papers_exclusions_searches(tmp_path: Pa
     positions = [section.index(part) for part in parts]
     assert positions == sorted(positions)
     assert len(set(positions)) == len(parts)
+    # `index` finds only the first of each, so a figure or a fold drawn twice would
+    # still read in order: each must be there exactly once.
+    assert section.count("<svg") == 1
+    assert [section.count(fold) for fold in parts[2:]] == [1, 1, 1]
 
 
 def test_a_summary_a_review_note_a_query_and_a_curator_name_are_escaped(tmp_path: Path) -> None:
