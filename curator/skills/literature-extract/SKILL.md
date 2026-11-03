@@ -20,8 +20,8 @@ Read `curator/curator-rules.md` first. Model tier: a mid-tier model (for example
    .venv/bin/chd-atlas literature abstracts <SYMBOL> --decision included
    ```
 
-   Read each paper in full where PubMed Central or Europe PMC has open-access text. Extract
-   only the paper itself, not results it cites from other papers.
+   Read each paper in full where PubMed Central or Europe PMC has open-access text, and any
+   erratum triage excluded for it. Extract only its own variant results, none it cites.
 2. For each paper write one finding per distinct result under `findings:` in
    `curation/literature/<SYMBOL>.yaml`. Two designs, or two separate cohorts, are two
    findings. Choose the design (`case_report`, `family_segregation`, `cohort_screen`,

@@ -61,6 +61,12 @@ convention only a person can check.
   excludes the paper as `full_text_not_accessible`, with a `note` naming what the abstract
   lacks (no abstract, no count, no carrier's heart lesion). It is a gap in what was read,
   not a judgement on the paper.
+- DNA methylation or RNA expression measured in human samples is not human genetic
+  evidence: exclude it as `not_human_genetics`. A paper that also reports a variant in
+  the gene is included, and only its variant result is extracted.
+- An erratum or corrigendum is excluded as `other` with `note: erratum to PMID:<the
+  corrected paper>`. The extractor reads it with the corrected paper and writes a number
+  it corrects as corrected, with a locator naming the erratum.
 - An included paper needs at least one finding (`LIT003`).
 
 ## Findings
