@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from chd_atlas.build.emit import Emitter
-from chd_atlas.build.literature import build_literature
+from chd_atlas.build.literature import build_literature, withheld_publications
 from chd_atlas.corpus import Corpus
 from chd_atlas.models.assertion import Evidence, LesionAssertion, SupplementaryLocator
 from chd_atlas.models.dataset import Dataset
@@ -93,7 +93,7 @@ def _cited(entry: dict[str, object]) -> str:
 def test_emits_all_four_payloads(tmp_path: Path) -> None:
     emitter = Emitter(root=tmp_path)
 
-    build_literature(_corpus(), emitter, burden_studies=())
+    build_literature(_corpus(), emitter, withheld=())
 
     assert set(emitter.checksums) == {
         "publications.json",
@@ -124,7 +124,7 @@ def test_featured_manuscripts_are_emitted_in_display_order(tmp_path: Path) -> No
     )
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter, burden_studies=())
+    build_literature(corpus, emitter, withheld=())
 
     featured = _payload(tmp_path, "featured.json", "featured")
     assert [entry["order"] for entry in featured] == [1, 2]
@@ -148,7 +148,7 @@ def test_the_inline_publication_is_the_one_the_entry_cites(tmp_path: Path) -> No
     )
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter, burden_studies=())
+    build_literature(corpus, emitter, withheld=())
 
     featured = _payload(tmp_path, "featured.json", "featured")
     assert featured[0]["publication"] == {
@@ -188,7 +188,7 @@ def test_featured_entries_sharing_a_display_order_are_ranked_by_pmid(tmp_path: P
     )
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter, burden_studies=())
+    build_literature(corpus, emitter, withheld=())
 
     featured = _payload(tmp_path, "featured.json", "featured")
     assert [_cited(entry) for entry in featured] == ["PMID:1", "PMID:2"]
@@ -210,7 +210,7 @@ def test_a_featured_entry_keeps_the_curators_own_words(tmp_path: Path) -> None:
     )
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter, burden_studies=())
+    build_literature(corpus, emitter, withheld=())
 
     entry = _payload(tmp_path, "featured.json", "featured")[0]
     assert entry["blurb"] == "The founding demonstration of TBX5 haploinsufficiency."
@@ -236,7 +236,7 @@ def test_a_featured_entry_citing_an_unknown_publication_is_refused(tmp_path: Pat
     emitter = Emitter(root=tmp_path)
 
     with pytest.raises(ValueError, match="PMID:404"):
-        build_literature(corpus, emitter, burden_studies=())
+        build_literature(corpus, emitter, withheld=())
 
     # Refused before anything is written, rather than after half the payloads are.
     assert emitter.checksums == {}
@@ -289,7 +289,7 @@ def test_identifier_arrays_are_ordered_lexically(
     """
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter, burden_studies=())
+    build_literature(corpus, emitter, withheld=())
 
     published = _payload(tmp_path, name, key)
     assert [record["id"] for record in published] == expected
@@ -345,7 +345,7 @@ def test_records_colliding_on_one_identifier_are_all_published(
     """
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter, burden_studies=())
+    build_literature(corpus, emitter, withheld=())
 
     assert [record[field] for record in _payload(tmp_path, name, key)] == expected
 
@@ -365,7 +365,7 @@ def test_phenotypes_are_ordered_by_identifier_and_keep_their_synonyms(tmp_path: 
     )
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter, burden_studies=())
+    build_literature(corpus, emitter, withheld=())
 
     published = _payload(tmp_path, "phenotypes.json", "phenotypes")
     assert [term["id"] for term in published] == [
@@ -385,7 +385,7 @@ def test_a_dataset_is_published_with_the_contrasts_that_interpret_it(tmp_path: P
     """
     emitter = Emitter(root=tmp_path)
 
-    build_literature(_corpus(datasets=(_dataset(),)), emitter, burden_studies=())
+    build_literature(_corpus(datasets=(_dataset(),)), emitter, withheld=())
 
     published = _payload(tmp_path, "datasets.json", "datasets")
     contrasts = published[0]["contrasts"]
@@ -408,7 +408,7 @@ def test_vocabularies_are_published_as_their_values(tmp_path: Path) -> None:
     corpus = _corpus(datasets=(_dataset(),))
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter, burden_studies=())
+    build_literature(corpus, emitter, withheld=())
 
     assert _payload(tmp_path, "publications.json", "publications")[0]["study_type"] == (
         "family_linkage"
@@ -422,7 +422,7 @@ def test_an_empty_corpus_still_emits_every_payload(tmp_path: Path) -> None:
     """A consumer fetching phenotypes.json must not 404 before curation starts."""
     emitter = Emitter(root=tmp_path)
 
-    build_literature(Corpus(root=Path(".")), emitter, burden_studies=())
+    build_literature(Corpus(root=Path(".")), emitter, withheld=())
 
     assert json.loads((tmp_path / "phenotypes.json").read_text()) == {"phenotypes": []}
     assert json.loads((tmp_path / "publications.json").read_text()) == {"publications": []}
@@ -479,9 +479,10 @@ def _literature(*findings: dict[str, object]) -> tuple[tuple[Path, GeneLiteratur
 
 
 def _published(
-    tmp_path: Path, corpus: Corpus, burden_studies: Collection[str] = ()
+    tmp_path: Path, corpus: Corpus, mirror_citations: Collection[str] = ()
 ) -> list[object]:
-    build_literature(corpus, Emitter(root=tmp_path), burden_studies=burden_studies)
+    withheld = withheld_publications(corpus, mirror_citations)
+    build_literature(corpus, Emitter(root=tmp_path), withheld=withheld)
     return [p["id"] for p in _payload(tmp_path, "publications.json", "publications")]
 
 

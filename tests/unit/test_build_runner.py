@@ -946,3 +946,11 @@ def test_a_publication_only_an_unapproved_finding_cites_is_withheld_from_the_bui
     assert "PMID:900008" not in ids
     assert "PMID:40127276" in ids
     assert "PMID:8988165" in ids
+    # The same set feeds the search index and the census (fix round 1).
+    index = json.loads(gzip.decompress((out / "search" / "index.json.gz").read_bytes()))
+    records = index["records"] if isinstance(index, dict) else index
+    searched = {r["id"] for r in records if r["kind"] == "publication"}
+    assert "PMID:900008" not in searched
+    assert searched == set(ids)
+    counts = json.loads((out / "manifest.json").read_text())["counts"]
+    assert counts["publications"] == len(ids)

@@ -82,7 +82,9 @@ wrong by the next one.
   a count of files and — since `2.7` — no longer only a count of curated records.
   Eight of its keys count a curated file, whole: `assertions`, `datasets`
   (omics), `featured`, `functional`, `phenotypes` and `publications` count
-  curated records, and `cohorts` and `scope_terms` count the two registries
+  curated records (`publications` counts the records in
+  [`publications.json`](#publicationsjson), which withholds a paper only an
+  unapproved literature finding cites), and `cohorts` and `scope_terms` count the two registries
   [`cohorts.json`](#cohortsjson) and [`scope.json`](#scopejson) publish entire
   — every sample collection and every in-scope disease term, not the subset the
   published genes happen to cite. A gene the atlas has not curated contributes
