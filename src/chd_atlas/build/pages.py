@@ -6613,6 +6613,65 @@ def _literature_timeline(
     )
 
 
+_PAPER_FINDING_HEADERS: Final = _FINDING_HEADERS[2:]
+
+
+def _finding_row(finding: Mapping[str, Json]) -> Row:
+    """A finding's cells from `design` to `approved by`; the callers add year and paper.
+
+    The review mark (R24) sits beside the summary, so it qualifies the finding
+    and never hides it.
+    """
+    status, note = finding["review_status"], finding["review_note"]
+    mark = review_status_note(
+        str(finding["id"]),
+        ReviewStatus(status) if isinstance(status, str) else None,
+        note if isinstance(note, str) else None,
+    )
+    return Row(
+        (
+            _words(str(finding["design"])),
+            ", ".join(_words(str(m)) for m in _as_list(finding["methods"])),
+            _finding_counts(finding),
+            _finding_carriers(finding),
+            _finding_result(finding),
+            ", ".join(_words(str(g)) for g in _as_list(finding["lesion_groups"])),
+            _finding_independence(finding),
+            Markup(html.escape(str(finding["summary"])) + mark),
+            str(finding["approved_by"]),
+        )
+    )
+
+
+def _literature_publications(
+    groups: Sequence[_PaperGroup],
+    publications: Mapping[str, Publication],
+) -> str:
+    """The approved papers folded, each opening to its own findings.
+
+    The PMID link is in the opened block, not in the `<summary>`, which holds no
+    interactive content. A paper's findings are listed, never summed (T6).
+    """
+    n = len(groups)
+    blocks = []
+    for group in groups:
+        k = len(group.findings)
+        designs = " + ".join(_words(d) for d in group.designs)
+        summary = (
+            f"{_study_label(group.pmid, publications)} \u00b7 {group.publication.journal} "
+            f"\u00b7 {designs} \u00b7 {k} {'finding' if k == 1 else 'findings'}"
+        )
+        table = data_table(_PAPER_FINDING_HEADERS, [_finding_row(f) for f in group.findings])
+        blocks.append(
+            f'<details class="lit-paper"><summary>{html.escape(summary)}</summary>'
+            f"<p>{html.escape(group.publication.title)} "
+            f'<a href="{html.escape(_pubmed(group.pmid))}">{html.escape(group.pmid)}</a></p>'
+            f'<div class="scroll">{table}</div></details>'
+        )
+    noun = "publication" if n == 1 else "publications"
+    return f"<details><summary>{n} {noun}</summary>{''.join(blocks)}</details>"
+
+
 def _literature_section(
     literature: GeneLiterature,
     publications: Mapping[str, Publication],
@@ -6663,29 +6722,8 @@ def _literature_section(
             publication = publications.get(pmid)
             if publication is None:
                 raise ValueError(f"{finding['id']}: {pmid} is not a registered publication")
-            status, note = finding["review_status"], finding["review_note"]
-            mark = review_status_note(
-                str(finding["id"]),
-                ReviewStatus(status) if isinstance(status, str) else None,
-                note if isinstance(note, str) else None,
-            )
-            rows.append(
-                Row(
-                    (
-                        str(publication.year),
-                        Link(pmid, _pubmed(pmid)),
-                        _words(str(finding["design"])),
-                        ", ".join(_words(str(m)) for m in _as_list(finding["methods"])),
-                        _finding_counts(finding),
-                        _finding_carriers(finding),
-                        _finding_result(finding),
-                        ", ".join(_words(str(g)) for g in _as_list(finding["lesion_groups"])),
-                        _finding_independence(finding),
-                        Markup(html.escape(str(finding["summary"])) + mark),
-                        str(finding["approved_by"]),
-                    )
-                )
-            )
+            cells = _finding_row(finding).cells
+            rows.append(Row((str(publication.year), Link(pmid, _pubmed(pmid)), *cells)))
         noun = "finding" if len(findings) == 1 else "findings"
         out += (
             f"<details><summary>{len(findings)} approved {noun}</summary>"

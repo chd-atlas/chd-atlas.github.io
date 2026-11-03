@@ -35,6 +35,7 @@ from chd_atlas.build.pages import (
     _forest_text,
     _glance_line,
     _inheritance,
+    _literature_publications,
     _literature_timeline,
     _paper_groups,
     _paper_shape,
@@ -10585,3 +10586,76 @@ def test_year_labels_are_the_ends_and_the_decades_at_least_four_years_from_them(
 def test_an_empty_timeline_is_refused() -> None:
     with pytest.raises(ValueError, match="no papers"):
         _literature_timeline([], {})
+
+
+# --- Publications fold (plan Task B4) -------------------------------------------------
+
+
+def _fold_fixture() -> tuple[list[_PaperGroup], dict[str, Publication]]:
+    pubs = {
+        "PMID:8988165": _LIT_PUBLICATION,
+        "PMID:2": _LIT_PUBLICATION.model_copy(update={"id": "PMID:2", "year": 1999}),
+        "PMID:3": _LIT_PUBLICATION.model_copy(update={"id": "PMID:3", "year": 2001}),
+    }
+    findings = [
+        _lit_finding(id="CHDA:LIT:0000001", summary="Alpha finding one."),
+        _lit_finding(
+            id="CHDA:LIT:0000002", design="family_segregation", summary="Beta finding two."
+        ),
+        _lit_finding(id="CHDA:LIT:0000003", publication="PMID:2", summary="Gamma finding three."),
+        _lit_finding(id="CHDA:LIT:0000004", publication="PMID:3", summary="Delta finding four."),
+    ]
+    return _paper_groups(findings, pubs), pubs
+
+
+def test_publications_fold_opens_one_block_per_paper_to_its_own_findings() -> None:
+    groups, pubs = _fold_fixture()
+    fold = _literature_publications(groups, pubs)
+    assert fold.startswith("<details><summary>3 publications</summary>")
+    assert fold.count('<details class="lit-paper">') == 3
+    assert (
+        '<details class="lit-paper"><summary>Basson CT et al. 1997 · Nature genetics · '
+        "family segregation + cohort screen · 2 findings</summary>"
+        "<p>Mutations in human TBX5 cause limb and cardiac malformation. "
+        '<a href="https://pubmed.ncbi.nlm.nih.gov/8988165/">PMID:8988165</a></p>'
+        '<div class="scroll"><table>'
+    ) in fold
+    assert "· 1 finding</summary>" in fold
+    # The PMID link sits in the opened block, never in a <summary>.
+    for summary in re.findall(r"<summary>.*?</summary>", fold):
+        assert "<a " not in summary
+    for text in ("Alpha finding one.", "Beta finding two.", "Gamma finding three.", "Delta"):
+        assert fold.count(text) == 1
+
+
+def test_publications_fold_one_paper_reads_singular_and_the_table_drops_year_and_paper() -> None:
+    groups, pubs = _fold_fixture()
+    one = _literature_publications(groups[:1], pubs)
+    assert "<summary>1 publication</summary>" in one
+    assert re.findall(r'<th scope="col">(.*?)</th>', one) == [
+        "design",
+        "methods",
+        "counts",
+        "carriers by origin",
+        "result",
+        "lesions",
+        "independence",
+        "finding",
+        "approved by",
+    ]
+
+
+def test_publications_fold_escapes_hostile_title_journal_and_author() -> None:
+    hostile = _LIT_PUBLICATION.model_copy(
+        update={
+            "title": 'T<script>&"x"',
+            "journal": "J<b>&",
+            "authors": ['A<i>&"q"'],
+        }
+    )
+    pubs = {"PMID:8988165": hostile}
+    groups = _paper_groups([_lit_finding()], pubs)
+    fold = _literature_publications(groups, pubs)
+    assert "A&lt;i&gt;&amp;&quot;q&quot; et al. 1997 · J&lt;b&gt;&amp;" in fold
+    assert "<p>T&lt;script&gt;&amp;&quot;x&quot; " in fold
+    assert "<script>" not in fold and "<b>" not in fold and "<i>" not in fold
