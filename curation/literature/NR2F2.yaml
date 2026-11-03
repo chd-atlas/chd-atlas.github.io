@@ -136,7 +136,7 @@ findings:
     controls: 5194
     p_value: 7.7e-07
     odds_ratio: 54.1
-    phenotypes: [HP:0006695]
+    phenotypes: [HP:0001674, HP:0011576, HP:0011577]
     lesion_groups: [avsd]
     syndromic: isolated
     shares_probands_with: [CHDA:LIT:0000003]
@@ -162,7 +162,7 @@ findings:
     locators:
       - kind: in_text
         element: Results, Burden of Rare Missense Variants Analysis (last sentence, additional 245 AVSD individuals screened by capillary sequencing)
-    summary: No rare functional variant was found in NR2F2 when its three coding exons were capillary-sequenced in an additional 245 individuals with atrioventricular septal defects.
+    summary: No rare functional variant was found in NR2F2 when its three coding exons were capillary-sequenced in an additional 245 individuals with atrioventricular septal defects; the listed lesion is the cohort's, as the paper gives no carrier.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
   - id: CHDA:LIT:0000003
     publication: PMID:24702954
@@ -174,7 +174,7 @@ findings:
     carriers: {de_novo: 2, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
     p_value: 4.8e-05
-    phenotypes: [HP:0006695]
+    phenotypes: [HP:0001674, HP:0011576]
     lesion_groups: [avsd]
     syndromic: isolated
     shares_probands_with: [CHDA:LIT:0000001, CHDA:LIT:0000002]
@@ -191,9 +191,9 @@ findings:
     methods: [exome]
     count_unit: families
     screened: 1
-    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
-    phenotypes: [HP:0001636, HP:0006695, HP:0001650, HP:0001629]
+    phenotypes: [HP:0001636, HP:0001674, HP:0001650, HP:0001629]
     lesion_groups: [conotruncal, avsd, lvoto, septal]
     syndromic: isolated
     shares_probands_with: unknown
@@ -256,7 +256,7 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
-    phenotypes: [HP:0001631, HP:0000776]
+    phenotypes: [HP:0001631]
     lesion_groups: [septal]
     syndromic: syndromic
     shares_probands_with: unknown
@@ -267,7 +267,6 @@ findings:
         element: Materials and Methods, paragraph 2 (c.92_98delGCCCGCC, p.Pro33AlafsTer77; Sanger sequencing showed it was not inherited from either parent)
     summary: A girl with left-sided congenital diaphragmatic hernia and a large atrial septal defect (closed spontaneously by 2 years) carried a heterozygous de novo frameshift deletion, c.92_98delGCCCGCC (p.Pro33AlafsTer77), found by exome sequencing of the family and confirmed by Sanger sequencing.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
   - id: CHDA:LIT:0000008
     publication: PMID:29089047
     design: cohort_screen
@@ -287,7 +286,7 @@ findings:
         element: Results, Discovery genes (nine de novo alleles in nine genes, among them NR2F2)
       - kind: in_text
         element: Methods, Subjects (342 unrelated left-sided lesion cases without clinically evident extra-cardiac malformations)
-    summary: Exome sequencing of 342 unrelated cases with left-sided cardiac lesions found one case-exclusive loss-of-function variant in NR2F2, which arose de novo; the main text does not state the carrier's lesion.
+    summary: Exome sequencing of 342 unrelated cases with left-sided cardiac lesions found one case-exclusive loss-of-function variant in NR2F2, which arose de novo; the main text does not state the carrier's lesion, so the listed phenotype is the cohort's left-sided lesions.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
   - id: CHDA:LIT:0000009
     publication: PMID:29478779
@@ -297,7 +296,7 @@ findings:
     screened: 79
     carriers: {de_novo: 2, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
-    phenotypes: [HP:0004383, HP:0001631, HP:0001629, HP:0000776]
+    phenotypes: [HP:0004383, HP:0001684, HP:0001629]
     lesion_groups: [lvoto, septal]
     syndromic: syndromic
     shares_probands_with: unknown
@@ -334,7 +333,7 @@ findings:
     methods: [targeted_sequencing]
     count_unit: families
     screened: 1
-    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
     phenotypes: [HP:0001647, HP:0001629]
     lesion_groups: [lvoto, septal]
@@ -377,7 +376,7 @@ findings:
     screened: 111
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
-    phenotypes: [HP:0001680, HP:0001647, HP:0001629]
+    phenotypes: [HP:0001680, HP:0001647, HP:0011623]
     lesion_groups: [lvoto, septal]
     syndromic: syndromic
     shares_probands_with: unknown

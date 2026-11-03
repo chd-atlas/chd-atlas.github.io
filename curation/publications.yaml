@@ -920,20 +920,6 @@ publications:
     study_type: case_report
     doi: 10.1002/mgg3.234
     pmcid: PMC5023941
-  - id: PMID:27722056
-    title: Life-threatening cardiac episode in a Polish patient carrying contiguous gene microdeletion of the TBX5 and the TBX3 genes.
-    journal: SpringerPlus
-    year: 2016
-    authors:
-      - Iwanicka-Pronicka K
-      - Socha M
-      - Jędrzejowska M
-      - Krajewska-Walasek M
-      - Jamsheer A
-    # A case report of one Polish boy with a 1.79 Mb 12q24.21 deletion including TBX5 and TBX3, found by array CGH.
-    study_type: case_report
-    doi: 10.1186/s40064-016-3275-1
-    pmcid: PMC5031565
   - id: PMID:28761722
     title: A TBX5 3'UTR variant increases the risk of congenital heart disease in the Han Chinese population.
     journal: Cell discovery
@@ -1045,27 +1031,6 @@ publications:
     study_type: cohort_sequencing
     doi: 10.1038/s41598-019-47739-8
     pmcid: PMC6684595
-  - id: PMID:33082984
-    title: Genetic architecture of left ventricular noncompaction in adults.
-    journal: Human genome variation
-    year: 2020
-    authors:
-      - Ross SB
-      - Singer ES
-      - Driscoll E
-      - Nowak N
-      - Yeates L
-      - Puranik R
-      - Sy RW
-      - Rajagopalan S
-      - Barratt A
-      - Ingles J
-      - Bagnall RD
-      - Semsarian C
-    # Retrospective exome sequencing of 35 unrelated adults with left ventricular noncompaction, analysed against 193 panel genes, with a pedigree for the TBX5 family.
-    study_type: cohort_sequencing
-    doi: 10.1038/s41439-020-00120-y
-    pmcid: PMC7566488
   - id: PMID:33306779
     title: A novel TBX5 mutation predisposes to familial cardiac septal defects and atrial fibrillation as well as bicuspid aortic valve.
     journal: Genetics and molecular biology
@@ -1317,28 +1282,6 @@ publications:
     study_type: case_report
     doi: 10.1172/JCI180670
     pmcid: PMC11735084
-  - id: PMID:40697198
-    title: 'Atypical Holt-Oram syndrome: Early-onset sick sinus syndrome in a Japanese family with a novel TBX5 mutation, Q469.'
-    journal: Journal of cardiology cases
-    year: 2025
-    authors:
-      - Nomura Y
-      - Ishikawa T
-      - Ohno S
-      - Makita N
-      - Horie M
-      - Naruse H
-      - Koshikawa M
-      - Nishimura A
-      - Motoike Y
-      - Harada M
-      - Sobue Y
-      - Watanabe E
-      - Izawa H
-    # The authors report one family with a TBX5 nonsense variant tested in two relatives (a case report of a family, with no linkage analysis).
-    study_type: family_linkage
-    doi: 10.1016/j.jccase.2025.03.003
-    pmcid: PMC12277624
   - id: PMID:40126773
     title: Rare T-box variants in adult pulmonary arterial hypertension with congenital heart disease.
     journal: Journal of applied genetics
@@ -1387,3 +1330,17 @@ publications:
     study_type: family_linkage
     doi: 10.1111/ped.70493
     pmcid: PMC13389341
+  - id: PMID:29755943
+    title: Holt-Oram syndrome in two families diagnosed with left ventricular noncompaction and conduction disease.
+    journal: HeartRhythm case reports
+    year: 2018
+    authors:
+      - Ross SB
+      - Bagnall RD
+      - Yeates L
+      - Sy RW
+      - Semsarian C
+    # A report of two Holt-Oram families; in family 1 the TBX5 variant is found in the proband and her affected daughter (the remaining finding is family segregation; family 2 has no structural heart defect and has no finding).
+    study_type: family_linkage
+    doi: 10.1016/j.hrcr.2017.12.002
+    pmcid: PMC5944048
