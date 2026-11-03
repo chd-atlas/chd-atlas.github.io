@@ -9867,7 +9867,9 @@ def test_the_card_counts_approved_literature_findings_as_atlas_curation(
     sentence counts more. Fixtures differ in findings and papers on purpose
     (3 from 2, 5 from 3), so a count of one cannot stand in for the other.
     """
-    fact = _facts(GATA4, curation, groups=(LesionGroup.SEPTAL,) if curated_(curation) else ())
+    fact = _facts(
+        GATA4, curation, groups=(LesionGroup.SEPTAL,) if curation is AtlasCuration.CURATED else ()
+    )
     build_gene_pages(
         {GATA4: fact},
         Emitter(root=tmp_path),
@@ -9915,7 +9917,10 @@ def test_the_card_counts_the_approved_findings_and_not_those_awaiting_approval(
 
     `test_a_gene_whose_findings_all_await_approval_is_not_yet_curated` has no
     approved finding, so the card sentence never counts there; and `_approved`
-    waits on nothing. Measured at B6: a mutant adding `pending_approval` to the
+    sets `pending_approval` to 0 in every fixture it builds, so
+    `test_the_card_counts_approved_literature_findings_as_atlas_curation`
+    cannot tell a count that adds the waiting findings from one that
+    leaves them out. Measured at B6: a mutant adding `pending_approval` to the
     count survived every test in the repository until this one. 2 approved from
     2 papers plus 4 waiting must read "2 findings from 2 papers", never 6.
     """
@@ -9941,10 +9946,6 @@ def test_the_card_counts_the_approved_findings_and_not_those_awaiting_approval(
     assert re.findall(r'<p class="card-curation">(.*?)</p>', rail) == [
         "Curated by the atlas: 2 findings from 2 papers."
     ]
-
-
-def curated_(curation: AtlasCuration) -> bool:
-    return curation is AtlasCuration.CURATED
 
 
 def test_every_value_the_card_interpolates_is_escaped(tmp_path: Path) -> None:
