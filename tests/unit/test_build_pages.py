@@ -16,6 +16,7 @@ from types import EllipsisType
 from typing import Final
 
 import pytest
+from pydantic import ValidationError
 
 from chd_atlas.build.burden import BurdenRow, CombinedRow
 from chd_atlas.build.cell_types import CellTypeExpression
@@ -25,7 +26,9 @@ from chd_atlas.build.emit import Emitter
 from chd_atlas.build.gene_literature import GeneLiterature
 from chd_atlas.build.identity import GeneIdentity
 from chd_atlas.build.pages import (
+    _DESIGN_SHAPES,
     _EM_DASH,
+    _SEVERAL_DESIGNS,
     _analysis_label,
     _chd_only,
     _count,
@@ -33,6 +36,11 @@ from chd_atlas.build.pages import (
     _forest_text,
     _glance_line,
     _inheritance,
+    _literature_publications,
+    _literature_timeline,
+    _paper_groups,
+    _paper_shape,
+    _PaperGroup,
     _phase_strip,
     _study_finding_summary,
     _tissue_percentile,
@@ -65,10 +73,12 @@ from chd_atlas.vocab import (
     Classification,
     EvidenceClass,
     EvidenceStrength,
+    FindingDesign,
     LesionGroup,
     ValiditySource,
     ValidityState,
 )
+from tests.unit._stamp import stamped
 from tests.unit.test_build_cell_type_chart import dataset as cell_type_dataset
 from tests.unit.test_build_cell_type_chart import payload as cell_type_payload
 from tests.unit.test_build_cell_type_chart import specificity as cell_type_specificity
@@ -9646,7 +9656,7 @@ _NOT_CURATED_BY_PANEL: Final = (
                 _facts(GATA4, AtlasCuration.CURATED, groups=(LesionGroup.SEPTAL,)),
                 _validity(),
             ),
-            "Curated by the atlas: 1 lesion assertion for the septal lesion group.",
+            "Curated by the atlas: 1 lesion assertion (septal).",
             id="curated",
         ),
         pytest.param(
@@ -9659,8 +9669,7 @@ _NOT_CURATED_BY_PANEL: Final = (
                 ),
                 _validity(),
             ),
-            "Curated by the atlas: 1 lesion assertion for the conotruncal, septal lesion "
-            "groups; 2 functional records.",
+            "Curated by the atlas: 1 lesion assertion (conotruncal, septal); 2 functional records.",
             id="curated, with functional records",
         ),
         pytest.param(
@@ -9670,8 +9679,7 @@ _NOT_CURATED_BY_PANEL: Final = (
                 ),
                 _validity(),
             ),
-            "Curated by the atlas: 1 lesion assertion for the septal lesion group; 1 functional "
-            "record.",
+            "Curated by the atlas: 1 lesion assertion (septal); 1 functional record.",
             id="curated, with one functional record",
         ),
         pytest.param(
@@ -9808,6 +9816,135 @@ def test_the_card_says_in_plain_words_what_the_atlas_itself_curated(
     main = page[page.index("</aside>") :]
     assert "curated by the atlas" not in main.lower()
     assert "not yet curated</strong> a lesion assertion" not in page
+
+
+def _approved(*pmids: str) -> GeneLiterature:
+    """A gene's literature with one approved finding per PMID given, in order."""
+    return GeneLiterature(
+        searches=[],
+        triage={"included": 0, "excluded": {}, "pending": 0},
+        pending_approval=0,
+        findings=[{"id": f"F{n}", "publication": pmid} for n, pmid in enumerate(pmids)],
+    )
+
+
+@pytest.mark.parametrize(
+    ("curation", "literature", "sentence"),
+    [
+        pytest.param(
+            AtlasCuration.CURATED,
+            ("PMID:1", "PMID:1", "PMID:2"),
+            "Curated by the atlas: 1 lesion assertion (septal) and 3 findings from 2 papers.",
+            id="assertion and literature",
+        ),
+        pytest.param(
+            AtlasCuration.NOT_YET_CURATED,
+            ("PMID:1", "PMID:2", "PMID:1", "PMID:3", "PMID:3"),
+            "Curated by the atlas: 5 findings from 3 papers.",
+            id="literature only",
+        ),
+        pytest.param(
+            AtlasCuration.NOT_YET_CURATED,
+            ("PMID:7",),
+            "Curated by the atlas: 1 finding from 1 paper.",
+            id="one finding, one paper",
+        ),
+        pytest.param(
+            AtlasCuration.NOT_YET_CURATED,
+            (),
+            _NOT_CURATED_BY_PANEL,
+            id="neither",
+        ),
+    ],
+)
+def test_the_card_counts_approved_literature_findings_as_atlas_curation(
+    tmp_path: Path, curation: AtlasCuration, literature: tuple[str, ...], sentence: str
+) -> None:
+    """Owner decision 2: a gene with approved literature is not "not yet curated".
+
+    Papers are distinct PMIDs among the findings, never a sum of anything per
+    paper. The JSON's `atlas_curation` stays assertion-derived; only this
+    sentence counts more. Fixtures differ in findings and papers on purpose
+    (3 from 2, 5 from 3), so a count of one cannot stand in for the other.
+    """
+    fact = _facts(GATA4, curation, groups=(LesionGroup.SEPTAL,) if curated_(curation) else ())
+    build_gene_pages(
+        {GATA4: fact},
+        Emitter(root=tmp_path),
+        symbols={GATA4: "GATA4"},
+        validity={GATA4: _validity()},
+        assertions={},
+        publications={},
+        burden={},
+        cohorts={},
+        cell_types={},
+        literature={GATA4: _approved(*literature)} if literature else {},
+    )
+    rail = _rail_of(_page(tmp_path, "HGNC_4173.html"))
+    assert re.findall(r'<p class="card-curation">(.*?)</p>', rail) == [sentence]
+
+
+def test_a_gene_whose_findings_all_await_approval_is_not_yet_curated(tmp_path: Path) -> None:
+    """T4: the bundle carries approved findings only, and a waiting one counts for nothing."""
+    waiting = GeneLiterature(
+        searches=[],
+        triage={"included": 0, "excluded": {}, "pending": 0},
+        pending_approval=2,
+        findings=[],
+    )
+    build_gene_pages(
+        {GATA4: _facts(GATA4, AtlasCuration.NOT_YET_CURATED)},
+        Emitter(root=tmp_path),
+        symbols={GATA4: "GATA4"},
+        validity={GATA4: _validity()},
+        assertions={},
+        publications={},
+        burden={},
+        cohorts={},
+        cell_types={},
+        literature={GATA4: waiting},
+    )
+    rail = _rail_of(_page(tmp_path, "HGNC_4173.html"))
+    assert re.findall(r'<p class="card-curation">(.*?)</p>', rail) == [_NOT_CURATED_BY_PANEL]
+
+
+def test_the_card_counts_the_approved_findings_and_not_those_awaiting_approval(
+    tmp_path: Path,
+) -> None:
+    """T4 where it matters: a gene with approved AND waiting findings.
+
+    `test_a_gene_whose_findings_all_await_approval_is_not_yet_curated` has no
+    approved finding, so the card sentence never counts there; and `_approved`
+    waits on nothing. Measured at B6: a mutant adding `pending_approval` to the
+    count survived every test in the repository until this one. 2 approved from
+    2 papers plus 4 waiting must read "2 findings from 2 papers", never 6.
+    """
+    mixed = GeneLiterature(
+        searches=[],
+        triage={"included": 0, "excluded": {}, "pending": 0},
+        pending_approval=4,
+        findings=[{"id": "F0", "publication": "PMID:1"}, {"id": "F1", "publication": "PMID:2"}],
+    )
+    build_gene_pages(
+        {GATA4: _facts(GATA4, AtlasCuration.NOT_YET_CURATED)},
+        Emitter(root=tmp_path),
+        symbols={GATA4: "GATA4"},
+        validity={GATA4: _validity()},
+        assertions={},
+        publications={},
+        burden={},
+        cohorts={},
+        cell_types={},
+        literature={GATA4: mixed},
+    )
+    rail = _rail_of(_page(tmp_path, "HGNC_4173.html"))
+    assert re.findall(r'<p class="card-curation">(.*?)</p>', rail) == [
+        "Curated by the atlas: 2 findings from 2 papers."
+    ]
+
+
+def curated_(curation: AtlasCuration) -> bool:
+    return curation is AtlasCuration.CURATED
 
 
 def test_every_value_the_card_interpolates_is_escaped(tmp_path: Path) -> None:
@@ -10076,7 +10213,12 @@ def _lit_finding(**changes: object) -> dict[str, object]:
         "review_note": None,
     }
     base.update(changes)
-    return base
+    try:
+        return stamped(base)
+    except ValidationError:
+        # Some callers build a deliberately invalid finding (an unregistered design,
+        # a case_report screening many) for a function that never parses a `Finding`.
+        return base
 
 
 def _lit(
@@ -10134,6 +10276,64 @@ def _lit_page(tmp_path: Path, literature: GeneLiterature | None) -> str:
     )
 
 
+def _paper_pubs() -> dict[str, Publication]:
+    """PMID:2 and PMID:10 share 1999; PMID:1 is 2005, so the year sort decides first."""
+    return {
+        "PMID:2": _LIT_PUBLICATION.model_copy(update={"id": "PMID:2", "year": 1999}),
+        "PMID:10": _LIT_PUBLICATION.model_copy(update={"id": "PMID:10", "year": 1999}),
+        "PMID:1": _LIT_PUBLICATION.model_copy(update={"id": "PMID:1", "year": 2005}),
+    }
+
+
+def test_every_finding_design_has_a_shape_and_no_shape_is_shared() -> None:
+    assert set(_DESIGN_SHAPES) == {d.value for d in FindingDesign}
+    assert len(set(_DESIGN_SHAPES.values())) == len(_DESIGN_SHAPES)
+    assert _SEVERAL_DESIGNS not in _DESIGN_SHAPES.values()
+
+
+def test_findings_of_one_paper_group_together_even_when_not_adjacent() -> None:
+    a = _lit_finding(id="CHDA:LIT:0000001", publication="PMID:2")
+    b = _lit_finding(id="CHDA:LIT:0000002", publication="PMID:2")
+    c = _lit_finding(id="CHDA:LIT:0000003", publication="PMID:10")
+    d = _lit_finding(id="CHDA:LIT:0000004", publication="PMID:1")
+    groups = _paper_groups([c, a, d, b], _paper_pubs())
+    # PMID:10 arrives first; only the numeric tie-break puts it after PMID:2.
+    assert [g.pmid for g in groups] == ["PMID:2", "PMID:10", "PMID:1"]
+    assert [f["id"] for f in groups[0].findings] == [a["id"], b["id"]]
+    assert sum(len(g.findings) for g in groups) == 4
+
+
+def test_a_paper_with_two_designs_is_a_ring_and_one_design_keeps_its_shape() -> None:
+    pubs = _paper_pubs()
+    two = _paper_groups(
+        [
+            _lit_finding(publication="PMID:2", design="cohort_screen"),
+            _lit_finding(publication="PMID:2", design="family_segregation"),
+        ],
+        pubs,
+    )[0]
+    one = _paper_groups(
+        [
+            _lit_finding(publication="PMID:2", design="cohort_screen"),
+            _lit_finding(publication="PMID:2", design="cohort_screen"),
+        ],
+        pubs,
+    )[0]
+    assert two.designs == ("family_segregation", "cohort_screen")
+    assert _paper_shape(two) == "ring"
+    assert one.designs == ("cohort_screen",)
+    assert _paper_shape(one) == "triangle_up"
+
+
+def test_an_unknown_design_or_unregistered_paper_is_refused() -> None:
+    pubs = _paper_pubs()
+    unknown = _paper_groups([_lit_finding(publication="PMID:2", design="zz_new_design")], pubs)
+    with pytest.raises(ValueError, match="zz_new_design"):
+        _paper_shape(unknown[0])
+    with pytest.raises(ValueError, match="PMID:999"):
+        _paper_groups([_lit_finding(publication="PMID:999")], pubs)
+
+
 def test_a_gene_with_no_literature_file_says_so_in_three_words_and_has_no_table(
     tmp_path: Path,
 ) -> None:
@@ -10143,18 +10343,33 @@ def test_a_gene_with_no_literature_file_says_so_in_three_words_and_has_no_table(
 def test_the_literature_line_states_what_the_search_found_and_decided(tmp_path: Path) -> None:
     section = _lit_page(tmp_path, _lit())
     assert section.startswith(
-        '<h2>Literature</h2><p class="method">PubMed, searched 2026-11-09: 15 papers; '
-        "4 included, 5 excluded, 6 not yet triaged; 2 findings await review.</p>"
+        '<h2>Literature</h2><p class="method">PubMed, 2 searches, latest 2026-11-09: '
+        "15 papers in all; 4 included, 5 excluded, 6 not yet triaged; "
+        "2 findings await approval.</p>"
     )
+    assert "await review" not in section
+
+
+def test_one_search_reads_searched_and_its_date_with_no_in_all(tmp_path: Path) -> None:
+    literature = _lit(pending=0, waiting=3)
+    literature["searches"] = [literature["searches"][1] | {"hits": 400, "new_hits": 400}]
+    literature["triage"] = {"included": 110, "excluded": {"not_chd": 290}, "pending": 0}
+    section = _lit_page(tmp_path, literature)
+    assert section.startswith(
+        '<h2>Literature</h2><p class="method">PubMed, searched 2026-11-09: 400 papers; '
+        "110 included, 290 excluded; 3 findings await approval.</p>"
+    )
+    assert "in all" not in section.split("</p>")[0]
+    assert "await review" not in section
 
 
 @pytest.mark.parametrize(
     ("pending", "waiting", "tail"),
     [
         (6, 0, "4 included, 5 excluded, 6 not yet triaged."),
-        (0, 2, "4 included, 5 excluded; 2 findings await review."),
+        (0, 2, "4 included, 5 excluded; 2 findings await approval."),
         (0, 0, "4 included, 5 excluded."),
-        (6, 1, "4 included, 5 excluded, 6 not yet triaged; 1 finding awaits review."),
+        (6, 1, "4 included, 5 excluded, 6 not yet triaged; 1 finding awaits approval."),
     ],
     ids=["no-awaiting", "no-pending", "neither", "one-awaiting"],
 )
@@ -10163,7 +10378,8 @@ def test_an_optional_clause_is_absent_when_its_count_is_zero_and_nothing_reads_z
 ) -> None:
     section = _lit_page(tmp_path, _lit(pending=pending, waiting=waiting))
     assert section.startswith(
-        f'<h2>Literature</h2><p class="method">PubMed, searched 2026-11-09: 15 papers; {tail}</p>'
+        f'<h2>Literature</h2><p class="method">PubMed, 2 searches, latest 2026-11-09: '
+        f"15 papers in all; {tail}</p>"
     )
     assert " 0 " not in section.split("</p>")[0]
 
@@ -10172,6 +10388,11 @@ def test_one_paper_is_not_pluralised(tmp_path: Path) -> None:
     literature = _lit()
     literature["searches"] = [literature["searches"][0] | {"new_hits": 1}]
     assert "searched 2026-11-02: 1 paper; " in _lit_page(tmp_path, literature)
+    literature["searches"] = [
+        literature["searches"][0] | {"new_hits": 0},
+        literature["searches"][0] | {"new_hits": 1},
+    ]
+    assert "2 searches, latest 2026-11-02: 1 paper in all; " in _lit_page(tmp_path, literature)
 
 
 def test_the_exclusion_tally_lists_each_reason_with_its_count_and_is_absent_when_none(
@@ -10191,7 +10412,12 @@ def test_an_unknown_exclusion_reason_is_shown_by_its_token_not_dropped(tmp_path:
     assert "<li>not about congenital heart disease: 3</li><li>zz_new_reason: 7</li>" in section
 
 
-def test_the_findings_table_gives_every_figure_its_unit_and_links_the_paper(
+def _paper_blocks(section: str) -> list[str]:
+    """Each `<details class="lit-paper">` block of the section, summary to closing tag."""
+    return re.findall(r'<details class="lit-paper">.*?</details>', section)
+
+
+def test_each_paper_block_gives_every_figure_its_unit_and_links_the_paper(
     tmp_path: Path,
 ) -> None:
     common = _lit_finding(
@@ -10207,11 +10433,11 @@ def test_the_findings_table_gives_every_figure_its_unit_and_links_the_paper(
         summary="A locus.",
     )
     section = _lit_page(tmp_path, _lit([_lit_finding(), common]))
-    assert "<details><summary>2 approved findings</summary><table>" in section
+    assert "<details><summary>1 publication</summary>" in section
+    (block,) = _paper_blocks(section)
+    assert '<a href="https://pubmed.ncbi.nlm.nih.gov/8988165/">PMID:8988165</a>' in block
     assert (
-        "<tr><td>1997</td>"
-        '<td><a href="https://pubmed.ncbi.nlm.nih.gov/8988165/">PMID:8988165</a></td>'
-        "<td>cohort screen</td><td>exome, gene panel</td>"
+        "<tr><td>cohort screen</td><td>exome, gene panel</td>"
         "<td>7 carriers among 70 probands</td>"
         "<td>2 de novo, 1 inherited, 4 origin unknown</td>"
         "<td>—</td>"
@@ -10219,14 +10445,12 @@ def test_the_findings_table_gives_every_figure_its_unit_and_links_the_paper(
         "<td>probands: unknown</td>"
         "<td>Seven of seventy probands carried a variant.</td>"
         "<td>A. Curator</td></tr>"
-    ) in section
+    ) in block
     assert (
         "<td>common variant association</td><td>genotyping array</td>"
         "<td>1,200 cases, 3,400 controls</td><td>—</td>"
-    ) in section
-    assert [h for h in re.findall(r"<th[^>]*>([^<]*)</th>", section)] == [
-        "year",
-        "paper",
+    ) in block
+    assert re.findall(r"<th[^>]*>([^<]*)</th>", block) == [
         "design",
         "methods",
         "counts",
@@ -10342,9 +10566,33 @@ def test_every_search_is_folded_with_its_exact_query_escaped(tmp_path: Path) -> 
 def test_a_review_mark_is_shown_beside_the_approved_finding_it_qualifies(tmp_path: Path) -> None:
     marked = _lit_finding(review_status="pending_review", review_note="Source disagrees.")
     section = _lit_page(tmp_path, _lit([marked]))
-    assert "Seven of seventy probands carried a variant. <strong>" in section
-    assert "Source disagrees.</td>" in section
-    assert "<summary>1 approved finding</summary>" in section
+    (block,) = _paper_blocks(section)
+    assert "Seven of seventy probands carried a variant. <strong>" in block
+    assert "Source disagrees.</td>" in block
+    assert "<summary>1 publication</summary>" in section
+
+
+def test_a_searched_gene_with_nothing_approved_says_so_and_draws_no_axis(
+    tmp_path: Path,
+) -> None:
+    section = _lit_page(tmp_path, _lit())
+    assert "<p>No approved findings yet.</p>" in section
+    assert "<svg" not in section
+    assert "publication</summary>" not in section
+
+
+def test_the_section_reads_line_timeline_papers_exclusions_searches(tmp_path: Path) -> None:
+    section = _lit_page(tmp_path, _lit([_lit_finding()]))
+    parts = [
+        '<h2>Literature</h2><p class="method">',
+        "<svg",
+        "<details><summary>1 publication</summary>",
+        "<details><summary>Excluded papers, by reason</summary>",
+        "<details><summary>Searches run</summary>",
+    ]
+    positions = [section.index(part) for part in parts]
+    assert positions == sorted(positions)
+    assert len(set(positions)) == len(parts)
 
 
 def test_a_summary_a_review_note_a_query_and_a_curator_name_are_escaped(tmp_path: Path) -> None:
@@ -10359,3 +10607,274 @@ def test_a_summary_a_review_note_a_query_and_a_curator_name_are_escaped(tmp_path
     assert "Note &lt;i&gt; &amp; &quot;q&quot;" in section
     assert "O&#x27;Neil &lt;x&gt;" in section
     assert "<b>" not in section and "<script>" not in section and "<i>" not in section
+
+
+# --- Literature timeline figure (plan Task B3) ---------------------------------------
+
+
+def _tl_pubs(years: dict[str, int], **changes: object) -> dict[str, Publication]:
+    return {
+        pmid: _LIT_PUBLICATION.model_copy(update={"id": pmid, "year": year, **changes})
+        for pmid, year in years.items()
+    }
+
+
+def _tl_groups(
+    spec: list[tuple[str, int, tuple[str, ...]]], **changes: object
+) -> tuple[list[_PaperGroup], dict[str, Publication]]:
+    """`(pmid, year, designs)` per paper -> groups, one finding per design."""
+    pubs = _tl_pubs({pmid: year for pmid, year, _ in spec}, **changes)
+    findings = [
+        _lit_finding(id=f"CHDA:LIT:{i:07d}", publication=pmid, design=design)
+        for i, (pmid, _, designs) in enumerate(spec, start=1)
+        for design in designs
+    ]
+    return _paper_groups(findings, pubs), pubs
+
+
+def _tl_part(svg: str, css: str) -> str:
+    start = svg.index(f'<g class="{css}">')
+    return svg[start : svg.index("</g>", start)]
+
+
+def _tl_centres(part: str) -> list[tuple[float, float]]:
+    centres = []
+    for m in re.finditer(r"<(circle|rect|polygon) ([^>]*)>", part):
+        attrs = dict(re.findall(r'([a-z]+)="([^"]*)"', m.group(2)))
+        if m.group(1) == "circle":
+            centres.append((float(attrs["cx"]), float(attrs["cy"])))
+        elif m.group(1) == "rect":
+            centres.append((float(attrs["x"]) + 4, float(attrs["y"]) + 4))
+        else:
+            pts = [tuple(map(float, p.split(","))) for p in attrs["points"].split()]
+            xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+            centres.append(((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2))
+    return centres
+
+
+def _tl_marks(svg: str) -> list[tuple[float, float]]:
+    return _tl_centres(_tl_part(svg, "lit-marks"))
+
+
+def _tl_key_labels(svg: str) -> list[str]:
+    return re.findall(r'<text class="chart-label"[^>]*>([^<]*)</text>', _tl_part(svg, "lit-key"))
+
+
+def _tl_years(svg: str) -> list[str]:
+    return re.findall(r'<text class="chart-tick-label"[^>]*>([^<]*)</text>', svg)
+
+
+def _tl_height(svg: str) -> float:
+    return float(re.search(r'viewBox="0 0 560 ([\d.]+)"', svg).group(1))  # type: ignore[union-attr]
+
+
+def test_one_mark_per_paper_and_same_year_papers_never_share_a_position() -> None:
+    groups, pubs = _tl_groups(
+        [
+            ("PMID:1", 1999, ("case_report",)),
+            ("PMID:2", 1999, ("cohort_screen",)),
+            ("PMID:3", 2005, ("cohort_screen", "family_segregation")),
+            ("PMID:4", 2010, ("rare_variant_association",)),
+            ("PMID:5", 2015, ("common_variant_association",)),
+        ]
+    )
+    svg = _literature_timeline(groups, pubs)
+    marks = _tl_marks(svg)
+    assert len(marks) == 5
+    assert len(set(marks)) == 5
+    assert len(_tl_centres(_tl_part(svg, "lit-key"))) == 5
+
+
+def test_twelve_papers_in_one_year_all_fit_inside_the_figure() -> None:
+    groups, pubs = _tl_groups([(f"PMID:{n}", 2010, ("case_report",)) for n in range(1, 13)])
+    svg = _literature_timeline(groups, pubs)
+    ys = [y for _, y in _tl_marks(svg)]
+    assert len(set(ys)) == 12
+    assert all(5 <= y <= _tl_height(svg) - 5 for y in ys)
+    assert {x for x, _ in _tl_marks(svg)} == {280.0}
+    assert _tl_years(svg) == ["2010"]
+    assert "12 publications with approved findings, in 2010, by year and design" in svg
+
+
+def test_the_hover_names_the_paper_and_each_findings_count_without_a_total() -> None:
+    cohort = _lit_finding(id="CHDA:LIT:0000001", design="cohort_screen")
+    family = _lit_finding(
+        id="CHDA:LIT:0000002",
+        design="family_segregation",
+        count_unit="families",
+        screened=1,
+        carriers={"inherited": 1},
+    )
+    pubs = {"PMID:8988165": _LIT_PUBLICATION}
+    svg = _literature_timeline(_paper_groups([cohort, family], pubs), pubs)
+    assert (
+        "<title>Basson CT et al. 1997 · PMID:8988165 · Mutations in human TBX5 cause limb "
+        "and cardiac malformation. · cohort screen: 7 carriers among 70 probands; "
+        "family segregation: 1 carrier family among 1 family</title>"
+    ) in svg
+    assert "8 carriers" not in svg
+
+
+def test_hostile_publication_text_is_escaped_in_the_hover() -> None:
+    groups, pubs = _tl_groups(
+        [("PMID:1", 2000, ("case_report",))], title='A <b>"x"</b> & y', authors=["O<script>"]
+    )
+    svg = _literature_timeline(groups, pubs)
+    assert "<b>" not in svg and "<script>" not in svg
+    assert "A &lt;b&gt;&quot;x&quot;&lt;/b&gt; &amp; y" in svg
+    assert "O&lt;script&gt; et al. 2000" in svg
+
+
+def test_the_key_lists_only_the_shapes_this_gene_uses_in_vocabulary_order() -> None:
+    groups, pubs = _tl_groups(
+        [
+            ("PMID:1", 2000, ("cohort_screen", "family_segregation")),
+            ("PMID:2", 2001, ("case_report",)),
+        ]
+    )
+    assert _tl_key_labels(_literature_timeline(groups, pubs)) == ["case report", "several designs"]
+    every, pubs = _tl_groups(
+        [
+            ("PMID:1", 2000, ("common_variant_association",)),
+            ("PMID:2", 2001, ("rare_variant_association",)),
+            ("PMID:3", 2002, ("cohort_screen",)),
+            ("PMID:4", 2003, ("family_segregation",)),
+            ("PMID:5", 2004, ("case_report",)),
+            ("PMID:6", 2005, ("case_report", "cohort_screen")),
+        ]
+    )
+    assert _tl_key_labels(_literature_timeline(every, pubs)) == [
+        "case report",
+        "family segregation",
+        "cohort screen",
+        "rare variant association",
+        "common variant association",
+        "several designs",
+    ]
+
+
+def test_year_labels_are_the_ends_and_the_decades_at_least_four_years_from_them() -> None:
+    def span(first: int, last: int) -> str:
+        groups, pubs = _tl_groups(
+            [("PMID:1", first, ("case_report",)), ("PMID:2", last, ("case_report",))]
+        )
+        return _literature_timeline(groups, pubs)
+
+    # 2000 is 3 years from 1997: dropped. 2020 is 4 years from 2024: kept.
+    assert _tl_years(span(1997, 2024)) == ["1997", "2010", "2020", "2024"]
+    assert _tl_years(span(1997, 2022)) == ["1997", "2010", "2022"]
+
+
+def test_an_empty_timeline_is_refused() -> None:
+    with pytest.raises(ValueError, match="no papers"):
+        _literature_timeline([], {})
+
+
+# --- Publications fold (plan Task B4) -------------------------------------------------
+
+
+def _fold_fixture() -> tuple[list[_PaperGroup], dict[str, Publication]]:
+    pubs = {
+        "PMID:8988165": _LIT_PUBLICATION,
+        "PMID:2": _LIT_PUBLICATION.model_copy(update={"id": "PMID:2", "year": 1999}),
+        "PMID:3": _LIT_PUBLICATION.model_copy(update={"id": "PMID:3", "year": 2001}),
+    }
+    findings = [
+        _lit_finding(id="CHDA:LIT:0000001", summary="Alpha finding one."),
+        _lit_finding(
+            id="CHDA:LIT:0000002", design="family_segregation", summary="Beta finding two."
+        ),
+        _lit_finding(id="CHDA:LIT:0000003", publication="PMID:2", summary="Gamma finding three."),
+        _lit_finding(id="CHDA:LIT:0000004", publication="PMID:3", summary="Delta finding four."),
+    ]
+    return _paper_groups(findings, pubs), pubs
+
+
+def test_publications_fold_opens_one_block_per_paper_to_its_own_findings() -> None:
+    groups, pubs = _fold_fixture()
+    fold = _literature_publications(groups, pubs)
+    assert fold.startswith("<details><summary>3 publications</summary>")
+    assert fold.count('<details class="lit-paper">') == 3
+    assert (
+        '<details class="lit-paper"><summary>Basson CT et al. 1997 · Nature genetics · '
+        "family segregation + cohort screen · 2 findings</summary>"
+        "<p>Mutations in human TBX5 cause limb and cardiac malformation. "
+        '<a href="https://pubmed.ncbi.nlm.nih.gov/8988165/">PMID:8988165</a></p>'
+        '<div class="scroll"><table>'
+    ) in fold
+    assert "· 1 finding</summary>" in fold
+    # The PMID link sits in the opened block, never in a <summary>.
+    for summary in re.findall(r"<summary>.*?</summary>", fold):
+        assert "<a " not in summary
+    for text in ("Alpha finding one.", "Beta finding two.", "Gamma finding three.", "Delta"):
+        assert fold.count(text) == 1
+
+
+def test_publications_fold_one_paper_reads_singular_and_the_table_drops_year_and_paper() -> None:
+    groups, pubs = _fold_fixture()
+    one = _literature_publications(groups[:1], pubs)
+    assert "<summary>1 publication</summary>" in one
+    assert re.findall(r'<th scope="col">(.*?)</th>', one) == [
+        "design",
+        "methods",
+        "counts",
+        "carriers by origin",
+        "result",
+        "lesions",
+        "independence",
+        "finding",
+        "approved by",
+    ]
+
+
+def test_publications_fold_escapes_hostile_title_journal_and_author() -> None:
+    hostile = _LIT_PUBLICATION.model_copy(
+        update={
+            "title": 'T<script>&"x"',
+            "journal": "J<b>&",
+            "authors": ['A<i>&"q"'],
+        }
+    )
+    pubs = {"PMID:8988165": hostile}
+    groups = _paper_groups([_lit_finding()], pubs)
+    fold = _literature_publications(groups, pubs)
+    assert "A&lt;i&gt;&amp;&quot;q&quot; et al. 1997 · J&lt;b&gt;&amp;" in fold
+    assert "<p>T&lt;script&gt;&amp;&quot;x&quot; " in fold
+    assert "<script>" not in fold and "<b>" not in fold and "<i>" not in fold
+
+
+def _fold_block(fold: str, pmid: str) -> str:
+    """The one opened paper block whose PMID link is `pmid`."""
+    blocks = [b for b in fold.split('<details class="lit-paper">')[1:] if f">{pmid}</a>" in b]
+    assert len(blocks) == 1
+    return blocks[0]
+
+
+def test_an_atlas_authors_paper_declares_itself_in_the_fold_and_the_timeline() -> None:
+    pubs = {
+        "PMID:8988165": _LIT_PUBLICATION.model_copy(update={"own_lab": True}),
+        "PMID:2": _LIT_PUBLICATION.model_copy(update={"id": "PMID:2", "year": 1999}),
+    }
+    findings = [
+        _lit_finding(id="CHDA:LIT:0000001"),
+        _lit_finding(id="CHDA:LIT:0000002", publication="PMID:2"),
+    ]
+    groups = _paper_groups(findings, pubs)
+    fold = _literature_publications(groups, pubs)
+    own_summary = re.search(r"<summary>(.*?)</summary>", _fold_block(fold, "PMID:8988165"))
+    other_summary = re.search(r"<summary>(.*?)</summary>", _fold_block(fold, "PMID:2"))
+    assert own_summary is not None and other_summary is not None
+    assert own_summary.group(1).endswith(" · 1 finding · study by an atlas author")
+    assert other_summary.group(1).endswith(" · 1 finding")
+    assert "study by an atlas author" not in other_summary.group(1)
+
+    titles = re.findall(
+        r"<title>(.*?)</title>", _tl_part(_literature_timeline(groups, pubs), "lit-marks")
+    )
+    own_title = [t for t in titles if " · PMID:8988165 · " in t]
+    other_title = [t for t in titles if " · PMID:2 · " in t]
+    assert len(own_title) == 1
+    assert own_title[0].startswith(
+        "Basson CT et al. 1997 · study by an atlas author · PMID:8988165 · "
+    )
+    assert len(other_title) == 1 and "study by an atlas author" not in other_title[0]

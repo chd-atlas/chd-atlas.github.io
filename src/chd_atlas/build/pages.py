@@ -75,7 +75,15 @@ from urllib.parse import quote
 from chd_atlas.build.burden import BurdenRow, CombinedRow, Overlap, _sort_key, shared_cohorts
 from chd_atlas.build.cell_type_chart import cell_type_block
 from chd_atlas.build.cell_types import EMPTY_CELL_TYPE_EXPRESSION, CellTypeExpression
-from chd_atlas.build.charts import LogScale, coordinate, marker, polyline, svg_figure
+from chd_atlas.build.charts import (
+    LogScale,
+    Shape,
+    coordinate,
+    glyph,
+    marker,
+    polyline,
+    svg_figure,
+)
 from chd_atlas.build.concordance import (
     FamilyState,
     deciding_rows,
@@ -85,7 +93,12 @@ from chd_atlas.build.concordance import (
 )
 from chd_atlas.build.derive import GeneFacts
 from chd_atlas.build.emit import Emitter, Json
-from chd_atlas.build.gene_literature import EMPTY_GENE_LITERATURE, GeneLiterature, SearchRecord
+from chd_atlas.build.gene_literature import (
+    EMPTY_GENE_LITERATURE,
+    GeneLiterature,
+    SearchRecord,
+    _pmid_number,
+)
 from chd_atlas.build.identity import EMPTY_IDENTITY, GeneIdentity, external_links
 from chd_atlas.build.paths import GENE_INDEX_PAGE, gene_bundle_path, gene_page_path
 from chd_atlas.build.profiles import (
@@ -137,6 +150,7 @@ from chd_atlas.vocab import (
     CONTESTED,
     AtlasCuration,
     Classification,
+    FindingDesign,
     ValiditySource,
     ValidityState,
 )
@@ -796,14 +810,19 @@ def _graded_diseases(gene_validity: GeneValidity, grade: Classification | None) 
     )
 
 
-def _card_curation(fact: GeneFacts) -> str:
+def _card_curation(fact: GeneFacts, literature: GeneLiterature = EMPTY_GENE_LITERATURE) -> str:
     """The card's atlas-curation sentence, and what it must not deny. D55.
 
     Four branches, in the order the code takes them:
 
-    * **curated** -- "Curated by the atlas: 1 lesion assertion for the septal
-      lesion group." with the functional-record count appended only when
-      non-zero (TBX5 is the one curated gene today, measured 2026-10-26);
+    * **curated** -- "Curated by the atlas: 1 lesion assertion (septal)." with
+      the functional-record count appended only when non-zero (TBX5 and NR2F2
+      are the curated genes today; one assertion each). With approved literature
+      findings the sentence adds "and 24 findings from 21 papers" (owner
+      decision 2); a gene with only those reads "Curated by the atlas: 5
+      findings from 4 papers." Papers are the distinct PMIDs among the
+      findings. `literature` is the bundle's, which carries approved findings
+      only, so a gene whose findings all await approval is not counted here;
     * **not curated, a ClinGen panel holds a record** -- every classification
       on the page is a panel's or a named curator's (97 genes);
     * **not curated, no panel record** -- no ClinGen expert panel has graded
@@ -832,7 +851,10 @@ def _card_curation(fact: GeneFacts) -> str:
     a dropped join. "Not yet curated by the atlas" followed by "the atlas has
     curated 1 functional record" would be the same defect inside one sentence.
     `atlas_curation`'s meaning is deliberately untouched; what was wrong was
-    the sentence, not the field.
+    the sentence, not the field. Literature is the same case: a gene with
+    approved findings and no assertion is `not_yet_curated` in the JSON and
+    "Curated by the atlas" on the card, because the card must not deny work
+    the page below it renders.
 
     **`validity_state` is the discriminator between the two uncurated
     sentences, not `headline_confidence is None`**, for the reason the notices
@@ -846,21 +868,26 @@ def _card_curation(fact: GeneFacts) -> str:
     It was the main-column paragraph `_not_curated`, rendered after the
     validity section, until D55 moved it here; the page now states it once.
     """
-    if fact.atlas_curation is AtlasCuration.CURATED:
-        noun = "assertion" if fact.assertion_count == 1 else "assertions"
-        groups = [group.value for group in fact.lesion_groups]
-        scope = (
-            f" for the {html.escape(', '.join(groups))} "
-            f"lesion group{'s' if len(groups) > 1 else ''}"
-            if groups
-            else ""
-        )
+    findings = literature["findings"]
+    if fact.atlas_curation is AtlasCuration.CURATED or findings:
+        parts = []
+        if fact.atlas_curation is AtlasCuration.CURATED:
+            noun = "assertion" if fact.assertion_count == 1 else "assertions"
+            groups = [group.value for group in fact.lesion_groups]
+            scope = f" ({html.escape(', '.join(groups))})" if groups else ""
+            parts.append(f"{fact.assertion_count} lesion {noun}{scope}")
+        if findings:
+            papers = len({str(finding["publication"]) for finding in findings})
+            parts.append(
+                f"{len(findings)} {'finding' if len(findings) == 1 else 'findings'} "
+                f"from {papers} {'paper' if papers == 1 else 'papers'}"
+            )
         functional = (
             f"; {fact.functional_count} functional record{'s' if fact.functional_count > 1 else ''}"
             if fact.functional_count
             else ""
         )
-        sentence = f"Curated by the atlas: {fact.assertion_count} lesion {noun}{scope}{functional}."
+        sentence = f"Curated by the atlas: {' and '.join(parts)}{functional}."
         return f'<p class="card-curation">{sentence}</p>'
 
     # "Not yet": the state is `not_yet_curated`, and the atlas has not decided
@@ -1792,6 +1819,7 @@ def _rail(
     identity: GeneIdentity | None = None,
     scope_terms: Mapping[str, ScopeEntry] | None = None,
     panel_graders: Mapping[tuple[str, str], tuple[str, ...]] | None = None,
+    literature: GeneLiterature = EMPTY_GENE_LITERATURE,
 ) -> str:
     """The clinician card: the summary column, for every gene whether curated here or not.
 
@@ -1893,7 +1921,7 @@ def _rail(
         f"{_card_no_association(fact, gene_validity)}"
         f"{_card_scope(fact, gene_validity, warrants or {}, scope_terms, panel_graders)}"
         f"{_card_rare_variants(rows, families, publications or {})}"
-        f"{_card_curation(fact)}"
+        f"{_card_curation(fact, literature)}"
         '<p><a href="../methods.html">How to read this page</a> &middot; '
         f'<a href="../{html.escape(bundle)}">this gene as JSON</a></p></aside>'
     )
@@ -6431,26 +6459,264 @@ def _literature_exclusions(excluded: Mapping[str, int]) -> str:
     return f"<details><summary>Excluded papers, by reason</summary><ul>{items}</ul></details>"
 
 
+# One mark per paper (owner, 2026-11-03). A paper with one design keeps that design's
+# shape; a paper with several designs is a ring, so the ring is never a design. Every
+# member of FindingDesign must have a shape: `_paper_shape` refuses a token it does not
+# know rather than drawing a default.
+_DESIGN_SHAPES: Final[dict[str, Shape]] = {
+    "case_report": "circle",
+    "family_segregation": "square",
+    "cohort_screen": "triangle_up",
+    "rare_variant_association": "triangle_down",
+    "common_variant_association": "star",
+}
+_SEVERAL_DESIGNS: Final[Shape] = "ring"
+_DESIGN_ORDER: Final[dict[str, int]] = {d.value: i for i, d in enumerate(FindingDesign)}
+
+
+class _PaperGroup(NamedTuple):
+    """One publication's approved findings, with the distinct designs they report."""
+
+    pmid: str
+    publication: Publication
+    findings: tuple[Mapping[str, Json], ...]
+    designs: tuple[str, ...]
+
+
+def _paper_groups(
+    findings: Sequence[Mapping[str, Json]],
+    publications: Mapping[str, Publication],
+) -> list[_PaperGroup]:
+    """The findings grouped by paper, ordered by year then numeric PMID.
+
+    Grouping keys on the PMID, never on adjacency, so a paper's findings need not be
+    contiguous in the input. The PMID sort is numeric (`PMID:10` after `PMID:2`). A
+    finding whose paper is unregistered raises: validation refuses it (LIT011), so
+    reaching here means the gate was bypassed.
+    """
+    by_pmid: dict[str, list[Mapping[str, Json]]] = {}
+    for finding in findings:
+        pmid = str(finding["publication"])
+        if pmid not in publications:
+            raise ValueError(f"finding {finding['id']} cites {pmid}, which is not registered")
+        by_pmid.setdefault(pmid, []).append(finding)
+    groups = []
+    for pmid, members in by_pmid.items():
+        designs = sorted(
+            {str(f["design"]) for f in members},
+            key=lambda d: (_DESIGN_ORDER.get(d, len(_DESIGN_ORDER)), d),
+        )
+        groups.append(_PaperGroup(pmid, publications[pmid], tuple(members), tuple(designs)))
+    groups.sort(key=lambda g: (g.publication.year, _pmid_number(g.pmid)))
+    return groups
+
+
+def _paper_shape(group: _PaperGroup) -> Shape:
+    """The paper's mark: its design's shape, or the ring when it reports several designs."""
+    for design in group.designs:
+        if design not in _DESIGN_SHAPES:
+            raise ValueError(f"no shape for finding design {design!r} ({group.pmid})")
+    if len(group.designs) > 1:
+        return _SEVERAL_DESIGNS
+    return _DESIGN_SHAPES[group.designs[0]]
+
+
+# Timeline geometry, in pixels. Stacking is 11 px: a glyph is a 10 px box, so two marks of
+# one year never touch (the star runs from y-5 to about y+4.05 and fits).
+_TL_PAD: Final = 24.0
+_TL_STACK: Final = 11.0
+_TL_TOP: Final = 10.0
+_TL_KEY_ROW: Final = 16.0
+_SEVERAL_DESIGNS_LABEL: Final = "several designs"
+
+
+def _timeline_year_labels(first: int, last: int) -> list[int]:
+    """Both ends, and each multiple of 10 between them at least 4 years from both."""
+    if first == last:
+        return [first]
+    decades = [
+        y for y in range(first + 1, last) if y % 10 == 0 and y - first >= 4 and last - y >= 4
+    ]
+    return [first, *decades, last]
+
+
+def _own_lab_mark(publication: Publication) -> str:
+    """`_OWN_LAB_MARK` for a paper an atlas author wrote, else the empty string.
+
+    The timeline hover and the fold summary both carry it, so a reader who meets
+    a paper on either surface meets the declaration (owner decision 5).
+    """
+    return _OWN_LAB_MARK if publication.own_lab else ""
+
+
+def _literature_timeline(
+    groups: Sequence[_PaperGroup],
+    publications: Mapping[str, Publication],
+) -> str:
+    """One SVG: each approved paper a mark on a year axis, shaped by design.
+
+    A paper's mark is `_paper_shape`; papers of one year stack upward, in group order,
+    so none hides another. The hover names the paper and gives one clause per finding
+    -- the counts of different findings are never added (T6). Raises `ValueError` on no
+    papers: the caller renders the no-findings line instead of an empty axis.
+    """
+    if not groups:
+        raise ValueError("a timeline needs at least one paper; there are no papers to draw")
+    years = [g.publication.year for g in groups]
+    first, last = min(years), max(years)
+    span = _CHART_WIDTH - 2 * _TL_PAD
+
+    def x_of(year: int) -> float:
+        return (
+            _CHART_WIDTH / 2 if first == last else _TL_PAD + (year - first) / (last - first) * span
+        )
+
+    tallest = max(years.count(year) for year in set(years))
+    baseline = _TL_TOP + 5 + _TL_STACK * (tallest - 1)
+    axis_y = baseline + 10
+    seen: dict[int, int] = {}
+    marks = []
+    shapes_used = set()
+    for group in groups:
+        year = group.publication.year
+        k = seen.get(year, 0)
+        seen[year] = k + 1
+        shape = _paper_shape(group)
+        shapes_used.add(shape)
+        clauses = "; ".join(
+            f"{_words(str(f['design']))}: {_finding_counts(f)}" for f in group.findings
+        )
+        label = _study_label(group.pmid, publications) + _own_lab_mark(group.publication)
+        hover = " · ".join([label, group.pmid, group.publication.title, clauses])
+        marks.append(glyph(x_of(year), baseline - _TL_STACK * k, shape=shape, title=hover))
+    body = (
+        f'<line class="chart-axis" x1="{coordinate(_TL_PAD)}" y1="{coordinate(axis_y)}" '
+        f'x2="{coordinate(_CHART_WIDTH - _TL_PAD)}" y2="{coordinate(axis_y)}"/>'
+        + "".join(
+            f'<text class="chart-tick-label" x="{coordinate(x_of(y))}" '
+            f'y="{coordinate(axis_y + 12)}" text-anchor="middle">{y}</text>'
+            for y in _timeline_year_labels(first, last)
+        )
+        + f'<g class="lit-marks">{"".join(marks)}</g>'
+    )
+    # The key: only the shapes drawn here, design order then the ring, wrapped to rows.
+    entries = [
+        (_DESIGN_SHAPES[d.value], _words(d.value))
+        for d in FindingDesign
+        if _DESIGN_SHAPES[d.value] in shapes_used
+    ]
+    if _SEVERAL_DESIGNS in shapes_used:
+        entries.append((_SEVERAL_DESIGNS, _SEVERAL_DESIGNS_LABEL))
+    key = []
+    x, row = _TL_PAD, 0
+    for shape, label in entries:
+        width = 14 + len(label) * _CHAR_WIDTH + 18
+        if x > _TL_PAD and x + width > _CHART_WIDTH - _TL_PAD:
+            x, row = _TL_PAD, row + 1
+        y = axis_y + 30 + _TL_KEY_ROW * row
+        key.append(glyph(x + 5, y, shape=shape, title=label))
+        key.append(
+            f'<text class="chart-label" x="{coordinate(x + 14)}" y="{coordinate(y + 3)}">'
+            f"{html.escape(label)}</text>"
+        )
+        x += width
+    height = int(math.ceil(axis_y + 30 + _TL_KEY_ROW * row + 10))
+    n = len(groups)
+    when = f"in {first}" if first == last else f"{first} to {last}"
+    title = (
+        f"{n} {'publication' if n == 1 else 'publications'} with approved findings, "
+        f"{when}, by year and design"
+    )
+    return svg_figure(
+        width=_CHART_WIDTH,
+        height=height,
+        title=title,
+        body=body + f'<g class="lit-key">{"".join(key)}</g>',
+    )
+
+
+_PAPER_FINDING_HEADERS: Final = _FINDING_HEADERS[2:]
+
+
+def _finding_row(finding: Mapping[str, Json]) -> Row:
+    """A finding's cells from `design` to `approved by`; the caller adds neither year nor paper.
+
+    The review mark (R24) sits beside the summary, so it qualifies the finding
+    and never hides it.
+    """
+    status, note = finding["review_status"], finding["review_note"]
+    mark = review_status_note(
+        str(finding["id"]),
+        ReviewStatus(status) if isinstance(status, str) else None,
+        note if isinstance(note, str) else None,
+    )
+    return Row(
+        (
+            _words(str(finding["design"])),
+            ", ".join(_words(str(m)) for m in _as_list(finding["methods"])),
+            _finding_counts(finding),
+            _finding_carriers(finding),
+            _finding_result(finding),
+            ", ".join(_words(str(g)) for g in _as_list(finding["lesion_groups"])),
+            _finding_independence(finding),
+            Markup(html.escape(str(finding["summary"])) + mark),
+            str(finding["approved_by"]),
+        )
+    )
+
+
+def _literature_publications(
+    groups: Sequence[_PaperGroup],
+    publications: Mapping[str, Publication],
+) -> str:
+    """The approved papers folded, each opening to its own findings.
+
+    The PMID link is in the opened block, not in the `<summary>`, which holds no
+    interactive content. A paper's findings are listed, never summed (T6).
+    """
+    n = len(groups)
+    blocks = []
+    for group in groups:
+        k = len(group.findings)
+        designs = " + ".join(_words(d) for d in group.designs)
+        summary = (
+            f"{_study_label(group.pmid, publications)} \u00b7 {group.publication.journal} "
+            f"\u00b7 {designs} \u00b7 {k} {'finding' if k == 1 else 'findings'}"
+            f"{_own_lab_mark(group.publication)}"
+        )
+        table = data_table(_PAPER_FINDING_HEADERS, [_finding_row(f) for f in group.findings])
+        blocks.append(
+            f'<details class="lit-paper"><summary>{html.escape(summary)}</summary>'
+            f"<p>{html.escape(group.publication.title)} "
+            f'<a href="{html.escape(_pubmed(group.pmid))}">{html.escape(group.pmid)}</a></p>'
+            f'<div class="scroll">{table}</div></details>'
+        )
+    noun = "publication" if n == 1 else "publications"
+    return f"<details><summary>{n} {noun}</summary>{''.join(blocks)}</details>"
+
+
 def _literature_section(
     literature: GeneLiterature,
     publications: Mapping[str, Publication],
 ) -> str:
-    """The gene's curated literature: one summary line, the exclusion tally, the findings.
+    """The gene's curated literature, in this order: the summary line, the timeline of
+    approved papers and their folded list (or `No approved findings yet.` and no axis),
+    the exclusion tally, every search.
 
     No search recorded: `_NOT_CURATED_LITERATURE` and nothing else. Otherwise a
-    visible line counting what the search returned and what was decided -- the
+    visible line counting what the searches returned and what was decided (one
+    search: `searched D`; several: `N searches, latest D` and `in all`) -- the
     papers, included and excluded counts always print, so `0 included` or
     `0 excluded` can render; only the optional clauses (`, N not yet triaged`,
-    `; N findings await review`) are omitted when their count is 0 -- then
-    the exclusion tally, every search folded with its exact query, and the
-    approved findings in a folded table. The
-    table lists approved findings only, which is all the bundle carries; the
-    `await review` clause is what stops the unapproved ones being invisible. A
-    finding's `review_status` and `review_note` are rendered beside its summary
-    (ruling R24): the mark qualifies a published finding and never hides it.
+    `; N findings await approval`) are omitted when their count is 0 -- then
+    the exclusion tally and every search folded with its exact query. The
+    timeline and the list cover approved findings only, which is all the bundle
+    carries; the `await approval` clause is what stops the unapproved ones being
+    invisible. A finding's `review_status` and `review_note` are rendered beside
+    its summary (ruling R24): the mark qualifies a published finding and never hides it.
 
-    `publications` supplies each finding's year; its absence raises, because
-    validation refuses a finding whose paper is unregistered (LIT011).
+    `publications` supplies each paper's year; `_paper_groups` raises on an
+    unregistered paper, because validation refuses one (LIT011).
     """
     searches = literature["searches"]
     if not searches:
@@ -6458,59 +6724,32 @@ def _literature_section(
     triage = literature["triage"]
     papers = sum(search["new_hits"] for search in searches)
     excluded_total = sum(triage["excluded"].values())
-    line = (
-        f"PubMed, searched {html.escape(max(search['run_on'] for search in searches))}: "
-        f"{papers} {'paper' if papers == 1 else 'papers'}; "
-        f"{triage['included']} included, {excluded_total} excluded"
-    )
+    latest = html.escape(max(search["run_on"] for search in searches))
+    noun = "paper" if papers == 1 else "papers"
+    if len(searches) == 1:
+        opening = f"PubMed, searched {latest}: {papers} {noun}; "
+    else:
+        opening = f"PubMed, {len(searches)} searches, latest {latest}: {papers} {noun} in all; "
+    line = f"{opening}{triage['included']} included, {excluded_total} excluded"
     if triage["pending"]:
         line += f", {triage['pending']} not yet triaged"
     waiting = literature["pending_approval"]
     if waiting:
-        line += f"; {waiting} {'finding awaits' if waiting == 1 else 'findings await'} review"
-    out = (
+        line += f"; {waiting} {'finding awaits' if waiting == 1 else 'findings await'} approval"
+    findings = literature["findings"]
+    if findings:
+        groups = _paper_groups(findings, publications)
+        body = _literature_timeline(groups, publications) + _literature_publications(
+            groups, publications
+        )
+    else:
+        body = "<p>No approved findings yet.</p>"
+    return (
         f'<h2>Literature</h2><p class="method">{line}.</p>'
+        + body
         + _literature_exclusions(triage["excluded"])
         + _literature_searches(searches)
     )
-    findings = literature["findings"]
-    if findings:
-        rows = []
-        for finding in findings:
-            pmid = str(finding["publication"])
-            publication = publications.get(pmid)
-            if publication is None:
-                raise ValueError(f"{finding['id']}: {pmid} is not a registered publication")
-            status, note = finding["review_status"], finding["review_note"]
-            mark = review_status_note(
-                str(finding["id"]),
-                ReviewStatus(status) if isinstance(status, str) else None,
-                note if isinstance(note, str) else None,
-            )
-            rows.append(
-                Row(
-                    (
-                        str(publication.year),
-                        Link(pmid, _pubmed(pmid)),
-                        _words(str(finding["design"])),
-                        ", ".join(_words(str(m)) for m in _as_list(finding["methods"])),
-                        _finding_counts(finding),
-                        _finding_carriers(finding),
-                        _finding_result(finding),
-                        ", ".join(_words(str(g)) for g in _as_list(finding["lesion_groups"])),
-                        _finding_independence(finding),
-                        Markup(html.escape(str(finding["summary"])) + mark),
-                        str(finding["approved_by"]),
-                    )
-                )
-            )
-        noun = "finding" if len(findings) == 1 else "findings"
-        out += (
-            f"<details><summary>{len(findings)} approved {noun}</summary>"
-            + data_table(_FINDING_HEADERS, rows)
-            + "</details>"
-        )
-    return out
 
 
 def _as_list(value: Json) -> list[Json]:
@@ -6611,6 +6850,7 @@ def build_gene_pages(
         records = assertions.get(gene, [])
         gene_validity = validity.get(gene, uncurated())
         identity = None if identities is None else identities.get(gene, EMPTY_IDENTITY)
+        gene_literature_bundle = literature.get(gene, EMPTY_GENE_LITERATURE)
         body = (
             '<div class="layout">'
             + _rail(
@@ -6625,6 +6865,7 @@ def build_gene_pages(
                 identity=identity,
                 scope_terms=scope_terms,
                 panel_graders=graders,
+                literature=gene_literature_bundle,
             )
             + "<div>"
             + _SCOPE_SHORT
@@ -6675,7 +6916,7 @@ def build_gene_pages(
                 gene=symbol,
             )
             # After expression, for the same reason expression is after burden.
-            + _literature_section(literature.get(gene, EMPTY_GENE_LITERATURE), publications)
+            + _literature_section(gene_literature_bundle, publications)
             + "</div></div>"
         )
         emitter.write_text(

@@ -27,6 +27,7 @@ from chd_atlas.build.gene_literature import (
 from chd_atlas.corpus import Corpus
 from chd_atlas.models.gene_literature import GeneLiteratureFile
 from chd_atlas.models.literature import Publication
+from tests.unit._stamp import stamped
 
 TBX5 = "HGNC:11604"
 GATA4 = "HGNC:4173"
@@ -54,7 +55,7 @@ def _finding(number: int, pmid: str, **changes: Any) -> dict[str, Any]:
         "approved_on": "2026-11-05",
     }
     base.update(changes)
-    return base
+    return stamped(base)
 
 
 def _file(gene: str = TBX5) -> GeneLiteratureFile:
@@ -164,6 +165,7 @@ def test_a_genes_literature_is_its_searches_its_tally_and_only_its_approved_find
     ]
     # JSON-ready: a date is its ISO string, not a `date`.
     assert entry["findings"][0]["approved_on"] == "2026-11-05"
+    assert all("approved_digest" not in finding for finding in entry["findings"])
     assert json.dumps(entry)
 
 

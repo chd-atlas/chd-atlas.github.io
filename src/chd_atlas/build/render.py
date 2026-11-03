@@ -617,6 +617,8 @@ STYLESHEET: Final = """
   .chart-hit { fill: none; stroke: none; pointer-events: all; }
   .chart-point { fill: var(--link); }
   .chart-point-open { fill: var(--bg); stroke: var(--link); stroke-width: 1.6; }
+  .lit-mark { fill: var(--link); }
+  .lit-mark-open { fill: var(--bg); stroke: var(--link); stroke-width: 1.6; }
   .chart-axis { stroke: var(--border); }
   .chart-band { fill: var(--notice-bg); }
   .chart-strip { fill: var(--muted); fill-opacity: 0.55; }

@@ -33,6 +33,7 @@ import html
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 
 def coordinate(value: float) -> str:
@@ -178,3 +179,62 @@ def marker(x: float, y: float, *, css_class: str) -> str:
         f'<circle class="{html.escape(css_class)}" '
         f'cx="{coordinate(x)}" cy="{coordinate(y)}" r="2.5"/>'
     )
+
+
+Shape = Literal["circle", "square", "triangle_up", "triangle_down", "star", "ring"]
+
+_GLYPH_CLASS: dict[Shape, str] = {
+    "circle": "lit-mark",
+    "square": "lit-mark",
+    "triangle_up": "lit-mark",
+    "triangle_down": "lit-mark",
+    "star": "lit-mark",
+    "ring": "lit-mark lit-mark-open",
+}
+
+
+def glyph(x: float, y: float, *, shape: Shape, title: str) -> str:
+    """One titled mark for a single item, centred on `(x, y)` in a 10x10 box.
+
+    Shape is the only channel: colour is the stylesheet's, and the open
+    `ring` is the one hollow form, so the six read apart without colour. A
+    `<title>` child carries the item's own text, so a hover or a screen reader
+    names what the mark stands for.
+
+    An unknown shape is refused, never drawn as a default. A vocabulary member
+    added later must fail loudly rather than publish a mark the reader cannot
+    tell from the others.
+
+    The shape set deliberately has no diamond; see the module docstring.
+    """
+    if shape not in _GLYPH_CLASS:
+        raise ValueError(f"unknown glyph shape {shape!r}; the shapes are {sorted(_GLYPH_CLASS)}")
+    css = _GLYPH_CLASS[shape]
+    label = f"<title>{html.escape(title)}</title>"
+    cx, cy = coordinate(x), coordinate(y)
+    if shape in ("circle", "ring"):
+        r = "3.5" if shape == "ring" else "4"
+        return f'<circle class="{css}" cx="{cx}" cy="{cy}" r="{r}">{label}</circle>'
+    if shape == "square":
+        return (
+            f'<rect class="{css}" x="{coordinate(x - 4)}" y="{coordinate(y - 4)}" '
+            f'width="8" height="8">{label}</rect>'
+        )
+    if shape in ("triangle_up", "triangle_down"):
+        apex = -4.5 if shape == "triangle_up" else 4.5
+        base = -apex
+        points = [(x, y + apex), (x + 4.5, y + base), (x - 4.5, y + base)]
+        return f'<polygon class="{css}" points="{_points(points)}">{label}</polygon>'
+    if shape == "star":
+        # Five outer and five inner vertices, alternating, first point up.
+        vertices: list[tuple[float, float]] = []
+        for i in range(10):
+            angle = -math.pi / 2 + i * math.pi / 5
+            reach = 5.0 if i % 2 == 0 else 2.2
+            vertices.append((x + reach * math.cos(angle), y + reach * math.sin(angle)))
+        return f'<polygon class="{css}" points="{_points(vertices)}">{label}</polygon>'
+    raise ValueError(f"glyph shape {shape!r} has a class but no drawing")
+
+
+def _points(points: Sequence[tuple[float, float]]) -> str:
+    return " ".join(f"{coordinate(px)},{coordinate(py)}" for px, py in points)

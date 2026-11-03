@@ -48,7 +48,8 @@
         "chromosomal_microarray",
         "karyotype_or_fish",
         "genotyping_array",
-        "targeted_genotyping"
+        "targeted_genotyping",
+        "not_stated"
       ],
       "title": "DetectionMethod",
       "type": "string"
@@ -83,6 +84,19 @@
           ],
           "default": null,
           "title": "Approved By"
+        },
+        "approved_digest": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved Digest"
         },
         "approved_on": {
           "anyOf": [

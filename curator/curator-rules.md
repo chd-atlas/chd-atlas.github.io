@@ -93,8 +93,13 @@ convention only a person can check.
 - `extracted_by` and `verified_by` are `agent:<skill>/<model>`. The verifier is a
   different model from the extractor, in a fresh context.
 - `approved_by` is a human's name. A value starting `agent:` is refused by the model
-  (`SCHEMA001`) and by `chd-atlas literature review`. `approved_by` and `approved_on` are
-  set together (`SCHEMA001`).
+  (`SCHEMA001`) and by `chd-atlas literature review`. `approved_by`, `approved_on` and
+  `approved_digest` are set together (`SCHEMA001`).
+- `approved_digest` is a hash of the finding as it was approved; `literature review
+  --approve` writes it. Editing any field it covers (the id, counts, summary, locators,
+  anything but the approval, `verified_by` and the review mark) leaves the approval
+  stale: the validator reports `LIT015` and the build refuses until the three approval
+  fields are deleted and a person approves again. Never write or copy a digest by hand.
 - An agent never runs `literature review --approve` and never writes `approved_by`. That
   is a convention: the command cannot tell a person's name from an agent's invented one.
 - Approval is not dated before the search that found the paper (`LIT008`).

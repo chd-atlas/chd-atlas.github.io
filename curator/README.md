@@ -37,7 +37,8 @@ Use `.venv/bin/chd-atlas` from the repository root. For one published gene:
    starting `agent:`, a date before the search that found the paper, and a date in the
    future. A finding whose fields differed from the verifier's is not auto-verified:
    settle the difference in the file, or approve it with `--allow-unverified` and say
-   why in your hand-off.
+   why in your hand-off. The approval records a digest of the finding; editing what it covers
+   (anything but the approval, `verified_by` and the review mark) voids it (`LIT015`) until you delete its three approval fields and approve again.
 
 `NCBI_API_KEY` is optional, read from the environment only, and never written to a file.
 The `search`, `abstracts` and `add-publication` commands need the network.

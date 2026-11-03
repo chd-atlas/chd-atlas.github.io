@@ -21,6 +21,7 @@ manifest does not list.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from chd_atlas.build.bundles import build_genes
@@ -43,7 +44,7 @@ from chd_atlas.build.emit import Emitter
 from chd_atlas.build.gene_literature import gene_literature, literature_census
 from chd_atlas.build.identity import read_gene_identities
 from chd_atlas.build.landing import build_landing
-from chd_atlas.build.literature import build_literature, build_sources
+from chd_atlas.build.literature import build_literature, build_sources, withheld_publications
 from chd_atlas.build.manifest import source_commit, write_manifest
 from chd_atlas.build.methods import build_methods
 from chd_atlas.build.omics import build_omics
@@ -386,6 +387,25 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
         gene: gene_concordance(burden.get(gene, ()), families) for gene in sorted(published)
     }
 
+    # The Publications only an unapproved literature finding cites, decided once
+    # and handed to every emitter that lists publications. `public_corpus` is
+    # what the search index and the manifest's census read; lookups that resolve
+    # a PMID a published record cites keep the full `corpus`.
+    withheld = withheld_publications(
+        corpus,
+        {row.study for row in all_burden_rows}
+        | {row.study for rows in combined.values() for row in rows}
+        | {
+            str(row["publication"])
+            for rows in variants.values()
+            for row in rows
+            if row.get("publication") is not None
+        },
+    )
+    public_corpus = replace(
+        corpus,
+        publications=tuple(p for p in corpus.publications if p.id not in withheld),
+    )
     facts = build_genes(
         corpus,
         emitter,
@@ -402,7 +422,7 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
         cell_types=cell_type_expression,
         literature=literature,
     )
-    build_literature(corpus, emitter)
+    build_literature(corpus, emitter, withheld=withheld)
     # The resolution table for the bare cohort ids every burden row carries.
     # Emitted from `corpus.cohorts` -- the whole curated registry, not the subset
     # the published rows happen to cite -- so that every id in every row resolves
@@ -427,7 +447,7 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
     # short forms and chart toggles link to. Every page's nav links it, so a
     # build that skipped this would publish a dead link on all of them.
     build_methods(emitter, cohorts=cohort_registry(corpus.cohorts))
-    build_search(corpus, emitter, genes=genes, published=published)
+    build_search(public_corpus, emitter, genes=genes, published=published)
     # One integer, for the manifest below; the front page stopped stating it
     # with the doorway page (2026-10-27).
     combined_results = combined_census(combined, published)
@@ -527,7 +547,7 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
     # rare-variant study covered. They were equal at 23 of 23 when this was
     # written and have since parted, which is the day this was written for.
     write_manifest(
-        corpus,
+        public_corpus,
         emitter,
         commit=source_commit(root),
         counts={

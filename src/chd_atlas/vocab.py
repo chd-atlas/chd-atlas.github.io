@@ -639,6 +639,10 @@ class DetectionMethod(StrEnum):
     KARYOTYPE_OR_FISH = "karyotype_or_fish"
     GENOTYPING_ARRAY = "genotyping_array"
     TARGETED_GENOTYPING = "targeted_genotyping"
+    # The paper names no method ("genetically confirmed"). Unknown is a value: before
+    # this member the pilot's agents wrote the nearest method instead, which would
+    # publish a claim the paper never made (owner, 2026-11-03). It stands alone.
+    NOT_STATED = "not_stated"
 
 
 class ScreenUnit(StrEnum):

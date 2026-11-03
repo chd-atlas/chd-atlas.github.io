@@ -8,6 +8,7 @@ import pytest
 from chd_atlas.build.runner import BuildRefused, build_site
 from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.validate.runner import ValidationReport, validate_repository
+from tests.unit._stamp import stamped
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 
@@ -843,9 +844,17 @@ def _real_repo(tmp_path: Path) -> Path:
     Copied rather than fixtured because the defect below is about *scale* -- one
     error naming a cause versus one error per row naming symptoms -- and a
     two-row fixture cannot show the difference.
+
+    The copy drops `curation/literature/`: this branch's committed corpus has no
+    `curation/literature/`, but the pilot branch does, and a fixture that writes its own
+    literature file would
+    otherwise hit `FileExistsError` on `mkdir`, or compare against a baseline that
+    already holds the real file's issues. Every fixture that builds on this copy
+    gets the same empty literature directory.
     """
     for name in ("curation", "mirrors", "ontologies"):
         shutil.copytree(REPO_ROOT / name, tmp_path / name)
+    shutil.rmtree(tmp_path / "curation" / "literature", ignore_errors=True)
     return tmp_path
 
 
@@ -1424,6 +1433,7 @@ def _literature_repo(tmp_path: Path, *, stem: str = "TBX5", gene: str = "HGNC:11
         "approved_on": "2026-11-05",
     }
     finding.update(tweak.pop("finding", {}))
+    finding = stamped(finding)
     raw = {
         "gene": gene,
         "searches": [
