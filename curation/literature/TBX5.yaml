@@ -9,1201 +9,1485 @@ searches:
 triage:
   - pmid: PMID:3400729
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:3800624
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:3953367
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:8054982
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:8054983
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:8339498
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:8465226
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:8595424
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:8730285
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:8940280
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:8988164
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:8988165
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:9207801
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:9434949
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:9611267
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:9771325
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:9888994
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:10077612
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:10079235
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:10096597
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:10373308
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:10821756
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:10842287
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:10864469
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:10882515
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:10932003
     search: 1
-    decision: pending
+    decision: excluded
+    reason: same_data_as
+    same_as: PMID:10842287
   - pmid: PMID:10974675
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:11161571
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:11431700
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:11555635
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:11572777
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:11748310
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:11792287
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:12005433
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:12210327
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:12223419
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:12237100
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:12393809
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:12397116
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:12499378
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:12536695
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:12624158
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:12687661
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:12736217
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:12773460
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_chd
   - pmid: PMID:12789647
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:12818525
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:12843316
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:12845333
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:12858531
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:12941624
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:14519425
     search: 1
-    decision: pending
+    decision: excluded
+    reason: review_article
   - pmid: PMID:14519429
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:15039979
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:15070885
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:15087119
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:15095414
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:15143159
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:15221798
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:15289437
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:15302601
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:15364612
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:15368344
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_peer_reviewed
   - pmid: PMID:15464586
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:15548583
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:15639924
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:15710732
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:15735645
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:15810003
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:15823919
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:15843414
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:15849237
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:15923624
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:15958514
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:16086360
     search: 1
-    decision: pending
+    decision: excluded
+    reason: review_article
   - pmid: PMID:16134140
     search: 1
-    decision: pending
+    decision: excluded
+    reason: review_article
   - pmid: PMID:16183809
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:16329098
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:16332960
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:16359490
     search: 1
-    decision: pending
+    decision: excluded
+    reason: review_article
   - pmid: PMID:16376438
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:16380715
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:16484617
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:16501170
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:16792966
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:16870172
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:16892408
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:16894625
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:16917909
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:17138667
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:17334998
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:17366586
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:17468179
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:17502954
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:17534187
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:17604724
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:17668378
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:18285513
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:18328475
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:18337497
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:18351627
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:18378906
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:18391012
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:18407257
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:18451335
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:18661250
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:18685167
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:18706711
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:18726671
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:18818409
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:18828908
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:18938699
     search: 1
-    decision: pending
+    decision: excluded
+    reason: review_article
   - pmid: PMID:19074289
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:19084512
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:19158954
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:19187613
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:19204083
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:19243417
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:19345202
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:19405322
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:19586889
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:19648116
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:19895804
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:19925885
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:20152185
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:20219112
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:20306498
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:20450920
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:20460370
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:20519243
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:20553648
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:20811785
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:20858598
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:20974940
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:21070912
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:21079360
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:21184723
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:21215183
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:21272410
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:21304516
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:21637475
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:21752519
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:21803945
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:21812358
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:21897873
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:21982178
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:21990232
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:22011241
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:22190901
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:22226977
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:22333898
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:22543974
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:22572437
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:22576768
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:22577452
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:22589735
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:22776023
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:22776204
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:22824467
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:22885181
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:22895573
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:22898775
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:22901678
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:22903933
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:23226307
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:23266815
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:23342975
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:23441045
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:23457456
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:23607171
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:23619295
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:23626780
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:23713051
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:23804889
     search: 1
-    decision: pending
+    decision: excluded
+    reason: review_article
   - pmid: PMID:23984174
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_chd
   - pmid: PMID:23999067
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:24000169
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:24408148
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:24430697
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:24479926
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:24498650
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:24565863
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:24664498
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:24664963
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:24714979
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:24759614
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:24858909
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:25099673
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:25216260
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:25245104
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:25257289
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:25263169
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:25274398
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:25315346
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:25344219
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:25356765
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:25455949
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:25468972
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:25576386
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:25621081
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:25623069
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:25691335
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:25725155
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:25886110
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:25912687
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:25931334
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:25986147
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:26036351
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:26208718
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:26219450
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:26243320
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:26283027
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:26401820
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:26490186
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:26525676
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:26657204
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:26715205
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:26744331
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:26749485
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:26780237
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:26859347
     search: 1
-    decision: pending
+    decision: excluded
+    reason: review_article
   - pmid: PMID:26859351
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:26875865
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:26882979
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:26917986
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_chd
   - pmid: PMID:26989721
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:27026770
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:27035640
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:27293527
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:27471727
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:27552067
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:27652283
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:27695215
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:27722056
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:27958623
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:27984724
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:27992425
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:28074809
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:28111280
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:28164238
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:28337273
     search: 1
-    decision: pending
+    decision: excluded
+    reason: review_article
   - pmid: PMID:28434921
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:28469241
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:28511407
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:28606231
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:28757710
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_chd
   - pmid: PMID:28761722
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:28807900
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:28878125
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:28899000
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:28961509
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:28961683
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:29174768
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:29250101
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:29326753
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:29377175
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:29461882
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:29506474
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:29555671
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:29574800
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:29707177
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:29755943
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:29922649
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:29952356
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:30016433
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:30061737
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_chd
   - pmid: PMID:30062430
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_chd
   - pmid: PMID:30152191
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:30221396
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:30344832
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:30352852
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:30469006
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:30532148
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:30538526
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:30552424
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:30590978
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:30834692
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:30844313
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:30955100
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:31086358
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:31215120
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:31373354
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:31388035
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:31471016
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:31681553
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:31686119
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:31775637
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_chd
   - pmid: PMID:31784580
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:31786957
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:31938300
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:31953255
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:32035120
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:32099963
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:32134193
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:32160556
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:32236096
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:32293321
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:32368852
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:32443233
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:32449309
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:32641638
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:32863662
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:33082984
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:33098376
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:33165819
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:33221539
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:33281169
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:33306779
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:33321106
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:33359755
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:33369127
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:33497883
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:33576403
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:33597201
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:33680640
     search: 1
-    decision: pending
+    decision: excluded
+    reason: review_article
   - pmid: PMID:33706167
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:33744937
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:33866394
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:33930582
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:33947614
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:33996178
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:34062094
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:34068962
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:34159885
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:34214246
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:34490705
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:34666056
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:34738001
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:34894535
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:34917776
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:35053095
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:35113653
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:35121196
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:35182466
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:35320615
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:35450884
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:35514310
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:35697867
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_chd
   - pmid: PMID:35698674
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:35711406
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:35870951
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:36114760
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:36177858
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:36444245
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:36759823
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:36936432
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:37083132
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:37096669
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:37106752
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:37210946
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:37253295
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:37340539
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:37523935
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:38062907
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:38197531
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:38235884
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:38268646
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:38317221
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:38395134
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:38397197
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:38491513
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:38663507
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:38689186
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:38761027
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:38884729
     search: 1
-    decision: pending
+    decision: excluded
+    reason: review_article
   - pmid: PMID:38884730
     search: 1
-    decision: pending
+    decision: excluded
+    reason: review_article
   - pmid: PMID:38884762
     search: 1
-    decision: pending
+    decision: excluded
+    reason: review_article
   - pmid: PMID:38954331
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:39156428
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:39230761
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:39268717
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:39541167
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:39747948
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:39925448
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_chd
   - pmid: PMID:40059089
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:40126773
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:40334872
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:40430071
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:40602649
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:40697198
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:40721580
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:40751491
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:41379537
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:41393511
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:41399852
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:41401880
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:41461901
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:41574629
     search: 1
-    decision: pending
+    decision: excluded
+    reason: review_article
   - pmid: PMID:41764505
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:42028010
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:42311150
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:42472571
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:42482497
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:42490494
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:42580346
     search: 1
-    decision: pending
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:42677002
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:42683017
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
   - pmid: PMID:42751140
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:42778323
     search: 1
-    decision: pending
+    decision: included
   - pmid: PMID:42857310
     search: 1
-    decision: pending
+    decision: excluded
+    reason: no_finding_in_gene
