@@ -75,7 +75,7 @@ from urllib.parse import quote
 from chd_atlas.build.burden import BurdenRow, CombinedRow, Overlap, _sort_key, shared_cohorts
 from chd_atlas.build.cell_type_chart import cell_type_block
 from chd_atlas.build.cell_types import EMPTY_CELL_TYPE_EXPRESSION, CellTypeExpression
-from chd_atlas.build.charts import LogScale, coordinate, marker, polyline, svg_figure
+from chd_atlas.build.charts import LogScale, Shape, coordinate, marker, polyline, svg_figure
 from chd_atlas.build.concordance import (
     FamilyState,
     deciding_rows,
@@ -85,7 +85,12 @@ from chd_atlas.build.concordance import (
 )
 from chd_atlas.build.derive import GeneFacts
 from chd_atlas.build.emit import Emitter, Json
-from chd_atlas.build.gene_literature import EMPTY_GENE_LITERATURE, GeneLiterature, SearchRecord
+from chd_atlas.build.gene_literature import (
+    EMPTY_GENE_LITERATURE,
+    GeneLiterature,
+    SearchRecord,
+    _pmid_number,
+)
 from chd_atlas.build.identity import EMPTY_IDENTITY, GeneIdentity, external_links
 from chd_atlas.build.paths import GENE_INDEX_PAGE, gene_bundle_path, gene_page_path
 from chd_atlas.build.profiles import (
@@ -137,6 +142,7 @@ from chd_atlas.vocab import (
     CONTESTED,
     AtlasCuration,
     Classification,
+    FindingDesign,
     ValiditySource,
     ValidityState,
 )
@@ -6429,6 +6435,68 @@ def _literature_exclusions(excluded: Mapping[str, int]) -> str:
         f"<li>{html.escape(labels.get(token, token))}: {excluded[token]}</li>" for token in order
     )
     return f"<details><summary>Excluded papers, by reason</summary><ul>{items}</ul></details>"
+
+
+# One mark per paper (owner, 2026-11-03). A paper with one design keeps that design's
+# shape; a paper with several designs is a ring, so the ring is never a design. Every
+# member of FindingDesign must have a shape: `_paper_shape` refuses a token it does not
+# know rather than drawing a default.
+_DESIGN_SHAPES: Final[dict[str, Shape]] = {
+    "case_report": "circle",
+    "family_segregation": "square",
+    "cohort_screen": "triangle_up",
+    "rare_variant_association": "triangle_down",
+    "common_variant_association": "star",
+}
+_SEVERAL_DESIGNS: Final[Shape] = "ring"
+_DESIGN_ORDER: Final[dict[str, int]] = {d.value: i for i, d in enumerate(FindingDesign)}
+
+
+class _PaperGroup(NamedTuple):
+    """One publication's approved findings, with the distinct designs they report."""
+
+    pmid: str
+    publication: Publication
+    findings: tuple[Mapping[str, Json], ...]
+    designs: tuple[str, ...]
+
+
+def _paper_groups(
+    findings: Sequence[Mapping[str, Json]],
+    publications: Mapping[str, Publication],
+) -> list[_PaperGroup]:
+    """The findings grouped by paper, ordered by year then numeric PMID.
+
+    Grouping keys on the PMID, never on adjacency, so a paper's findings need not be
+    contiguous in the input. The PMID sort is numeric (`PMID:10` after `PMID:2`). A
+    finding whose paper is unregistered raises: validation refuses it (LIT011), so
+    reaching here means the gate was bypassed.
+    """
+    by_pmid: dict[str, list[Mapping[str, Json]]] = {}
+    for finding in findings:
+        pmid = str(finding["publication"])
+        if pmid not in publications:
+            raise ValueError(f"finding {finding['id']} cites {pmid}, which is not registered")
+        by_pmid.setdefault(pmid, []).append(finding)
+    groups = []
+    for pmid, members in by_pmid.items():
+        designs = sorted(
+            {str(f["design"]) for f in members},
+            key=lambda d: (_DESIGN_ORDER.get(d, len(_DESIGN_ORDER)), d),
+        )
+        groups.append(_PaperGroup(pmid, publications[pmid], tuple(members), tuple(designs)))
+    groups.sort(key=lambda g: (g.publication.year, _pmid_number(g.pmid)))
+    return groups
+
+
+def _paper_shape(group: _PaperGroup) -> Shape:
+    """The paper's mark: its design's shape, or the ring when it reports several designs."""
+    for design in group.designs:
+        if design not in _DESIGN_SHAPES:
+            raise ValueError(f"no shape for finding design {design!r} ({group.pmid})")
+    if len(group.designs) > 1:
+        return _SEVERAL_DESIGNS
+    return _DESIGN_SHAPES[group.designs[0]]
 
 
 def _literature_section(

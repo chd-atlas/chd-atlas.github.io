@@ -25,7 +25,9 @@ from chd_atlas.build.emit import Emitter
 from chd_atlas.build.gene_literature import GeneLiterature
 from chd_atlas.build.identity import GeneIdentity
 from chd_atlas.build.pages import (
+    _DESIGN_SHAPES,
     _EM_DASH,
+    _SEVERAL_DESIGNS,
     _analysis_label,
     _chd_only,
     _count,
@@ -33,6 +35,8 @@ from chd_atlas.build.pages import (
     _forest_text,
     _glance_line,
     _inheritance,
+    _paper_groups,
+    _paper_shape,
     _phase_strip,
     _study_finding_summary,
     _tissue_percentile,
@@ -65,6 +69,7 @@ from chd_atlas.vocab import (
     Classification,
     EvidenceClass,
     EvidenceStrength,
+    FindingDesign,
     LesionGroup,
     ValiditySource,
     ValidityState,
@@ -10132,6 +10137,64 @@ def _lit_page(tmp_path: Path, literature: GeneLiterature | None) -> str:
             publications={"PMID:8988165": _LIT_PUBLICATION},
         )
     )
+
+
+def _paper_pubs() -> dict[str, Publication]:
+    """PMID:2 and PMID:10 share 1999; PMID:1 is 2005, so the year sort decides first."""
+    return {
+        "PMID:2": _LIT_PUBLICATION.model_copy(update={"id": "PMID:2", "year": 1999}),
+        "PMID:10": _LIT_PUBLICATION.model_copy(update={"id": "PMID:10", "year": 1999}),
+        "PMID:1": _LIT_PUBLICATION.model_copy(update={"id": "PMID:1", "year": 2005}),
+    }
+
+
+def test_every_finding_design_has_a_shape_and_no_shape_is_shared() -> None:
+    assert set(_DESIGN_SHAPES) == {d.value for d in FindingDesign}
+    assert len(set(_DESIGN_SHAPES.values())) == len(_DESIGN_SHAPES)
+    assert _SEVERAL_DESIGNS not in _DESIGN_SHAPES.values()
+
+
+def test_findings_of_one_paper_group_together_even_when_not_adjacent() -> None:
+    a = _lit_finding(id="CHDA:LIT:0000001", publication="PMID:2")
+    b = _lit_finding(id="CHDA:LIT:0000002", publication="PMID:2")
+    c = _lit_finding(id="CHDA:LIT:0000003", publication="PMID:10")
+    d = _lit_finding(id="CHDA:LIT:0000004", publication="PMID:1")
+    groups = _paper_groups([a, c, d, b], _paper_pubs())
+    # PMID:10 sorts after PMID:2 numerically, though it would sort before it as a string.
+    assert [g.pmid for g in groups] == ["PMID:2", "PMID:10", "PMID:1"]
+    assert [f["id"] for f in groups[0].findings] == [a["id"], b["id"]]
+    assert sum(len(g.findings) for g in groups) == 4
+
+
+def test_a_paper_with_two_designs_is_a_ring_and_one_design_keeps_its_shape() -> None:
+    pubs = _paper_pubs()
+    two = _paper_groups(
+        [
+            _lit_finding(publication="PMID:2", design="cohort_screen"),
+            _lit_finding(publication="PMID:2", design="family_segregation"),
+        ],
+        pubs,
+    )[0]
+    one = _paper_groups(
+        [
+            _lit_finding(publication="PMID:2", design="cohort_screen"),
+            _lit_finding(publication="PMID:2", design="cohort_screen"),
+        ],
+        pubs,
+    )[0]
+    assert two.designs == ("family_segregation", "cohort_screen")
+    assert _paper_shape(two) == "ring"
+    assert one.designs == ("cohort_screen",)
+    assert _paper_shape(one) == "triangle_up"
+
+
+def test_an_unknown_design_or_unregistered_paper_is_refused() -> None:
+    pubs = _paper_pubs()
+    unknown = _paper_groups([_lit_finding(publication="PMID:2", design="zz_new_design")], pubs)
+    with pytest.raises(ValueError, match="zz_new_design"):
+        _paper_shape(unknown[0])
+    with pytest.raises(ValueError, match="PMID:999"):
+        _paper_groups([_lit_finding(publication="PMID:999")], pubs)
 
 
 def test_a_gene_with_no_literature_file_says_so_in_three_words_and_has_no_table(
