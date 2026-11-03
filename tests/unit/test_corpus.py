@@ -1,6 +1,8 @@
 # tests/unit/test_corpus.py
 from pathlib import Path
 
+import pytest
+
 from chd_atlas.corpus import load_curation, unexpected_curation_entries
 
 ASSERTION_YAML = """\
@@ -255,3 +257,84 @@ def test_an_unreadable_file_is_reported_rather_than_raised(tmp_path: Path) -> No
         assert [issue.code for issue in issues] == ["YAML001"]
     finally:
         target.chmod(0o644)
+
+
+LITERATURE_YAML = """\
+gene: HGNC:11604
+searches:
+  - {id: 1, source: pubmed, query: "TBX5[tiab]", run_on: 2026-11-02, hits: 2, new_hits: 2}
+triage:
+  - {pmid: "PMID:8988165", search: 1, decision: pending}
+findings: []
+"""
+
+
+def test_literature_files_load_in_filename_order_with_their_paths(tmp_path: Path) -> None:
+    _write_minimal_corpus(tmp_path)
+    directory = tmp_path / "curation" / "literature"
+    directory.mkdir()
+    (directory / "TBX5.yaml").write_text(LITERATURE_YAML)
+    (directory / "GATA4.yaml").write_text(LITERATURE_YAML.replace("11604", "4172"))
+
+    corpus, issues = load_curation(tmp_path)
+
+    assert issues == []
+    assert [(p.name, f.gene) for p, f in corpus.literature] == [
+        ("GATA4.yaml", "HGNC:4172"),
+        ("TBX5.yaml", "HGNC:11604"),
+    ]
+    assert unexpected_curation_entries(tmp_path) == []
+
+
+def test_a_corpus_without_literature_has_none(tmp_path: Path) -> None:
+    _write_minimal_corpus(tmp_path)
+    corpus, _ = load_curation(tmp_path)
+    assert corpus.literature == ()
+
+
+def test_a_bad_literature_file_is_an_issue_and_a_stray_file_is_reported(tmp_path: Path) -> None:
+    _write_minimal_corpus(tmp_path)
+    directory = tmp_path / "curation" / "literature"
+    directory.mkdir()
+    (directory / "TBX5.yaml").write_text(LITERATURE_YAML.replace("hits: 2, new", "hits: 1, new"))
+    (directory / "x.txt").write_text("stray")
+
+    corpus, issues = load_curation(tmp_path)
+
+    assert corpus.literature == ()
+    assert [i.code for i in issues] == ["SCHEMA001"]
+    stray = unexpected_curation_entries(tmp_path)
+    assert [i.code for i in stray] == ["CUR001"]
+    assert "x.txt" in stray[0].location
+
+
+_SHORTHAND_BODIES = [
+    ("anchor &s", "x: &s 1\n"),
+    ("anchor &s", "x: &s 1\ny: *s\n"),  # an alias needs an anchor, which is reported first
+    ("merge key <<", "x: {a: 1}\ny:\n  <<: {a: 2}\n"),
+]
+
+
+@pytest.mark.parametrize(("named", "extra"), _SHORTHAND_BODIES)
+def test_a_literature_file_with_yaml_shorthand_is_refused_and_publishes_nothing(
+    tmp_path: Path, named: str, extra: str
+) -> None:
+    """A merge key copies one finding's approval onto another, so the file is refused (R34).
+
+    Measured on the pre-fix loader: `- <<: *a` with a new id loaded as a valid,
+    approved finding. Anchors and aliases alone are refused too, because the
+    loader cannot tell which of them carries an approval. The extra keys sit
+    outside the model, so `extra="forbid"` would also refuse them; the test
+    therefore asserts the code is YAML002 and that nothing else is reported.
+    """
+    _write_minimal_corpus(tmp_path)
+    directory = tmp_path / "curation" / "literature"
+    directory.mkdir()
+    (directory / "TBX5.yaml").write_text(LITERATURE_YAML + extra)
+
+    corpus, issues = load_curation(tmp_path)
+
+    assert corpus.literature == ()
+    assert [i.code for i in issues] == ["YAML002"]
+    assert issues[0].message.startswith(named)
+    assert issues[0].location.endswith("TBX5.yaml")

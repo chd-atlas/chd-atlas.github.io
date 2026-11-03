@@ -8,6 +8,7 @@ from typing import Any, Final
 from pydantic import BaseModel, ValidationError
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
+from ruamel.yaml.events import AliasEvent, NodeEvent, ScalarEvent
 
 from chd_atlas.fs import list_dir
 from chd_atlas.issues import Severity, ValidationIssue
@@ -15,6 +16,7 @@ from chd_atlas.models.assertion import AssertionFile, LesionAssertion
 from chd_atlas.models.cohort import Cohort, CohortFile
 from chd_atlas.models.dataset import Dataset
 from chd_atlas.models.functional import FunctionalEvidence, FunctionalFile
+from chd_atlas.models.gene_literature import GeneLiteratureFile
 from chd_atlas.models.literature import (
     FeaturedFile,
     FeaturedManuscript,
@@ -41,6 +43,10 @@ class Corpus:
     chd_scope: tuple[ScopeEntry, ...] = ()
     cohorts: tuple[Cohort, ...] = ()
     cardiac_phases: CardiacPhaseFile | None = None
+    # One entry per `curation/literature/*.yaml`, filename-sorted. The path is
+    # kept because the file name is part of the record (LIT009) and names the
+    # location of an error.
+    literature: tuple[tuple[Path, GeneLiteratureFile], ...] = ()
 
 
 @dataclass
@@ -98,6 +104,28 @@ def _parse[ModelT: BaseModel](model: type[ModelT], path: Path, acc: _Accumulator
         return None
 
 
+def _yaml_shorthand(path: Path) -> str | None:
+    """Name the first anchor, alias or merge key in a YAML file, or None.
+
+    A finding is approved by the person named on that finding. `<<: *a` copies
+    another finding's `approved_by`, `approved_on` and `verified_by` onto a
+    record nobody approved, and it publishes under that person's name
+    (final review I1, measured: pending_approval 0 and `review` listing
+    nothing). An unreadable file returns None; `_read_yaml` reports it.
+    """
+    try:
+        for event in YAML(typ="safe").parse(path.read_text(encoding="utf-8")):
+            if isinstance(event, AliasEvent):
+                return f"alias *{event.anchor}"
+            if isinstance(event, NodeEvent) and event.anchor is not None:
+                return f"anchor &{event.anchor}"
+            if isinstance(event, ScalarEvent) and event.value == "<<" and not event.style:
+                return "merge key <<"
+    except (YAMLError, UnicodeDecodeError, ValueError, OSError):
+        return None
+    return None
+
+
 def _record_files(directory: Path) -> list[Path]:
     """Every ``*.yaml`` file in one record directory, in a stable order.
 
@@ -134,7 +162,7 @@ def unexpected_curation_entries(root: Path) -> list[ValidationIssue]:
         "phenotypes.yaml",
         "publications.yaml",
     }
-    expected_dirs = {"assertions", "datasets", "functional"}
+    expected_dirs = {"assertions", "datasets", "functional", "literature"}
     issues: list[ValidationIssue] = []
 
     def error(entry: Path, message: str) -> None:
@@ -202,6 +230,21 @@ def load_curation(root: Path) -> tuple[Corpus, list[ValidationIssue]]:
         if parsed_dataset is not None:
             datasets.append(parsed_dataset)
 
+    literature: list[tuple[Path, GeneLiteratureFile]] = []
+    for path in _record_files(curation / "literature"):
+        shorthand = _yaml_shorthand(path)
+        if shorthand is not None:
+            acc.error(
+                "YAML002",
+                path,
+                f"{shorthand}: anchors, aliases and merge keys are not allowed in a "
+                f"literature file; an approval must be written on the finding it approves",
+            )
+            continue
+        parsed_literature = _parse(GeneLiteratureFile, path, acc)
+        if parsed_literature is not None:
+            literature.append((path, parsed_literature))
+
     publications: tuple[Publication, ...] = ()
     publications_path = curation / "publications.yaml"
     if publications_path.is_file():
@@ -253,5 +296,6 @@ def load_curation(root: Path) -> tuple[Corpus, list[ValidationIssue]]:
         chd_scope=chd_scope,
         cohorts=cohorts,
         cardiac_phases=cardiac_phases,
+        literature=tuple(literature),
     )
     return corpus, acc.issues

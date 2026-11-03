@@ -47,6 +47,9 @@ here, and "this page" here names a page with no gene on it.
 * `#cohorts` is curated data under one written paragraph: every record of
   `curation/cohorts.yaml`, the same ones `cohorts.json` publishes. A gene page
   keeps the notes of its own cohorts, folded, and links here (P4).
+* `#literature` was written new (2026-11-02): what a gene page's literature
+  section records and how it was searched; each clause was read off the code,
+  and it names no count.
 * `#expression` is both (2026-10-26): two paragraphs moved off the gene pages
   (the folded reading notes: the placement note from every page with data,
   the comparability notice from every page that laid out more than one
@@ -489,6 +492,36 @@ _RARE_VARIANTS: Final = (
     "so its block shows its counts and p-values in a table instead of a plot.</p>"
 )
 
+# Written new (2026-11-02, plan Task 6); reworded after the final review
+# (S1, S12, R30). Each clause is held to the code it describes: the query off
+# `pubmed.build_query` (the gene's symbol and unambiguous previous symbols; the
+# CHD terms and the gene's in-scope disease names, which the CLI passes in;
+# preprints and reviews excluded), the decisions off `vocab.TriageDecision`
+# (`pending` is what the page's line calls "not yet triaged"), the two axes off
+# `vocab.FindingDesign` and `vocab.DetectionMethod`, the carrier's unit off
+# `Finding.count_unit`, the approval rule off `Finding.approved_by`, and the
+# two review marks off `models.review.ReviewStatus` (labels in
+# `render.review_status_note`). The Finding model has no field defining a
+# carrier, so the section says the atlas records the authors' counts, not a
+# definition. It names no count. 156 words counting the heading, 155 by the
+# test's count (`test_literature_states_how_it_was_searched_and_who_approves`).
+_LITERATURE: Final = (
+    '<h2 id="literature">Literature</h2>'
+    "<p>For a gene with a literature record, the atlas keeps each PubMed search it ran, "
+    "built from the gene's approved and previous symbols with congenital heart disease "
+    "terms and the names of the gene's in-scope diseases, excluding preprints and "
+    "reviews; the gene page states the latest date and folds every query. Every paper a "
+    "search returns gets a decision: included, excluded for a stated reason, or pending, "
+    "counted as not yet triaged. Only human genetics is kept. Each finding is classified "
+    "by study design and detection method, and every count states its unit. A carrier is "
+    "whatever the authors counted as one, in people or families as stated; the atlas "
+    "records their counts and does not re-classify the variants. A named curator approves "
+    "each finding before publication; findings awaiting approval are counted, not shown. "
+    "A review mark says a finding's source disagrees with its paper (pending review) or "
+    "could not be read (source not accessible).</p>"
+)
+
+
 # Every collection the rare-variant rows cite, with its curated description
 # (P4, 2026-10-26). A gene page folds the notes of only the collections its own
 # rows cite (`pages._cohort_notes`, whose fold ends on a link here) and keeps
@@ -805,8 +838,8 @@ _INTRO: Final = (
     "<p>What every gene page assumes, written once: which genes are here and what each "
     "classification means, how the validity records are listed, what the atlas's own "
     "curated evidence is, how to read the rare-variant results, every sample collection "
-    "the rare-variant results name, and how to read the developmental expression "
-    "figures.</p>"
+    "the rare-variant results name, how to read the developmental expression "
+    "figures, and what the literature section of a gene page records.</p>"
 )
 
 
@@ -825,6 +858,7 @@ def build_methods(emitter: Emitter, *, cohorts: Mapping[str, Cohort]) -> None:
         + _RARE_VARIANTS
         + _cohorts(cohorts)
         + _EXPRESSION
+        + _LITERATURE
     )
     emitter.write_text(
         METHODS_PAGE,

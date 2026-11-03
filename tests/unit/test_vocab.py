@@ -205,3 +205,21 @@ def test_enum_values_are_unique_within_each_enum() -> None:
     ):
         members = enum_cls.__members__
         assert len({m.value for m in members.values()}) == len(members), enum_cls.__name__
+
+
+def test_study_type_gains_the_four_literature_kinds_additively() -> None:
+    assert [m.value for m in StudyType] == [
+        "trio_wes",
+        "trio_wgs",
+        "family_linkage",
+        "case_control",
+        "functional",
+        "proteomics",
+        "transcriptomics",
+        "review",
+        "meta_analysis",
+        "case_report",
+        "cohort_sequencing",
+        "gwas",
+        "candidate_variant",
+    ]

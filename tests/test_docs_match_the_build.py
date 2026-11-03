@@ -1563,7 +1563,9 @@ def test_the_doc_documents_the_cell_type_expression_bundle_key(site: Path) -> No
     )
     assert heading in doc
     section = doc[doc.index(heading) + len(heading) :]
-    section = section[: section.index("\n## ")]
+    # To the next heading of either rank: `### The bundle's literature object`
+    # follows this section, and a slice to the next `##` would count its prose.
+    section = re.split(r"\n#{2,3} ", section)[0]
     prose = " ".join(re.sub(r"```.*?```", "", section, flags=re.S).split())
     assert len(prose.split()) <= 150
     assert counts["cell_type_datasets"] == 1
@@ -1580,3 +1582,69 @@ def test_the_doc_documents_the_cell_type_expression_bundle_key(site: Path) -> No
     assert block, "no JSON example in the cell-type section"
     _agrees(_abridged(block.group(1)), tbx5["cell_type_expression"], "cell_type_expression")
     assert "`2.20`" in " ".join(doc.split())
+
+
+def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
+    """The section exists, its example is the real built empty shape, its counts are the build's.
+
+    The committed corpus carries no `curation/literature` file, so every bundle
+    holds the empty shape and both counts are 0 (measured on the build under
+    test: asserted below, so a corpus that gains a file fails here and asks for
+    a populated example). The example is held to a real bundle through `_agrees`
+    with no `...`: an unmarked object must be complete.
+    """
+    counts = json.loads((site / "manifest.json").read_text())["counts"]
+    bundles = _bundles(site)
+    assert all(b["literature"]["searches"] == [] for b in bundles), (
+        "a literature file landed; document a populated example"
+    )
+    assert counts["literature_genes"] == 0
+    assert counts["literature_findings"] == 0
+
+    doc = DOC.read_text()
+    heading = "### The bundle's `literature` object: searches, a triage tally and approved findings"
+    assert heading in doc
+    section = doc[doc.index(heading) + len(heading) :]
+    section = re.split(r"\n#{2,3} ", section)[0]
+    block = re.search(r"```json\n(.*?)```", section, re.S)
+    assert block, "no JSON example in the literature section"
+    tbx5 = json.loads((site / "genes" / "HGNC_11604.json").read_text())
+    _agrees(_abridged(block.group(1)), tbx5["literature"], "literature")
+    assert "`2.21`" in " ".join(doc.split())
+    prose = " ".join(section.split())
+    for needle in (
+        "`pending_approval` counts findings no named person has approved",
+        "sorted by publication year, then numeric PMID, then finding id",
+        "A finding carrying a `review_status` is published with it",
+    ):
+        assert needle in prose, needle
+
+
+def test_the_doc_describes_the_literature_section_and_what_publishes_before_approval(
+    site: Path,
+) -> None:
+    """Final review S2, S3, S13, R32, R37: the sentences beside correct output (§4.20, §4.25).
+
+    Held against the build where a build can say it: the methods page has seven
+    `<h2 id>` sections (the doc said six), every gene page ends on the Literature
+    section (the doc said expression was last), and both counts are 0.
+    """
+    doc = " ".join(DOC.read_text().split())
+    methods = (site / "methods.html").read_text()
+    assert len(re.findall(r'<h2 id="[^"]+"', methods)) == 7
+    assert "It has seven sections, in this order" in doc and "six sections" not in doc
+    assert "- `#literature` says how a gene page's Literature section is built" in doc
+    page = (site / "genes" / "HGNC_11604.html").read_text()
+    assert page.rindex("<h2") == page.index("<h2>Literature</h2>")
+    assert "last on the page" not in doc
+    assert "which the Literature section follows" in doc
+    assert 'A gene with no search says only "Not yet curated."' in doc
+    assert "Both are `0` today: no `curation/literature` file exists." in doc
+    assert "`case_report`, `cohort_sequencing`, `gwas` and `candidate_variant`" in doc
+    assert "`[]` is an assertion, not an absence" in doc
+    assert "An id in the list may name a finding that is not yet approved" in doc
+    assert (
+        "publishes that record, with the `study_type` the extracting agent read, in "
+        "[`publications.json`](#publicationsjson) at the next build, whether or not any "
+        "finding of that paper has been approved"
+    ) in doc

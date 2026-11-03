@@ -266,6 +266,7 @@ def test_an_index_row_is_exactly_what_the_browser_filters_on(tmp_path: Path) -> 
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     assert _entries(tmp_path) == [
@@ -345,6 +346,7 @@ def test_a_published_gene_the_atlas_has_not_curated_gets_a_row_and_a_bundle(
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     rows = _by_gene(tmp_path)
@@ -387,6 +389,7 @@ def test_a_bundle_carries_the_whole_gene_page_and_nothing_more(tmp_path: Path) -
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     assert set(_read(tmp_path, "genes/HGNC_11604.json")) == {
@@ -414,6 +417,7 @@ def test_a_bundle_carries_the_whole_gene_page_and_nothing_more(tmp_path: Path) -
         "burden_combined",
         "expression_profile",
         "cell_type_expression",
+        "literature",
     }
     # Always present, empty when the gene has none -- an absent key would make
     # "no study combined its arms" indistinguishable from "the build dropped it".
@@ -444,6 +448,7 @@ def test_a_gene_with_no_mirrored_validity_publishes_the_uncurated_shape(
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     assert _read(tmp_path, "genes/HGNC_11604.json")["validity"] == {
@@ -499,6 +504,7 @@ def test_every_validity_record_carries_the_same_key_set_regardless_of_source(
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     records = _read(tmp_path, "genes/HGNC_11604.json")["validity"]["records"]
@@ -571,6 +577,7 @@ def test_the_bundle_does_not_resort_the_records_validity_py_already_ordered(
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     records = _read(tmp_path, "genes/HGNC_11604.json")["validity"]["records"]
@@ -606,6 +613,7 @@ def test_every_bundle_path_the_index_advertises_was_written(tmp_path: Path) -> N
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     advertised = [str(entry["bundle"]) for entry in _entries(tmp_path)]
@@ -670,6 +678,7 @@ def test_a_contested_gene_is_flagged_in_both_the_index_and_the_bundle(
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     entries = _by_gene(tmp_path)
@@ -729,6 +738,7 @@ def test_confidence_is_broken_down_by_lesion_group(tmp_path: Path) -> None:
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     entry = _entries(tmp_path)[0]
@@ -772,6 +782,7 @@ def test_evidence_counts_are_carried_per_evidence_class(tmp_path: Path) -> None:
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     assert _entries(tmp_path)[0]["evidence_counts"] == {"functional_model": 1, "genetic_case": 2}
@@ -815,6 +826,7 @@ def test_the_browse_counts_match_the_bundle_they_link_to(tmp_path: Path) -> None
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     counted = {
@@ -864,6 +876,7 @@ def test_a_gene_absent_from_the_registry_keeps_its_hgnc_id_as_its_label(
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     entries = _by_gene(tmp_path)
@@ -888,6 +901,7 @@ def test_a_bundle_carries_its_assertions_in_full(tmp_path: Path) -> None:
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     bundle = _read(tmp_path, "genes/HGNC_11604.json")
@@ -937,6 +951,7 @@ def test_a_bundle_carries_every_functional_record_about_the_gene(tmp_path: Path)
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     bundle = _read(tmp_path, "genes/HGNC_11604.json")
@@ -973,6 +988,7 @@ def test_a_bundle_carries_the_omics_summaries_verbatim(tmp_path: Path) -> None:
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     assert _read(tmp_path, "genes/HGNC_11604.json")["omics"] == {
@@ -1006,6 +1022,7 @@ def test_a_bundle_embeds_its_variants_rather_than_linking_them(tmp_path: Path) -
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     bundle = _read(tmp_path, "genes/HGNC_11604.json")
@@ -1029,6 +1046,7 @@ def test_a_gene_with_no_omics_or_variants_gets_empty_containers(tmp_path: Path) 
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     bundle = _read(tmp_path, "genes/HGNC_11604.json")
@@ -1056,6 +1074,7 @@ def test_a_gene_with_no_profile_data_still_carries_the_key(tmp_path: Path) -> No
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     bundle = _read(tmp_path, "genes/HGNC_11604.json")
@@ -1086,6 +1105,7 @@ def test_every_bundle_carries_cell_type_expression_even_when_empty(tmp_path: Pat
         concordance=_no_burden(),
         profiles={},
         cell_types={TBX5: covered},
+        literature={},
     )
 
     assert _read(tmp_path, "genes/HGNC_11604.json")["cell_type_expression"] == covered
@@ -1113,6 +1133,7 @@ def test_the_bundle_carries_the_medians_tau_was_computed_from(tmp_path: Path) ->
         concordance=_no_burden(),
         profiles={TBX5: profile},
         cell_types={},
+        literature={},
     )
 
     bundle = _read(tmp_path, "genes/HGNC_11604.json")
@@ -1150,6 +1171,7 @@ def test_a_merely_registered_genes_profile_facts_never_reach_a_bundle(tmp_path: 
         concordance=_no_burden(),
         profiles={TBX5: profile, GATA4: _profile_payload()},
         cell_types={},
+        literature={},
     )
 
     assert not (tmp_path / "genes" / "HGNC_4173.json").exists()
@@ -1189,6 +1211,7 @@ def test_a_bundle_holds_only_its_own_genes_evidence(tmp_path: Path) -> None:
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     bundle = _read(tmp_path, "genes/HGNC_4173.json")
@@ -1234,6 +1257,7 @@ def test_the_index_is_ordered_by_hgnc_id_rather_than_by_symbol(tmp_path: Path) -
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     assert [entry["gene"] for entry in _entries(tmp_path)] == [TBX5, GATA4]
@@ -1274,6 +1298,7 @@ def test_bundle_assertions_and_functional_records_are_ordered_by_id(tmp_path: Pa
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     bundle = _read(tmp_path, "genes/HGNC_11604.json")
@@ -1326,6 +1351,7 @@ def test_a_bundle_lists_the_publications_its_evidence_cites(tmp_path: Path) -> N
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     assert _read(tmp_path, "genes/HGNC_11604.json")["publications"] == [
@@ -1385,6 +1411,7 @@ def test_a_gene_with_evidence_but_outside_the_published_set_is_not_published(
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     assert [entry["gene"] for entry in _entries(tmp_path)] == [TBX5]
@@ -1423,6 +1450,7 @@ def test_a_bundle_that_cannot_be_written_leaves_no_index_at_all(tmp_path: Path) 
             concordance=_no_burden(),
             profiles={},
             cell_types={},
+            literature={},
         )
 
     assert not (tmp_path / "genes" / "index.json").exists()
@@ -1450,6 +1478,7 @@ def test_the_index_is_emitted_for_an_empty_corpus(tmp_path: Path) -> None:
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     assert _read(tmp_path, "genes/index.json") == {"genes": []}
@@ -1513,6 +1542,7 @@ def test_a_contested_gene_names_every_declared_lesion_group_as_conflicting(
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     entry = _entries(tmp_path)[0]
@@ -1573,6 +1603,7 @@ def test_the_conflicting_groups_are_a_subset_of_the_groups_that_carry_confidence
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     for entry in _entries(tmp_path):
@@ -1650,6 +1681,7 @@ def test_the_bundle_carries_a_genes_burden_rows_and_the_browse_row_counts_them(
         },
         profiles={},
         cell_types={},
+        literature={},
     )
 
     bundle = _read(tmp_path, "genes/HGNC_11604.json")
@@ -1700,6 +1732,7 @@ def test_a_published_gene_with_no_concordance_derived_fails_loudly(tmp_path: Pat
             concordance={},
             profiles={},
             cell_types={},
+            literature={},
         )
 
 
@@ -1729,6 +1762,7 @@ def test_a_bundle_carries_the_identity_its_registry_row_holds(tmp_path: Path) ->
         concordance=_no_burden(),
         profiles={},
         cell_types={},
+        literature={},
     )
 
     tbx5 = _read(tmp_path, "genes/HGNC_11604.json")["identity"]

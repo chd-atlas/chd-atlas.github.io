@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Final
 
@@ -10,12 +11,54 @@ from chd_atlas.corpus import Corpus
 from chd_atlas.duplicates import duplicates
 from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.tables import TABLE_SCHEMAS, mirror_paths, read_table
-from chd_atlas.vocab import EvidenceClass
+from chd_atlas.vocab import EvidenceClass, LesionGroup
 
 # Mirror tables whose rows point back at a curated dataset (and usually a contrast).
 _DATASET_LINKED_TABLES: Final[frozenset[str]] = frozenset(
     {"expression", "profiles", "proteomics", "phospho"}
 )
+
+
+def lesion_group_faults(
+    phenotypes: Iterable[str],
+    lesion_groups: Iterable[LesionGroup],
+    lesion_group_of: Mapping[str, LesionGroup | None],
+) -> list[tuple[str, str]]:
+    """REF007 and REF009 for one record's phenotypes against its lesion groups.
+
+    Shared by lesion assertions and literature findings (final review I3): both
+    carry `phenotypes` and `lesion_groups`, and the mapping lives in
+    curation/phenotypes.yaml, which no single-record model can see. REF007 is a
+    mapped phenotype whose group is not declared; REF009 is a declared group no
+    phenotype justifies, checked only when every phenotype is mapped. An unmapped
+    phenotype is exempt from both (the assertion path reports it as REF012).
+    Returns (code, message) pairs, REF007s first.
+    """
+    declared_groups = list(lesion_groups)
+    terms = list(phenotypes)
+    faults: list[tuple[str, str]] = []
+    for phenotype in terms:
+        expected = lesion_group_of.get(phenotype)
+        if expected is not None and expected not in declared_groups:
+            declared = sorted(group.value for group in declared_groups)
+            faults.append(
+                (
+                    "REF007",
+                    f"phenotype {phenotype} belongs to lesion group "
+                    f"'{expected.value}', which is not among {declared}",
+                )
+            )
+    if all(phenotype in lesion_group_of for phenotype in terms):
+        justified = {lesion_group_of[p] for p in terms}
+        unjustified = sorted(group.value for group in declared_groups if group not in justified)
+        if unjustified:
+            faults.append(
+                (
+                    "REF009",
+                    f"lesion groups {unjustified} are not justified by any declared phenotype",
+                )
+            )
+    return faults
 
 
 def validate_references(corpus: Corpus, known_genes: set[str] | None) -> list[ValidationIssue]:
@@ -34,7 +77,9 @@ def validate_references(corpus: Corpus, known_genes: set[str] | None) -> list[Va
     known_publications = {publication.id for publication in corpus.publications}
     functional_by_id = {record.id: record for record in corpus.functional}
     known_datasets = {dataset.id for dataset in corpus.datasets}
-    lesion_group_of = {term.id: term.lesion_group for term in corpus.phenotypes}
+    lesion_group_of: dict[str, LesionGroup | None] = {
+        term.id: term.lesion_group for term in corpus.phenotypes
+    }
 
     def error(code: str, location: str, message: str) -> None:
         issues.append(ValidationIssue(code, Severity.ERROR, location, message))
@@ -48,16 +93,11 @@ def validate_references(corpus: Corpus, known_genes: set[str] | None) -> list[Va
         # An assertion pairing an atrial septal defect with lesion_groups [conotruncal]
         # is internally inconsistent. The mapping lives in curation/phenotypes.yaml, so
         # the single-record model cannot see it — it has to be checked here.
-        for phenotype in assertion.phenotypes:
-            expected = lesion_group_of.get(phenotype)
-            if expected is not None and expected not in assertion.lesion_groups:
-                declared = sorted(group.value for group in assertion.lesion_groups)
-                error(
-                    "REF007",
-                    location,
-                    f"phenotype {phenotype} belongs to lesion group "
-                    f"'{expected.value}', which is not among {declared}",
-                )
+        for code, message in lesion_group_faults(
+            assertion.phenotypes, assertion.lesion_groups, lesion_group_of
+        ):
+            if code == "REF007":
+                error(code, location, message)
 
         # REF009 below exempts an assertion with any unmapped phenotype, which is
         # sound but silent: one term missing from the register disables all
@@ -82,17 +122,11 @@ def validate_references(corpus: Corpus, known_genes: set[str] | None) -> list[Va
         # It files the assertion under a browse facet nothing in the record supports.
         # Sound only when every phenotype is mapped — an unmapped one could legitimately
         # justify the extra group, which is why REF007 exempts unmapped phenotypes too.
-        if all(phenotype in lesion_group_of for phenotype in assertion.phenotypes):
-            justified = {lesion_group_of[p] for p in assertion.phenotypes}
-            unjustified = sorted(
-                group.value for group in assertion.lesion_groups if group not in justified
-            )
-            if unjustified:
-                error(
-                    "REF009",
-                    location,
-                    f"lesion groups {unjustified} are not justified by any declared phenotype",
-                )
+        for code, message in lesion_group_faults(
+            assertion.phenotypes, assertion.lesion_groups, lesion_group_of
+        ):
+            if code == "REF009":
+                error(code, location, message)
 
         # curation/phenotypes.yaml also registers extracardiac terms, purely so
         # their labels get checked (`PhenotypeTerm.lesion_group` is `None` for

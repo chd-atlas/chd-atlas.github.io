@@ -162,7 +162,11 @@
         "proteomics",
         "transcriptomics",
         "review",
-        "meta_analysis"
+        "meta_analysis",
+        "case_report",
+        "cohort_sequencing",
+        "gwas",
+        "candidate_variant"
       ],
       "title": "StudyType",
       "type": "string"

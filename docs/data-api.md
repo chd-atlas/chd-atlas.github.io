@@ -52,14 +52,14 @@ What the build produced, and a checksum for every file in it.
     "assertions": 2, "burden_combined": 108, "burden_rows": 1210,
     "burden_surviving_genes": 32, "cell_type_datasets": 1, "cell_type_genes": 118,
     "cohort_families": 2, "cohorts": 20, "datasets": 2, "featured": 1, "functional": 0,
-    "genes": 119, "phenotypes": 8, "profile_datasets": 1, "profile_genes": 119,
+    "genes": 119, "literature_findings": 0, "literature_genes": 0, "phenotypes": 8, "profile_datasets": 1, "profile_genes": 119,
     "publications": 11, "scope_terms": 105
   },
   "files": {
     "genes/index.json": "sha256:<64 hex>",
     "publications.json": "sha256:<64 hex>"
   },
-  "schema_version": "2.20",
+  "schema_version": "2.21",
   "source_commit": "<40-hex commit sha, or null outside a git checkout>",
   "status": "in-development"
 }
@@ -91,7 +91,7 @@ wrong by the next one.
   classification rather than on curation done here. Read `atlas_curation` on the
   browse row to tell the two apart.
 
-  The other nine keys are computed by the build, and the first three below were
+  The other eleven keys are computed by the build, and the first three below were
   added because the object read as a census of the atlas while describing only
   its curation: through `2.6` it published `assertions: 1, datasets: 0,
   functional: 0` for a site serving 23 genes and 290 burden statistics — the
@@ -131,8 +131,13 @@ wrong by the next one.
     is non-empty.
   - `cell_type_datasets` (since `2.20`) is the number of cell-type datasets
     those bundles name.
+  - `literature_genes` (since `2.21`) is the number of published genes whose
+    [`literature`](#the-bundles-literature-object-searches-a-triage-tally-and-approved-findings)
+    records at least one search.
+  - `literature_findings` (since `2.21`) is the number of approved findings in
+    those bundles. Both are `0` today: no `curation/literature` file exists.
 
-  Each of the nine counts only what the published genes' bundles carry, except
+  Each of the eleven counts only what the published genes' bundles carry, except
   `cohort_families`, which groups the whole burden mirror's cohorts: restricting
   it to the published genes could split one family into what then reads as two
   independent ones. `index.html` states these six keys too: `genes`,
@@ -288,6 +293,12 @@ wrong by the next one.
   `[]` on every design but the new `"cell_type_profile"`, and the archive
   `"ucsc_cell_browser"`, whose datasets are named by a lowercase slug (`hoc`)
   rather than an accession, so a dataset id may now be one. Additive.
+  `2.21` added [`literature`](#the-bundles-literature-object-searches-a-triage-tally-and-approved-findings)
+  to every gene bundle, `{"searches": [], …}` where the gene has no literature
+  record, and `literature_genes` and `literature_findings` to `counts`. It also
+  widened the `study_type` of [`publications.json`](#publicationsjson) records by
+  four values: `case_report`, `cohort_sequencing`, `gwas` and `candidate_variant`.
+  Additive.
 - `status` is the atlas's own readiness, so a program can read it without
   scraping `index.html`'s prose. Today it is always `"in-development"` — one
   curated gene-disease assertion alongside mirrored ClinGen/GenCC validity for
@@ -345,7 +356,7 @@ output, so it is verifiable output.
 "How to read this atlas": the explanation every gene page assumes, written once
 at the site root rather than repeated on each page (design decision D50), and
 linked from the navigation bar on every page and from the foot of every gene
-page's card, as *How to read this page*. It has six sections, in this order,
+page's card, as *How to read this page*. It has seven sections, in this order,
 and each carries an `id`, so a page can link the paragraph it shortens.
 
 - `#scope` states in full the rule that admits a gene to this atlas and the rule
@@ -418,6 +429,13 @@ and each carries an `id`, so a page can link the paragraph it shortens.
   figure does not say. A gene page keeps a one-line form of the first, which
   links here on a page with no cell-type data; each expression chart's folded
   key, and the cell-type block's reading fold, end with a link here.
+- `#literature` says how a gene page's Literature section is built: the PubMed
+  search (the gene's approved and previous symbols, congenital heart disease
+  terms and the names of the gene's in-scope diseases, preprints and reviews
+  excluded), that every paper a search returns gets a decision and only human
+  genetics is kept, how a finding is classified and what its counts are counted
+  in, that a named curator approves each finding before it is published, and
+  what the two review marks mean.
 
 Like the other pages it is for people: its markup is not a contract, and no
 payload depends on it.
@@ -731,7 +749,9 @@ abridged, and each is documented in full further down.
     ]
   },
   "expression_profile": { "datasets": [ { "dataset": "E-MTAB-6814", … } ] },
-  "cell_type_expression": { "datasets": [ { "dataset": "hoc", … } ] }
+  "cell_type_expression": { "datasets": [ { "dataset": "hoc", … } ] },
+  "literature": { "searches": [], "triage": { "included": 0, "excluded": {}, "pending": 0 },
+                  "pending_approval": 0, "findings": [] }
 }
 ```
 
@@ -1563,6 +1583,51 @@ abridged:
     …]}]}
 ```
 
+### The bundle's `literature` object: searches, a triage tally and approved findings
+
+On every gene bundle (since `2.21`). Always present; a gene with no
+`curation/literature` file carries exactly the empty shape below, which is also
+what the build publishes for every gene today.
+
+```json
+{ "searches": [], "triage": { "included": 0, "excluded": {}, "pending": 0 },
+  "pending_approval": 0, "findings": [] }
+```
+
+- `searches` lists each recorded PubMed search: `source`, `query`, `run_on` (an
+  ISO date), `hits` (the total the search returned) and `new_hits` (the hits no
+  earlier search in the record had returned).
+- `triage` is a tally, not the per-paper decisions: `included`, `pending` (not
+  yet triaged) and `excluded`, an object keyed by exclusion reason.
+- `pending_approval` counts findings no named person has approved. Their content
+  is not published; the count is what stops their absence being silent. One
+  exception is not a finding but its paper: a curator who adds a paper to
+  `curation/publications.yaml` for a finding (`chd-atlas literature
+  add-publication`) publishes that record, with the `study_type` the extracting
+  agent read, in [`publications.json`](#publicationsjson) at the next build,
+  whether or not any finding of that paper has been approved.
+- `findings` holds the approved findings only, each as curated, sorted by
+  publication year, then numeric PMID, then finding id. A finding carrying a
+  `review_status` is published with it and its `review_note`. Each finding's
+  `shares_probands_with` is a list of finding ids, or the string `"unknown"`.
+  `[]` is an assertion, not an absence: the paper states its cohort shares no
+  probands with any other finding. An id in the list may name a finding that is
+  not yet approved, which is then in no bundle, so the id resolves nowhere in the
+  published data. `carriers` and `screened` are counted in `count_unit`: with
+  `families`, `screened` is families and each origin count is carrier families.
+
+The gene page renders this as its Literature section, after the developmental
+expression section. A gene with no search says only "Not yet curated." Otherwise
+one visible line gives the date of the latest search, the papers found and how
+they were decided (included, excluded, not yet triaged), and the findings
+awaiting approval; folded beneath it are the exclusion tally by reason, every
+search with its date, hits and exact query, and a table of the approved
+findings. The table carries each finding's year, paper, design, methods, counts
+with their unit, carriers by origin, result (the comparator for a rare-variant
+association, and the stored p-value and odds ratio), lesion groups,
+independence (cohorts, and whether its probands are shared) and summary with any
+review mark, and the person who approved it.
+
 ## `genes/<slug>.html`
 
 One page per published gene, rendering that gene's bundle for a reader.
@@ -1784,7 +1849,7 @@ is no summary diamond, ending with a link, *How to read rare-variant results*,
 to [`methods.html#rare-variants`](#methodshtml), which states the key in
 general.
 
-The developmental expression section, last on the page, opens with one visible
+The developmental expression section, which the Literature section follows, opens with one visible
 line. On a page with cell-type data and a bulk profile it reads "Cell-type values pool 8 hearts at
 9 to 15 weeks and the timeline below is from bulk tissue; a low or absent value
 is not evidence a gene is unimportant to heart development." and the cell-type

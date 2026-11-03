@@ -1,16 +1,50 @@
 from __future__ import annotations
 
+import json
+import os
+import re
+import urllib.error
+from collections.abc import Sequence
+from datetime import date
 from pathlib import Path
+from typing import Any
 
 import typer
 
+from chd_atlas import pubmed
 from chd_atlas.build.runner import BuildRefused, build_site
+from chd_atlas.build.validity import gene_validity
+from chd_atlas.corpus import load_curation
+from chd_atlas.fs import write_bytes_atomically
+from chd_atlas.gene_literature_diff import diff_findings
+from chd_atlas.gene_literature_io import (
+    LiteratureFileError,
+    literature_path,
+    parse_findings_file,
+    parse_literature,
+    with_findings_updated,
+    with_publication,
+    with_search,
+)
+from chd_atlas.models.assertion import InTextLocator, Locator
+from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile
+from chd_atlas.models.literature import Publication
+from chd_atlas.models.review import ReviewStatus
+from chd_atlas.pubmed import Fetch, PubMedError, urllib_fetch
 from chd_atlas.schema_export import export_schemas
-from chd_atlas.validate.runner import validate_repository
+from chd_atlas.tables import TABLE_SCHEMAS, read_table
+from chd_atlas.validate.runner import _gate_published_genes, _symbol_registry, validate_repository
+from chd_atlas.vocab import StudyType, TriageDecision
 
 app = typer.Typer(help="CHD Atlas curation tooling.", no_args_is_help=True)
 schemas_app = typer.Typer(help="JSON Schema utilities.", no_args_is_help=True)
+literature_app = typer.Typer(help="Literature search and curation helpers.", no_args_is_help=True)
 app.add_typer(schemas_app, name="schemas")
+app.add_typer(literature_app, name="literature")
+
+# The one network hook. Commands read it at call time, so a test replaces it
+# with `monkeypatch.setattr(cli, "_fetch", fake)` and nothing reaches PubMed.
+_fetch: Fetch = urllib_fetch
 
 
 @app.command()
@@ -124,3 +158,478 @@ def schemas_export(
         raise typer.Exit(code=2) from exc
 
     typer.echo(f"wrote {len(written)} schema(s) to {target}")
+
+
+def _fail(message: str, code: int) -> typer.Exit:
+    typer.echo(f"error: {message}")
+    return typer.Exit(code=code)
+
+
+def _api_key() -> str | None:
+    """The NCBI key from the environment, or None when unset or blank."""
+    return (os.environ.get("NCBI_API_KEY") or "").strip() or None
+
+
+def _redact(message: str, key: str | None) -> str:
+    return message.replace(key, "***") if key else message
+
+
+def _require_root(root: Path) -> None:
+    if not root.is_dir():
+        raise _fail(f"--root {root} is not a directory", 2)
+
+
+def _resolve_gene(root: Path, symbol: str) -> tuple[str, str, Sequence[str]]:
+    """`(HGNC id, approved symbol, previous symbols)` for a typed symbol, or exit 2.
+
+    Any unambiguous resolution is accepted -- approved, alias or previous
+    (ruling R19) -- because curators type old names; the caller writes the
+    approved one.
+    """
+    registry = _symbol_registry(root)
+    if registry is None:
+        raise _fail("mirrors/genes.tsv is missing or unreadable", 2)
+    resolved = registry.resolve(symbol)
+    if resolved.gene is None:
+        detail = (
+            f"{symbol!r} is claimed by {', '.join(resolved.candidates)}"
+            if resolved.candidates
+            else f"{symbol!r} is not a known gene symbol"
+        )
+        raise _fail(detail, 2)
+    approved = registry.approved_symbol(resolved.gene)
+    if approved is None:
+        raise _fail(f"{resolved.gene} has no approved symbol in mirrors/genes.tsv", 2)
+    return resolved.gene, approved, registry.previous_symbols(resolved.gene)
+
+
+@literature_app.command("search")
+def literature_search(
+    symbol: str = typer.Argument(..., help="Gene symbol (approved, alias or previous)."),
+    run_on: str = typer.Option(
+        "", "--run-on", help="Date of the search, YYYY-MM-DD (default today)."
+    ),
+    root: Path = typer.Option(Path("."), help="Repository root."),
+) -> None:
+    """Run the recorded PubMed search for a published gene into its literature file."""
+    _require_root(root)
+    try:
+        when = date.fromisoformat(run_on) if run_on else date.today()
+    except ValueError:
+        raise _fail(f"--run-on {run_on!r} is not a YYYY-MM-DD date", 2) from None
+
+    gene, approved, previous = _resolve_gene(root, symbol)
+    corpus, _ = load_curation(root)
+    if gene not in _gate_published_genes(root, corpus):
+        raise _fail(
+            f"{approved} ({gene}) is outside the publication gate; "
+            f"its literature would reach no page",
+            2,
+        )
+
+    clingen, _ = read_table(
+        root / "mirrors" / "clingen_gene_validity.tsv", TABLE_SCHEMAS["clingen_validity"]
+    )
+    gencc, _ = read_table(
+        root / "mirrors" / "gencc_submissions.tsv", TABLE_SCHEMAS["gencc_submissions"]
+    )
+    if clingen is None or gencc is None:  # the gate above would have been empty
+        raise _fail("the validity mirrors are unreadable", 2)
+    scope = {str(entry.id) for entry in corpus.chd_scope}
+    records = gene_validity(clingen, gencc, in_scope=scope)[gene].records
+    diseases = sorted({record.disease_label for record in records})
+    query = pubmed.build_query(approved, previous, diseases)
+
+    path = literature_path(root, approved)
+    existing = path.read_bytes() if path.is_file() else None
+    key = _api_key()
+    # Every network call finishes, and the new file is serialised and checked,
+    # before anything is written: a failure leaves the file as it was.
+    try:
+        hits, pmids = pubmed.esearch_all(query, _fetch, api_key=key)
+        content, search_id, new_hits = with_search(
+            existing, gene=gene, query=query, run_on=when, hits=hits, pmids=pmids
+        )
+    except (PubMedError, urllib.error.URLError, LiteratureFileError) as exc:
+        raise _fail(_redact(str(exc), key), 1) from None
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_bytes_atomically(path, content)
+    typer.echo(f"{approved}: search {search_id} found {hits} hit(s), {new_hits} new; wrote {path}")
+
+
+@literature_app.command("abstracts")
+def literature_abstracts(
+    symbol: str = typer.Argument(..., help="Gene symbol (approved, alias or previous)."),
+    decision: str = typer.Option("pending", help="pending, included or excluded."),
+    root: Path = typer.Option(Path("."), help="Repository root."),
+) -> None:
+    """Print PMID, year, title and abstract for each triage entry with a decision."""
+    _require_root(root)
+    try:
+        wanted = TriageDecision(decision)
+    except ValueError:
+        raise _fail(
+            f"--decision {decision!r} is not one of pending, included, excluded", 2
+        ) from None
+    _, approved, _ = _resolve_gene(root, symbol)
+    path = literature_path(root, approved)
+    if not path.is_file():
+        raise _fail(f"{path} does not exist; run `chd-atlas literature search {approved}` first", 1)
+    key = _api_key()
+    try:
+        record = parse_literature(path.read_bytes())
+        pmids = [e.pmid.removeprefix("PMID:") for e in record.triage if e.decision is wanted]
+        titles = pubmed.efetch_abstracts(pmids, _fetch, api_key=key)
+        meta = pubmed.esummary(pmids, _fetch, api_key=key)
+    except (PubMedError, urllib.error.URLError, LiteratureFileError) as exc:
+        raise _fail(_redact(str(exc), key), 1) from None
+    for pmid in pmids:
+        found = titles.get(pmid)
+        paper = meta.get(pmid)
+        year = str(paper.year) if paper else "year unknown"
+        if found is None:
+            typer.echo(f"PMID:{pmid} · {year} · (PubMed returned no record for this PMID)")
+        else:
+            title, abstract = found
+            typer.echo(f"PMID:{pmid} · {year} · {title}")
+            typer.echo(abstract or "(no abstract in PubMed)")
+        typer.echo("")
+
+
+@literature_app.command("add-publication")
+def literature_add_publication(
+    pmid: str = typer.Argument(..., help="PubMed id, with or without the PMID: prefix."),
+    study_type: str = typer.Option(
+        ..., "--study-type", help="The curator's reading of the design."
+    ),
+    reading: str = typer.Option(
+        ...,
+        "--reading",
+        help="Why that design: what the paper says. Written as a comment beside the record.",
+    ),
+    root: Path = typer.Option(Path("."), help="Repository root."),
+) -> None:
+    """Append a Publication record, built from PubMed, to curation/publications.yaml."""
+    _require_root(root)
+    digits = pmid.removeprefix("PMID:")
+    if not re.fullmatch(r"[1-9]\d*", digits):
+        raise _fail(f"{pmid!r} is not a PubMed id", 2)
+    try:
+        kind = StudyType(study_type)
+    except ValueError:
+        allowed = ", ".join(t.value for t in StudyType)
+        raise _fail(f"--study-type {study_type!r} is not one of: {allowed}", 2) from None
+    if not reading.strip():
+        raise _fail("--reading (what the paper says about its design) must not be blank", 2)
+    path = root / "curation" / "publications.yaml"
+    if not path.is_file():
+        raise _fail(f"{path} does not exist", 1)
+    key = _api_key()
+    try:
+        found = pubmed.esummary([digits], _fetch, api_key=key).get(digits)
+        if found is None:
+            raise PubMedError(f"PubMed returned no record for PMID:{digits}")
+        content = with_publication(
+            path.read_bytes(), pubmed.publication_from_meta(found, kind), reading
+        )
+    except (PubMedError, urllib.error.URLError, LiteratureFileError, ValueError) as exc:
+        raise _fail(_redact(str(exc), key), 1) from None
+    write_bytes_atomically(path, content)
+    typer.echo(f"added PMID:{digits} to {path}")
+
+
+def _require_literature_file(root: Path, symbol: str) -> tuple[str, Path]:
+    """`(approved symbol, path)` of an existing literature file, or exit 2 naming the path."""
+    _, approved, _ = _resolve_gene(root, symbol)
+    path = literature_path(root, approved)
+    if not path.is_file():
+        raise _fail(f"{path} does not exist", 2)
+    return approved, path
+
+
+def _ids(values: Sequence[str]) -> str:
+    return ", ".join(values) or "none"
+
+
+def _is_agent(name: str) -> bool:
+    return name.strip().lower().startswith("agent:")
+
+
+@literature_app.command("diff")
+def literature_diff(
+    symbol: str = typer.Argument(..., help="Gene symbol (approved, alias or previous)."),
+    against: Path = typer.Option(
+        ..., "--against", help="The blind second pass: a YAML file with a top-level `findings:`."
+    ),
+    mark_verified: str | None = typer.Option(
+        None,
+        "--mark-verified",
+        help="agent:<skill>/<model>; set verified_by on every agreeing, unverified finding.",
+    ),
+    root: Path = typer.Option(Path("."), help="Repository root."),
+) -> None:
+    """Compare a blind second extraction with the curated findings; exits 0 on differences."""
+    _require_root(root)
+    if mark_verified is not None and not (
+        mark_verified.startswith("agent:") and mark_verified.removeprefix("agent:").strip()
+    ):
+        raise _fail("--mark-verified names the verifier agent as 'agent:<skill>/<model>'", 2)
+    _, path = _require_literature_file(root, symbol)
+    if not against.is_file():
+        raise _fail(f"--against {against} is not a file", 2)
+    try:
+        record = parse_literature(path.read_bytes())
+        second = parse_findings_file(against.read_bytes())
+    except LiteratureFileError as exc:
+        raise _fail(str(exc), 1) from None
+
+    diff = diff_findings(record.findings, second)
+    typer.echo(f"agreed ({len(diff.agreed)}): {_ids(diff.agreed)}")
+    typer.echo(f"only in the first pass ({len(diff.only_first)}): {_ids(diff.only_first)}")
+    typer.echo(f"only in the second pass ({len(diff.only_second)}): {_ids(diff.only_second)}")
+    typer.echo(f"differ ({len(diff.fields)}):")
+    for finding_id, changes in diff.fields.items():
+        typer.echo(f"  {finding_id}")
+        for name, mine, theirs in changes:
+            typer.echo(
+                f"    {name}: first {json.dumps(mine, sort_keys=True)}"
+                f" | second {json.dumps(theirs, sort_keys=True)}"
+            )
+    if mark_verified is None:
+        return
+    unverified = {f.id for f in record.findings if f.verified_by is None}
+    marked = [i for i in diff.agreed if i in unverified]
+    if marked:
+        try:
+            content = with_findings_updated(
+                path.read_bytes(), {i: {"verified_by": mark_verified} for i in marked}
+            )
+        except LiteratureFileError as exc:
+            raise _fail(str(exc), 1) from None
+        write_bytes_atomically(path, content)
+    typer.echo(f"marked verified ({len(marked)}): {_ids(marked)}")
+
+
+def _locator_text(locator: Locator) -> str:
+    if isinstance(locator, InTextLocator):
+        return locator.element
+    parts = [locator.file, locator.sheet, f"row {locator.row}" if locator.row else None]
+    return " / ".join(p for p in parts if p)
+
+
+def _counts_text(finding: Finding) -> str:
+    groups: list[str] = []
+    if finding.screened is not None:
+        unit = finding.count_unit.value if finding.count_unit else "(unit not stated)"
+        groups.append(f"screened {finding.screened} {unit}")
+    if finding.carriers is not None:
+        c = finding.carriers
+        groups.append(
+            f"carriers {c.total} (de novo {c.de_novo}, inherited {c.inherited},"
+            f" origin unknown {c.origin_unknown})"
+        )
+    tail = [
+        text
+        for text in (
+            f"cases {finding.cases}" if finding.cases is not None else "",
+            f"controls {finding.controls}" if finding.controls is not None else "",
+            f"p {finding.p_value!r}" if finding.p_value is not None else "",
+            f"OR {finding.odds_ratio!r}" if finding.odds_ratio is not None else "",
+        )
+        if text
+    ]
+    if tail:
+        groups.append(", ".join(tail))
+    return "; ".join(groups) or "no counts"
+
+
+def _today() -> date:
+    """Today's date; a test replaces it, so the 'not in the future' rule is measurable."""
+    return date.today()
+
+
+def _listing(finding: Finding, paper: Publication | None) -> list[str]:
+    """Every field of a finding a person approves, except the bookkeeping ones.
+
+    Omitted on purpose: `id` and the link (the heading line), `approved_*`
+    (a listed finding has none) and `verified_by` (the heading line). Floats go
+    through `repr`, so 1.23456789e-9 is not shown as 1.23457e-09 (final review
+    I2). The paper's `study_type` and `own_lab` come from publications.yaml,
+    where an agent's reading of the design may be the only copy (R32).
+    """
+    link = f"https://pubmed.ncbi.nlm.nih.gov/{finding.publication.removeprefix('PMID:')}/"
+    if paper is None:
+        paper_line = "paper: not in curation/publications.yaml"
+    else:
+        own_lab = "yes" if paper.own_lab else "no"
+        paper_line = f"paper: study_type {paper.study_type.value}; own_lab {own_lab}"
+    shared = finding.shares_probands_with
+    lines = [
+        f"{finding.id}  {link}  {finding.design.value}  {finding.verified_by or 'UNVERIFIED'}",
+        f"  {paper_line}",
+        f"  methods: {', '.join(m.value for m in finding.methods)}",
+        f"  comparator: {finding.comparator.value if finding.comparator else 'none'}",
+        f"  burden study: {finding.burden_study or 'none'}",
+        f"  variant classes: {_ids([v.value for v in finding.variant_classes])}",
+        f"  {_counts_text(finding)}",
+        f"  phenotypes: {', '.join(finding.phenotypes)}",
+        f"  lesion groups: {', '.join(g.value for g in finding.lesion_groups)}",
+        f"  syndromic: {finding.syndromic.value}",
+        f"  cohorts: {_ids(finding.cohorts)}",
+        f"  locators: {'; '.join(_locator_text(loc) for loc in finding.locators)}",
+        f"  shares probands with: {shared if isinstance(shared, str) else _ids(shared)}",
+    ]
+    if finding.review_status is not None:
+        lines.append(f"  review: {finding.review_status.value}: {finding.review_note}")
+    lines.append(f"  extracted by: {finding.extracted_by}")
+    lines.append(f"  {finding.summary}")
+    return lines
+
+
+def _first_search_run_on(record: GeneLiteratureFile, finding: Finding) -> date | None:
+    """The run date of the search that first found the finding's paper (the LIT008 rule)."""
+    first = next((e.search for e in record.triage if e.pmid == finding.publication), None)
+    return next((s.run_on for s in record.searches if s.id == first), None)
+
+
+@literature_app.command("review")
+def literature_review(
+    symbol: str = typer.Argument(..., help="Gene symbol (approved, alias or previous)."),
+    approve: list[str] = typer.Option(
+        [], "--approve", help="A finding id to approve; repeat the option for several."
+    ),
+    by: str = typer.Option("", "--by", help="The approving person's name."),
+    on: str = typer.Option("", "--on", help="Approval date, YYYY-MM-DD (default today)."),
+    allow_unverified: bool = typer.Option(
+        False, "--allow-unverified", help="Approve a finding no verifier has compared."
+    ),
+    against: Path | None = typer.Option(
+        None,
+        "--against",
+        help="Listing only: the blind second pass; prints each finding's field differences.",
+    ),
+    pending_review: str = typer.Option(
+        "", "--pending-review", help="A finding id to mark pending_review."
+    ),
+    note: str = typer.Option("", "--note", help="The measured disagreement, for --pending-review."),
+    root: Path = typer.Option(Path("."), help="Repository root."),
+) -> None:
+    """List the findings awaiting approval, approve some, or mark one pending review.
+
+    A review mark is published with the finding; it does not withdraw an
+    approval, and a marked finding can still be approved. A finding carries one
+    mark: a second is refused rather than overwriting the first note.
+    """
+    _require_root(root)
+    if approve and pending_review:
+        raise _fail("--approve and --pending-review are two actions; use one, not both", 2)
+    if not approve and (by or on or allow_unverified):
+        raise _fail("--by, --on and --allow-unverified only apply with --approve", 2)
+    if not pending_review and note:
+        raise _fail("--note only applies with --pending-review", 2)
+    if against is not None and (approve or pending_review):
+        raise _fail("--against only applies to the listing, not to the two actions", 2)
+    if approve:
+        if not by.strip():
+            raise _fail("--by (the approving person's name) is required with --approve", 2)
+        if _is_agent(by):
+            raise _fail(f"--by {by!r} names an agent; a person must approve", 2)
+        try:
+            when = date.fromisoformat(on) if on else _today()
+        except ValueError:
+            raise _fail(f"--on {on!r} is not a YYYY-MM-DD date", 2) from None
+        if when > _today():
+            raise _fail(f"--on {when.isoformat()} is in the future", 2)
+    if pending_review and not note.strip():
+        raise _fail("--note (the measured disagreement) is required with --pending-review", 2)
+
+    approved_symbol, path = _require_literature_file(root, symbol)
+    raw = path.read_bytes()
+    try:
+        record = parse_literature(raw)
+    except LiteratureFileError as exc:
+        raise _fail(f"{path}: {exc}", 1) from None
+    by_id: dict[str, Finding] = {f.id: f for f in record.findings}
+
+    if not approve and not pending_review:
+        waiting = sorted((f for f in record.findings if f.approved_by is None), key=lambda f: f.id)
+        if not waiting:
+            typer.echo(f"{approved_symbol}: no findings awaiting approval")
+        papers = {p.id: p for p in load_curation(root)[0].publications}
+        differences: dict[str, list[tuple[str, Any, Any]]] = {}
+        unpaired: set[str] = set()
+        if against is not None:
+            if not against.is_file():
+                raise _fail(f"--against {against} is not a file", 2)
+            try:
+                second = parse_findings_file(against.read_bytes())
+            except LiteratureFileError as exc:
+                raise _fail(str(exc), 1) from None
+            diff = diff_findings(record.findings, second)
+            differences = {k: list(v) for k, v in diff.fields.items()}
+            unpaired = set(diff.only_first)
+        for f in waiting:
+            for line in _listing(f, papers.get(f.publication)):
+                typer.echo(line)
+            if against is not None:
+                if f.id in unpaired:
+                    typer.echo("  second pass: no partner finding")
+                for name, mine, theirs in differences.get(f.id, []):
+                    typer.echo(
+                        f"  differs: {name}: first {json.dumps(mine, sort_keys=True)}"
+                        f" | second {json.dumps(theirs, sort_keys=True)}"
+                    )
+            typer.echo("")
+        return
+
+    if pending_review:
+        target = by_id.get(pending_review)
+        if target is None:
+            raise _fail(f"no such finding {pending_review} in {path}", 2)
+        if target.review_status is not None:
+            raise _fail(
+                f"{pending_review} already carries a review mark ({target.review_status.value}); "
+                f"changing it is a hand edit",
+                2,
+            )
+        updates: dict[str, dict[str, Any]] = {
+            pending_review: {
+                "review_status": ReviewStatus.PENDING_REVIEW.value,
+                "review_note": note.strip(),
+            }
+        }
+        messages = [f"marked {pending_review} pending_review"]
+    else:
+        ids = sorted(set(approve))
+        for finding_id in ids:
+            target = by_id.get(finding_id)
+            if target is None:
+                raise _fail(f"no such finding {finding_id} in {path}", 2)
+            if target.approved_by is not None:
+                raise _fail(
+                    f"{finding_id} is already approved by {target.approved_by}; "
+                    f"approving again would erase who approved it",
+                    2,
+                )
+            found_on = _first_search_run_on(record, target)
+            if found_on is not None and when < found_on:
+                raise _fail(
+                    f"--on {when.isoformat()} is before search {found_on.isoformat()} "
+                    f"found {target.publication}; an approval cannot predate it (LIT008)",
+                    2,
+                )
+            if target.verified_by is None and not allow_unverified:
+                raise _fail(
+                    f"{finding_id} is unverified (no verified_by); "
+                    f"run `literature diff` or pass --allow-unverified",
+                    2,
+                )
+        updates = {i: {"approved_by": by.strip(), "approved_on": when} for i in ids}
+        messages = [f"approved {i} ({by.strip()}, {when.isoformat()})" for i in ids]
+    try:
+        content = with_findings_updated(raw, updates)
+    except LiteratureFileError as exc:
+        raise _fail(str(exc), 1) from None
+    write_bytes_atomically(path, content)
+    for message in messages:
+        typer.echo(message)
