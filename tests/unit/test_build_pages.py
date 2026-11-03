@@ -10677,12 +10677,15 @@ def test_one_mark_per_paper_and_same_year_papers_never_share_a_position() -> Non
             ("PMID:3", 2005, ("cohort_screen", "family_segregation")),
             ("PMID:4", 2010, ("rare_variant_association",)),
             ("PMID:5", 2015, ("common_variant_association",)),
+            ("PMID:6", 2020, ("case_report",)),
         ]
     )
     svg = _literature_timeline(groups, pubs)
     marks = _tl_marks(svg)
-    assert len(marks) == 5
-    assert len(set(marks)) == 5
+    assert len(marks) == 6
+    assert len(set(marks)) == 6
+    # Six papers, five distinct shapes: PMID:1 and PMID:6 are both case reports, so a
+    # key drawn once per paper rather than once per shape would hold six glyphs.
     assert len(_tl_centres(_tl_part(svg, "lit-key"))) == 5
 
 
