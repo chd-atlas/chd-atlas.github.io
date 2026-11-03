@@ -6526,6 +6526,15 @@ def _timeline_year_labels(first: int, last: int) -> list[int]:
     return [first, *decades, last]
 
 
+def _own_lab_mark(publication: Publication) -> str:
+    """`_OWN_LAB_MARK` for a paper an atlas author wrote, else the empty string.
+
+    The timeline hover and the fold summary both carry it, so a reader who meets
+    a paper on either surface meets the declaration (owner decision 5).
+    """
+    return _OWN_LAB_MARK if publication.own_lab else ""
+
+
 def _literature_timeline(
     groups: Sequence[_PaperGroup],
     publications: Mapping[str, Publication],
@@ -6563,9 +6572,8 @@ def _literature_timeline(
         clauses = "; ".join(
             f"{_words(str(f['design']))}: {_finding_counts(f)}" for f in group.findings
         )
-        hover = " · ".join(
-            [_study_label(group.pmid, publications), group.pmid, group.publication.title, clauses]
-        )
+        label = _study_label(group.pmid, publications) + _own_lab_mark(group.publication)
+        hover = " · ".join([label, group.pmid, group.publication.title, clauses])
         marks.append(glyph(x_of(year), baseline - _TL_STACK * k, shape=shape, title=hover))
     body = (
         f'<line class="chart-axis" x1="{coordinate(_TL_PAD)}" y1="{coordinate(axis_y)}" '
@@ -6660,6 +6668,7 @@ def _literature_publications(
         summary = (
             f"{_study_label(group.pmid, publications)} \u00b7 {group.publication.journal} "
             f"\u00b7 {designs} \u00b7 {k} {'finding' if k == 1 else 'findings'}"
+            f"{_own_lab_mark(group.publication)}"
         )
         table = data_table(_PAPER_FINDING_HEADERS, [_finding_row(f) for f in group.findings])
         blocks.append(

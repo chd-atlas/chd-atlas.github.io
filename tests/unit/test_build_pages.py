@@ -10707,3 +10707,40 @@ def test_publications_fold_escapes_hostile_title_journal_and_author() -> None:
     assert "A&lt;i&gt;&amp;&quot;q&quot; et al. 1997 · J&lt;b&gt;&amp;" in fold
     assert "<p>T&lt;script&gt;&amp;&quot;x&quot; " in fold
     assert "<script>" not in fold and "<b>" not in fold and "<i>" not in fold
+
+
+def _fold_block(fold: str, pmid: str) -> str:
+    """The one opened paper block whose PMID link is `pmid`."""
+    blocks = [b for b in fold.split('<details class="lit-paper">')[1:] if f">{pmid}</a>" in b]
+    assert len(blocks) == 1
+    return blocks[0]
+
+
+def test_an_atlas_authors_paper_declares_itself_in_the_fold_and_the_timeline() -> None:
+    pubs = {
+        "PMID:8988165": _LIT_PUBLICATION.model_copy(update={"own_lab": True}),
+        "PMID:2": _LIT_PUBLICATION.model_copy(update={"id": "PMID:2", "year": 1999}),
+    }
+    findings = [
+        _lit_finding(id="CHDA:LIT:0000001"),
+        _lit_finding(id="CHDA:LIT:0000002", publication="PMID:2"),
+    ]
+    groups = _paper_groups(findings, pubs)
+    fold = _literature_publications(groups, pubs)
+    own_summary = re.search(r"<summary>(.*?)</summary>", _fold_block(fold, "PMID:8988165"))
+    other_summary = re.search(r"<summary>(.*?)</summary>", _fold_block(fold, "PMID:2"))
+    assert own_summary is not None and other_summary is not None
+    assert own_summary.group(1).endswith(" · 1 finding · study by an atlas author")
+    assert other_summary.group(1).endswith(" · 1 finding")
+    assert "study by an atlas author" not in other_summary.group(1)
+
+    titles = re.findall(
+        r"<title>(.*?)</title>", _tl_part(_literature_timeline(groups, pubs), "lit-marks")
+    )
+    own_title = [t for t in titles if " · PMID:8988165 · " in t]
+    other_title = [t for t in titles if " · PMID:2 · " in t]
+    assert len(own_title) == 1
+    assert own_title[0].startswith(
+        "Basson CT et al. 1997 · study by an atlas author · PMID:8988165 · "
+    )
+    assert len(other_title) == 1 and "study by an atlas author" not in other_title[0]
