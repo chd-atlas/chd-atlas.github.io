@@ -284,14 +284,15 @@ _VALIDITY: Final = (
 #   and on this page what follows is the rare-variant section.
 _CURATED_EVIDENCE: Final = (
     '<h2 id="curated-evidence">Curated evidence</h2>'
-    "<p>Where this atlas has curated a gene itself, its page carries a <strong>Curated "
-    "evidence</strong> section. Each entry is a <strong>lesion assertion</strong>: a "
+    "<p>Where this atlas holds a lesion assertion for a gene, its page carries a "
+    "<strong>Curated evidence</strong> section. Each entry is a <strong>lesion assertion</strong>: a "
     "curator's record that the gene belongs to one or more congenital heart disease lesion "
     "groups, with its inheritance, its mechanism and whether it is isolated, syndromic or "
     "both. Each item of evidence behind an assertion cites one publication, and gives the "
     "class of the evidence, its strength as the curator grades it (strong, moderate, "
     "supporting or contradictory) and the curator's summary of what the publication "
-    "shows.</p>"
+    "shows. A gene's approved literature findings are in its Literature section, not here; "
+    "the card's curated line counts both.</p>"
     "<p>An assertion is this atlas's own work, and it <strong>changes nothing "
     "mirrored</strong>: a gene is published, and its grade is headlined, on the upstream "
     "validity records alone, so no assertion admits a gene or moves its grade. A curated "
