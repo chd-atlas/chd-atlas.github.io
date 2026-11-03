@@ -51,11 +51,17 @@ def repo(tmp_path: Path) -> Path:
     `curation` and `mirrors` are copied because tests edit them; `ontologies` is
     symlinked because it is 11 MB of pinned OBO releases that nothing here
     changes, and copying it per test would cost more than the builds do.
+
+    The copy drops `curation/literature/`: the committed corpus now carries
+    literature files, and a test that writes its own literature file would
+    otherwise hit `FileExistsError` on `mkdir`, or see the real file's findings
+    in a build it meant to hold to one.
     """
     source = tmp_path / "repo"
     source.mkdir()
     for name in ("curation", "mirrors"):
         shutil.copytree(REPO / name, source / name)
+    shutil.rmtree(source / "curation" / "literature", ignore_errors=True)
     (source / "ontologies").symlink_to(REPO / "ontologies")
     return source
 

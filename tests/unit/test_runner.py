@@ -843,9 +843,16 @@ def _real_repo(tmp_path: Path) -> Path:
     Copied rather than fixtured because the defect below is about *scale* -- one
     error naming a cause versus one error per row naming symptoms -- and a
     two-row fixture cannot show the difference.
+
+    The copy drops `curation/literature/`: the committed corpus now carries
+    literature files, and a fixture that writes its own literature file would
+    otherwise hit `FileExistsError` on `mkdir`, or compare against a baseline that
+    already holds the real file's issues. Every fixture that builds on this copy
+    gets the same empty literature directory.
     """
     for name in ("curation", "mirrors", "ontologies"):
         shutil.copytree(REPO_ROOT / name, tmp_path / name)
+    shutil.rmtree(tmp_path / "curation" / "literature", ignore_errors=True)
     return tmp_path
 
 
