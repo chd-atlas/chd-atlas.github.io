@@ -25,6 +25,7 @@ from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.tables import TABLE_SCHEMAS, read_table
 from chd_atlas.validate.runner import ValidationReport
 from tests.unit._stamp import stamped_yaml
+from tests.unit._svg import g_part
 
 REPO = Path(__file__).parent.parent.parent
 
@@ -877,8 +878,7 @@ def test_a_literature_file_reaches_its_bundle_page_and_the_counts(
     assert "Approved &lt;finding&gt; &amp; &quot;quoted&quot;." in section
     assert "An extraction nobody approved yet." not in page
     assert section.count('<svg class="chart"') == 1
-    marks = section[section.index('<g class="lit-marks">') :]
-    marks = marks[: marks.index("</g>")]
+    marks = g_part(section, "lit-marks")
     assert len(re.findall(r"<(?:circle|rect|polygon) ", marks)) == 1
     assert "<summary>1 publication</summary>" in section
     others = [p for p in (out / "genes").glob("HGNC_*.html") if p.name != "HGNC_11604.html"]

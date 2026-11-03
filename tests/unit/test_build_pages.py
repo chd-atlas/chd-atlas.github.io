@@ -79,6 +79,7 @@ from chd_atlas.vocab import (
     ValidityState,
 )
 from tests.unit._stamp import stamped
+from tests.unit._svg import g_part
 from tests.unit.test_build_cell_type_chart import dataset as cell_type_dataset
 from tests.unit.test_build_cell_type_chart import payload as cell_type_payload
 from tests.unit.test_build_cell_type_chart import specificity as cell_type_specificity
@@ -10633,11 +10634,6 @@ def _tl_groups(
     return _paper_groups(findings, pubs), pubs
 
 
-def _tl_part(svg: str, css: str) -> str:
-    start = svg.index(f'<g class="{css}">')
-    return svg[start : svg.index("</g>", start)]
-
-
 def _tl_centres(part: str) -> list[tuple[float, float]]:
     centres = []
     for m in re.finditer(r"<(circle|rect|polygon) ([^>]*)>", part):
@@ -10654,11 +10650,11 @@ def _tl_centres(part: str) -> list[tuple[float, float]]:
 
 
 def _tl_marks(svg: str) -> list[tuple[float, float]]:
-    return _tl_centres(_tl_part(svg, "lit-marks"))
+    return _tl_centres(g_part(svg, "lit-marks"))
 
 
 def _tl_key_labels(svg: str) -> list[str]:
-    return re.findall(r'<text class="chart-label"[^>]*>([^<]*)</text>', _tl_part(svg, "lit-key"))
+    return re.findall(r'<text class="chart-label"[^>]*>([^<]*)</text>', g_part(svg, "lit-key"))
 
 
 def _tl_years(svg: str) -> list[str]:
@@ -10686,7 +10682,7 @@ def test_one_mark_per_paper_and_same_year_papers_never_share_a_position() -> Non
     assert len(set(marks)) == 6
     # Six papers, five distinct shapes: PMID:1 and PMID:6 are both case reports, so a
     # key drawn once per paper rather than once per shape would hold six glyphs.
-    assert len(_tl_centres(_tl_part(svg, "lit-key"))) == 5
+    assert len(_tl_centres(g_part(svg, "lit-key"))) == 5
 
 
 def test_twelve_papers_in_one_year_all_fit_inside_the_figure() -> None:
@@ -10873,7 +10869,7 @@ def test_an_atlas_authors_paper_declares_itself_in_the_fold_and_the_timeline() -
     assert "study by an atlas author" not in other_summary.group(1)
 
     titles = re.findall(
-        r"<title>(.*?)</title>", _tl_part(_literature_timeline(groups, pubs), "lit-marks")
+        r"<title>(.*?)</title>", g_part(_literature_timeline(groups, pubs), "lit-marks")
     )
     own_title = [t for t in titles if " · PMID:8988165 · " in t]
     other_title = [t for t in titles if " · PMID:2 · " in t]
