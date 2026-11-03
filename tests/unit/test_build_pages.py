@@ -10159,8 +10159,8 @@ def test_findings_of_one_paper_group_together_even_when_not_adjacent() -> None:
     b = _lit_finding(id="CHDA:LIT:0000002", publication="PMID:2")
     c = _lit_finding(id="CHDA:LIT:0000003", publication="PMID:10")
     d = _lit_finding(id="CHDA:LIT:0000004", publication="PMID:1")
-    groups = _paper_groups([a, c, d, b], _paper_pubs())
-    # PMID:10 sorts after PMID:2 numerically, though it would sort before it as a string.
+    groups = _paper_groups([c, a, d, b], _paper_pubs())
+    # PMID:10 arrives first; only the numeric tie-break puts it after PMID:2.
     assert [g.pmid for g in groups] == ["PMID:2", "PMID:10", "PMID:1"]
     assert [f["id"] for f in groups[0].findings] == [a["id"], b["id"]]
     assert sum(len(g.findings) for g in groups) == 4
