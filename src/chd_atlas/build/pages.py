@@ -97,7 +97,7 @@ from chd_atlas.build.gene_literature import (
     EMPTY_GENE_LITERATURE,
     GeneLiterature,
     SearchRecord,
-    _pmid_number,
+    pmid_number,
 )
 from chd_atlas.build.identity import EMPTY_IDENTITY, GeneIdentity, external_links
 from chd_atlas.build.paths import GENE_INDEX_PAGE, gene_bundle_path, gene_page_path
@@ -6507,7 +6507,7 @@ def _paper_groups(
             key=lambda d: (_DESIGN_ORDER.get(d, len(_DESIGN_ORDER)), d),
         )
         groups.append(_PaperGroup(pmid, publications[pmid], tuple(members), tuple(designs)))
-    groups.sort(key=lambda g: (g.publication.year, _pmid_number(g.pmid)))
+    groups.sort(key=lambda g: (g.publication.year, pmid_number(g.pmid)))
     return groups
 
 
