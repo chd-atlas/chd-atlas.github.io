@@ -100,6 +100,13 @@ convention only a person can check.
   otherwise `origin_unknown`.
 - A paper that names no detection method has `methods: [not_stated]`, alone (`SCHEMA001`).
   Never write the nearest method.
+- `methods` lists every method that found the variant in a counted carrier, proband or
+  relative (capillary sequencing of relatives counts). Never a step that only confirms a
+  variant already found, nor one that found nothing.
+- A pooled analysis of cohorts the paper also reports one by one is not a finding of its
+  own: one finding per cohort.
+- A number the paper does not print (a total summed from its stages) is written only with
+  the summary saying how it was derived.
 - A finding needs a congenital heart lesion. Carriers with only rhythm or conduction
   disease, a cardiomyopathy (such as LVNC) or no heart defect get no finding of their
   own; name them in the summary of the paper's CHD finding where it matters. A paper left
