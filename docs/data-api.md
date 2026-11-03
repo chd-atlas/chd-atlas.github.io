@@ -1915,7 +1915,18 @@ missing evidence section is indistinguishable from "the atlas looked and found
 nothing", and a reader deciding what a gene means clinically must not have to
 infer which.
 
-Read it precisely, because it is narrower than it first appears. **A lesion
+A gene with approved literature findings reads differently, and the card counts
+more than `atlas_curation` does. "Curated by the atlas: 1 lesion assertion
+(septal) and 24 findings from 21 papers." counts the gene's lesion assertions
+and its approved literature findings, papers being the distinct PMIDs among
+those findings; a gene with findings and no assertion reads "Curated by the
+atlas: 5 findings from 4 papers." Findings awaiting approval are not counted,
+and a gene with only those still reads "Not yet curated by the atlas". The
+JSON field is unchanged: `atlas_curation` stays derived from lesion assertions
+alone, so such a gene is `not_yet_curated` in its bundle and curated on its
+card. The `literature` key carries the findings the card counts.
+
+Read the uncurated sentences precisely, because they are narrower than they first appear. **A lesion
 assertion** is what decides it, not evidence in general: `atlas_curation` is
 derived from curated `LesionAssertion` records alone, so a gene can carry
 functional-evidence records the atlas curated and still report

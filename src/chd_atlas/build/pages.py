@@ -810,14 +810,19 @@ def _graded_diseases(gene_validity: GeneValidity, grade: Classification | None) 
     )
 
 
-def _card_curation(fact: GeneFacts) -> str:
+def _card_curation(fact: GeneFacts, literature: GeneLiterature = EMPTY_GENE_LITERATURE) -> str:
     """The card's atlas-curation sentence, and what it must not deny. D55.
 
-    Four branches, in the order the code takes them:
+    Five branches, in the order the code takes them:
 
-    * **curated** -- "Curated by the atlas: 1 lesion assertion for the septal
-      lesion group." with the functional-record count appended only when
-      non-zero (TBX5 is the one curated gene today, measured 2026-10-26);
+    * **curated** -- "Curated by the atlas: 1 lesion assertion (septal)." with
+      the functional-record count appended only when non-zero (TBX5 is the one
+      curated gene today, measured 2026-10-26). With approved literature
+      findings the sentence adds "and 24 findings from 21 papers" (owner
+      decision 2); a gene with only those reads "Curated by the atlas: 5
+      findings from 4 papers." Papers are the distinct PMIDs among the
+      findings. `literature` is the bundle's, which carries approved findings
+      only, so a gene whose findings all await approval is not counted here;
     * **not curated, a ClinGen panel holds a record** -- every classification
       on the page is a panel's or a named curator's (97 genes);
     * **not curated, no panel record** -- no ClinGen expert panel has graded
@@ -846,7 +851,10 @@ def _card_curation(fact: GeneFacts) -> str:
     a dropped join. "Not yet curated by the atlas" followed by "the atlas has
     curated 1 functional record" would be the same defect inside one sentence.
     `atlas_curation`'s meaning is deliberately untouched; what was wrong was
-    the sentence, not the field.
+    the sentence, not the field. Literature is the same case: a gene with
+    approved findings and no assertion is `not_yet_curated` in the JSON and
+    "Curated by the atlas" on the card, because the card must not deny work
+    the page below it renders.
 
     **`validity_state` is the discriminator between the two uncurated
     sentences, not `headline_confidence is None`**, for the reason the notices
@@ -860,21 +868,26 @@ def _card_curation(fact: GeneFacts) -> str:
     It was the main-column paragraph `_not_curated`, rendered after the
     validity section, until D55 moved it here; the page now states it once.
     """
-    if fact.atlas_curation is AtlasCuration.CURATED:
-        noun = "assertion" if fact.assertion_count == 1 else "assertions"
-        groups = [group.value for group in fact.lesion_groups]
-        scope = (
-            f" for the {html.escape(', '.join(groups))} "
-            f"lesion group{'s' if len(groups) > 1 else ''}"
-            if groups
-            else ""
-        )
+    findings = literature["findings"]
+    if fact.atlas_curation is AtlasCuration.CURATED or findings:
+        parts = []
+        if fact.atlas_curation is AtlasCuration.CURATED:
+            noun = "assertion" if fact.assertion_count == 1 else "assertions"
+            groups = [group.value for group in fact.lesion_groups]
+            scope = f" ({html.escape(', '.join(groups))})" if groups else ""
+            parts.append(f"{fact.assertion_count} lesion {noun}{scope}")
+        if findings:
+            papers = len({str(finding["publication"]) for finding in findings})
+            parts.append(
+                f"{len(findings)} {'finding' if len(findings) == 1 else 'findings'} "
+                f"from {papers} {'paper' if papers == 1 else 'papers'}"
+            )
         functional = (
             f"; {fact.functional_count} functional record{'s' if fact.functional_count > 1 else ''}"
             if fact.functional_count
             else ""
         )
-        sentence = f"Curated by the atlas: {fact.assertion_count} lesion {noun}{scope}{functional}."
+        sentence = f"Curated by the atlas: {' and '.join(parts)}{functional}."
         return f'<p class="card-curation">{sentence}</p>'
 
     # "Not yet": the state is `not_yet_curated`, and the atlas has not decided
@@ -1806,6 +1819,7 @@ def _rail(
     identity: GeneIdentity | None = None,
     scope_terms: Mapping[str, ScopeEntry] | None = None,
     panel_graders: Mapping[tuple[str, str], tuple[str, ...]] | None = None,
+    literature: GeneLiterature = EMPTY_GENE_LITERATURE,
 ) -> str:
     """The clinician card: the summary column, for every gene whether curated here or not.
 
@@ -1907,7 +1921,7 @@ def _rail(
         f"{_card_no_association(fact, gene_validity)}"
         f"{_card_scope(fact, gene_validity, warrants or {}, scope_terms, panel_graders)}"
         f"{_card_rare_variants(rows, families, publications or {})}"
-        f"{_card_curation(fact)}"
+        f"{_card_curation(fact, literature)}"
         '<p><a href="../methods.html">How to read this page</a> &middot; '
         f'<a href="../{html.escape(bundle)}">this gene as JSON</a></p></aside>'
     )
@@ -6836,6 +6850,7 @@ def build_gene_pages(
         records = assertions.get(gene, [])
         gene_validity = validity.get(gene, uncurated())
         identity = None if identities is None else identities.get(gene, EMPTY_IDENTITY)
+        gene_literature_bundle = literature.get(gene, EMPTY_GENE_LITERATURE)
         body = (
             '<div class="layout">'
             + _rail(
@@ -6850,6 +6865,7 @@ def build_gene_pages(
                 identity=identity,
                 scope_terms=scope_terms,
                 panel_graders=graders,
+                literature=gene_literature_bundle,
             )
             + "<div>"
             + _SCOPE_SHORT
@@ -6900,7 +6916,7 @@ def build_gene_pages(
                 gene=symbol,
             )
             # After expression, for the same reason expression is after burden.
-            + _literature_section(literature.get(gene, EMPTY_GENE_LITERATURE), publications)
+            + _literature_section(gene_literature_bundle, publications)
             + "</div></div>"
         )
         emitter.write_text(

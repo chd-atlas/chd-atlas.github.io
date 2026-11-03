@@ -9654,7 +9654,7 @@ _NOT_CURATED_BY_PANEL: Final = (
                 _facts(GATA4, AtlasCuration.CURATED, groups=(LesionGroup.SEPTAL,)),
                 _validity(),
             ),
-            "Curated by the atlas: 1 lesion assertion for the septal lesion group.",
+            "Curated by the atlas: 1 lesion assertion (septal).",
             id="curated",
         ),
         pytest.param(
@@ -9667,8 +9667,7 @@ _NOT_CURATED_BY_PANEL: Final = (
                 ),
                 _validity(),
             ),
-            "Curated by the atlas: 1 lesion assertion for the conotruncal, septal lesion "
-            "groups; 2 functional records.",
+            "Curated by the atlas: 1 lesion assertion (conotruncal, septal); 2 functional records.",
             id="curated, with functional records",
         ),
         pytest.param(
@@ -9678,8 +9677,7 @@ _NOT_CURATED_BY_PANEL: Final = (
                 ),
                 _validity(),
             ),
-            "Curated by the atlas: 1 lesion assertion for the septal lesion group; 1 functional "
-            "record.",
+            "Curated by the atlas: 1 lesion assertion (septal); 1 functional record.",
             id="curated, with one functional record",
         ),
         pytest.param(
@@ -9816,6 +9814,100 @@ def test_the_card_says_in_plain_words_what_the_atlas_itself_curated(
     main = page[page.index("</aside>") :]
     assert "curated by the atlas" not in main.lower()
     assert "not yet curated</strong> a lesion assertion" not in page
+
+
+def _approved(*pmids: str) -> GeneLiterature:
+    """A gene's literature with one approved finding per PMID given, in order."""
+    return GeneLiterature(
+        searches=[],
+        triage={"included": 0, "excluded": {}, "pending": 0},
+        pending_approval=0,
+        findings=[{"id": f"F{n}", "publication": pmid} for n, pmid in enumerate(pmids)],
+    )
+
+
+@pytest.mark.parametrize(
+    ("curation", "literature", "sentence"),
+    [
+        pytest.param(
+            AtlasCuration.CURATED,
+            ("PMID:1", "PMID:1", "PMID:2"),
+            "Curated by the atlas: 1 lesion assertion (septal) and 3 findings from 2 papers.",
+            id="assertion and literature",
+        ),
+        pytest.param(
+            AtlasCuration.NOT_YET_CURATED,
+            ("PMID:1", "PMID:2", "PMID:1", "PMID:3", "PMID:3"),
+            "Curated by the atlas: 5 findings from 3 papers.",
+            id="literature only",
+        ),
+        pytest.param(
+            AtlasCuration.NOT_YET_CURATED,
+            ("PMID:7",),
+            "Curated by the atlas: 1 finding from 1 paper.",
+            id="one finding, one paper",
+        ),
+        pytest.param(
+            AtlasCuration.NOT_YET_CURATED,
+            (),
+            _NOT_CURATED_BY_PANEL,
+            id="neither",
+        ),
+    ],
+)
+def test_the_card_counts_approved_literature_findings_as_atlas_curation(
+    tmp_path: Path, curation: AtlasCuration, literature: tuple[str, ...], sentence: str
+) -> None:
+    """Owner decision 2: a gene with approved literature is not "not yet curated".
+
+    Papers are distinct PMIDs among the findings, never a sum of anything per
+    paper. The JSON's `atlas_curation` stays assertion-derived; only this
+    sentence counts more. Fixtures differ in findings and papers on purpose
+    (3 from 2, 5 from 3), so a count of one cannot stand in for the other.
+    """
+    fact = _facts(GATA4, curation, groups=(LesionGroup.SEPTAL,) if curated_(curation) else ())
+    build_gene_pages(
+        {GATA4: fact},
+        Emitter(root=tmp_path),
+        symbols={GATA4: "GATA4"},
+        validity={GATA4: _validity()},
+        assertions={},
+        publications={},
+        burden={},
+        cohorts={},
+        cell_types={},
+        literature={GATA4: _approved(*literature)} if literature else {},
+    )
+    rail = _rail_of(_page(tmp_path, "HGNC_4173.html"))
+    assert re.findall(r'<p class="card-curation">(.*?)</p>', rail) == [sentence]
+
+
+def test_a_gene_whose_findings_all_await_approval_is_not_yet_curated(tmp_path: Path) -> None:
+    """T4: the bundle carries approved findings only, and a waiting one counts for nothing."""
+    waiting = GeneLiterature(
+        searches=[],
+        triage={"included": 0, "excluded": {}, "pending": 0},
+        pending_approval=2,
+        findings=[],
+    )
+    build_gene_pages(
+        {GATA4: _facts(GATA4, AtlasCuration.NOT_YET_CURATED)},
+        Emitter(root=tmp_path),
+        symbols={GATA4: "GATA4"},
+        validity={GATA4: _validity()},
+        assertions={},
+        publications={},
+        burden={},
+        cohorts={},
+        cell_types={},
+        literature={GATA4: waiting},
+    )
+    rail = _rail_of(_page(tmp_path, "HGNC_4173.html"))
+    assert re.findall(r'<p class="card-curation">(.*?)</p>', rail) == [_NOT_CURATED_BY_PANEL]
+
+
+def curated_(curation: AtlasCuration) -> bool:
+    return curation is AtlasCuration.CURATED
 
 
 def test_every_value_the_card_interpolates_is_escaped(tmp_path: Path) -> None:
