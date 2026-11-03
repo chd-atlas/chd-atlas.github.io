@@ -1728,6 +1728,7 @@ findings:
         element: Materials and Methods, MLPA Analysis (SALSA MLPA P311-A1 includes TBX5 probes)
     summary: Fifty-two Mexican patients with isolated tetralogy of Fallot were screened by MLPA with a probe set that includes TBX5, and the paper reports no TBX5 copy number change; its only CNV was a TBX1 deletion in one patient.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
   - id: CHDA:LIT:0000027
     publication: PMID:26219450
     design: case_report
@@ -1941,6 +1942,7 @@ findings:
         element: Materials and Methods, Study population (95 patients; 62 VSD, 25 ASD, 8 TOF)
     summary: Screening TBX5 exons 4-7 by PCR-SSCP and sequencing in 95 sporadic Iranian paediatric CHD patients found a heterozygous nonsense variant, p.E128X (G14742T), in two infants with ASD and large VSD, and not in 82 controls. The parents were clinically normal and the authors say it may be de novo; parental genotyping is not reported.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
   - id: CHDA:LIT:0000038
     publication: PMID:29755943
     design: family_segregation
@@ -1998,6 +2000,7 @@ findings:
         element: Methods and Results (45 patients; MLPA P311-A2 TBX5 probes)
     summary: MLPA (SALSA P311-A2) in 45 apparently nonsyndromic patients with septal defects found no copy number change in TBX5; the three CNVs reported were 22q11.2 deletions. No TBX5 carrier was found.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
   - id: CHDA:LIT:0000041
     publication: PMID:30538526
     design: case_report

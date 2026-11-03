@@ -267,6 +267,7 @@ findings:
         element: Materials and Methods, paragraph 2 (c.92_98delGCCCGCC, p.Pro33AlafsTer77; Sanger sequencing showed it was not inherited from either parent)
     summary: A girl with left-sided congenital diaphragmatic hernia and a large atrial septal defect (closed spontaneously by 2 years) carried a heterozygous de novo frameshift deletion, c.92_98delGCCCGCC (p.Pro33AlafsTer77), found by exome sequencing of the family and confirmed by Sanger sequencing.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
   - id: CHDA:LIT:0000008
     publication: PMID:29089047
     design: cohort_screen
@@ -326,6 +327,7 @@ findings:
         element: Results, Identification of a novel NR2F2 mutation (one carrier, the only variant found)
     summary: Direct sequencing of the NR2F2 coding regions and splice sites in 176 unrelated Chinese Han patients with bicuspid aortic valve found one carrier, a nonsense variant c.288C>A p.(Cys96*), not seen in 280 controls. Cases with recognised chromosomal abnormalities or syndromes were excluded at enrolment.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
   - id: CHDA:LIT:0000011
     publication: PMID:30720060
     design: family_segregation
@@ -366,6 +368,7 @@ findings:
         element: Genetic and Immunohistochemistry Analyses (arr[GRCh37]15q26.2(95127653_98146649)x1, de novo; region holds NR2F2 and SPATA8)
     summary: A 46,XX man with ovotesticular differences of sex development and aortic coarctation carried a de novo heterozygous 3-Mb deletion at 15q26.2 that contains NR2F2 and one other protein-coding gene, SPATA8. Sanger sequencing and exome sequencing of the proband and parents found no other pathogenic variant relevant to sex development.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
   - id: CHDA:LIT:0000013
     publication: PMID:32037394
     design: cohort_screen
