@@ -75,7 +75,15 @@ from urllib.parse import quote
 from chd_atlas.build.burden import BurdenRow, CombinedRow, Overlap, _sort_key, shared_cohorts
 from chd_atlas.build.cell_type_chart import cell_type_block
 from chd_atlas.build.cell_types import EMPTY_CELL_TYPE_EXPRESSION, CellTypeExpression
-from chd_atlas.build.charts import LogScale, Shape, coordinate, marker, polyline, svg_figure
+from chd_atlas.build.charts import (
+    LogScale,
+    Shape,
+    coordinate,
+    glyph,
+    marker,
+    polyline,
+    svg_figure,
+)
 from chd_atlas.build.concordance import (
     FamilyState,
     deciding_rows,
@@ -6497,6 +6505,112 @@ def _paper_shape(group: _PaperGroup) -> Shape:
     if len(group.designs) > 1:
         return _SEVERAL_DESIGNS
     return _DESIGN_SHAPES[group.designs[0]]
+
+
+# Timeline geometry, in pixels. Stacking is 11 px: a glyph is a 10 px box, so two marks of
+# one year never touch (the star runs from y-5 to about y+4.05 and fits).
+_TL_PAD: Final = 24.0
+_TL_STACK: Final = 11.0
+_TL_TOP: Final = 10.0
+_TL_KEY_ROW: Final = 16.0
+_SEVERAL_DESIGNS_LABEL: Final = "several designs"
+
+
+def _timeline_year_labels(first: int, last: int) -> list[int]:
+    """Both ends, and each multiple of 10 between them at least 4 years from both."""
+    if first == last:
+        return [first]
+    decades = [
+        y for y in range(first + 1, last) if y % 10 == 0 and y - first >= 4 and last - y >= 4
+    ]
+    return [first, *decades, last]
+
+
+def _literature_timeline(
+    groups: Sequence[_PaperGroup],
+    publications: Mapping[str, Publication],
+) -> str:
+    """One SVG: each approved paper a mark on a year axis, shaped by design.
+
+    A paper's mark is `_paper_shape`; papers of one year stack upward, in group order,
+    so none hides another. The hover names the paper and gives one clause per finding
+    -- the counts of different findings are never added (T6). Raises `ValueError` on no
+    papers: the caller renders the no-findings line instead of an empty axis.
+    """
+    if not groups:
+        raise ValueError("a timeline needs at least one paper; there are no papers to draw")
+    years = [g.publication.year for g in groups]
+    first, last = min(years), max(years)
+    span = _CHART_WIDTH - 2 * _TL_PAD
+
+    def x_of(year: int) -> float:
+        return (
+            _CHART_WIDTH / 2 if first == last else _TL_PAD + (year - first) / (last - first) * span
+        )
+
+    tallest = max(years.count(year) for year in set(years))
+    baseline = _TL_TOP + 5 + _TL_STACK * (tallest - 1)
+    axis_y = baseline + 10
+    seen: dict[int, int] = {}
+    marks = []
+    shapes_used = set()
+    for group in groups:
+        year = group.publication.year
+        k = seen.get(year, 0)
+        seen[year] = k + 1
+        shape = _paper_shape(group)
+        shapes_used.add(shape)
+        clauses = "; ".join(
+            f"{_words(str(f['design']))}: {_finding_counts(f)}" for f in group.findings
+        )
+        hover = " · ".join(
+            [_study_label(group.pmid, publications), group.pmid, group.publication.title, clauses]
+        )
+        marks.append(glyph(x_of(year), baseline - _TL_STACK * k, shape=shape, title=hover))
+    body = (
+        f'<line class="chart-axis" x1="{coordinate(_TL_PAD)}" y1="{coordinate(axis_y)}" '
+        f'x2="{coordinate(_CHART_WIDTH - _TL_PAD)}" y2="{coordinate(axis_y)}"/>'
+        + "".join(
+            f'<text class="chart-tick-label" x="{coordinate(x_of(y))}" '
+            f'y="{coordinate(axis_y + 12)}" text-anchor="middle">{y}</text>'
+            for y in _timeline_year_labels(first, last)
+        )
+        + f'<g class="lit-marks">{"".join(marks)}</g>'
+    )
+    # The key: only the shapes drawn here, design order then the ring, wrapped to rows.
+    entries = [
+        (_DESIGN_SHAPES[d.value], _words(d.value))
+        for d in FindingDesign
+        if _DESIGN_SHAPES[d.value] in shapes_used
+    ]
+    if _SEVERAL_DESIGNS in shapes_used:
+        entries.append((_SEVERAL_DESIGNS, _SEVERAL_DESIGNS_LABEL))
+    key = []
+    x, row = _TL_PAD, 0
+    for shape, label in entries:
+        width = 14 + len(label) * _CHAR_WIDTH + 18
+        if x > _TL_PAD and x + width > _CHART_WIDTH - _TL_PAD:
+            x, row = _TL_PAD, row + 1
+        y = axis_y + 30 + _TL_KEY_ROW * row
+        key.append(glyph(x + 5, y, shape=shape, title=label))
+        key.append(
+            f'<text class="chart-label" x="{coordinate(x + 14)}" y="{coordinate(y + 3)}">'
+            f"{html.escape(label)}</text>"
+        )
+        x += width
+    height = int(math.ceil(axis_y + 30 + _TL_KEY_ROW * row + 10))
+    n = len(groups)
+    when = f"in {first}" if first == last else f"{first} to {last}"
+    title = (
+        f"{n} {'publication' if n == 1 else 'publications'} with approved findings, "
+        f"{when}, by year and design"
+    )
+    return svg_figure(
+        width=_CHART_WIDTH,
+        height=height,
+        title=title,
+        body=body + f'<g class="lit-key">{"".join(key)}</g>',
+    )
 
 
 def _literature_section(

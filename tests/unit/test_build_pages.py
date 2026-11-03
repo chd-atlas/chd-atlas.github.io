@@ -35,8 +35,10 @@ from chd_atlas.build.pages import (
     _forest_text,
     _glance_line,
     _inheritance,
+    _literature_timeline,
     _paper_groups,
     _paper_shape,
+    _PaperGroup,
     _phase_strip,
     _study_finding_summary,
     _tissue_percentile,
@@ -10422,3 +10424,164 @@ def test_a_summary_a_review_note_a_query_and_a_curator_name_are_escaped(tmp_path
     assert "Note &lt;i&gt; &amp; &quot;q&quot;" in section
     assert "O&#x27;Neil &lt;x&gt;" in section
     assert "<b>" not in section and "<script>" not in section and "<i>" not in section
+
+
+# --- Literature timeline figure (plan Task B3) ---------------------------------------
+
+
+def _tl_pubs(years: dict[str, int], **changes: object) -> dict[str, Publication]:
+    return {
+        pmid: _LIT_PUBLICATION.model_copy(update={"id": pmid, "year": year, **changes})
+        for pmid, year in years.items()
+    }
+
+
+def _tl_groups(
+    spec: list[tuple[str, int, tuple[str, ...]]], **changes: object
+) -> tuple[list[_PaperGroup], dict[str, Publication]]:
+    """`(pmid, year, designs)` per paper -> groups, one finding per design."""
+    pubs = _tl_pubs({pmid: year for pmid, year, _ in spec}, **changes)
+    findings = [
+        _lit_finding(id=f"CHDA:LIT:{i:07d}", publication=pmid, design=design)
+        for i, (pmid, _, designs) in enumerate(spec, start=1)
+        for design in designs
+    ]
+    return _paper_groups(findings, pubs), pubs
+
+
+def _tl_part(svg: str, css: str) -> str:
+    start = svg.index(f'<g class="{css}">')
+    return svg[start : svg.index("</g>", start)]
+
+
+def _tl_centres(part: str) -> list[tuple[float, float]]:
+    centres = []
+    for m in re.finditer(r"<(circle|rect|polygon) ([^>]*)>", part):
+        attrs = dict(re.findall(r'([a-z]+)="([^"]*)"', m.group(2)))
+        if m.group(1) == "circle":
+            centres.append((float(attrs["cx"]), float(attrs["cy"])))
+        elif m.group(1) == "rect":
+            centres.append((float(attrs["x"]) + 4, float(attrs["y"]) + 4))
+        else:
+            pts = [tuple(map(float, p.split(","))) for p in attrs["points"].split()]
+            xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+            centres.append(((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2))
+    return centres
+
+
+def _tl_marks(svg: str) -> list[tuple[float, float]]:
+    return _tl_centres(_tl_part(svg, "lit-marks"))
+
+
+def _tl_key_labels(svg: str) -> list[str]:
+    return re.findall(r'<text class="chart-label"[^>]*>([^<]*)</text>', _tl_part(svg, "lit-key"))
+
+
+def _tl_years(svg: str) -> list[str]:
+    return re.findall(r'<text class="chart-tick-label"[^>]*>([^<]*)</text>', svg)
+
+
+def _tl_height(svg: str) -> float:
+    return float(re.search(r'viewBox="0 0 560 ([\d.]+)"', svg).group(1))  # type: ignore[union-attr]
+
+
+def test_one_mark_per_paper_and_same_year_papers_never_share_a_position() -> None:
+    groups, pubs = _tl_groups(
+        [
+            ("PMID:1", 1999, ("case_report",)),
+            ("PMID:2", 1999, ("cohort_screen",)),
+            ("PMID:3", 2005, ("cohort_screen", "family_segregation")),
+            ("PMID:4", 2010, ("rare_variant_association",)),
+            ("PMID:5", 2015, ("common_variant_association",)),
+        ]
+    )
+    svg = _literature_timeline(groups, pubs)
+    marks = _tl_marks(svg)
+    assert len(marks) == 5
+    assert len(set(marks)) == 5
+    assert len(_tl_centres(_tl_part(svg, "lit-key"))) == 5
+
+
+def test_twelve_papers_in_one_year_all_fit_inside_the_figure() -> None:
+    groups, pubs = _tl_groups([(f"PMID:{n}", 2010, ("case_report",)) for n in range(1, 13)])
+    svg = _literature_timeline(groups, pubs)
+    ys = [y for _, y in _tl_marks(svg)]
+    assert len(set(ys)) == 12
+    assert all(5 <= y <= _tl_height(svg) - 5 for y in ys)
+    assert {x for x, _ in _tl_marks(svg)} == {280.0}
+    assert _tl_years(svg) == ["2010"]
+    assert "12 publications with approved findings, in 2010, by year and design" in svg
+
+
+def test_the_hover_names_the_paper_and_each_findings_count_without_a_total() -> None:
+    cohort = _lit_finding(id="CHDA:LIT:0000001", design="cohort_screen")
+    family = _lit_finding(
+        id="CHDA:LIT:0000002",
+        design="family_segregation",
+        count_unit="families",
+        screened=1,
+        carriers={"inherited": 1},
+    )
+    pubs = {"PMID:8988165": _LIT_PUBLICATION}
+    svg = _literature_timeline(_paper_groups([cohort, family], pubs), pubs)
+    assert (
+        "<title>Basson CT et al. 1997 · PMID:8988165 · Mutations in human TBX5 cause limb "
+        "and cardiac malformation. · cohort screen: 7 carriers among 70 probands; "
+        "family segregation: 1 carrier family among 1 family</title>"
+    ) in svg
+    assert "8 carriers" not in svg
+
+
+def test_hostile_publication_text_is_escaped_in_the_hover() -> None:
+    groups, pubs = _tl_groups(
+        [("PMID:1", 2000, ("case_report",))], title='A <b>"x"</b> & y', authors=["O<script>"]
+    )
+    svg = _literature_timeline(groups, pubs)
+    assert "<b>" not in svg and "<script>" not in svg
+    assert "A &lt;b&gt;&quot;x&quot;&lt;/b&gt; &amp; y" in svg
+    assert "O&lt;script&gt; et al. 2000" in svg
+
+
+def test_the_key_lists_only_the_shapes_this_gene_uses_in_vocabulary_order() -> None:
+    groups, pubs = _tl_groups(
+        [
+            ("PMID:1", 2000, ("cohort_screen", "family_segregation")),
+            ("PMID:2", 2001, ("case_report",)),
+        ]
+    )
+    assert _tl_key_labels(_literature_timeline(groups, pubs)) == ["case report", "several designs"]
+    every, pubs = _tl_groups(
+        [
+            ("PMID:1", 2000, ("common_variant_association",)),
+            ("PMID:2", 2001, ("rare_variant_association",)),
+            ("PMID:3", 2002, ("cohort_screen",)),
+            ("PMID:4", 2003, ("family_segregation",)),
+            ("PMID:5", 2004, ("case_report",)),
+            ("PMID:6", 2005, ("case_report", "cohort_screen")),
+        ]
+    )
+    assert _tl_key_labels(_literature_timeline(every, pubs)) == [
+        "case report",
+        "family segregation",
+        "cohort screen",
+        "rare variant association",
+        "common variant association",
+        "several designs",
+    ]
+
+
+def test_year_labels_are_the_ends_and_the_decades_at_least_four_years_from_them() -> None:
+    def span(first: int, last: int) -> str:
+        groups, pubs = _tl_groups(
+            [("PMID:1", first, ("case_report",)), ("PMID:2", last, ("case_report",))]
+        )
+        return _literature_timeline(groups, pubs)
+
+    # 2000 is 3 years from 1997: dropped. 2020 is 4 years from 2024: kept.
+    assert _tl_years(span(1997, 2024)) == ["1997", "2010", "2020", "2024"]
+    assert _tl_years(span(1997, 2022)) == ["1997", "2010", "2022"]
+
+
+def test_an_empty_timeline_is_refused() -> None:
+    with pytest.raises(ValueError, match="no papers"):
+        _literature_timeline([], {})
