@@ -53,6 +53,7 @@ def test_the_digest_covers_content_and_not_marks() -> None:
     assert _digest(carriers={"de_novo": 3, "inherited": 1, "origin_unknown": 3}) != base
     assert _digest(summary="Another sentence.") != base
     assert _digest(id="CHDA:LIT:0000002") != base
+    assert _digest(locators=[{"kind": "in_text", "element": "Table 3"}]) != base
     assert _digest(verified_by="agent:verify/x") == base
     assert _digest(review_status="pending_review", review_note="check Table 2") == base
     assert _digest(approved_by="B. Curator", approved_on="2026-12-01") == base
@@ -87,6 +88,7 @@ def _edited(tmp_path: Path, **finding: Any) -> Path:
         ({}, False),
         ({"summary": "Edited after approval."}, True),
         ({"screened": 8}, True),
+        ({"locators": [{"kind": "in_text", "element": "Table 3"}]}, True),
         ({"review_status": "pending_review", "review_note": "look again"}, False),
         ({"verified_by": "agent:verify/later"}, False),
         ({"approved_digest": "sha256:" + "0" * 64}, True),

@@ -9908,6 +9908,41 @@ def test_a_gene_whose_findings_all_await_approval_is_not_yet_curated(tmp_path: P
     assert re.findall(r'<p class="card-curation">(.*?)</p>', rail) == [_NOT_CURATED_BY_PANEL]
 
 
+def test_the_card_counts_the_approved_findings_and_not_those_awaiting_approval(
+    tmp_path: Path,
+) -> None:
+    """T4 where it matters: a gene with approved AND waiting findings.
+
+    `test_a_gene_whose_findings_all_await_approval_is_not_yet_curated` has no
+    approved finding, so the card sentence never counts there; and `_approved`
+    waits on nothing. Measured at B6: a mutant adding `pending_approval` to the
+    count survived every test in the repository until this one. 2 approved from
+    2 papers plus 4 waiting must read "2 findings from 2 papers", never 6.
+    """
+    mixed = GeneLiterature(
+        searches=[],
+        triage={"included": 0, "excluded": {}, "pending": 0},
+        pending_approval=4,
+        findings=[{"id": "F0", "publication": "PMID:1"}, {"id": "F1", "publication": "PMID:2"}],
+    )
+    build_gene_pages(
+        {GATA4: _facts(GATA4, AtlasCuration.NOT_YET_CURATED)},
+        Emitter(root=tmp_path),
+        symbols={GATA4: "GATA4"},
+        validity={GATA4: _validity()},
+        assertions={},
+        publications={},
+        burden={},
+        cohorts={},
+        cell_types={},
+        literature={GATA4: mixed},
+    )
+    rail = _rail_of(_page(tmp_path, "HGNC_4173.html"))
+    assert re.findall(r'<p class="card-curation">(.*?)</p>', rail) == [
+        "Curated by the atlas: 2 findings from 2 papers."
+    ]
+
+
 def curated_(curation: AtlasCuration) -> bool:
     return curation is AtlasCuration.CURATED
 
