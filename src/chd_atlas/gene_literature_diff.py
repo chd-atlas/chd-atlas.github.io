@@ -39,6 +39,7 @@ EXCLUDED_FIELDS: Final = (
     "verified_by",
     "approved_by",
     "approved_on",
+    "approved_digest",
     "review_status",
     "review_note",
     "locators",

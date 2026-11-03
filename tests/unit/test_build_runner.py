@@ -24,6 +24,7 @@ from chd_atlas.corpus import load_curation
 from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.tables import TABLE_SCHEMAS, read_table
 from chd_atlas.validate.runner import ValidationReport
+from tests.unit._stamp import stamped_yaml
 
 REPO = Path(__file__).parent.parent.parent
 
@@ -840,7 +841,7 @@ def test_a_literature_file_reaches_its_bundle_page_and_the_counts(
     reasons, 4 pending), so the bundle's counts differ from each other.
     """
     (repo / "curation" / "literature").mkdir()
-    (repo / "curation" / "literature" / "TBX5.yaml").write_text(_LITERATURE_FILE)
+    (repo / "curation" / "literature" / "TBX5.yaml").write_text(stamped_yaml(_LITERATURE_FILE))
     registry = repo / "curation" / ".id_registry.yaml"
     registry.write_text(registry.read_text().replace("LIT: 0", "LIT: 2"))
 
@@ -935,7 +936,7 @@ def test_a_publication_only_an_unapproved_finding_cites_is_withheld_from_the_bui
         "    approved_by: A. Curator\n    approved_on: 2026-11-05\n", ""
     )
     (repo / "curation" / "literature").mkdir()
-    (repo / "curation" / "literature" / "TBX5.yaml").write_text(extra)
+    (repo / "curation" / "literature" / "TBX5.yaml").write_text(stamped_yaml(extra))
     registry = repo / "curation" / ".id_registry.yaml"
     registry.write_text(registry.read_text().replace("LIT: 0", "LIT: 3"))
 

@@ -16,6 +16,7 @@ from types import EllipsisType
 from typing import Final
 
 import pytest
+from pydantic import ValidationError
 
 from chd_atlas.build.burden import BurdenRow, CombinedRow
 from chd_atlas.build.cell_types import CellTypeExpression
@@ -77,6 +78,7 @@ from chd_atlas.vocab import (
     ValiditySource,
     ValidityState,
 )
+from tests.unit._stamp import stamped
 from tests.unit.test_build_cell_type_chart import dataset as cell_type_dataset
 from tests.unit.test_build_cell_type_chart import payload as cell_type_payload
 from tests.unit.test_build_cell_type_chart import specificity as cell_type_specificity
@@ -10176,7 +10178,12 @@ def _lit_finding(**changes: object) -> dict[str, object]:
         "review_note": None,
     }
     base.update(changes)
-    return base
+    try:
+        return stamped(base)
+    except ValidationError:
+        # Some callers build a deliberately invalid finding (an unregistered design,
+        # a case_report screening many) for a function that never parses a `Finding`.
+        return base
 
 
 def _lit(

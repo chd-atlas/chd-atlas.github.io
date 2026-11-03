@@ -143,7 +143,9 @@ def gene_literature(corpus: Corpus) -> dict[str, GeneLiterature]:
                 pending=pending,
             ),
             pending_approval=unapproved,
-            findings=[finding.model_dump(mode="json") for finding in approved],
+            findings=[
+                finding.model_dump(mode="json", exclude={"approved_digest"}) for finding in approved
+            ],
         )
     return result
 

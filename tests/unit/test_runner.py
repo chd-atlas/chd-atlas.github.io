@@ -8,6 +8,7 @@ import pytest
 from chd_atlas.build.runner import BuildRefused, build_site
 from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.validate.runner import ValidationReport, validate_repository
+from tests.unit._stamp import stamped
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 
@@ -1431,6 +1432,7 @@ def _literature_repo(tmp_path: Path, *, stem: str = "TBX5", gene: str = "HGNC:11
         "approved_on": "2026-11-05",
     }
     finding.update(tweak.pop("finding", {}))
+    finding = stamped(finding)
     raw = {
         "gene": gene,
         "searches": [

@@ -85,6 +85,19 @@
           "default": null,
           "title": "Approved By"
         },
+        "approved_digest": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved Digest"
+        },
         "approved_on": {
           "anyOf": [
             {

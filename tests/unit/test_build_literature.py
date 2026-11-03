@@ -14,6 +14,7 @@ from chd_atlas.models.dataset import Dataset
 from chd_atlas.models.functional import FunctionalEvidence
 from chd_atlas.models.gene_literature import GeneLiteratureFile
 from chd_atlas.models.literature import FeaturedManuscript, PhenotypeTerm, Publication
+from tests.unit._stamp import stamped
 
 
 def _publication(pmid: str = "PMID:8988165", **overrides: object) -> Publication:
@@ -454,6 +455,7 @@ def _finding(pmid: str, approved: bool, number: int = 1) -> dict[str, object]:
     if approved:
         finding["approved_by"] = "A. Curator"
         finding["approved_on"] = "2026-11-05"
+        finding = stamped(finding)
     return finding
 
 

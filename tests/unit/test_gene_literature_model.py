@@ -211,12 +211,19 @@ def test_a_search_cannot_find_more_new_papers_than_papers() -> None:
 @pytest.mark.parametrize("who", ["agent:x", " Agent:x", "AGENT:skill/model", ""])
 def test_an_agent_cannot_approve(who: str) -> None:
     with pytest.raises(ValidationError, match="approved_by"):
-        Finding.model_validate(_rare(approved_by=who, approved_on="2026-11-02"))
+        Finding.model_validate(
+            _rare(approved_by=who, approved_on="2026-11-02", approved_digest="sha256:x")
+        )
 
 
 def test_a_person_approves_and_an_agent_may_verify() -> None:
     finding = Finding.model_validate(
-        _rare(approved_by="A. Curator", approved_on="2026-11-02", verified_by="agent:x")
+        _rare(
+            approved_by="A. Curator",
+            approved_on="2026-11-02",
+            approved_digest="sha256:x",
+            verified_by="agent:x",
+        )
     )
     assert finding.approved_by == "A. Curator"
     assert finding.verified_by == "agent:x"

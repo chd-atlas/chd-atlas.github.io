@@ -25,9 +25,11 @@ from typer.testing import CliRunner
 
 from chd_atlas import cli
 from chd_atlas.cli import app
+from chd_atlas.models.gene_literature import Finding, finding_digest
 from chd_atlas.models.literature import PublicationFile
 from chd_atlas.pubmed import PubMedError, build_query
 from chd_atlas.validate.runner import validate_repository
+from tests.unit._stamp import stamped_yaml
 
 REPO = Path(__file__).resolve().parents[2]
 runner = CliRunner()
@@ -877,7 +879,7 @@ FINDING_ID = re.compile(r"(?m)^  - id: (CHDA:LIT:\d{7})\n")
 def lit_path(root: Path) -> Path:
     path = root / "curation" / "literature" / "TBX5.yaml"
     path.parent.mkdir()
-    path.write_text(LITERATURE)
+    path.write_text(stamped_yaml(LITERATURE))
     return path
 
 
@@ -901,6 +903,16 @@ def _diff(root: Path, against: Path, *args: str) -> Any:
     return runner.invoke(
         app,
         ["literature", "diff", "TBX5", "--against", str(against), *args, "--root", str(root)],
+    )
+
+
+def _digest_in(text: str, finding_id: str) -> str:
+    """The digest `finding_digest` gives the named finding as `text` has it."""
+    (raw,) = (f for f in YAML(typ="safe").load(text)["findings"] if f["id"] == finding_id)
+    return finding_digest(
+        Finding.model_validate(
+            {**raw, "approved_by": "p", "approved_on": "2026-11-03", "approved_digest": "x"}
+        )
     )
 
 
@@ -1157,15 +1169,26 @@ def test_approve_sets_both_fields_and_changes_no_other_byte(root: Path, lit_path
     assert new["CHDA:LIT:0000002"] == old["CHDA:LIT:0000002"].replace(
         "    verified_by: agent:verify/earlier\n",
         "    verified_by: agent:verify/earlier\n"
-        "    approved_by: Dr. Grace Hopper\n    approved_on: 2026-11-03\n",
+        "    approved_by: Dr. Grace Hopper\n    approved_on: 2026-11-03\n"
+        f"    approved_digest: {_digest_in(before, 'CHDA:LIT:0000002')}\n",
     )
     for other in ("head", "CHDA:LIT:0000001", "CHDA:LIT:0000003", "CHDA:LIT:0000004"):
         assert new[other] == old[other]
 
 
+def test_the_digest_review_writes_is_the_one_the_validator_recomputes(
+    root: Path, lit_path: Path
+) -> None:
+    assert _review(root, "--approve", "CHDA:LIT:0000002", "--by", "Dr. A").exit_code == 0
+    data = YAML(typ="safe").load(lit_path.read_text())
+    (written,) = (f for f in data["findings"] if f["id"] == "CHDA:LIT:0000002")
+    assert written["approved_digest"] == _digest_in(lit_path.read_text(), "CHDA:LIT:0000002")
+
+
 def test_approve_defaults_the_date_to_today_and_takes_several_ids(
     root: Path, lit_path: Path
 ) -> None:
+    before = lit_path.read_text()
     result = _review(
         root,
         "--approve",
@@ -1186,6 +1209,7 @@ def test_approve_defaults_the_date_to_today_and_takes_several_ids(
     assert new["CHDA:LIT:0000004"].endswith(
         f"    extracted_by: agent:extract/test\n    approved_by: Dr. Grace Hopper\n"
         f"    approved_on: {today}\n"
+        f"    approved_digest: {_digest_in(before, 'CHDA:LIT:0000004')}\n"
     )
 
 
@@ -1426,7 +1450,11 @@ def test_approve_adds_only_its_lines_whatever_separates_the_findings(
         before,
         path.read_text(),
         "CHDA:LIT:0000002",
-        ["    approved_by: Dr. A\n", "    approved_on: 2026-11-03\n"],
+        [
+            "    approved_by: Dr. A\n",
+            "    approved_on: 2026-11-03\n",
+            f"    approved_digest: {_digest_in(before, 'CHDA:LIT:0000002')}\n",
+        ],
     )
 
 
@@ -1473,6 +1501,7 @@ def test_mark_verified_adds_only_its_line_whatever_separates_the_findings(
 def test_approving_a_finding_under_review_keeps_the_mark_and_the_note(
     root: Path, lit_path: Path
 ) -> None:
+    before = lit_path.read_text()
     _review(root, "--pending-review", "CHDA:LIT:0000002", "--note", "Table 2 says 7; text says 8.")
     result = _review(root, "--approve", "CHDA:LIT:0000002", "--by", "Dr. A", "--on", "2026-11-03")
 
@@ -1481,5 +1510,6 @@ def test_approving_a_finding_under_review_keeps_the_mark_and_the_note(
     assert block.endswith(
         "    verified_by: agent:verify/earlier\n"
         "    approved_by: Dr. A\n    approved_on: 2026-11-03\n"
+        f"    approved_digest: {_digest_in(before, 'CHDA:LIT:0000002')}\n"
         "    review_status: pending_review\n    review_note: Table 2 says 7; text says 8.\n"
     )

@@ -706,7 +706,7 @@ def validate_repository(root: Path) -> ValidationReport:
         # mirrors-missing (TBL012) branches.
         # The gate's population, once, for PRF009 and GEN004 below.
         published = _gate_published_genes(root, corpus)
-        # LIT001-LIT014. Same branch as the other reference checks: the
+        # LIT001-LIT015. Same branch as the other reference checks: the
         # registries below come from the curation a failed load empties. Each
         # is passed as None when empty so a missing registry skips its own
         # check, and CUR003/CUR004 above are the paired errors for the two the

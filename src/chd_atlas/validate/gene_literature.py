@@ -1,5 +1,5 @@
 # src/chd_atlas/validate/gene_literature.py
-"""LIT001-LIT014: a gene's literature file against itself and the registries.
+"""LIT001-LIT015: a gene's literature file against itself and the registries.
 
 The single-record rules live in the model (`models/gene_literature.py`); these
 are the ones a model cannot see because they compare a triage list with a
@@ -28,7 +28,7 @@ from pathlib import Path
 from chd_atlas.corpus import Corpus
 from chd_atlas.genes import GeneRegistry, Resolution
 from chd_atlas.issues import Severity, ValidationIssue
-from chd_atlas.models.gene_literature import GeneLiteratureFile
+from chd_atlas.models.gene_literature import GeneLiteratureFile, finding_digest
 from chd_atlas.validate.referential import lesion_group_faults
 from chd_atlas.vocab import LesionGroup, TriageDecision
 
@@ -206,6 +206,12 @@ def _check_file(
                 where,
                 f"burden_study {finding.burden_study} has no row for {literature.gene} "
                 f"in mirrors/burden.tsv, so there is nothing for the page to link",
+            )
+        if finding.approved_by is not None and finding.approved_digest != finding_digest(finding):
+            error(
+                "LIT015",
+                where,
+                "approved content changed since approval; re-approve",
             )
         found_by = searches.get(first_search.get(finding.publication, -1))
         if (
