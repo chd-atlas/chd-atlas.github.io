@@ -26,12 +26,14 @@ from chd_atlas.tables import (
     validate_table,
 )
 from chd_atlas.validate.burden import (
+    burden_studies_by_gene,
     validate_burden,
     validate_burden_combined,
     validate_burden_combined_references,
     validate_burden_references,
 )
 from chd_atlas.validate.cell_types import validate_cell_type_profiles
+from chd_atlas.validate.gene_literature import validate_gene_literature
 from chd_atlas.validate.genes import validate_identity_ids, validate_mirror_symbols
 from chd_atlas.validate.ids import load_id_registry, validate_ids
 from chd_atlas.validate.ontology import (
@@ -603,7 +605,12 @@ def validate_repository(root: Path) -> ValidationReport:
                 )
             )
         # Otherwise every citation reports REF002 and nothing names the cause.
-        if (corpus.assertions or corpus.functional) and not corpus.publications:
+        # A literature finding cites a publication too (LIT011): without the
+        # registry that check is skipped, so the cause must be an error.
+        literature_findings = [f for _, lit in corpus.literature for f in lit.findings]
+        if (
+            corpus.assertions or corpus.functional or literature_findings
+        ) and not corpus.publications:
             issues.append(
                 ValidationIssue(
                     "CUR003",
@@ -635,7 +642,8 @@ def validate_repository(root: Path) -> ValidationReport:
         burden_path = root / "mirrors" / "burden.tsv"
         cohort_ids = {str(cohort.id) for cohort in corpus.cohorts}
         study_ids = {str(publication.id) for publication in corpus.publications}
-        if burden_path.is_file() and not cohort_ids:
+        cites_cohort = any(f.cohorts for f in literature_findings)
+        if (burden_path.is_file() or cites_cohort) and not cohort_ids:
             issues.append(
                 ValidationIssue(
                     "CUR004",
@@ -648,7 +656,11 @@ def validate_repository(root: Path) -> ValidationReport:
         # CUR003 above fires only when an assertion or a functional record needs
         # the registry. A burden row cites a publication too, so the same cause
         # needs the same report when burden is the only thing citing one.
-        if burden_path.is_file() and not study_ids and not (corpus.assertions or corpus.functional):
+        if (
+            burden_path.is_file()
+            and not study_ids
+            and not (corpus.assertions or corpus.functional or literature_findings)
+        ):
             issues.append(
                 ValidationIssue(
                     "CUR003",
@@ -694,6 +706,31 @@ def validate_repository(root: Path) -> ValidationReport:
         # mirrors-missing (TBL012) branches.
         # The gate's population, once, for PRF009 and GEN004 below.
         published = _gate_published_genes(root, corpus)
+        # LIT001-LIT014. Same branch as the other reference checks: the
+        # registries below come from the curation a failed load empties. Each
+        # is passed as None when empty so a missing registry skips its own
+        # check, and CUR003/CUR004 above are the paired errors for the two the
+        # findings cite. `symbols` is None when `_symbol_registry` is (a
+        # missing or unreadable genes.tsv, which TBL008/TBL001 report) and also
+        # when that registry is empty, through the `or None` below.
+        # `published or None`: `_gate_published_genes` returns an empty set
+        # when it degrades, and every file would then report LIT013. The
+        # degrade is already an error elsewhere (its docstring: TBL000/TBL001
+        # or the unmapped term's schema error), and LIT013 is only a warning,
+        # so skipping it needs no paired error of its own.
+        # `symbols or None`: a header-only genes.tsv is an empty registry (falsy
+        # by `__len__`), which would make every file report LIT009; REF001 or
+        # GEN004 names the real cause.
+        issues.extend(
+            validate_gene_literature(
+                corpus,
+                symbols=_symbol_registry(root) or None,
+                known_publications=study_ids or None,
+                known_cohorts=cohort_ids or None,
+                burden_studies=burden_studies_by_gene(root),
+                published_genes=published or None,
+            )
+        )
         issues.extend(
             validate_profile_references(
                 root,
@@ -924,6 +961,11 @@ def validate_repository(root: Path) -> ValidationReport:
                     f"assertion {assertion.id}",
                 )
             )
+        for _, literature in corpus.literature:
+            for finding in literature.findings:
+                issues.extend(
+                    validate_terms(finding.phenotypes, ontologies, f"finding {finding.id}")
+                )
         for record in corpus.functional:
             issues.extend(
                 validate_terms(
@@ -955,7 +997,8 @@ def validate_repository(root: Path) -> ValidationReport:
         issues.extend(
             validate_ids(
                 [assertion.id for assertion in corpus.assertions]
-                + [record.id for record in corpus.functional],
+                + [record.id for record in corpus.functional]
+                + [finding.id for _, lit in corpus.literature for finding in lit.findings],
                 id_registry,
             )
         )

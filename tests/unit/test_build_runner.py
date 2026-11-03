@@ -15,6 +15,7 @@ import pytest
 from chd_atlas.build.burden import BurdenRow, load_burden
 from chd_atlas.build.cell_types import CellTypeCensus
 from chd_atlas.build.concordance import survives_own_correction
+from chd_atlas.build.gene_literature import LiteratureCensus
 from chd_atlas.build.identity import GeneIdentity, read_gene_identities
 from chd_atlas.build.profiles import ProfileCensus
 from chd_atlas.build.runner import BuildRefused, _gene_registry, build_site
@@ -761,3 +762,140 @@ def test_the_cell_type_census_is_published_under_its_own_keys(
     assert 3 not in others.values()
     assert counts["cell_type_genes"] == 5
     assert counts["cell_type_datasets"] == 3
+
+
+_LITERATURE_FILE = """\
+gene: HGNC:11604
+searches:
+  - id: 1
+    source: pubmed
+    query: '("TBX5"[tiab]) AND ("congenital heart"[tiab])'
+    run_on: 2026-11-02
+    hits: 9
+    new_hits: 9
+triage:
+  - {pmid: PMID:8988165, search: 1, decision: included}
+  - {pmid: PMID:40127276, search: 1, decision: included}
+  - {pmid: PMID:900001, search: 1, decision: excluded, reason: not_chd}
+  - {pmid: PMID:900002, search: 1, decision: excluded, reason: not_chd}
+  - {pmid: PMID:900003, search: 1, decision: excluded, reason: review_article}
+  - {pmid: PMID:900004, search: 1, decision: pending}
+  - {pmid: PMID:900005, search: 1, decision: pending}
+  - {pmid: PMID:900006, search: 1, decision: pending}
+  - {pmid: PMID:900007, search: 1, decision: pending}
+findings:
+  - id: CHDA:LIT:0000001
+    publication: PMID:8988165
+    design: cohort_screen
+    methods: [exome]
+    count_unit: probands
+    screened: 70
+    carriers: {de_novo: 2, inherited: 1, origin_unknown: 4}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001631]
+    lesion_groups: [septal]
+    syndromic: both
+    shares_probands_with: unknown
+    locators: [{kind: in_text, element: Table 2}]
+    summary: Approved <finding> & "quoted".
+    extracted_by: agent:extract/test
+    approved_by: A. Curator
+    approved_on: 2026-11-05
+  - id: CHDA:LIT:0000002
+    publication: PMID:40127276
+    design: cohort_screen
+    methods: [exome]
+    count_unit: probands
+    screened: 70
+    carriers: {de_novo: 2, inherited: 1, origin_unknown: 4}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001631]
+    lesion_groups: [septal]
+    syndromic: both
+    shares_probands_with: unknown
+    locators: [{kind: in_text, element: Table 2}]
+    summary: An extraction nobody approved yet.
+    extracted_by: agent:extract/test
+"""
+
+
+def test_a_literature_file_reaches_its_bundle_page_and_the_counts(
+    repo: Path, tmp_path: Path
+) -> None:
+    """One literature file for a published gene reaches its bundle, its page and `counts`.
+
+    The committed corpus has no literature file, so without this a runner that
+    forgot to pass `literature=` to `build_genes` or `build_gene_pages`, or left
+    the census out of `counts`, passes every real-build test (CLAUDE.md sections
+    4.28 and 4.34, ruling R25). Measured 2026-11-02 by deleting each in turn:
+    each makes an assertion below fail. TBX5 is published; GATA4's page, with no
+    file, keeps "Not yet curated". The file carries one approved and one
+    unapproved finding and a mixed triage (2 included, 2 + 1 excluded by two
+    reasons, 4 pending), so the bundle's counts differ from each other.
+    """
+    (repo / "curation" / "literature").mkdir()
+    (repo / "curation" / "literature" / "TBX5.yaml").write_text(_LITERATURE_FILE)
+    registry = repo / "curation" / ".id_registry.yaml"
+    registry.write_text(registry.read_text().replace("LIT: 0", "LIT: 2"))
+
+    out = tmp_path / "landed"
+    build_site(repo, out)
+
+    bundle = json.loads((out / "genes" / "HGNC_11604.json").read_text())["literature"]
+    assert bundle["searches"] == [
+        {
+            "source": "pubmed",
+            "query": '("TBX5"[tiab]) AND ("congenital heart"[tiab])',
+            "run_on": "2026-11-02",
+            "hits": 9,
+            "new_hits": 9,
+        }
+    ]
+    assert bundle["triage"] == {
+        "included": 2,
+        "excluded": {"not_chd": 2, "review_article": 1},
+        "pending": 4,
+    }
+    assert bundle["pending_approval"] == 1
+    assert [f["id"] for f in bundle["findings"]] == ["CHDA:LIT:0000001"]
+
+    page = (out / "genes" / "HGNC_11604.html").read_text()
+    start = page.index("<h2>Literature</h2>")
+    section = page[start : page.index("</div></div>", start)]
+    assert section.startswith(
+        '<h2>Literature</h2><p class="method">PubMed, searched 2026-11-02: 9 papers; '
+        "2 included, 3 excluded, 4 not yet triaged; 1 finding awaits review.</p>"
+    )
+    assert "Approved &lt;finding&gt; &amp; &quot;quoted&quot;." in section
+    assert "An extraction nobody approved yet." not in page
+    others = [p for p in (out / "genes").glob("HGNC_*.html") if p.name != "HGNC_11604.html"]
+    assert others
+    assert all("<h2>Literature</h2><p>Not yet curated.</p>" in p.read_text() for p in others)
+
+    counts = json.loads((out / "manifest.json").read_text())["counts"]
+    assert counts["literature_genes"] == 1
+    assert counts["literature_findings"] == 1
+
+
+def test_the_literature_census_is_published_under_its_own_keys(
+    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`build_site` publishes the literature census under `literature_*`, from nothing else.
+
+    The data-landed test above cannot separate the two keys (both 1) or either
+    from `profile_datasets` (also 1): CLAUDE.md section 4.30. A patched census
+    whose values appear in no other count makes every cross-wire visible, the
+    method `test_the_cell_type_census_is_published_under_its_own_keys` uses.
+    """
+    monkeypatch.setattr(
+        "chd_atlas.build.runner.literature_census",
+        lambda literature, published: LiteratureCensus(genes=6, findings=4),
+    )
+    out = tmp_path / "patched"
+    build_site(repo, out)
+    counts = json.loads((out / "manifest.json").read_text())["counts"]
+    others = {key: value for key, value in counts.items() if not key.startswith("literature_")}
+    assert 6 not in others.values()
+    assert 4 not in others.values()
+    assert counts["literature_genes"] == 6
+    assert counts["literature_findings"] == 4

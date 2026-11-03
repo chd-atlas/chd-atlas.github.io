@@ -40,6 +40,7 @@ from chd_atlas.build.concordance import (
     survives_own_correction,
 )
 from chd_atlas.build.emit import Emitter
+from chd_atlas.build.gene_literature import gene_literature, literature_census
 from chd_atlas.build.identity import read_gene_identities
 from chd_atlas.build.landing import build_landing
 from chd_atlas.build.literature import build_literature, build_sources
@@ -314,6 +315,11 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
     # front page are handed the same mapping and census below.
     cell_type_expression = gene_cell_type_expression(root, corpus.datasets)
     cell_type_stats = cell_type_census(cell_type_expression, published)
+    # Derived once, like the layers above, and handed to the bundles and the
+    # pages alike; `literature_census` counts the published genes' entries, so
+    # the manifest states what the bundles carry (ruling R16).
+    literature = gene_literature(corpus)
+    literature_stats = literature_census(literature, published)
     # The one flat read of the `Placement`s just computed above -- never a
     # second derivation of a percentile. `percentile_annotations` only walks
     # the nested `ExpressionProfile`s and copies `median_percentile` back out;
@@ -394,6 +400,7 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
         profiles=expression_profiles,
         combined=combined,
         cell_types=cell_type_expression,
+        literature=literature,
     )
     build_literature(corpus, emitter)
     # The resolution table for the bare cohort ids every burden row carries.
@@ -478,6 +485,9 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
         # combination its own bundle does not carry.
         combined=combined,
         cell_types=cell_type_expression,
+        # The mapping the bundles carry, so a page cannot state a search or a
+        # finding its own bundle does not.
+        literature=literature,
         scope_warrants=warrants,
         scope_labels={str(e.id): e.label for e in corpus.chd_scope},
         # The registry itself, for the card's line on a syndrome a ClinGen
@@ -534,6 +544,8 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
             "profile_datasets": profile_stats["datasets"],
             "cell_type_genes": cell_type_stats["genes"],
             "cell_type_datasets": cell_type_stats["datasets"],
+            "literature_genes": literature_stats.genes,
+            "literature_findings": literature_stats.findings,
         },
     )
     return dict(emitter.checksums)
