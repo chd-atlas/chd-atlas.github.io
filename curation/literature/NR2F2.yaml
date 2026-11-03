@@ -267,6 +267,7 @@ findings:
         element: Materials and Methods, paragraph 2 (c.92_98delGCCCGCC, p.Pro33AlafsTer77; Sanger sequencing showed it was not inherited from either parent)
     summary: A girl with left-sided congenital diaphragmatic hernia and a large atrial septal defect (closed spontaneously by 2 years) carried a heterozygous de novo frameshift deletion, c.92_98delGCCCGCC (p.Pro33AlafsTer77), found by exome sequencing of the family and confirmed by Sanger sequencing.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
   - id: CHDA:LIT:0000008
     publication: PMID:29089047
     design: cohort_screen
@@ -389,6 +390,7 @@ findings:
         element: Results, Small nucleotide variants (ventricular septal defect, aortic coarctation, neurological symptoms)
     summary: Genome sequencing of 111 unrelated probands with paediatric heart disease at one centre found one NR2F2 carrier, a de novo missense variant c.671T>A p.(Val224Asp) classed likely pathogenic, in a proband with coarctation of the aorta, bicuspid aortic valve, muscular ventricular septal defect and extracardiac features.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
   - id: CHDA:LIT:0000014
     publication: PMID:34530895
     design: case_report
