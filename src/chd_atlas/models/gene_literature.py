@@ -203,6 +203,8 @@ class Finding(BaseModel):
                 f"{self.id}: genotyping_array and targeted_genotyping appear only with "
                 f"common_variant_association"
             )
+        if DetectionMethod.NOT_STATED in self.methods and len(self.methods) > 1:
+            raise ValueError(f"{self.id}: not_stated stands alone; the paper names no method")
         return self
 
     @model_validator(mode="after")

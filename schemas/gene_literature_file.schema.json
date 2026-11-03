@@ -48,7 +48,8 @@
         "chromosomal_microarray",
         "karyotype_or_fish",
         "genotyping_array",
-        "targeted_genotyping"
+        "targeted_genotyping",
+        "not_stated"
       ],
       "title": "DetectionMethod",
       "type": "string"
