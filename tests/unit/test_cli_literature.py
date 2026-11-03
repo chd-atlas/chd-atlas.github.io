@@ -1279,6 +1279,23 @@ def test_review_without_a_file_names_the_expected_path(root: Path) -> None:
     assert str(root / "curation" / "literature" / "TBX5.yaml") in result.stdout
 
 
+def test_with_publication_refuses_a_blank_reading() -> None:
+    from chd_atlas.gene_literature_io import LiteratureFileError, with_publication
+    from chd_atlas.models.literature import Publication
+
+    publication = Publication(
+        id="PMID:333",
+        title="A paper",
+        journal="Journal of Tests",
+        year=2024,
+        authors=["Zed Z"],
+        study_type="gwas",
+    )
+    raw = PUBLICATIONS.encode()
+    with pytest.raises(LiteratureFileError, match="reading of the study design must not be blank"):
+        with_publication(raw, publication, reading="   ")
+
+
 def test_a_write_the_model_would_refuse_is_never_made(lit_path: Path) -> None:
     from chd_atlas.gene_literature_io import LiteratureFileError, with_findings_updated
 

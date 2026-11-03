@@ -45,6 +45,10 @@ DESIGN_TO_STUDY_TYPE = [
     ("rare_variant_association with control_cohort", "case_control"),
     ("rare_variant_association with mutation_model and exome", "trio_wes"),
     ("rare_variant_association with mutation_model and genome", "trio_wgs"),
+    (
+        "rare_variant_association with mutation_model and any other method",
+        "ask the curator; no StudyType is guessed",
+    ),
     ("common_variant_association with genotyping_array", "gwas"),
     ("common_variant_association otherwise", "candidate_variant"),
 ]
@@ -243,12 +247,19 @@ def test_backticked_names_are_real_values_fields_or_options() -> None:
 def test_every_study_type_the_files_name_exists_and_the_table_is_the_contract() -> None:
     study_types = {m.value for m in vocab.StudyType}
     text = _text(CURATOR / "skills" / "literature-extract" / "SKILL.md")
+    # A study cell is a backticked StudyType, or the one plain-text row that tells the
+    # agent to stop and ask instead of guessing one.
     rows = re.findall(
-        r"^\s*\| (`[^|]+?`(?: with `[^|]+?`| otherwise)?) \| `([^|]+?)` \|$", text, re.M
+        r"^\s*\| (`[^|]+?`(?: with `[^|]+?`(?: and [^|`]+?)?| otherwise)?) \| "
+        r"(?:`([^|]+?)`|([^|`]+?)) \|$",
+        text,
+        re.M,
     )
-    table = [(design.replace("`", ""), study) for design, study in rows]
+    table = [(design.replace("`", ""), study or ask) for design, study, ask in rows]
     assert table == DESIGN_TO_STUDY_TYPE
-    assert {study for _, study in table} <= study_types
+    assert {study for _, study in table} <= study_types | {
+        "ask the curator; no StudyType is guessed"
+    }
     for path in ALL_FILES:
         for study in re.findall(r"--study-type (\S+)", _text(path)):
             assert study.strip("`") in study_types | {"<StudyType>"}, path.name

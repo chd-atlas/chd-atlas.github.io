@@ -65,6 +65,7 @@ Read `curator/curator-rules.md` first. Model tier: a mid-tier model (for example
    | `rare_variant_association` with `control_cohort` | `case_control` |
    | `rare_variant_association` with `mutation_model` and `exome` | `trio_wes` |
    | `rare_variant_association` with `mutation_model` and `genome` | `trio_wgs` |
+   | `rare_variant_association` with `mutation_model` and any other method | ask the curator; no StudyType is guessed |
    | `common_variant_association` with `genotyping_array` | `gwas` |
    | `common_variant_association` otherwise | `candidate_variant` |
 

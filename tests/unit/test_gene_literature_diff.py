@@ -161,6 +161,22 @@ def test_a_finding_in_one_pass_only_lands_in_that_side() -> None:
     assert diff.agreed == ("CHDA:LIT:0000001",)
 
 
+def test_the_same_paper_and_cohorts_under_another_design_is_another_study() -> None:
+    first = [_finding()]
+    second = [
+        _finding(
+            id="CHDA:LIT:0000009",
+            design="case_report",
+            screened=1,
+            carriers={"de_novo": 1, "inherited": 0, "origin_unknown": 0},
+        )
+    ]
+    diff = diff_findings(first, second)
+    assert diff.only_first == ("CHDA:LIT:0000001",)
+    assert diff.only_second == ("CHDA:LIT:0000009",)
+    assert diff.agreed == () and diff.fields == {}
+
+
 @pytest.mark.parametrize("side", ["first", "second"])
 def test_a_key_carried_twice_in_either_pass_is_never_paired(side: str) -> None:
     twin_a = _finding(id="CHDA:LIT:0000003", screened=8)
