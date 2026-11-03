@@ -13,11 +13,11 @@ named person approved. A finding that has not been approved is counted in
 an agent's unreviewed extraction in front of a reader as curated evidence. The
 count is what keeps that omission from being silent.
 
-The one thing that does reach a byte before approval is not in this module's
-output: a ``Publication`` that a curator added for a finding's paper
-(``literature add-publication``) is published in ``publications.json`` at the
-next build, with the ``study_type`` the extracting agent read, whether or not
-any finding of that paper has been approved (ruling R32).
+A ``Publication`` that a curator added for a finding's paper
+(``literature add-publication``) carries the ``study_type`` the extracting agent
+read, so ``publications.json`` withholds it until a finding of that paper is
+approved, unless something else the build publishes cites it
+(``build/literature.py``; owner decision 3, superseding ruling R32).
 
 A finding that carries a ``review_status`` is published all the same, with its
 mark and note (ruling R24): the mark is a published qualifier, never a
@@ -143,7 +143,9 @@ def gene_literature(corpus: Corpus) -> dict[str, GeneLiterature]:
                 pending=pending,
             ),
             pending_approval=unapproved,
-            findings=[finding.model_dump(mode="json") for finding in approved],
+            findings=[
+                finding.model_dump(mode="json", exclude={"approved_digest"}) for finding in approved
+            ],
         )
     return result
 

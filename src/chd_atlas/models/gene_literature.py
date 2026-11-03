@@ -14,6 +14,8 @@ nothing without the count of people screened and what was counted.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import date
 from typing import Annotated, Final, Literal
 
@@ -60,6 +62,21 @@ _GENOTYPING_METHODS: Final[frozenset[DetectionMethod]] = frozenset(
 
 # A person approves; an agent only proposes. Compared after strip and lower().
 _AGENT_PREFIX: Final = "agent:"
+
+
+# Fields outside the digest: the approval itself, and marks that do not change
+# what the finding says (a review mark does not withdraw an approval; a verifier
+# mark is bookkeeping).
+_DIGEST_EXCLUDED: Final[frozenset[str]] = frozenset(
+    {
+        "approved_by",
+        "approved_on",
+        "approved_digest",
+        "verified_by",
+        "review_status",
+        "review_note",
+    }
+)
 
 
 class Search(BaseModel):
@@ -157,6 +174,7 @@ class Finding(BaseModel):
     verified_by: _NonBlankStr | None = None
     approved_by: _NonBlankStr | None = None
     approved_on: date | None = None
+    approved_digest: _NonBlankStr | None = None
     review_status: ReviewStatus | None = None
     review_note: _NonBlankStr | None = None
 
@@ -203,13 +221,17 @@ class Finding(BaseModel):
                 f"{self.id}: genotyping_array and targeted_genotyping appear only with "
                 f"common_variant_association"
             )
+        if DetectionMethod.NOT_STATED in self.methods and len(self.methods) > 1:
+            raise ValueError(f"{self.id}: not_stated stands alone; the paper names no method")
         return self
 
     @model_validator(mode="after")
     def approval_is_a_named_person(self) -> Finding:
-        if (self.approved_by is None) != (self.approved_on is None):
+        approval = (self.approved_by, self.approved_on, self.approved_digest)
+        if any(part is None for part in approval) and any(part is not None for part in approval):
             raise ValueError(
-                f"{self.id}: approved_by and approved_on are set together or not at all"
+                f"{self.id}: approved_by, approved_on and approved_digest are set together "
+                f"or not at all"
             )
         if self.approved_by is not None and self.approved_by.strip().lower().startswith(
             _AGENT_PREFIX
@@ -217,6 +239,25 @@ class Finding(BaseModel):
             raise ValueError(f"{self.id}: approved_by names an agent; a person must approve")
         check_review(self.id, self.review_status, self.review_note)
         return self
+
+
+def finding_digest(finding: Finding) -> str:
+    """`sha256:` and the hex digest of the finding's content, approval excluded.
+
+    The canonical JSON (sorted keys, no ASCII escaping, compact separators) of
+    `model_dump(mode="json", exclude_defaults=True)` without `_DIGEST_EXCLUDED`.
+    An approval records this value, so a later edit to anything it covers no
+    longer matches (LIT015). A field left at its default is not hashed, so a
+    release that adds an optional field does not void standing approvals; the
+    cost is that setting a field explicitly to its default value is not an edit.
+    """
+    content = {
+        k: v
+        for k, v in finding.model_dump(mode="json", exclude_defaults=True).items()
+        if k not in _DIGEST_EXCLUDED
+    }
+    canonical = json.dumps(content, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 class GeneLiteratureFile(BaseModel):

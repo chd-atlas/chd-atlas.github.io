@@ -84,6 +84,10 @@ def test_valid_findings_load() -> None:
         )
     )
     Finding.model_validate(_rare(design="rare_variant_association", comparator="control_cohort"))
+    # A paper that names no detection method (owner, 2026-11-03): recorded as such,
+    # never as the nearest method, which would publish a claim the paper never made.
+    assert Finding.model_validate(_rare(methods=["not_stated"])).methods == ["not_stated"]
+    Finding.model_validate(_common(methods=["not_stated"]))
 
 
 @pytest.mark.parametrize(
@@ -108,6 +112,8 @@ def test_valid_findings_load() -> None:
         ({"methods": ["exome", "genotyping_array"]}, "genotyping"),
         ({"methods": ["targeted_genotyping"]}, "genotyping"),
         ({"methods": []}, "methods"),
+        # "not stated" beside a named method contradicts itself.
+        ({"methods": ["exome", "not_stated"]}, "not_stated"),
         ({"locators": []}, "locators"),
         ({"phenotypes": []}, "phenotypes"),
         ({"lesion_groups": []}, "lesion_groups"),
@@ -205,12 +211,19 @@ def test_a_search_cannot_find_more_new_papers_than_papers() -> None:
 @pytest.mark.parametrize("who", ["agent:x", " Agent:x", "AGENT:skill/model", ""])
 def test_an_agent_cannot_approve(who: str) -> None:
     with pytest.raises(ValidationError, match="approved_by"):
-        Finding.model_validate(_rare(approved_by=who, approved_on="2026-11-02"))
+        Finding.model_validate(
+            _rare(approved_by=who, approved_on="2026-11-02", approved_digest="sha256:x")
+        )
 
 
 def test_a_person_approves_and_an_agent_may_verify() -> None:
     finding = Finding.model_validate(
-        _rare(approved_by="A. Curator", approved_on="2026-11-02", verified_by="agent:x")
+        _rare(
+            approved_by="A. Curator",
+            approved_on="2026-11-02",
+            approved_digest="sha256:x",
+            verified_by="agent:x",
+        )
     )
     assert finding.approved_by == "A. Curator"
     assert finding.verified_by == "agent:x"

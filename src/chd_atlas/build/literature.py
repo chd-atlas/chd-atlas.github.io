@@ -20,6 +20,8 @@ fetched by any page that renders a lesion facet.
 
 from __future__ import annotations
 
+from collections.abc import Collection
+
 from pydantic import BaseModel
 
 from chd_atlas.build.emit import Emitter, Json
@@ -112,8 +114,53 @@ def build_sources(registry: SourceRegistry, emitter: Emitter) -> None:
     )
 
 
-def build_literature(corpus: Corpus, emitter: Emitter) -> None:
-    """Emit publications.json, featured.json, phenotypes.json and datasets.json."""
+def withheld_publications(corpus: Corpus, mirror_citations: Collection[str]) -> set[str]:
+    """PMIDs that only an unapproved literature finding cites (owner decision 3).
+
+    A publication is withheld exactly when a literature finding cites it, no
+    approved finding does, and nothing else the build publishes does. The
+    "nothing else" list is the citers `validate/referential.py` resolves a PMID
+    for -- assertion evidence, functional evidence, featured entries and
+    datasets -- plus what the mirrors cite, passed in as `mirror_citations`: the
+    burden and combined-burden `study` column (`validate/burden.py` resolves it
+    against `publications.yaml`) and the variants mirror's free-text, nullable
+    `publication` column, included fail-safe because nothing validates its
+    shape. A finding's `burden_study` is covered by the burden rows: LIT014
+    requires the mirror to hold a row for it. Cohorts and scope cite no
+    publication.
+
+    Computed once by the runner and handed to every emitter that lists
+    publications, so `publications.json`, the search index and the manifest's
+    `counts.publications` agree.
+
+    The point is that `add-publication` records the extracting agent's reading
+    of `study_type`, and that reading must reach no byte until a named person
+    has approved a finding from the paper.
+    """
+    approved: set[str] = set()
+    unapproved: set[str] = set()
+    for _, file in corpus.literature:
+        for finding in file.findings:
+            (unapproved if finding.approved_by is None else approved).add(str(finding.publication))
+    elsewhere: set[str] = {str(study) for study in mirror_citations}
+    elsewhere.update(str(entry.publication) for entry in corpus.featured)
+    elsewhere.update(
+        str(dataset.publication) for dataset in corpus.datasets if dataset.publication is not None
+    )
+    elsewhere.update(str(record.publication) for record in corpus.functional)
+    elsewhere.update(
+        str(evidence.publication) for a in corpus.assertions for evidence in a.evidence
+    )
+    return unapproved - approved - elsewhere
+
+
+def build_literature(corpus: Corpus, emitter: Emitter, *, withheld: Collection[str]) -> None:
+    """Emit publications.json, featured.json, phenotypes.json and datasets.json.
+
+    `publications.json` omits a record only an unapproved literature finding
+    cites; `withheld_publications` states the rule and computes `withheld`, which
+    is required so a caller cannot forget it.
+    """
     # Resolved before anything is written, so an unresolvable citation fails with
     # the output directory untouched rather than after two of the four payloads
     # are already on disk. Same reason `variants.py` resolves every shard filename
@@ -142,6 +189,7 @@ def build_literature(corpus: Corpus, emitter: Emitter) -> None:
             "publications": [
                 _dump(publication)
                 for publication in sorted(corpus.publications, key=lambda item: item.id)
+                if publication.id not in withheld
             ]
         },
     )

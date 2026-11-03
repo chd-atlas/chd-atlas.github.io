@@ -27,7 +27,7 @@ from chd_atlas.gene_literature_io import (
     with_search,
 )
 from chd_atlas.models.assertion import InTextLocator, Locator
-from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile
+from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile, finding_digest
 from chd_atlas.models.literature import Publication
 from chd_atlas.models.review import ReviewStatus
 from chd_atlas.pubmed import Fetch, PubMedError, urllib_fetch
@@ -624,7 +624,14 @@ def literature_review(
                     f"run `literature diff` or pass --allow-unverified",
                     2,
                 )
-        updates = {i: {"approved_by": by.strip(), "approved_on": when} for i in ids}
+        updates = {
+            i: {
+                "approved_by": by.strip(),
+                "approved_on": when,
+                "approved_digest": finding_digest(by_id[i]),
+            }
+            for i in ids
+        }
         messages = [f"approved {i} ({by.strip()}, {when.isoformat()})" for i in ids]
     try:
         content = with_findings_updated(raw, updates)

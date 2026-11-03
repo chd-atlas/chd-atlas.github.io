@@ -22,6 +22,7 @@ from chd_atlas.models.gene_literature import GeneLiteratureFile
 from chd_atlas.models.literature import PhenotypeTerm
 from chd_atlas.validate.gene_literature import validate_gene_literature
 from chd_atlas.vocab import LesionGroup
+from tests.unit._stamp import stamped
 
 TBX5 = "HGNC:11604"
 OTHER = "HGNC:1100"
@@ -64,7 +65,7 @@ def _finding(fid: str, pmid: str, **changes: Any) -> dict[str, Any]:
         "approved_on": "2026-11-05",
     }
     base.update(changes)
-    return base
+    return stamped(base)
 
 
 def _base() -> dict[str, Any]:
@@ -110,7 +111,11 @@ def _corpus(*files: tuple[str, dict[str, Any]], phenotypes: Any = PHENOTYPES) ->
         literature=tuple(
             (
                 Path("/r/curation/literature") / f"{stem}.yaml",
-                GeneLiteratureFile.model_validate(raw),
+                # Tests edit findings after `_finding` built them; restamping keeps
+                # LIT015 out of every assertion here (it has its own suite).
+                GeneLiteratureFile.model_validate(
+                    {**raw, "findings": [stamped(f) for f in raw["findings"]]}
+                ),
             )
             for stem, raw in files
         ),

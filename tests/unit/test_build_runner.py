@@ -24,6 +24,7 @@ from chd_atlas.corpus import load_curation
 from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.tables import TABLE_SCHEMAS, read_table
 from chd_atlas.validate.runner import ValidationReport
+from tests.unit._stamp import stamped_yaml
 
 REPO = Path(__file__).parent.parent.parent
 
@@ -51,11 +52,18 @@ def repo(tmp_path: Path) -> Path:
     `curation` and `mirrors` are copied because tests edit them; `ontologies` is
     symlinked because it is 11 MB of pinned OBO releases that nothing here
     changes, and copying it per test would cost more than the builds do.
+
+    The copy drops `curation/literature/`: this branch's committed corpus has no
+    `curation/literature/`, but the pilot branch does, and a test that writes its own
+    literature file would
+    otherwise hit `FileExistsError` on `mkdir`, or see the real file's findings
+    in a build it meant to hold to one.
     """
     source = tmp_path / "repo"
     source.mkdir()
     for name in ("curation", "mirrors"):
         shutil.copytree(REPO / name, source / name)
+    shutil.rmtree(source / "curation" / "literature", ignore_errors=True)
     (source / "ontologies").symlink_to(REPO / "ontologies")
     return source
 
@@ -834,7 +842,7 @@ def test_a_literature_file_reaches_its_bundle_page_and_the_counts(
     reasons, 4 pending), so the bundle's counts differ from each other.
     """
     (repo / "curation" / "literature").mkdir()
-    (repo / "curation" / "literature" / "TBX5.yaml").write_text(_LITERATURE_FILE)
+    (repo / "curation" / "literature" / "TBX5.yaml").write_text(stamped_yaml(_LITERATURE_FILE))
     registry = repo / "curation" / ".id_registry.yaml"
     registry.write_text(registry.read_text().replace("LIT: 0", "LIT: 2"))
 
@@ -864,10 +872,15 @@ def test_a_literature_file_reaches_its_bundle_page_and_the_counts(
     section = page[start : page.index("</div></div>", start)]
     assert section.startswith(
         '<h2>Literature</h2><p class="method">PubMed, searched 2026-11-02: 9 papers; '
-        "2 included, 3 excluded, 4 not yet triaged; 1 finding awaits review.</p>"
+        "2 included, 3 excluded, 4 not yet triaged; 1 finding awaits approval.</p>"
     )
     assert "Approved &lt;finding&gt; &amp; &quot;quoted&quot;." in section
     assert "An extraction nobody approved yet." not in page
+    assert section.count('<svg class="chart"') == 1
+    marks = section[section.index('<g class="lit-marks">') :]
+    marks = marks[: marks.index("</g>")]
+    assert len(re.findall(r"<(?:circle|rect|polygon) ", marks)) == 1
+    assert "<summary>1 publication</summary>" in section
     others = [p for p in (out / "genes").glob("HGNC_*.html") if p.name != "HGNC_11604.html"]
     assert others
     assert all("<h2>Literature</h2><p>Not yet curated.</p>" in p.read_text() for p in others)
@@ -899,3 +912,47 @@ def test_the_literature_census_is_published_under_its_own_keys(
     assert 4 not in others.values()
     assert counts["literature_genes"] == 6
     assert counts["literature_findings"] == 4
+
+
+def test_a_publication_only_an_unapproved_finding_cites_is_withheld_from_the_build(
+    repo: Path, tmp_path: Path
+) -> None:
+    """Owner decision 3, through `build_site`: PMID:900008 is registered and cited by
+    an unapproved finding alone, so `publications.json` omits it; PMID:40127276 is
+    cited by an unapproved finding too but carries burden rows, so it stays. Without
+    the runner passing the burden studies in, the second assertion fails.
+    """
+    with (repo / "curation" / "publications.yaml").open("a") as handle:
+        handle.write(
+            "  - id: PMID:900008\n    title: Only an unapproved finding cites this.\n"
+            "    journal: J\n    year: 2020\n    authors: [A B]\n"
+            "    study_type: cohort_sequencing\n    own_lab: false\n"
+        )
+    extra = _LITERATURE_FILE.replace(
+        "PMID:900001, search: 1, decision: excluded, reason: not_chd",
+        "PMID:900008, search: 1, decision: included",
+    ) + _LITERATURE_FILE.split("findings:\n")[1].split("  - id: CHDA:LIT:0000002")[0].replace(
+        "CHDA:LIT:0000001", "CHDA:LIT:0000003"
+    ).replace("PMID:8988165", "PMID:900008").replace(
+        "    approved_by: A. Curator\n    approved_on: 2026-11-05\n", ""
+    )
+    (repo / "curation" / "literature").mkdir()
+    (repo / "curation" / "literature" / "TBX5.yaml").write_text(stamped_yaml(extra))
+    registry = repo / "curation" / ".id_registry.yaml"
+    registry.write_text(registry.read_text().replace("LIT: 0", "LIT: 3"))
+
+    out = tmp_path / "withheld"
+    build_site(repo, out)
+
+    ids = [p["id"] for p in json.loads((out / "publications.json").read_text())["publications"]]
+    assert "PMID:900008" not in ids
+    assert "PMID:40127276" in ids
+    assert "PMID:8988165" in ids
+    # The same set feeds the search index and the census (fix round 1).
+    index = json.loads(gzip.decompress((out / "search" / "index.json.gz").read_bytes()))
+    records = index["records"] if isinstance(index, dict) else index
+    searched = {r["id"] for r in records if r["kind"] == "publication"}
+    assert "PMID:900008" not in searched
+    assert searched == set(ids)
+    counts = json.loads((out / "manifest.json").read_text())["counts"]
+    assert counts["publications"] == len(ids)
