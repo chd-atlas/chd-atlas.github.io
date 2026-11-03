@@ -10209,18 +10209,33 @@ def test_a_gene_with_no_literature_file_says_so_in_three_words_and_has_no_table(
 def test_the_literature_line_states_what_the_search_found_and_decided(tmp_path: Path) -> None:
     section = _lit_page(tmp_path, _lit())
     assert section.startswith(
-        '<h2>Literature</h2><p class="method">PubMed, searched 2026-11-09: 15 papers; '
-        "4 included, 5 excluded, 6 not yet triaged; 2 findings await review.</p>"
+        '<h2>Literature</h2><p class="method">PubMed, 2 searches, latest 2026-11-09: '
+        "15 papers in all; 4 included, 5 excluded, 6 not yet triaged; "
+        "2 findings await approval.</p>"
     )
+    assert "await review" not in section
+
+
+def test_one_search_reads_searched_and_its_date_with_no_in_all(tmp_path: Path) -> None:
+    literature = _lit(pending=0, waiting=3)
+    literature["searches"] = [literature["searches"][1] | {"hits": 400, "new_hits": 400}]
+    literature["triage"] = {"included": 110, "excluded": {"not_chd": 290}, "pending": 0}
+    section = _lit_page(tmp_path, literature)
+    assert section.startswith(
+        '<h2>Literature</h2><p class="method">PubMed, searched 2026-11-09: 400 papers; '
+        "110 included, 290 excluded; 3 findings await approval.</p>"
+    )
+    assert "in all" not in section.split("</p>")[0]
+    assert "await review" not in section
 
 
 @pytest.mark.parametrize(
     ("pending", "waiting", "tail"),
     [
         (6, 0, "4 included, 5 excluded, 6 not yet triaged."),
-        (0, 2, "4 included, 5 excluded; 2 findings await review."),
+        (0, 2, "4 included, 5 excluded; 2 findings await approval."),
         (0, 0, "4 included, 5 excluded."),
-        (6, 1, "4 included, 5 excluded, 6 not yet triaged; 1 finding awaits review."),
+        (6, 1, "4 included, 5 excluded, 6 not yet triaged; 1 finding awaits approval."),
     ],
     ids=["no-awaiting", "no-pending", "neither", "one-awaiting"],
 )
@@ -10229,7 +10244,8 @@ def test_an_optional_clause_is_absent_when_its_count_is_zero_and_nothing_reads_z
 ) -> None:
     section = _lit_page(tmp_path, _lit(pending=pending, waiting=waiting))
     assert section.startswith(
-        f'<h2>Literature</h2><p class="method">PubMed, searched 2026-11-09: 15 papers; {tail}</p>'
+        f'<h2>Literature</h2><p class="method">PubMed, 2 searches, latest 2026-11-09: '
+        f"15 papers in all; {tail}</p>"
     )
     assert " 0 " not in section.split("</p>")[0]
 
@@ -10238,6 +10254,11 @@ def test_one_paper_is_not_pluralised(tmp_path: Path) -> None:
     literature = _lit()
     literature["searches"] = [literature["searches"][0] | {"new_hits": 1}]
     assert "searched 2026-11-02: 1 paper; " in _lit_page(tmp_path, literature)
+    literature["searches"] = [
+        literature["searches"][0] | {"new_hits": 0},
+        literature["searches"][0] | {"new_hits": 1},
+    ]
+    assert "2 searches, latest 2026-11-02: 1 paper in all; " in _lit_page(tmp_path, literature)
 
 
 def test_the_exclusion_tally_lists_each_reason_with_its_count_and_is_absent_when_none(

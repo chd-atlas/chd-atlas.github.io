@@ -1618,9 +1618,10 @@ what the build publishes for every gene today.
 
 The gene page renders this as its Literature section, after the developmental
 expression section. A gene with no search says only "Not yet curated." Otherwise
-one visible line gives the date of the latest search, the papers found and how
-they were decided (included, excluded, not yet triaged), and the findings
-awaiting approval. Beneath it, a timeline draws one mark per publication that
+one visible line gives the papers found and how they were decided (included,
+excluded, not yet triaged), and the findings awaiting approval. With one search
+it reads "searched" and that search's date; with several it reads "N searches,
+latest" and the latest date, and counts the papers "in all". Beneath it, a timeline draws one mark per publication that
 has an approved finding, placed by year; the mark's shape is the paper's design,
 a ring means the paper reports several designs, and papers of the same year are
 stacked. A fold lists the same publications, one entry each, opening to that

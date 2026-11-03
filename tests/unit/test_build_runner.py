@@ -870,7 +870,7 @@ def test_a_literature_file_reaches_its_bundle_page_and_the_counts(
     section = page[start : page.index("</div></div>", start)]
     assert section.startswith(
         '<h2>Literature</h2><p class="method">PubMed, searched 2026-11-02: 9 papers; '
-        "2 included, 3 excluded, 4 not yet triaged; 1 finding awaits review.</p>"
+        "2 included, 3 excluded, 4 not yet triaged; 1 finding awaits approval.</p>"
     )
     assert "Approved &lt;finding&gt; &amp; &quot;quoted&quot;." in section
     assert "An extraction nobody approved yet." not in page

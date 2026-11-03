@@ -6681,13 +6681,14 @@ def _literature_section(
     the exclusion tally, every search.
 
     No search recorded: `_NOT_CURATED_LITERATURE` and nothing else. Otherwise a
-    visible line counting what the search returned and what was decided -- the
+    visible line counting what the searches returned and what was decided (one
+    search: `searched D`; several: `N searches, latest D` and `in all`) -- the
     papers, included and excluded counts always print, so `0 included` or
     `0 excluded` can render; only the optional clauses (`, N not yet triaged`,
-    `; N findings await review`) are omitted when their count is 0 -- then
+    `; N findings await approval`) are omitted when their count is 0 -- then
     the exclusion tally and every search folded with its exact query. The
     timeline and the list cover approved findings only, which is all the bundle
-    carries; the `await review` clause is what stops the unapproved ones being
+    carries; the `await approval` clause is what stops the unapproved ones being
     invisible. A finding's `review_status` and `review_note` are rendered beside
     its summary (ruling R24): the mark qualifies a published finding and never hides it.
 
@@ -6700,16 +6701,18 @@ def _literature_section(
     triage = literature["triage"]
     papers = sum(search["new_hits"] for search in searches)
     excluded_total = sum(triage["excluded"].values())
-    line = (
-        f"PubMed, searched {html.escape(max(search['run_on'] for search in searches))}: "
-        f"{papers} {'paper' if papers == 1 else 'papers'}; "
-        f"{triage['included']} included, {excluded_total} excluded"
-    )
+    latest = html.escape(max(search["run_on"] for search in searches))
+    noun = "paper" if papers == 1 else "papers"
+    if len(searches) == 1:
+        opening = f"PubMed, searched {latest}: {papers} {noun}; "
+    else:
+        opening = f"PubMed, {len(searches)} searches, latest {latest}: {papers} {noun} in all; "
+    line = f"{opening}{triage['included']} included, {excluded_total} excluded"
     if triage["pending"]:
         line += f", {triage['pending']} not yet triaged"
     waiting = literature["pending_approval"]
     if waiting:
-        line += f"; {waiting} {'finding awaits' if waiting == 1 else 'findings await'} review"
+        line += f"; {waiting} {'finding awaits' if waiting == 1 else 'findings await'} approval"
     findings = literature["findings"]
     if findings:
         groups = _paper_groups(findings, publications)
