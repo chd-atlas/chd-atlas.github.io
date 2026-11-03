@@ -1204,19 +1204,6 @@ publications:
     study_type: family_linkage
     doi: 10.1016/j.heliyon.2022.e11774
     pmcid: PMC9699963
-  - id: PMID:36759823
-    title: Genetic studies in the Pakistani population reveal novel associations with ventricular septal defects (VSDs).
-    journal: BMC pediatrics
-    year: 2023
-    authors:
-      - Sarwar S
-      - Shabana
-      - Sajjad K
-      - Hasnain S
-    # A case-control genotyping study of five selected variants and a genetic risk score in children with isolated ventricular septal defect and controls (a pilot study by the authors' description).
-    study_type: candidate_variant
-    doi: 10.1186/s12887-023-03851-3
-    pmcid: PMC9909889
   - id: PMID:36936432
     title: 'Case report: Novel TBX5-related pathogenic mechanism of Holt-Oram syndrome.'
     journal: Frontiers in genetics

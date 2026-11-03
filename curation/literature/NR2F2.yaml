@@ -147,6 +147,8 @@ findings:
         element: Table 1, families 2 to 6 (five rare missense variants; origin de novo, de novo, inherited, inherited, not determined)
     summary: Five rare missense variants in NR2F2 (two de novo, two inherited from an unaffected parent, one with parental DNA unavailable) were found among 125 exome-sequenced individuals with nonsyndromic atrioventricular septal defects, against 5,194 population-matched controls (Fisher's exact p = 7.7e-7, odds ratio 54.1).
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000002
     publication: PMID:24702954
     design: cohort_screen
@@ -164,6 +166,8 @@ findings:
         element: Results, Burden of Rare Missense Variants Analysis (last sentence, additional 245 AVSD individuals screened by capillary sequencing)
     summary: No rare functional variant was found in NR2F2 when its three coding exons were capillary-sequenced in an additional 245 individuals with atrioventricular septal defects; the listed lesion is the cohort's, as the paper gives no carrier.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000003
     publication: PMID:24702954
     design: rare_variant_association
@@ -185,10 +189,12 @@ findings:
         element: Results, Burden of Rare Missense Variants Analysis (de novo status of c.1022C>A and c.614A>T)
     summary: Two of 370 individuals with atrioventricular septal defects (125 by exome, 245 by capillary sequencing) carried a de novo missense variant in NR2F2, a Poisson p of 4.8e-5 given the authors' estimate of the gene's mutation rate.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000004
     publication: PMID:24702954
     design: family_segregation
-    methods: [exome]
+    methods: [exome, targeted_sequencing]
     count_unit: families
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
@@ -206,6 +212,9 @@ findings:
         element: Figure 2A (pedigree)
     summary: A 3 bp in-frame duplication in NR2F2 (p.Gln75dup) was found in a father with tetralogy of Fallot and in his two affected sons (one with a complete atrioventricular septal defect, one with aortic stenosis and a ventricular septal defect), to whom it was inherited from the affected father; the authors state that it cosegregated in this multiplex family.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
     review_status: pending_review
     review_note: The paper gives this duplication as c.220_222dup in Table 1 and as c.222_224dup in the Methods and Results, and the protein change as p.Gln75dup in Table 1 and Methods but p.Gln70dup in the luciferase results text.
   - id: CHDA:LIT:0000005
@@ -227,6 +236,8 @@ findings:
         element: Table 1, family 8 (II:1, CoA, balanced translocation, de novo)
     summary: A previously reported child with coarctation of the aorta and a de novo balanced translocation 46,XY,t(14;15)(q23;q26.3) had the breakpoint fine-mapped by flow-sorted derivative chromosomes to the first intron of NR2F2, predicted by the authors to truncate all annotated transcripts.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000006
     publication: PMID:24702954
     design: case_report
@@ -246,6 +257,8 @@ findings:
         element: Table 1, family 7 (II:1, HLHS, splice donor, de novo)
     summary: A de novo splice donor variant in NR2F2 was found in a trio with an affected child with hypoplastic left heart syndrome; the authors predict that it skips the third exon.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
     review_status: pending_review
     review_note: The paper gives this splice donor variant as c.970+1G>A in Table 1 and as c.2359+1G>A in the Results text.
   - id: CHDA:LIT:0000007
@@ -268,6 +281,8 @@ findings:
     summary: A girl with left-sided congenital diaphragmatic hernia and a large atrial septal defect (closed spontaneously by 2 years) carried a heterozygous de novo frameshift deletion, c.92_98delGCCCGCC (p.Pro33AlafsTer77), found by exome sequencing of the family and confirmed by Sanger sequencing.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000008
     publication: PMID:29089047
     design: cohort_screen
@@ -276,7 +291,7 @@ findings:
     screened: 342
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
-    phenotypes: [HP:0032092]
+    phenotypes: [HP:0001650, HP:0001680, HP:0001718, HP:0004383]
     lesion_groups: [lvoto]
     syndromic: isolated
     shares_probands_with: unknown
@@ -289,6 +304,9 @@ findings:
         element: Methods, Subjects (342 unrelated left-sided lesion cases without clinically evident extra-cardiac malformations)
     summary: Exome sequencing of 342 unrelated cases with left-sided cardiac lesions found one case-exclusive loss-of-function variant in NR2F2, which arose de novo; the main text does not state the carrier's lesion, so the listed phenotype is the cohort's left-sided lesions.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000009
     publication: PMID:29478779
     design: cohort_screen
@@ -308,6 +326,8 @@ findings:
         element: Table 1 (individuals 1 to 3, cardiac findings and mutation, origin de novo, de novo, not available)
     summary: In 79 children with 46,XX SRY-negative differences of sex development (not selected for heart disease), three carried a heterozygous frameshift in NR2F2 (p.Gly35Argfs*75 de novo, p.Pro33Alafs*77 de novo, and p.Pro33Alafs*77 of unknown origin); all three had congenital heart disease (hypoplastic left heart, atrial septal defect, ventricular septal defect), one also had a left diaphragmatic hernia.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000010
     publication: PMID:30720060
     design: cohort_screen
@@ -316,7 +336,7 @@ findings:
     screened: 176
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
-    phenotypes: [HP:0001647]
+    phenotypes: [HP:0031119]
     lesion_groups: [lvoto]
     syndromic: isolated
     shares_probands_with: [CHDA:LIT:0000011]
@@ -328,6 +348,8 @@ findings:
     summary: Direct sequencing of the NR2F2 coding regions and splice sites in 176 unrelated Chinese Han patients with bicuspid aortic valve found one carrier, a nonsense variant c.288C>A p.(Cys96*), not seen in 280 controls. Cases with recognised chromosomal abnormalities or syndromes were excluded at enrolment.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000011
     publication: PMID:30720060
     design: family_segregation
@@ -336,7 +358,7 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
-    phenotypes: [HP:0001647, HP:0001629]
+    phenotypes: [HP:0001629, HP:0031119]
     lesion_groups: [lvoto, septal]
     syndromic: isolated
     shares_probands_with: [CHDA:LIT:0000010]
@@ -349,6 +371,9 @@ findings:
         element: Figure 1C (pedigree, family 1)
     summary: In the one family of the cohort carrying NR2F2 c.288C>A p.(Cys96*), the paper reports the variant in all affected relatives tested and in none of the unaffected relatives, with bicuspid aortic valve transmitted as autosomal dominant with complete penetrance. Table II lists six living affected carriers, two of whom also had a ventricular septal defect.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000012
     publication: PMID:31687637
     design: case_report
@@ -369,6 +394,8 @@ findings:
     summary: A 46,XX man with ovotesticular differences of sex development and aortic coarctation carried a de novo heterozygous 3-Mb deletion at 15q26.2 that contains NR2F2 and one other protein-coding gene, SPATA8. Sanger sequencing and exome sequencing of the proband and parents found no other pathogenic variant relevant to sex development.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000013
     publication: PMID:32037394
     design: cohort_screen
@@ -391,6 +418,8 @@ findings:
     summary: Genome sequencing of 111 unrelated probands with paediatric heart disease at one centre found one NR2F2 carrier, a de novo missense variant c.671T>A p.(Val224Asp) classed likely pathogenic, in a proband with coarctation of the aorta, bicuspid aortic valve, muscular ventricular septal defect and extracardiac features.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000014
     publication: PMID:34530895
     design: case_report
@@ -412,3 +441,5 @@ findings:
         element: Methods and results, Array analysis (terminal 9.15 Mb deletion at 15q26.1-q26.3, 36 annotated genes)
     summary: A 4-year-old girl with two atrial septal defects, growth restriction and intellectual disability had a de novo terminal 9.15 Mb deletion at 15q26.1-q26.3 that includes NR2F2 together with IGF1R, CHD2 and MEF2A, which the authors name as candidates.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03

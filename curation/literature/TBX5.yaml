@@ -1243,7 +1243,9 @@ triage:
     reason: not_human_genetics
   - pmid: PMID:35113653
     search: 1
-    decision: included
+    decision: excluded
+    reason: same_data_as
+    same_as: PMID:18451335
   - pmid: PMID:35121196
     search: 1
     decision: excluded
@@ -1290,7 +1292,9 @@ triage:
     decision: included
   - pmid: PMID:36759823
     search: 1
-    decision: included
+    decision: excluded
+    reason: same_data_as
+    same_as: PMID:35870951
   - pmid: PMID:36936432
     search: 1
     decision: included
@@ -1503,9 +1507,9 @@ findings:
     methods: [targeted_sequencing]
     count_unit: probands
     screened: 49
-    carriers: {de_novo: 0, inherited: 0, origin_unknown: 17}
+    carriers: {de_novo: 0, inherited: 9, origin_unknown: 8}
     variant_classes: [snv_indel]
-    phenotypes: [HP:0001631, HP:0001684, HP:0001629, HP:0011623, HP:0011682, HP:0006695, HP:0001719]
+    phenotypes: [HP:0001629, HP:0001631, HP:0001674, HP:0001684, HP:0001719, HP:0006695, HP:0011623, HP:0011625, HP:0011682]
     lesion_groups: [septal, avsd, conotruncal]
     syndromic: syndromic
     shares_probands_with: unknown
@@ -1518,6 +1522,8 @@ findings:
         element: Table 1
     summary: Sanger sequencing of TBX5 exons 1-9 in probands with a putative diagnosis of Holt-Oram syndrome found a TBX5 mutation in 17 of the 49 probands with complete sequence data (14 different mutations; 55 probands were recruited). Mutations were found in 9 of 17 familial and 8 of 32 sporadic cases.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000016
     publication: PMID:18828908
     design: case_report
@@ -1526,8 +1532,8 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
-    phenotypes: [HP:0001631, HP:0011623]
-    lesion_groups: [septal]
+    phenotypes: [HP:0001631, HP:0005304, HP:0011623]
+    lesion_groups: [other, septal]
     syndromic: syndromic
     shares_probands_with: unknown
     locators:
@@ -1537,6 +1543,9 @@ findings:
         element: Methods, Case report
     summary: A 4-year-old boy with classical Holt-Oram syndrome (atrial and muscular ventricular septal defects, atrioventricular block needing a pacemaker) carried a heterozygous TBX5 frameshift c.1333delC (p.H445fsX136), absent from both parents and predicted to extend the protein.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000017
     publication: PMID:21637475
     design: cohort_screen
@@ -1558,6 +1567,8 @@ findings:
         element: Table 1
     summary: Direct sequencing of TBX5 in 9 unrelated patients with typical (8) or atypical (1) Holt-Oram syndrome found a pathogenic TBX5 mutation in four (c.835C>T p.R279X in two, one of them de novo; c.374delG, de novo; c.678G>T p.K226N, inherited, also in the patient's affected father); the origin of the other c.835C>T carrier is not stated.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000018
     publication: PMID:21637475
     design: cohort_screen
@@ -1577,6 +1588,8 @@ findings:
         element: Table 1 (CHD5)
     summary: No pathogenic TBX5 variant was found by direct sequencing in 16 unrelated patients with isolated congenital heart defects; one (CHD5, ostium secundum ASD) carried only the TBX5 c.309C>T variant that the authors class as a silent polymorphism. The heart defects recorded are the cohort's, since the paper gives no lesion type for the cohort as a whole.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000019
     publication: PMID:22190901
     design: case_report
@@ -1594,6 +1607,8 @@ findings:
         element: Case Report, paragraph on molecular analysis (c.1304delT; parents' results normal; Fig. 3)
     summary: A boy with sporadic Holt-Oram syndrome (muscular ventricular septal defect, sinus venosus-type atrial septal defect, patent ductus arteriosus, conduction defect) carried a heterozygous TBX5 frameshift c.1304delT (p.L435fsX146); the parents tested normal.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000020
     publication: PMID:22011241
     design: cohort_screen
@@ -1616,15 +1631,17 @@ findings:
     summary: dHPLC and sequencing of TBX5 in 331 patients with sporadic non-syndromic congenital heart disease found one variant, D111Y (c.998G>T), in a patient with double outlet right ventricle, VSD, ASD and PDA; it was also present in 3 of 384 controls, and the authors propose it as a susceptibility candidate for future case-control study.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
     review_status: pending_review
     review_note: The Results call the one TBX5 change "a synonymous variant" while naming it D111Y, a protein substitution; the Discussion treats it as a nonsynonymous variant.
   - id: CHDA:LIT:0000021
     publication: PMID:22333898
     design: family_segregation
-    methods: [chromosomal_microarray, gene_panel, targeted_sequencing]
+    methods: [chromosomal_microarray, gene_panel]
     count_unit: families
     screened: 1
-    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [cnv]
     phenotypes: [HP:0006695, HP:0004383, HP:0001642]
     lesion_groups: [avsd, lvoto, rvoto]
@@ -1639,6 +1656,9 @@ findings:
         element: Clinical report, Family members and Table 1 (9 of 12 members affected over five generations; AVSD with pulmonary stenosis in IV:3, HLHS in V:1)
     summary: A five-generation family with nine affected members and an atypical Holt-Oram phenotype (AVSD with pulmonary stenosis, hypoplastic left heart syndrome, mitral valve disease and conduction abnormalities, with mild ulnar-predominant limb defects) carried a heterozygous 48 kb duplication of TBX5 exons 2-9 that the authors report segregates with the clinically affected members; sequencing of exons 3-10 had found no variant.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000022
     publication: PMID:22543974
     design: cohort_screen
@@ -1659,6 +1679,8 @@ findings:
     summary: Three TBX5 cardiac enhancers were sequenced in 260 unrelated Brazilian children with isolated atrial, ventricular or atrioventricular septal defects; one child with a ventricular septal defect was homozygous for a variant in an enhancer about 90 kb downstream of TBX5, with both parents heterozygous. The authors report that the variant abolished enhancer activity in mouse and zebrafish transgenic assays.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000023
     publication: PMID:26989721
     design: cohort_screen
@@ -1678,6 +1700,8 @@ findings:
         element: Results (one of the three patients carried c.615C>T, V205V, in exon 7; no change in the other two)
     summary: Exons 2-9 of TBX5 were sequenced in three members of one family with Holt-Oram syndrome; one carried a synonymous change (c.615C>T, p.V205V) and the other two carried no change. The authors state that its potential pathologic effect remains unknown. The paper does not say which of the three has the variant, so the lesions listed are the three patients' (secundum atrial septal defects in all three, multiple ventricular septal defects in patient 2), not the carrier's own.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000024
     publication: PMID:25216260
     design: cohort_screen
@@ -1686,7 +1710,7 @@ findings:
     screened: 6
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 2}
     variant_classes: [snv_indel]
-    phenotypes: [HP:0001684, HP:0011682, HP:0011623, HP:0011577]
+    phenotypes: [HP:0001684, HP:0011577, HP:0011623, HP:0011625, HP:0011682]
     lesion_groups: [septal, avsd]
     syndromic: syndromic
     shares_probands_with: unknown
@@ -1697,6 +1721,9 @@ findings:
         element: Results, Patient characteristics (eight patients from six unrelated Korean families; partial AVSD in one, VSD with ASD in five, VSD in one, secundum ASD in one)
     summary: Eight patients from six unrelated Korean families with Holt-Oram syndrome were screened; three families carried a TBX5 variant (c.709C>T p.Arg237Trp, c.880G>T p.Glu294X, c.755+2T>C), and MLPA found no TBX5 exon deletion or duplication. All eight patients had cardiac septal defects. The c.880G>T variant was found in family 1, a father and his child (patients 2 and 1), so that family is counted as inherited; the text available does not show transmission in the other two families. Table 2 is not in the available text, so the lesions listed are the eight patients' (secundum atrial septal defect in all; ventricular septal defect perimembranous in most, muscular in some; partial atrioventricular septal defect in one), not the carrier families' own.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000025
     publication: PMID:25274398
     design: family_segregation
@@ -1716,6 +1743,8 @@ findings:
         element: Case Report (patient with secundum ASD and muscular VSD; mother operated for ASD, with complete atrioventricular block)
     summary: A Japanese family with two affected members (a boy with secundum ASD and muscular VSD and his mother, who had ASD surgery) carried a duplication of TBX5 exons 1-6 in both; the unaffected father and older brother did not carry it.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000026
     publication: PMID:26036351
     design: cohort_screen
@@ -1736,6 +1765,8 @@ findings:
     summary: Fifty-two Mexican patients with isolated tetralogy of Fallot were screened by MLPA with a probe set that includes TBX5, and the paper reports no TBX5 copy number change; its only CNV was a TBX1 deletion in one patient. No TBX5 carrier was found, so the lesion listed is the cohort's.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000027
     publication: PMID:26219450
     design: case_report
@@ -1744,8 +1775,8 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
-    phenotypes: [HP:0001629]
-    lesion_groups: [septal]
+    phenotypes: [HP:0001629, HP:0030968]
+    lesion_groups: [other, septal]
     syndromic: syndromic
     shares_probands_with: unknown
     locators:
@@ -1755,6 +1786,8 @@ findings:
         element: Case Report (first paragraph; multiple ventricular septal defects, failure of incorporation of the pulmonary veins and tricuspid valve insufficiency)
     summary: A 4-month-old Saudi infant with Holt-Oram syndrome, multiple ventricular septal defects and bilateral radial ray deficiency carried a novel heterozygous TBX5 missense variant (c.215C>A, p.Thr72Lys) that both parents tested negative for. The authors did no functional analysis of the variant.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000029
     publication: PMID:26283027
     design: common_variant_association
@@ -1772,9 +1805,11 @@ findings:
         element: Results, Combined analysis of the susceptibility loci (all cases and controls from the GWA scan and Validations I, II and III pooled; rs2433752 OR=0.83, Pall=1.04 x 10-10)
       - kind: in_text
         element: Results, Susceptibility loci of CHD in validation studies, and Methods, Subjects (cases 945 + 2,770 + 1,095 + 1,437 + 751 and controls 1,246 + 3,911 + 2,379 + 773 + 347, summed here from the stage counts)
-    summary: The authors place the lead SNP rs2433752 at 12q24.13, upstream of TBX3 and TBX5 (170 kb and 448 kb), and discuss those two genes as candidates; in the pooled genome-wide scan and three validation stages the SNP is associated with congenital heart disease in Han Chinese (OR 0.83, P 1.04e-10). A common-variant association has no carriers, so the listed lesions are the cohort's, namely the ASD, VSD, ASD with VSD, patent ductus arteriosus and tetralogy of Fallot subtypes the paper names.
+    summary: The authors place the lead SNP rs2433752 at 12q24.13, upstream of TBX3 and TBX5 (170 kb and 448 kb), and discuss those two genes as candidates; in the pooled genome-wide scan and three validation stages the SNP is associated with congenital heart disease in Han Chinese (OR 0.83, P 1.04e-10). A common-variant association has no carriers, so the listed lesions are the cohort's, namely the ASD, VSD, ASD with VSD, patent ductus arteriosus and tetralogy of Fallot subtypes the paper names. The case and control totals are the sum of the discovery and validation stages the Methods list; the paper prints no total.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000031
     publication: PMID:27035640
     design: family_segregation
@@ -1797,6 +1832,8 @@ findings:
     summary: One Han Chinese family with atrial fibrillation carried TBX5 p.P132S in all four affected living members listed in Table II, and the authors state it was absent in the unaffected members they examined; one carrier, the proband's sister, also had a secundum atrial septal defect, forelimb deformities and atrioventricular block; the other three listed carriers are described with atrial fibrillation only and no heart defect is reported for them. The pedigree figure carries the carrier counts; no LOD score is stated.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000032
     publication: PMID:27652283
     design: case_report
@@ -1816,6 +1853,8 @@ findings:
         element: Results, Identification of a novel de novo mutation p.Pro85Thr (first paragraph; two ventricular septal defects of 0.8 cm each, a patent foramen ovale, grade III tricuspid insufficiency)
     summary: A 15-month-old boy with Holt-Oram syndrome, multiple ventricular septal defects and severe upper limb malformations carried a novel heterozygous TBX5 variant, c.920C>A (p.Pro85Thr), absent in both parents, who had no history of heart or upper limb malformation. The authors report a sibling with an atrial septal defect and give no genotype for her.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000034
     publication: PMID:28761722
     design: common_variant_association
@@ -1827,7 +1866,7 @@ findings:
     phenotypes: [HP:0001627]
     lesion_groups: [conotruncal, septal, lvoto, rvoto, anomalous_venous_return, complex, other]
     syndromic: isolated
-    shares_probands_with: [CHDA:LIT:0000036]
+    shares_probands_with: unknown
     locators:
       - kind: in_text
         element: Table 1 (Shandong, C/T-T/T vs C/C)
@@ -1835,6 +1874,8 @@ findings:
         element: Results, first section (Shandong group)
     summary: In the Shandong group (905 cases, 606 controls, Han Chinese), the TBX5 3'UTR variant rs6489956 (c.*1101C>T) was associated with CHD under the dominant model (CT/TT vs CC), adjusted OR 2.33, P=1.65e-7. The authors report it as a non-coding variant altering miRNA binding. There are no carriers to describe; the lesions are the cohort's (seven broad CHD categories, mostly septal defects).
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000035
     publication: PMID:28761722
     design: common_variant_association
@@ -1846,7 +1887,7 @@ findings:
     phenotypes: [HP:0001627]
     lesion_groups: [conotruncal, septal, lvoto, rvoto, anomalous_venous_return, complex, other]
     syndromic: isolated
-    shares_probands_with: [CHDA:LIT:0000036]
+    shares_probands_with: unknown
     locators:
       - kind: in_text
         element: Table 1 (Shanghai, C/T-T/T vs C/C)
@@ -1854,25 +1895,8 @@ findings:
         element: Results, first section (Shanghai cohort)
     summary: In the Shanghai group (272 cases, 384 controls, Han Chinese), the TBX5 3'UTR variant rs6489956 (c.*1101C>T) was associated with CHD under the dominant model (CT/TT vs CC), adjusted OR 1.75, P=0.0013. There are no carriers to describe; the lesions are the cohort's (seven broad CHD categories, mostly septal defects).
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-  - id: CHDA:LIT:0000036
-    publication: PMID:28761722
-    design: common_variant_association
-    methods: [targeted_genotyping]
-    cases: 1177
-    controls: 990
-    p_value: 3.62e-08
-    odds_ratio: 1.83
-    phenotypes: [HP:0001627]
-    lesion_groups: [conotruncal, septal, lvoto, rvoto, anomalous_venous_return, complex, other]
-    syndromic: isolated
-    shares_probands_with: [CHDA:LIT:0000034, CHDA:LIT:0000035]
-    locators:
-      - kind: in_text
-        element: Table 1 (Combined, C/T-T/T vs C/C)
-      - kind: in_text
-        element: Results, first section (combined analysis)
-    summary: The authors' combined analysis of the Shandong and Shanghai groups (1,177 cases, 990 controls) gave a dominant-model OR of 1.83 for TBX5 rs6489956 (c.*1101C>T), P=3.62e-8. It pools the two cohort findings above and does not add independent evidence. There are no carriers to describe; the lesions are the cohort's (seven broad CHD categories, mostly septal defects).
-    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000037
     publication: PMID:29707177
     design: cohort_screen
@@ -1893,6 +1917,8 @@ findings:
     summary: Screening TBX5 exons 4-7 by PCR-SSCP and sequencing in 95 sporadic Iranian paediatric CHD patients found a heterozygous nonsense variant, p.E128X (G14742T), in two infants (one with ASD and a large VSD, the other with an isolated VSD), and not in 82 controls. The parents were clinically normal and the authors say it may be de novo; parental genotyping is not reported.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000038
     publication: PMID:29755943
     design: family_segregation
@@ -1913,6 +1939,8 @@ findings:
     summary: Family 1 (a proband with ASD repaired at 34 years, sinus node disease and LVNC) carried the TBX5 splice-region variant c.510+5G>T, found by exome sequencing; it was confirmed in her daughter, who has Holt-Oram syndrome. DNA was not available from the proband's brother, who has an ASD. The authors class the variant as of uncertain significance. The proband's LVNC and sinus node disease are not congenital heart lesions. In the paper's Family 2, the proband (LVNC, sinus node dysfunction, thumb anomalies, a frameshift p.Ser36Thrfs*25) has no reported heart defect, so it is not a finding here.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000040
     publication: PMID:29952356
     design: cohort_screen
@@ -1933,6 +1961,8 @@ findings:
     summary: MLPA (SALSA P311-A2) in 45 apparently nonsyndromic patients with septal defects found no copy number change in TBX5; the three CNVs reported were 22q11.2 deletions. No TBX5 carrier was found. The lesions are the cohort's (ASD, VSD and AVSD).
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000041
     publication: PMID:30538526
     design: case_report
@@ -1953,10 +1983,12 @@ findings:
     summary: A 2-year-old girl with Holt-Oram syndrome (radial ray anomaly, ostium secundum ASD, muscular VSD) carried a novel TBX5 splice-acceptor variant, c.243-1G>C (NM_181486.2), found by sequencing the gene; both parents tested negative, which the authors take as de novo.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000042
     publication: PMID:30221396
     design: cohort_screen
-    methods: [gene_panel]
+    methods: [gene_panel, genome]
     count_unit: probands
     screened: 167
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 0}
@@ -1972,14 +2004,17 @@ findings:
         element: Results, first paragraph (167 patients and their CHD phenotypes)
     summary: MLPA in 167 Chinese children with sporadic CHD found no imbalance in any TBX5 exon probed (eight of ten exons). The CNVs reported were five 22q11.2 deletions and one 22q11.2 duplication. No TBX5 carrier was found. The lesions are the cohort's (VSD, ASD, tetralogy of Fallot and patent ductus arteriosus).
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000043
     publication: PMID:30834692
     design: common_variant_association
     methods: [targeted_sequencing]
     cases: 150
     controls: 90
-    phenotypes: [HP:0001631, HP:0001629, HP:0001636]
-    lesion_groups: [septal, conotruncal]
+    phenotypes: [HP:0001629, HP:0001631, HP:0001636, HP:0001643, HP:0001669, HP:0001674, HP:0001680, HP:0010316]
+    lesion_groups: [avsd, conotruncal, lvoto, other, septal]
     syndromic: isolated
     shares_probands_with: unknown
     locators:
@@ -1990,7 +2025,11 @@ findings:
     summary: In 150 Egyptian children with sporadic nonsyndromic congenital heart disease and 90 controls, the synonymous TBX5 variant rs6489957 (c.1281C>T) was genotyped by Sanger sequencing, and the authors report a significantly different genotype distribution; Table 3 gives CT 63 and CC 87 (TT 0) in cases against TT 47, CT 41 and CC 2 in controls. No carrier is reported; the lesions are the cohort's (ventricular and atrial septal defects, patent ductus arteriosus, aortic coarctation and tetralogy of Fallot).
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     review_status: pending_review
-    review_note: Table 6 headers the cases CC N=87 and CT N=58 (sum 145 of 150), while Table 3 and the text give CT 63 (42%); the text also gives the control CC frequency as 0.03% where Table 3 lists 2 of 90 controls. The odds ratio and p-values of the allele and genotype rows are not readable from the flattened Table 3 and are not recorded.
+    review_note: Table 3 prints an odds ratio of 0.187 for rs6489957, while the allele counts in the same table give about 11.3. Table 6 headers the cases CC N=87 and CT N=58 (sum 145 of 150), while Table 3 and the text give CT 63 (42%); the text gives the control CC frequency as 0.03% where Table 3 lists 2 of 90 controls.
+    odds_ratio: 0.187
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000044
     publication: PMID:31388035
     design: cohort_screen
@@ -2013,6 +2052,8 @@ findings:
     summary: Targeted panel sequencing of ESCO2, SALL4 and TBX5 in 27 Brazilian individuals with thalidomide embryopathy found 15 TBX5 variants; the authors classified none as pathogenic and did not consider any the cause of a phenotype (a novel synonymous c.420C>T, p.Asp140=, in one individual was a variant of uncertain significance, and c.787G>A, p.Val263Met, was in two), so no carrier is counted. Heart anomalies (type not given) were recorded in 1 of 17 individuals with data; no carrier is counted, so the lesion is the cohort's.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000047
     publication: PMID:33306779
     design: cohort_screen
@@ -2021,8 +2062,8 @@ findings:
     screened: 178
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
-    phenotypes: [HP:0001647, HP:0001627]
-    lesion_groups: [lvoto, other]
+    phenotypes: [HP:0001629, HP:0001631, HP:0001647]
+    lesion_groups: [lvoto, septal]
     syndromic: isolated
     shares_probands_with: [CHDA:LIT:0000048]
     locators:
@@ -2032,10 +2073,13 @@ findings:
         element: Table 1 (178 patients with CHD and AF)
     summary: Sanger sequencing of the TBX5 coding exons and splice sites in 178 unrelated Chinese Han adults with both congenital heart disease and atrial fibrillation found one carrier of a novel nonsense variant, c.577G>T, p.(Gly193*), absent from 292 healthy controls; the carrier had congenital heart disease (type not stated for the carrier), atrial fibrillation and bicuspid aortic valve, and parental origin is not shown.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000048
     publication: PMID:33306779
     design: family_segregation
-    methods: [targeted_sequencing]
+    methods: [exome, targeted_sequencing]
     count_unit: families
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
@@ -2051,6 +2095,9 @@ findings:
         element: Table 2 (family members and TBX5 status)
     summary: In the proband's family, the TBX5 p.(Gly193*) variant was heterozygous in all five genotyped affected relatives (atrial septal defect, bicuspid aortic valve and atrial fibrillation; two with a ventricular septal defect), a sixth affected member (I-1, deceased) was not genotyped, and one unaffected relative (II-3) was exome-sequenced.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000049
     publication: PMID:33281169
     design: case_report
@@ -2068,6 +2115,8 @@ findings:
         element: Case description (single paragraph)
     summary: A 30-year-old woman with an atrial septal defect, polydactyly, sick sinus syndrome and mitral valve prolapse carried a heterozygous TBX5 c.148-1G>C intron 2 splice-acceptor variant that the authors call pathogenic; her cardiac family history was unremarkable and parental testing is not described.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000050
     publication: PMID:33369127
     design: family_segregation
@@ -2076,7 +2125,7 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
-    phenotypes: [HP:0001684, HP:0011623]
+    phenotypes: [HP:0001684, HP:0011623, HP:0011624]
     lesion_groups: [septal]
     syndromic: isolated
     shares_probands_with: unknown
@@ -2087,6 +2136,9 @@ findings:
         element: Results, clinical evaluation paragraph
     summary: Exome sequencing of a 5-year-old boy with long QT syndrome, a secundum atrial septal defect and two small muscular ventricular septal defects found heterozygous TBX5 p.Thr223Met (c.668C>T), also present in his mother (prolonged PR interval, no long QT) and his brother (prolonged QT and several muscular septal defects); the authors describe dominant inheritance with reduced penetrance, and the proband had no upper-limb malformation.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000052
     publication: PMID:33866394
     design: case_report
@@ -2107,6 +2159,8 @@ findings:
     summary: Individual B, a man with Holt-Oram syndrome, carried a novel heterozygous TBX5 frameshift (c.905delA) and had an atrial septal defect, atrial fibrillation and complete atrioventricular block with a mild skeletal phenotype; the paper does not state the variant's origin.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000053
     publication: PMID:34738001
     design: family_segregation
@@ -2126,6 +2180,8 @@ findings:
         element: Clinical Report, paragraph 2 and Figure 3 (the variant was found in the fetus, father and brother and not in the mother, grandfather or grandmother)
     summary: A TBX5 splice-donor variant (c.510+1G>A) found by exome sequencing in a fetus with Holt-Oram syndrome was inherited from the father; the affected father and affected brother carried it, and the mother and both grandparents did not.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000054
     publication: PMID:34490705
     design: family_segregation
@@ -2134,7 +2190,7 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
-    phenotypes: [HP:0001684, HP:0001629, HP:0031134, HP:0005301]
+    phenotypes: [HP:0001629, HP:0001643, HP:0001684, HP:0005301, HP:0031134]
     lesion_groups: [septal, other]
     syndromic: syndromic
     shares_probands_with: unknown
@@ -2147,27 +2203,9 @@ findings:
         element: Results 3.3 and Table 1 (allele frequency 50% in III-1, 48.3% in III-2 and 38.1% in the mother II-2, called mosaic heterozygous)
     summary: A TBX5 splice-donor variant (c.755+1G>A) found by exome sequencing in a girl with atrial and ventricular septal defects was carried by her affected brother and affected mother (mosaic) and by none of the four unaffected relatives tested.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-  - id: CHDA:LIT:0000055
-    publication: PMID:35113653
-    design: family_segregation
-    methods: [not_stated]
-    count_unit: families
-    screened: 1
-    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
-    variant_classes: [snv_indel]
-    phenotypes: [HP:0001671]
-    lesion_groups: [septal]
-    syndromic: syndromic
-    shares_probands_with: unknown
-    locators:
-      - kind: in_text
-        element: Introduction, paragraph 2 (c.373G>A, p.G125R, exon 5, found in a Dutch atypical Holt-Oram family previously reported; affected members have septal defects)
-      - kind: in_text
-        element: Results, Mouse Model Recapitulates Atrial Arrhythmia, paragraph 1 and Figure 1A (pedigree; Table S1 not in the text read)
-    summary: The TBX5 missense variant p.G125R (c.373G>A), previously reported in a Dutch Holt-Oram family with mild skeletal abnormalities, septal defects and early atrial fibrillation, is re-described here with a re-analysis of the family's ECGs; the number of carriers is not stated in the text.
-    extracted_by: agent:literature-extract/claude-sonnet-5-5
-    review_status: not_accessible
-    review_note: The pedigree figure and Table S1 were not in the text read, so the numbers of carriers and affected relatives are not stated; the detection method is not stated either, as the family was characterised in an earlier paper.
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000056
     publication: PMID:35514310
     design: family_segregation
@@ -2192,6 +2230,8 @@ findings:
     summary: One two-generation family was studied by trio exome sequencing. A maternally inherited heterozygous nonsense variant, TBX5 c.577G>T (p.Gly193*), was found in the proband, who had mixed-type total anomalous pulmonary venous return, and in her mother, who had an ostium secundum atrial septal defect and a triphalangeal thumb; the authors revised the diagnosis from non-syndromic congenital heart disease to Holt-Oram syndrome.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000057
     publication: PMID:35711406
     design: case_report
@@ -2210,6 +2250,8 @@ findings:
     summary: One man, diagnosed with Holt-Oram syndrome at age 12 and described as having a TBX5 mutation, had an atrial septal defect that closed spontaneously; the report gives neither the variant nor how it was detected, and is about a cardioembolic stroke at age 66.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000058
     publication: PMID:35870951
     design: common_variant_association
@@ -2222,7 +2264,7 @@ findings:
     phenotypes: [HP:0001629]
     lesion_groups: [septal]
     syndromic: isolated
-    shares_probands_with: [CHDA:LIT:0000060]
+    shares_probands_with: unknown
     locators:
       - kind: in_text
         element: Methods, recruitment of study subjects (200 cases, 150 controls)
@@ -2232,6 +2274,8 @@ findings:
         element: Table 3, TBX5 allele rows
     summary: In a Pakistani paediatric cohort of children with isolated ventricular septal defect and healthy controls, the TBX5 variant rs11067075 (g.51682G>T) had a T allele frequency of 0.44 in cases and 0.26 in controls (odds ratio 2.24, 95% CI 1.47-3.41, p 0.0002; the authors' Bonferroni threshold is 0.0125). The ventricular septal defect is the cohort's; the study gives no carrier-level lesions.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
     review_status: pending_review
     review_note: 'The case and control numbers disagree within the paper: Methods and the abstract give 200 cases and 150 controls, the Table 2 header gives 121 cases and 121 controls, and the counts in Table 3 sum to 101 cases and 100 controls.'
   - id: CHDA:LIT:0000059
@@ -2256,30 +2300,8 @@ findings:
     summary: In one Chinese family, exome sequencing found a novel TBX5 insertion, c.680_681insCTGAGAATAAT (p.Ile227fs*), in the proband and his father but not in the unaffected grandparents tested by Sanger sequencing; the proband had common atrium, unroofed coronary sinus and a persistent left superior vena cava, and the father an interventricular septal defect.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
-  - id: CHDA:LIT:0000060
-    publication: PMID:36759823
-    design: common_variant_association
-    methods: [targeted_genotyping]
-    cases: 100
-    controls: 100
-    p_value: 0.0002
-    odds_ratio: 2.24
-    variant_classes: [snv_indel]
-    phenotypes: [HP:0001629]
-    lesion_groups: [septal]
-    syndromic: isolated
-    shares_probands_with: [CHDA:LIT:0000058]
-    locators:
-      - kind: in_text
-        element: Methods, recruitment of study subjects (100 cases, 100 controls)
-      - kind: in_text
-        element: Results, TBX5 rs11067075 paragraph (allelic odds ratio 2.24, 95% CI 1.47-3.41, p 0.0002)
-      - kind: in_text
-        element: Table 2, TBX5 allele rows
-    summary: In a Pakistani paediatric cohort of children with isolated ventricular septal defect and healthy controls, the TBX5 variant rs11067075 (g.51682G>T) had a T allele frequency of 0.44 in cases and 0.26 in controls (odds ratio 2.24, 95% CI 1.47-3.41, p 0.0002; the authors' Bonferroni threshold is 0.01). The ventricular septal defect is the cohort's; the study gives no carrier-level lesions.
-    extracted_by: agent:literature-extract/claude-sonnet-5-5
-    review_status: pending_review
-    review_note: The counts in Table 2 sum to 101 cases and 100 controls, while Methods state 100 cases and 100 controls.
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000061
     publication: PMID:36936432
     design: case_report
@@ -2302,6 +2324,8 @@ findings:
     summary: One woman with upper limb dysplasia and a left main coronary artery arising from the right coronary sinus carried two TBX5 3' UTR single-nucleotide variants, rs883079 (from her mother) and rs10850326 (from her father), both benign in ClinVar; no TBX5 exon variant was found, and the authors hypothesise, without testing it, that the two 3' UTR variants cause her disease.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000062
     publication: PMID:38397197
     design: cohort_screen
@@ -2310,8 +2334,8 @@ findings:
     screened: 56
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 0}
     variant_classes: [cnv]
-    phenotypes: [HP:0001629, HP:0001636]
-    lesion_groups: [septal, conotruncal]
+    phenotypes: [HP:0001629, HP:0001631, HP:0001636, HP:0001642, HP:0001643, HP:0001650, HP:0001660, HP:0001669, HP:0001680, HP:0001719, HP:0004383, HP:0006695, HP:0011613, HP:0011638, HP:0011662]
+    lesion_groups: [avsd, complex, conotruncal, lvoto, other, rvoto, septal]
     syndromic: both
     shares_probands_with: unknown
     locators:
@@ -2321,6 +2345,9 @@ findings:
         element: Methods 2.2 (SALSA MLPA P311-B2 probemix, 10 TBX5 probes) and Results, first paragraph (56 patients, 28 syndromic and 28 isolated)
     summary: No copy number variant involving TBX5 was found by MLPA in 56 Romanian children with congenital heart defects (28 syndromic, 28 isolated). There were no carriers, so the lesions are the cohort's, and the commonest was ventricular septal defect (22 patients), then tetralogy of Fallot and pulmonary stenosis (7 each).
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000063
     publication: PMID:39230761
     design: case_report
@@ -2341,6 +2368,8 @@ findings:
     summary: A 49-year-old man with an ostium secundum atrial septal defect, a triphalangeal left thumb and scoliosis was reported to carry a TBX5 mutation; the paper does not name the variant or the test, and a family survey found no similar cases.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000064
     publication: PMID:39541167
     design: case_report
@@ -2361,6 +2390,8 @@ findings:
     summary: A 10-year-old girl with atrial and ventricular septal defects, right thenar hypoplasia and sick sinus syndrome carried TBX5 c.254C>G (p.P85R), reported with a DNHD1 and a ZNF469 coding variant; the testing method and the variant's origin are not stated.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000066
     publication: PMID:40126773
     design: case_report
@@ -2382,6 +2413,8 @@ findings:
         element: Conclusion (only proband data were included and family data were not collected)
     summary: A 26-year-old man with congenital heart disease and pulmonary arterial hypertension, atrial and ventricular septal defects and left hand deformity carried a TBX5 frameshift variant, c.486del (p.Asn162Lysfs*12), found by exome sequencing; family data were not collected.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000067
     publication: PMID:42311150
     design: common_variant_association
@@ -2401,6 +2434,8 @@ findings:
         element: Methods 2.1 and 2.4 (585 cases, 600 controls; MassArray iPLEX genotyping of 6 TBX5 SNPs)
     summary: In a single-centre Chinese case-control study the TBX5 SNP rs11067101 was associated with higher risk of non-syndromic congenital heart disease (GA vs GG, adjusted odds ratio 1.50, 95% CI 1.08-2.11; 585 cases, 600 controls).
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000068
     publication: PMID:42311150
     design: common_variant_association
@@ -2420,6 +2455,8 @@ findings:
         element: Methods 2.1 and 2.4 (585 cases, 600 controls; MassArray iPLEX genotyping of 6 TBX5 SNPs)
     summary: In the same case-control study the TBX5 SNP rs6489956 was associated with higher risk of non-syndromic congenital heart disease (recessive model, adjusted odds ratio 2.98, 95% CI 1.94-4.58; 585 cases, 600 controls).
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
   - id: CHDA:LIT:0000069
     publication: PMID:42482497
     design: family_segregation
@@ -2440,3 +2477,5 @@ findings:
     summary: One family carried a TBX5 nonsense variant, p.(Gln424Ter), in a girl, her mother and her maternal grandfather, all with patent ductus arteriosus (small in the girl, coil-embolized in the mother in childhood) and sinus node dysfunction; the girl also had early-childhood atrial flutter and the grandfather dilated cardiomyopathy; no upper limb abnormality was found on examination, but skeletal radiographs were not taken.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-03
