@@ -910,3 +910,39 @@ def test_the_literature_census_is_published_under_its_own_keys(
     assert 4 not in others.values()
     assert counts["literature_genes"] == 6
     assert counts["literature_findings"] == 4
+
+
+def test_a_publication_only_an_unapproved_finding_cites_is_withheld_from_the_build(
+    repo: Path, tmp_path: Path
+) -> None:
+    """Owner decision 3, through `build_site`: PMID:900008 is registered and cited by
+    an unapproved finding alone, so `publications.json` omits it; PMID:40127276 is
+    cited by an unapproved finding too but carries burden rows, so it stays. Without
+    the runner passing the burden studies in, the second assertion fails.
+    """
+    with (repo / "curation" / "publications.yaml").open("a") as handle:
+        handle.write(
+            "  - id: PMID:900008\n    title: Only an unapproved finding cites this.\n"
+            "    journal: J\n    year: 2020\n    authors: [A B]\n"
+            "    study_type: cohort_sequencing\n    own_lab: false\n"
+        )
+    extra = _LITERATURE_FILE.replace(
+        "PMID:900001, search: 1, decision: excluded, reason: not_chd",
+        "PMID:900008, search: 1, decision: included",
+    ) + _LITERATURE_FILE.split("findings:\n")[1].split("  - id: CHDA:LIT:0000002")[0].replace(
+        "CHDA:LIT:0000001", "CHDA:LIT:0000003"
+    ).replace("PMID:8988165", "PMID:900008").replace(
+        "    approved_by: A. Curator\n    approved_on: 2026-11-05\n", ""
+    )
+    (repo / "curation" / "literature").mkdir()
+    (repo / "curation" / "literature" / "TBX5.yaml").write_text(extra)
+    registry = repo / "curation" / ".id_registry.yaml"
+    registry.write_text(registry.read_text().replace("LIT: 0", "LIT: 3"))
+
+    out = tmp_path / "withheld"
+    build_site(repo, out)
+
+    ids = [p["id"] for p in json.loads((out / "publications.json").read_text())["publications"]]
+    assert "PMID:900008" not in ids
+    assert "PMID:40127276" in ids
+    assert "PMID:8988165" in ids

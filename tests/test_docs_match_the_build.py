@@ -1644,7 +1644,8 @@ def test_the_doc_describes_the_literature_section_and_what_publishes_before_appr
     assert "`[]` is an assertion, not an absence" in doc
     assert "An id in the list may name a finding that is not yet approved" in doc
     assert (
-        "publishes that record, with the `study_type` the extracting agent read, in "
-        "[`publications.json`](#publicationsjson) at the next build, whether or not any "
-        "finding of that paper has been approved"
+        "keeps that record, with the `study_type` the extracting agent read, out of "
+        "[`publications.json`](#publicationsjson) until a finding of that paper is "
+        "approved, unless an assertion, functional record, featured entry, dataset or "
+        "burden row also cites the paper"
     ) in doc

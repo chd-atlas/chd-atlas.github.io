@@ -1,5 +1,7 @@
 # tests/unit/test_build_literature.py
 import json
+from collections.abc import Collection
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -7,7 +9,10 @@ import pytest
 from chd_atlas.build.emit import Emitter
 from chd_atlas.build.literature import build_literature
 from chd_atlas.corpus import Corpus
+from chd_atlas.models.assertion import Evidence, LesionAssertion, SupplementaryLocator
 from chd_atlas.models.dataset import Dataset
+from chd_atlas.models.functional import FunctionalEvidence
+from chd_atlas.models.gene_literature import GeneLiteratureFile
 from chd_atlas.models.literature import FeaturedManuscript, PhenotypeTerm, Publication
 
 
@@ -88,7 +93,7 @@ def _cited(entry: dict[str, object]) -> str:
 def test_emits_all_four_payloads(tmp_path: Path) -> None:
     emitter = Emitter(root=tmp_path)
 
-    build_literature(_corpus(), emitter)
+    build_literature(_corpus(), emitter, burden_studies=())
 
     assert set(emitter.checksums) == {
         "publications.json",
@@ -119,7 +124,7 @@ def test_featured_manuscripts_are_emitted_in_display_order(tmp_path: Path) -> No
     )
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter)
+    build_literature(corpus, emitter, burden_studies=())
 
     featured = _payload(tmp_path, "featured.json", "featured")
     assert [entry["order"] for entry in featured] == [1, 2]
@@ -143,7 +148,7 @@ def test_the_inline_publication_is_the_one_the_entry_cites(tmp_path: Path) -> No
     )
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter)
+    build_literature(corpus, emitter, burden_studies=())
 
     featured = _payload(tmp_path, "featured.json", "featured")
     assert featured[0]["publication"] == {
@@ -183,7 +188,7 @@ def test_featured_entries_sharing_a_display_order_are_ranked_by_pmid(tmp_path: P
     )
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter)
+    build_literature(corpus, emitter, burden_studies=())
 
     featured = _payload(tmp_path, "featured.json", "featured")
     assert [_cited(entry) for entry in featured] == ["PMID:1", "PMID:2"]
@@ -205,7 +210,7 @@ def test_a_featured_entry_keeps_the_curators_own_words(tmp_path: Path) -> None:
     )
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter)
+    build_literature(corpus, emitter, burden_studies=())
 
     entry = _payload(tmp_path, "featured.json", "featured")[0]
     assert entry["blurb"] == "The founding demonstration of TBX5 haploinsufficiency."
@@ -231,7 +236,7 @@ def test_a_featured_entry_citing_an_unknown_publication_is_refused(tmp_path: Pat
     emitter = Emitter(root=tmp_path)
 
     with pytest.raises(ValueError, match="PMID:404"):
-        build_literature(corpus, emitter)
+        build_literature(corpus, emitter, burden_studies=())
 
     # Refused before anything is written, rather than after half the payloads are.
     assert emitter.checksums == {}
@@ -284,7 +289,7 @@ def test_identifier_arrays_are_ordered_lexically(
     """
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter)
+    build_literature(corpus, emitter, burden_studies=())
 
     published = _payload(tmp_path, name, key)
     assert [record["id"] for record in published] == expected
@@ -340,7 +345,7 @@ def test_records_colliding_on_one_identifier_are_all_published(
     """
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter)
+    build_literature(corpus, emitter, burden_studies=())
 
     assert [record[field] for record in _payload(tmp_path, name, key)] == expected
 
@@ -360,7 +365,7 @@ def test_phenotypes_are_ordered_by_identifier_and_keep_their_synonyms(tmp_path: 
     )
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter)
+    build_literature(corpus, emitter, burden_studies=())
 
     published = _payload(tmp_path, "phenotypes.json", "phenotypes")
     assert [term["id"] for term in published] == [
@@ -380,7 +385,7 @@ def test_a_dataset_is_published_with_the_contrasts_that_interpret_it(tmp_path: P
     """
     emitter = Emitter(root=tmp_path)
 
-    build_literature(_corpus(datasets=(_dataset(),)), emitter)
+    build_literature(_corpus(datasets=(_dataset(),)), emitter, burden_studies=())
 
     published = _payload(tmp_path, "datasets.json", "datasets")
     contrasts = published[0]["contrasts"]
@@ -403,7 +408,7 @@ def test_vocabularies_are_published_as_their_values(tmp_path: Path) -> None:
     corpus = _corpus(datasets=(_dataset(),))
     emitter = Emitter(root=tmp_path)
 
-    build_literature(corpus, emitter)
+    build_literature(corpus, emitter, burden_studies=())
 
     assert _payload(tmp_path, "publications.json", "publications")[0]["study_type"] == (
         "family_linkage"
@@ -417,9 +422,168 @@ def test_an_empty_corpus_still_emits_every_payload(tmp_path: Path) -> None:
     """A consumer fetching phenotypes.json must not 404 before curation starts."""
     emitter = Emitter(root=tmp_path)
 
-    build_literature(Corpus(root=Path(".")), emitter)
+    build_literature(Corpus(root=Path(".")), emitter, burden_studies=())
 
     assert json.loads((tmp_path / "phenotypes.json").read_text()) == {"phenotypes": []}
     assert json.loads((tmp_path / "publications.json").read_text()) == {"publications": []}
     assert json.loads((tmp_path / "featured.json").read_text()) == {"featured": []}
     assert json.loads((tmp_path / "datasets.json").read_text()) == {"datasets": []}
+
+
+# --- withholding a publication only an unapproved literature finding cites ---
+
+
+def _finding(pmid: str, approved: bool, number: int = 1) -> dict[str, object]:
+    finding: dict[str, object] = {
+        "id": f"CHDA:LIT:{number:07d}",
+        "publication": pmid,
+        "design": "cohort_screen",
+        "methods": ["exome"],
+        "count_unit": "probands",
+        "screened": 7,
+        "carriers": {"de_novo": 2, "inherited": 1, "origin_unknown": 3},
+        "variant_classes": ["snv_indel"],
+        "phenotypes": ["HP:0001631"],
+        "lesion_groups": ["septal"],
+        "syndromic": "both",
+        "shares_probands_with": "unknown",
+        "locators": [{"kind": "in_text", "element": "Table 2"}],
+        "summary": "A summary.",
+        "extracted_by": "agent:extract/test",
+    }
+    if approved:
+        finding["approved_by"] = "A. Curator"
+        finding["approved_on"] = "2026-11-05"
+    return finding
+
+
+def _literature(*findings: dict[str, object]) -> tuple[tuple[Path, GeneLiteratureFile], ...]:
+    file = GeneLiteratureFile.model_validate(
+        {
+            "gene": "HGNC:11604",
+            "searches": [
+                {
+                    "id": 1,
+                    "source": "pubmed",
+                    "query": "q",
+                    "run_on": "2026-11-02",
+                    "hits": 1,
+                    "new_hits": 1,
+                }
+            ],
+            "triage": [],
+            "findings": list(findings),
+        }
+    )
+    return ((Path("TBX5.yaml"), file),)
+
+
+def _published(
+    tmp_path: Path, corpus: Corpus, burden_studies: Collection[str] = ()
+) -> list[object]:
+    build_literature(corpus, Emitter(root=tmp_path), burden_studies=burden_studies)
+    return [p["id"] for p in _payload(tmp_path, "publications.json", "publications")]
+
+
+def test_a_publication_only_an_unapproved_finding_cites_is_withheld(tmp_path: Path) -> None:
+    """Owner decision 3: the agent's study_type guess reaches no byte before approval."""
+    corpus = _corpus(
+        publications=(_publication("PMID:1"), _publication("PMID:2"), _publication("PMID:3")),
+        featured=(),
+        literature=_literature(
+            _finding("PMID:1", approved=False, number=1),
+            _finding("PMID:2", approved=True, number=2),
+        ),
+    )
+
+    assert _published(tmp_path, corpus) == ["PMID:2", "PMID:3"]
+
+
+def test_an_approved_finding_among_unapproved_ones_publishes_the_publication(
+    tmp_path: Path,
+) -> None:
+    corpus = _corpus(
+        publications=(_publication("PMID:1"),),
+        featured=(),
+        literature=_literature(
+            _finding("PMID:1", approved=False, number=1),
+            _finding("PMID:1", approved=True, number=2),
+        ),
+    )
+
+    assert _published(tmp_path, corpus) == ["PMID:1"]
+
+
+@pytest.mark.parametrize("citer", ["featured", "burden", "dataset", "assertion", "functional"])
+def test_another_citer_keeps_a_publication_an_unapproved_finding_also_cites(
+    tmp_path: Path, citer: str
+) -> None:
+    """Every citer `validate_references` and the burden validators resolve a PMID for."""
+    extra: dict[str, object] = {}
+    burden: set[str] = set()
+    if citer == "featured":
+        extra["featured"] = (
+            FeaturedManuscript(publication="PMID:1", order=1, blurb="b", topic="genomics"),
+        )
+    elif citer == "burden":
+        burden = {"PMID:1"}
+    elif citer == "dataset":
+        extra["datasets"] = (_dataset(publication="PMID:1"),)
+    elif citer == "assertion":
+        extra["assertions"] = (
+            LesionAssertion.model_validate(
+                {
+                    "id": "CHDA:AST:0000001",
+                    "gene": "HGNC:11604",
+                    "phenotypes": ["HP:0001631"],
+                    "lesion_groups": ["septal"],
+                    "inheritance": ["AD"],
+                    "mechanism": "haploinsufficiency",
+                    "syndromic": "both",
+                    "evidence": [
+                        Evidence.model_validate(
+                            {
+                                "publication": "PMID:1",
+                                "evidence_class": "genetic_case",
+                                "locator": SupplementaryLocator(file="T.xlsx"),
+                                "summary": "s",
+                                "strength": "strong",
+                            }
+                        )
+                    ],
+                    "curator": "c",
+                    "curated_on": date(2026, 7, 1),
+                    "last_reviewed": date(2026, 7, 1),
+                }
+            ),
+        )
+    else:
+        extra["functional"] = (
+            FunctionalEvidence.model_validate(
+                {
+                    "id": "CHDA:FUN:0000009",
+                    "gene": "HGNC:11604",
+                    "organism": "NCBITaxon:10090",
+                    "perturbation": "knockout",
+                    "zygosity": "heterozygous",
+                    "cardiac_phenotype": ["MP:0010402"],
+                    "phenocopies_human": "partial",
+                    "rescue_outcome": "not_attempted",
+                    "publication": "PMID:1",
+                }
+            ),
+        )
+    corpus = _corpus(
+        publications=(_publication("PMID:1"),),
+        featured=extra.pop("featured", ()),
+        literature=_literature(_finding("PMID:1", approved=False)),
+        **extra,
+    )
+
+    assert _published(tmp_path, corpus, burden) == ["PMID:1"]
+
+
+def test_a_publication_no_literature_finding_cites_publishes_as_before(tmp_path: Path) -> None:
+    corpus = _corpus(publications=(_publication("PMID:1"),), featured=(), literature=())
+
+    assert _published(tmp_path, corpus) == ["PMID:1"]

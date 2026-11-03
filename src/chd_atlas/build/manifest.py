@@ -497,9 +497,9 @@ from chd_atlas.corpus import Corpus
 #   numeric PMID, then id). A finding carrying a `review_status` is published
 #   with it.
 #   A finding's content reaches no byte until a person approves it; the
-#   `Publication` record a curator adds for its paper does, in
-#   `publications.json`, at the next build and whether or not any finding is
-#   approved (R32).
+#   `Publication` record a curator adds for its paper stays out of
+#   `publications.json` until a finding citing it is approved, unless something
+#   else the build publishes cites it (owner decision 3, superseding R32).
 # * `counts` gains `literature_genes` and `literature_findings`, the published
 #   genes whose bundle records at least one search and the approved findings in
 #   those bundles (`gene_literature.literature_census`). Both are 0 today: no

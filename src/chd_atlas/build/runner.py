@@ -402,7 +402,14 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
         cell_types=cell_type_expression,
         literature=literature,
     )
-    build_literature(corpus, emitter)
+    # The studies the burden mirrors cite, so a Publication only an unapproved
+    # literature finding also names is not withheld from them.
+    build_literature(
+        corpus,
+        emitter,
+        burden_studies={row.study for row in all_burden_rows}
+        | {row.study for rows in combined.values() for row in rows},
+    )
     # The resolution table for the bare cohort ids every burden row carries.
     # Emitted from `corpus.cohorts` -- the whole curated registry, not the subset
     # the published rows happen to cite -- so that every id in every row resolves

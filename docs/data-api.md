@@ -1603,9 +1603,10 @@ what the build publishes for every gene today.
   is not published; the count is what stops their absence being silent. One
   exception is not a finding but its paper: a curator who adds a paper to
   `curation/publications.yaml` for a finding (`chd-atlas literature
-  add-publication`) publishes that record, with the `study_type` the extracting
-  agent read, in [`publications.json`](#publicationsjson) at the next build,
-  whether or not any finding of that paper has been approved.
+  add-publication`) keeps that record, with the `study_type` the extracting
+  agent read, out of [`publications.json`](#publicationsjson) until a finding
+  of that paper is approved, unless an assertion, functional record, featured
+  entry, dataset or burden row also cites the paper.
 - `findings` holds the approved findings only, each as curated, sorted by
   publication year, then numeric PMID, then finding id. A finding carrying a
   `review_status` is published with it and its `review_note`. Each finding's
