@@ -4,11 +4,19 @@
 from __future__ import annotations
 
 import re
-from typing import Final
+from typing import Final, get_args
 
 import pytest
 
-from chd_atlas.build.charts import LogScale, coordinate, marker, polyline, svg_figure
+from chd_atlas.build.charts import (
+    LogScale,
+    Shape,
+    coordinate,
+    glyph,
+    marker,
+    polyline,
+    svg_figure,
+)
 from chd_atlas.build.render import STYLESHEET
 
 
@@ -328,3 +336,47 @@ def test_the_heat_tokens_exist_in_both_colour_schemes() -> None:
     ):
         for token, value in expected.items():
             assert f"{token}: {value};" in block
+
+
+SHAPES: Final = get_args(Shape)
+
+
+@pytest.mark.parametrize("shape", SHAPES)
+def test_every_glyph_is_centred_titled_and_classed_without_colour(shape: str) -> None:
+    out = glyph(100.0, 50.0, shape=shape, title='A<b> & "c"')  # type: ignore[arg-type]
+    assert "<title>A&lt;b&gt; &amp; &quot;c&quot;</title>" in out
+    assert 'class="lit-mark' in out
+    assert "fill=" not in out and "stroke=" not in out and "#" not in out
+    # Positional attributes only: cx/x against the centre x, cy/y and the
+    # points' odd members against the centre y. Radii and sizes are not
+    # positions and are left out on purpose.
+    for attr, centre, is_point_list in (
+        *((name, 100.0, False) for name in ("cx", "x")),
+        *((name, 50.0, False) for name in ("cy", "y")),
+        ("points", 0.0, True),
+    ):
+        for value in re.findall(rf'\b{attr}="([^"]*)"', out):
+            numbers = [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?", value)]
+            if is_point_list:
+                xs, ys = numbers[0::2], numbers[1::2]
+                assert all(abs(n - 100.0) <= 5 for n in xs), out
+                assert all(abs(n - 50.0) <= 5 for n in ys), out
+            else:
+                assert all(abs(n - centre) <= 5 for n in numbers), out
+
+
+def test_the_six_glyphs_are_six_different_drawings() -> None:
+    drawn = {glyph(10.0, 10.0, shape=s, title="t") for s in SHAPES}
+    assert len(drawn) == 6
+
+
+def test_only_the_ring_is_open() -> None:
+    assert "lit-mark-open" in glyph(1.0, 1.0, shape="ring", title="t")
+    assert all(
+        "lit-mark-open" not in glyph(1.0, 1.0, shape=s, title="t") for s in SHAPES if s != "ring"
+    )
+
+
+def test_an_unknown_shape_is_refused() -> None:
+    with pytest.raises(ValueError, match="diamond"):
+        glyph(1.0, 1.0, shape="diamond", title="t")  # type: ignore[arg-type]
