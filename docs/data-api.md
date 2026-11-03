@@ -1620,13 +1620,17 @@ The gene page renders this as its Literature section, after the developmental
 expression section. A gene with no search says only "Not yet curated." Otherwise
 one visible line gives the date of the latest search, the papers found and how
 they were decided (included, excluded, not yet triaged), and the findings
-awaiting approval; folded beneath it are the exclusion tally by reason, every
-search with its date, hits and exact query, and a table of the approved
-findings. The table carries each finding's year, paper, design, methods, counts
-with their unit, carriers by origin, result (the comparator for a rare-variant
-association, and the stored p-value and odds ratio), lesion groups,
-independence (cohorts, and whether its probands are shared) and summary with any
-review mark, and the person who approved it.
+awaiting approval. Beneath it, a timeline draws one mark per publication that
+has an approved finding, placed by year; the mark's shape is the paper's design,
+a ring means the paper reports several designs, and papers of the same year are
+stacked. A fold lists the same publications, one entry each, opening to that
+paper's findings with each finding's design, methods, counts with their unit,
+carriers by origin, result (the comparator for a rare-variant association, and
+the stored p-value and odds ratio), lesion groups, independence (cohorts, and
+whether its probands are shared), summary with any review mark, and the person
+who approved it. A gene with a search and no approved finding says "No approved
+findings yet." and draws no timeline. Folded after those are the exclusion tally
+by reason and every search with its date, hits and exact query.
 
 ## `genes/<slug>.html`
 

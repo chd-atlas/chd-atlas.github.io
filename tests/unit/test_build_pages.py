@@ -10257,7 +10257,12 @@ def test_an_unknown_exclusion_reason_is_shown_by_its_token_not_dropped(tmp_path:
     assert "<li>not about congenital heart disease: 3</li><li>zz_new_reason: 7</li>" in section
 
 
-def test_the_findings_table_gives_every_figure_its_unit_and_links_the_paper(
+def _paper_blocks(section: str) -> list[str]:
+    """Each `<details class="lit-paper">` block of the section, summary to closing tag."""
+    return re.findall(r'<details class="lit-paper">.*?</details>', section)
+
+
+def test_each_paper_block_gives_every_figure_its_unit_and_links_the_paper(
     tmp_path: Path,
 ) -> None:
     common = _lit_finding(
@@ -10273,11 +10278,11 @@ def test_the_findings_table_gives_every_figure_its_unit_and_links_the_paper(
         summary="A locus.",
     )
     section = _lit_page(tmp_path, _lit([_lit_finding(), common]))
-    assert "<details><summary>2 approved findings</summary><table>" in section
+    assert "<details><summary>1 publication</summary>" in section
+    (block,) = _paper_blocks(section)
+    assert '<a href="https://pubmed.ncbi.nlm.nih.gov/8988165/">PMID:8988165</a>' in block
     assert (
-        "<tr><td>1997</td>"
-        '<td><a href="https://pubmed.ncbi.nlm.nih.gov/8988165/">PMID:8988165</a></td>'
-        "<td>cohort screen</td><td>exome, gene panel</td>"
+        "<tr><td>cohort screen</td><td>exome, gene panel</td>"
         "<td>7 carriers among 70 probands</td>"
         "<td>2 de novo, 1 inherited, 4 origin unknown</td>"
         "<td>—</td>"
@@ -10285,14 +10290,12 @@ def test_the_findings_table_gives_every_figure_its_unit_and_links_the_paper(
         "<td>probands: unknown</td>"
         "<td>Seven of seventy probands carried a variant.</td>"
         "<td>A. Curator</td></tr>"
-    ) in section
+    ) in block
     assert (
         "<td>common variant association</td><td>genotyping array</td>"
         "<td>1,200 cases, 3,400 controls</td><td>—</td>"
-    ) in section
-    assert [h for h in re.findall(r"<th[^>]*>([^<]*)</th>", section)] == [
-        "year",
-        "paper",
+    ) in block
+    assert re.findall(r"<th[^>]*>([^<]*)</th>", block) == [
         "design",
         "methods",
         "counts",
@@ -10408,9 +10411,33 @@ def test_every_search_is_folded_with_its_exact_query_escaped(tmp_path: Path) -> 
 def test_a_review_mark_is_shown_beside_the_approved_finding_it_qualifies(tmp_path: Path) -> None:
     marked = _lit_finding(review_status="pending_review", review_note="Source disagrees.")
     section = _lit_page(tmp_path, _lit([marked]))
-    assert "Seven of seventy probands carried a variant. <strong>" in section
-    assert "Source disagrees.</td>" in section
-    assert "<summary>1 approved finding</summary>" in section
+    (block,) = _paper_blocks(section)
+    assert "Seven of seventy probands carried a variant. <strong>" in block
+    assert "Source disagrees.</td>" in block
+    assert "<summary>1 publication</summary>" in section
+
+
+def test_a_searched_gene_with_nothing_approved_says_so_and_draws_no_axis(
+    tmp_path: Path,
+) -> None:
+    section = _lit_page(tmp_path, _lit())
+    assert "<p>No approved findings yet.</p>" in section
+    assert "<svg" not in section
+    assert "publication</summary>" not in section
+
+
+def test_the_section_reads_line_timeline_papers_exclusions_searches(tmp_path: Path) -> None:
+    section = _lit_page(tmp_path, _lit([_lit_finding()]))
+    parts = [
+        '<h2>Literature</h2><p class="method">',
+        "<svg",
+        "<details><summary>1 publication</summary>",
+        "<details><summary>Excluded papers, by reason</summary>",
+        "<details><summary>Searches run</summary>",
+    ]
+    positions = [section.index(part) for part in parts]
+    assert positions == sorted(positions)
+    assert len(set(positions)) == len(parts)
 
 
 def test_a_summary_a_review_note_a_query_and_a_curator_name_are_escaped(tmp_path: Path) -> None:

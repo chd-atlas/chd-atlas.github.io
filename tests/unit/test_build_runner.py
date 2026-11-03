@@ -874,6 +874,11 @@ def test_a_literature_file_reaches_its_bundle_page_and_the_counts(
     )
     assert "Approved &lt;finding&gt; &amp; &quot;quoted&quot;." in section
     assert "An extraction nobody approved yet." not in page
+    assert section.count('<svg class="chart"') == 1
+    marks = section[section.index('<g class="lit-marks">') :]
+    marks = marks[: marks.index("</g>")]
+    assert len(re.findall(r"<(?:circle|rect|polygon) ", marks)) == 1
+    assert "<summary>1 publication</summary>" in section
     others = [p for p in (out / "genes").glob("HGNC_*.html") if p.name != "HGNC_11604.html"]
     assert others
     assert all("<h2>Literature</h2><p>Not yet curated.</p>" in p.read_text() for p in others)

@@ -6676,22 +6676,23 @@ def _literature_section(
     literature: GeneLiterature,
     publications: Mapping[str, Publication],
 ) -> str:
-    """The gene's curated literature: one summary line, the exclusion tally, the findings.
+    """The gene's curated literature, in this order: the summary line, the timeline of
+    approved papers and their folded list (or `No approved findings yet.` and no axis),
+    the exclusion tally, every search.
 
     No search recorded: `_NOT_CURATED_LITERATURE` and nothing else. Otherwise a
     visible line counting what the search returned and what was decided -- the
     papers, included and excluded counts always print, so `0 included` or
     `0 excluded` can render; only the optional clauses (`, N not yet triaged`,
     `; N findings await review`) are omitted when their count is 0 -- then
-    the exclusion tally, every search folded with its exact query, and the
-    approved findings in a folded table. The
-    table lists approved findings only, which is all the bundle carries; the
-    `await review` clause is what stops the unapproved ones being invisible. A
-    finding's `review_status` and `review_note` are rendered beside its summary
-    (ruling R24): the mark qualifies a published finding and never hides it.
+    the exclusion tally and every search folded with its exact query. The
+    timeline and the list cover approved findings only, which is all the bundle
+    carries; the `await review` clause is what stops the unapproved ones being
+    invisible. A finding's `review_status` and `review_note` are rendered beside
+    its summary (ruling R24): the mark qualifies a published finding and never hides it.
 
-    `publications` supplies each finding's year; its absence raises, because
-    validation refuses a finding whose paper is unregistered (LIT011).
+    `publications` supplies each paper's year; `_paper_groups` raises on an
+    unregistered paper, because validation refuses one (LIT011).
     """
     searches = literature["searches"]
     if not searches:
@@ -6709,28 +6710,20 @@ def _literature_section(
     waiting = literature["pending_approval"]
     if waiting:
         line += f"; {waiting} {'finding awaits' if waiting == 1 else 'findings await'} review"
-    out = (
+    findings = literature["findings"]
+    if findings:
+        groups = _paper_groups(findings, publications)
+        body = _literature_timeline(groups, publications) + _literature_publications(
+            groups, publications
+        )
+    else:
+        body = "<p>No approved findings yet.</p>"
+    return (
         f'<h2>Literature</h2><p class="method">{line}.</p>'
+        + body
         + _literature_exclusions(triage["excluded"])
         + _literature_searches(searches)
     )
-    findings = literature["findings"]
-    if findings:
-        rows = []
-        for finding in findings:
-            pmid = str(finding["publication"])
-            publication = publications.get(pmid)
-            if publication is None:
-                raise ValueError(f"{finding['id']}: {pmid} is not a registered publication")
-            cells = _finding_row(finding).cells
-            rows.append(Row((str(publication.year), Link(pmid, _pubmed(pmid)), *cells)))
-        noun = "finding" if len(findings) == 1 else "findings"
-        out += (
-            f"<details><summary>{len(findings)} approved {noun}</summary>"
-            + data_table(_FINDING_HEADERS, rows)
-            + "</details>"
-        )
-    return out
 
 
 def _as_list(value: Json) -> list[Json]:
