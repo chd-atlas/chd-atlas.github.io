@@ -308,6 +308,7 @@ def _render(
         1 for gene in published if gene in validity and admitting_grade(validity[gene]) is not None
     )
     # The narrowest population: the genes this atlas has curated itself.
+    # Counts lesion assertions only, not approved literature findings.
     # Derived once and handed to `_asserted_genes`, so the count and the
     # sentence naming those genes cannot drift apart.
     curated_genes = sorted({assertion.gene for assertion in corpus.assertions})

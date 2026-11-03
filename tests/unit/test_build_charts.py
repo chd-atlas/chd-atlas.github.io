@@ -365,9 +365,22 @@ def test_every_glyph_is_centred_titled_and_classed_without_colour(shape: str) ->
                 assert all(abs(n - centre) <= 5 for n in numbers), out
 
 
-def test_the_six_glyphs_are_six_different_drawings() -> None:
+def test_every_shape_is_a_different_drawing_and_has_a_class() -> None:
+    from chd_atlas.build import charts
+
     drawn = {glyph(10.0, 10.0, shape=s, title="t") for s in SHAPES}
-    assert len(drawn) == 6
+    assert len(drawn) == len(SHAPES) == 6
+    assert set(charts._GLYPH_CLASS) == set(SHAPES)
+
+
+def test_a_shape_with_a_class_but_no_drawing_is_refused_not_drawn_as_a_star(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from chd_atlas.build import charts
+
+    monkeypatch.setitem(charts._GLYPH_CLASS, "hexagon", "lit-mark")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="hexagon"):
+        glyph(1.0, 1.0, shape="hexagon", title="t")  # type: ignore[arg-type]
 
 
 def test_only_the_ring_is_open() -> None:

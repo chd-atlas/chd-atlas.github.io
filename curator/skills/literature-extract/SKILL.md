@@ -74,8 +74,8 @@ Read `curator/curator-rules.md` first. Model tier: a mid-tier model (for example
    ```
 
    `--reading` is required and is written as a comment beside the record. The record
-   stays out of `publications.json` until a finding citing it is approved, so say
-   in your hand-off which `study_type` you chose and why: the curator checks it and
+   stays out of `publications.json` while findings cite it and none is approved
+   (a record no finding cites publishes), so say in your hand-off which `study_type` you chose and why: the curator checks it and
    `own_lab` (the default `false`; never guess it) in the `review` listing. Exit 1 means
    the PMID is already in `curation/publications.yaml` (nothing to add), PubMed could
    not be reached, or the file does not validate; the error says which.

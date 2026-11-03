@@ -108,3 +108,19 @@ def test_an_approved_finding_with_no_digest_never_validates_clean(tmp_path: Path
     path.write_text(json.dumps(raw))
     codes = _codes_of(root)
     assert "SCHEMA001" in codes  # the model refuses it before LIT015 can see it
+
+
+def test_a_field_added_to_the_model_at_its_default_does_not_move_the_digest() -> None:
+    """An additive schema change must not void every standing approval.
+
+    The subclass stands for a later release gaining an optional field: a finding
+    that leaves it at its default keeps its digest, one that sets it does not.
+    """
+
+    class Grown(Finding):
+        new_optional: str | None = None
+
+    raw = _raw()
+    assert finding_digest(Grown.model_validate(raw)) == finding_digest(Finding.model_validate(raw))
+    changed = finding_digest(Grown.model_validate({**raw, "new_optional": "x"}))
+    assert changed != finding_digest(Finding.model_validate(raw))

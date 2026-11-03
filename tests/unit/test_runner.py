@@ -845,8 +845,9 @@ def _real_repo(tmp_path: Path) -> Path:
     error naming a cause versus one error per row naming symptoms -- and a
     two-row fixture cannot show the difference.
 
-    The copy drops `curation/literature/`: the committed corpus now carries
-    literature files, and a fixture that writes its own literature file would
+    The copy drops `curation/literature/`: this branch's committed corpus has no
+    `curation/literature/`, but the pilot branch does, and a fixture that writes its own
+    literature file would
     otherwise hit `FileExistsError` on `mkdir`, or compare against a baseline that
     already holds the real file's issues. Every fixture that builds on this copy
     gets the same empty literature directory.

@@ -80,15 +80,16 @@ wrong by the next one.
   its provenance.
 - `counts` is a census of **what this build published**, which is not the same as
   a count of files and — since `2.7` — no longer only a count of curated records.
-  Eight of its keys count a curated file, whole: `assertions`, `datasets`
+  Eight of its keys count a curated file: `assertions`, `datasets`
   (omics), `featured`, `functional`, `phenotypes` and `publications` count
   curated records (`publications` counts the records in
-  [`publications.json`](#publicationsjson), which withholds a paper only an
-  unapproved literature finding cites), and `cohorts` and `scope_terms` count the two registries
+  [`publications.json`](#publicationsjson), which leaves out a paper while
+  literature findings cite it and none of them is approved), and `cohorts` and `scope_terms` count the two registries
   [`cohorts.json`](#cohortsjson) and [`scope.json`](#scopejson) publish entire
   — every sample collection and every in-scope disease term, not the subset the
   published genes happen to cite. A gene the atlas has not curated contributes
-  to none of them and still gets a bundle — 117 of the 119 genes published today
+  to none of them, except that the papers of its approved literature findings
+  count toward `publications`, and it still gets a bundle — 117 of the 119 genes published today
   are in exactly that position, published on an external authority's
   classification rather than on curation done here. Read `atlas_curation` on the
   browse row to tell the two apart.
@@ -1602,14 +1603,15 @@ what the build publishes for every gene today.
 - `triage` is a tally, not the per-paper decisions: `included`, `pending` (not
   yet triaged) and `excluded`, an object keyed by exclusion reason.
 - `pending_approval` counts findings no named person has approved. Their content
-  is not published; the count is what stops their absence being silent. One
-  exception is not a finding but its paper: a curator who adds a paper to
-  `curation/publications.yaml` for a finding (`chd-atlas literature
-  add-publication`) keeps that record, with the `study_type` the extracting
-  agent read, out of [`publications.json`](#publicationsjson) until a finding
-  of that paper is approved, unless an assertion, functional record, featured
-  entry, dataset or burden row also cites the paper.
-- `findings` holds the approved findings only, each as curated, sorted by
+  is not published; the count is what stops their absence being silent. The same
+  rule applies to a finding's paper: a record in `curation/publications.yaml`
+  (added by `chd-atlas literature add-publication`, with the `study_type` the
+  extracting agent read) stays out of [`publications.json`](#publicationsjson)
+  while literature findings cite it and none of them is approved, unless an
+  assertion, functional record, featured entry, dataset or burden row also cites
+  the paper. A record no finding cites is published as before.
+- `findings` holds the approved findings only, each as curated except that
+  `approved_digest` is dropped, sorted by
   publication year, then numeric PMID, then finding id. A finding carrying a
   `review_status` is published with it and its `review_note`. Each finding's
   `shares_probands_with` is a list of finding ids, or the string `"unknown"`.
@@ -1930,7 +1932,8 @@ alone, so such a gene is `not_yet_curated` in its bundle and curated on its
 card. The `literature` key carries the findings the card counts.
 
 Read the uncurated sentences precisely, because they are narrower than they first appear. **A lesion
-assertion** is what decides it, not evidence in general: `atlas_curation` is
+assertion**, or an approved literature finding, is what decides which sentence the card shows, not
+evidence in general: `atlas_curation` is
 derived from curated `LesionAssertion` records alone, so a gene can carry
 functional-evidence records the atlas curated and still report
 `not_yet_curated`. Such a card opens "No lesion assertion yet curated by the
@@ -2175,6 +2178,11 @@ The committed corpus curates no variants, so the real index is empty:
   ]
 }
 ```
+
+A paper is left out of this file while literature findings cite it and none of them
+is approved, unless an assertion, functional record, featured entry, dataset or
+burden row also cites it; a record no finding cites is published as before
+(see [`pending_approval`](#the-bundles-literature-object-searches-a-triage-tally-and-approved-findings)).
 
 `summary_caveat` is one curated sentence (at most 240 characters) saying what
 a reader must know to read the study's counts — that PMID:34324492's cases were
@@ -2843,7 +2851,10 @@ admitted it instead.
 assessed.** `atlas_curation` appears on the browse row and in the bundle,
 written in one place so the two cannot disagree, and it is what tells the two
 kinds of row apart — read it rather than testing `assertion_count == 0`, so a
-filter does not have to reimplement the rule. An empty `assertions` array is a
+filter does not have to reimplement the rule. It is derived from lesion
+assertions alone: a gene whose only curated work is approved literature findings
+is `not_yet_curated` here although its card reads "Curated by the atlas". An empty `assertions` array is a
 curation gap, never a verdict and never a fetch that failed, the same way
 `headline_confidence: null` is not `no_known_association`. This atlas's own
-gene pages state the gap in prose for exactly that reason.
+gene pages state the gap in prose for exactly that reason, and where the card
+counts approved literature findings it says so.

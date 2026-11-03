@@ -245,11 +245,16 @@ def finding_digest(finding: Finding) -> str:
     """`sha256:` and the hex digest of the finding's content, approval excluded.
 
     The canonical JSON (sorted keys, no ASCII escaping, compact separators) of
-    `model_dump(mode="json")` without `_DIGEST_EXCLUDED`. An approval records
-    this value, so a later edit to anything it covers no longer matches (LIT015).
+    `model_dump(mode="json", exclude_defaults=True)` without `_DIGEST_EXCLUDED`.
+    An approval records this value, so a later edit to anything it covers no
+    longer matches (LIT015). A field left at its default is not hashed, so a
+    release that adds an optional field does not void standing approvals; the
+    cost is that setting a field explicitly to its default value is not an edit.
     """
     content = {
-        k: v for k, v in finding.model_dump(mode="json").items() if k not in _DIGEST_EXCLUDED
+        k: v
+        for k, v in finding.model_dump(mode="json", exclude_defaults=True).items()
+        if k not in _DIGEST_EXCLUDED
     }
     canonical = json.dumps(content, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()

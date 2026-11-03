@@ -473,9 +473,9 @@ def test_curated_evidence_says_what_an_assertion_is_and_that_it_changes_nothing_
         "the card's curated line counts both.</p>"
         "<p>An assertion is this atlas's own work, and it <strong>changes nothing "
         "mirrored</strong>: a gene is published, and its grade is headlined, on the upstream "
-        "validity records alone, so no assertion admits a gene or moves its grade. A curated "
-        "gene's page also has a <strong>Publications</strong> section, which lists every "
-        "publication its evidence cites, with its title and year.</p>"
+        "validity records alone, so no assertion admits a gene or moves its grade. A gene "
+        "with a lesion assertion also has a <strong>Publications</strong> section, which lists "
+        "every publication its evidence cites, with its title and year.</p>"
     )
 
 

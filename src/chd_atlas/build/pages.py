@@ -813,11 +813,11 @@ def _graded_diseases(gene_validity: GeneValidity, grade: Classification | None) 
 def _card_curation(fact: GeneFacts, literature: GeneLiterature = EMPTY_GENE_LITERATURE) -> str:
     """The card's atlas-curation sentence, and what it must not deny. D55.
 
-    Five branches, in the order the code takes them:
+    Four branches, in the order the code takes them:
 
     * **curated** -- "Curated by the atlas: 1 lesion assertion (septal)." with
-      the functional-record count appended only when non-zero (TBX5 is the one
-      curated gene today, measured 2026-10-26). With approved literature
+      the functional-record count appended only when non-zero (TBX5 and NR2F2
+      are the curated genes today; one assertion each). With approved literature
       findings the sentence adds "and 24 findings from 21 papers" (owner
       decision 2); a gene with only those reads "Curated by the atlas: 5
       findings from 4 papers." Papers are the distinct PMIDs among the
@@ -6639,7 +6639,7 @@ _PAPER_FINDING_HEADERS: Final = _FINDING_HEADERS[2:]
 
 
 def _finding_row(finding: Mapping[str, Json]) -> Row:
-    """A finding's cells from `design` to `approved by`; the callers add year and paper.
+    """A finding's cells from `design` to `approved by`; the caller adds neither year nor paper.
 
     The review mark (R24) sits beside the summary, so it qualifies the finding
     and never hides it.

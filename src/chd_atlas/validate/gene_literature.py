@@ -4,7 +4,9 @@
 The single-record rules live in the model (`models/gene_literature.py`); these
 are the ones a model cannot see because they compare a triage list with a
 search list, a finding with a triage entry, a file name with a gene, or a
-finding with another file.
+finding with another file. LIT015 is the exception: it is a single-record rule
+here because the digest compared lives in the finding and the check recomputes
+it from the loaded file.
 
 Location format, mirroring `burden.py`'s ``path:row N``: the file's path, with
 ``:finding <id>`` or ``:pmid <PMID>`` appended where one record is at fault.
@@ -211,7 +213,8 @@ def _check_file(
             error(
                 "LIT015",
                 where,
-                "approved content changed since approval; re-approve",
+                "approved content changed since approval; delete approved_by, approved_on and "
+                "approved_digest, then approve again",
             )
         found_by = searches.get(first_search.get(finding.publication, -1))
         if (

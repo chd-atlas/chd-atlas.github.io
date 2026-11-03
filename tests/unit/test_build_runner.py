@@ -53,8 +53,9 @@ def repo(tmp_path: Path) -> Path:
     symlinked because it is 11 MB of pinned OBO releases that nothing here
     changes, and copying it per test would cost more than the builds do.
 
-    The copy drops `curation/literature/`: the committed corpus now carries
-    literature files, and a test that writes its own literature file would
+    The copy drops `curation/literature/`: this branch's committed corpus has no
+    `curation/literature/`, but the pilot branch does, and a test that writes its own
+    literature file would
     otherwise hit `FileExistsError` on `mkdir`, or see the real file's findings
     in a build it meant to hold to one.
     """

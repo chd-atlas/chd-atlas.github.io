@@ -183,7 +183,7 @@ def marker(x: float, y: float, *, css_class: str) -> str:
 
 Shape = Literal["circle", "square", "triangle_up", "triangle_down", "star", "ring"]
 
-_GLYPH_CLASS: dict[str, str] = {
+_GLYPH_CLASS: dict[Shape, str] = {
     "circle": "lit-mark",
     "square": "lit-mark",
     "triangle_up": "lit-mark",
@@ -225,13 +225,15 @@ def glyph(x: float, y: float, *, shape: Shape, title: str) -> str:
         base = -apex
         points = [(x, y + apex), (x + 4.5, y + base), (x - 4.5, y + base)]
         return f'<polygon class="{css}" points="{_points(points)}">{label}</polygon>'
-    # star: five outer and five inner vertices, alternating, first point up.
-    vertices: list[tuple[float, float]] = []
-    for i in range(10):
-        angle = -math.pi / 2 + i * math.pi / 5
-        reach = 5.0 if i % 2 == 0 else 2.2
-        vertices.append((x + reach * math.cos(angle), y + reach * math.sin(angle)))
-    return f'<polygon class="{css}" points="{_points(vertices)}">{label}</polygon>'
+    if shape == "star":
+        # Five outer and five inner vertices, alternating, first point up.
+        vertices: list[tuple[float, float]] = []
+        for i in range(10):
+            angle = -math.pi / 2 + i * math.pi / 5
+            reach = 5.0 if i % 2 == 0 else 2.2
+            vertices.append((x + reach * math.cos(angle), y + reach * math.sin(angle)))
+        return f'<polygon class="{css}" points="{_points(vertices)}">{label}</polygon>'
+    raise ValueError(f"glyph shape {shape!r} has a class but no drawing")
 
 
 def _points(points: Sequence[tuple[float, float]]) -> str:
