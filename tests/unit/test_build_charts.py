@@ -340,6 +340,20 @@ def test_the_heat_tokens_exist_in_both_colour_schemes() -> None:
 
 SHAPES: Final = get_args(Shape)
 
+# Each glyph's drawn centre minus the point it was asked to centre on, measured
+# 2026-11-03 with glyph(100.0, 50.0): every shape is exactly on it except the
+# star, which is centred on its circumcentre. Its box runs from y 45.0 to 54.0
+# (-5 to +4.045 before `coordinate` rounds to a tenth), so the box's midpoint
+# is 0.5 above the centre; across, it runs 95.2 to 104.8, midpoint on centre.
+_GLYPH_CENTRE_OFFSET: Final[dict[str, tuple[float, float]]] = {
+    "circle": (0.0, 0.0),
+    "square": (0.0, 0.0),
+    "triangle_up": (0.0, 0.0),
+    "triangle_down": (0.0, 0.0),
+    "star": (0.0, -0.5),
+    "ring": (0.0, 0.0),
+}
+
 
 @pytest.mark.parametrize("shape", SHAPES)
 def test_every_glyph_is_centred_titled_and_classed_without_colour(shape: str) -> None:
@@ -347,22 +361,25 @@ def test_every_glyph_is_centred_titled_and_classed_without_colour(shape: str) ->
     assert "<title>A&lt;b&gt; &amp; &quot;c&quot;</title>" in out
     assert 'class="lit-mark' in out
     assert "fill=" not in out and "stroke=" not in out and "#" not in out
-    # Positional attributes only: cx/x against the centre x, cy/y and the
-    # points' odd members against the centre y. Radii and sizes are not
-    # positions and are left out on purpose.
-    for attr, centre, is_point_list in (
-        *((name, 100.0, False) for name in ("cx", "x")),
-        *((name, 50.0, False) for name in ("cy", "y")),
-        ("points", 0.0, True),
-    ):
-        for value in re.findall(rf'\b{attr}="([^"]*)"', out):
-            numbers = [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?", value)]
-            if is_point_list:
-                xs, ys = numbers[0::2], numbers[1::2]
-                assert all(abs(n - 100.0) <= 5 for n in xs), out
-                assert all(abs(n - 50.0) <= 5 for n in ys), out
-            else:
-                assert all(abs(n - centre) <= 5 for n in numbers), out
+    # The drawn centre, as `_tl_centres` in test_build_pages.py measures marks:
+    # a circle's cx, cy; a rect's x + width/2, y + height/2; a polygon's
+    # bounding-box midpoint. Bounding every coordinate to +-5 of the centre let
+    # a glyph shifted by 4 pass.
+    ((kind, raw),) = re.findall(r"<(circle|rect|polygon) ([^>]*)>", out)
+    attrs = dict(re.findall(r'([a-z]+)="([^"]*)"', raw))
+    if kind == "circle":
+        centre = (float(attrs["cx"]), float(attrs["cy"]))
+    elif kind == "rect":
+        centre = (
+            float(attrs["x"]) + float(attrs["width"]) / 2,
+            float(attrs["y"]) + float(attrs["height"]) / 2,
+        )
+    else:
+        points = [tuple(map(float, p.split(","))) for p in attrs["points"].split()]
+        xs, ys = [p[0] for p in points], [p[1] for p in points]
+        centre = ((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2)
+    dx, dy = _GLYPH_CENTRE_OFFSET[shape]
+    assert centre == pytest.approx((100.0 + dx, 50.0 + dy), abs=0.01), out
 
 
 def test_every_shape_is_a_different_drawing_and_has_a_class() -> None:
