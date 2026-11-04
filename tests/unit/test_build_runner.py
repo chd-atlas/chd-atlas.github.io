@@ -25,6 +25,7 @@ from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.tables import TABLE_SCHEMAS, read_table
 from chd_atlas.validate.runner import ValidationReport
 from tests.unit._stamp import stamped_yaml
+from tests.unit._svg import g_part
 
 REPO = Path(__file__).parent.parent.parent
 
@@ -877,8 +878,7 @@ def test_a_literature_file_reaches_its_bundle_page_and_the_counts(
     assert "Approved &lt;finding&gt; &amp; &quot;quoted&quot;." in section
     assert "An extraction nobody approved yet." not in page
     assert section.count('<svg class="chart"') == 1
-    marks = section[section.index('<g class="lit-marks">') :]
-    marks = marks[: marks.index("</g>")]
+    marks = g_part(section, "lit-marks")
     assert len(re.findall(r"<(?:circle|rect|polygon) ", marks)) == 1
     assert "<summary>1 publication</summary>" in section
     others = [p for p in (out / "genes").glob("HGNC_*.html") if p.name != "HGNC_11604.html"]
@@ -950,8 +950,7 @@ def test_a_publication_only_an_unapproved_finding_cites_is_withheld_from_the_bui
     assert "PMID:8988165" in ids
     # The same set feeds the search index and the census (fix round 1).
     index = json.loads(gzip.decompress((out / "search" / "index.json.gz").read_bytes()))
-    records = index["records"] if isinstance(index, dict) else index
-    searched = {r["id"] for r in records if r["kind"] == "publication"}
+    searched = {r["id"] for r in index["records"] if r["kind"] == "publication"}
     assert "PMID:900008" not in searched
     assert searched == set(ids)
     counts = json.loads((out / "manifest.json").read_text())["counts"]

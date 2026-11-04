@@ -79,7 +79,7 @@ EMPTY_GENE_LITERATURE: Final[GeneLiterature] = GeneLiterature(
 )
 
 
-def _pmid_number(pmid: str) -> int:
+def pmid_number(pmid: str) -> int:
     return int(pmid.removeprefix("PMID:"))
 
 
@@ -124,7 +124,7 @@ def gene_literature(corpus: Corpus) -> dict[str, GeneLiterature]:
                 )
             approved.append(finding)
         approved.sort(
-            key=lambda f: (years[str(f.publication)], _pmid_number(str(f.publication)), str(f.id))
+            key=lambda f: (years[str(f.publication)], pmid_number(str(f.publication)), str(f.id))
         )
         result[gene] = GeneLiterature(
             searches=[
