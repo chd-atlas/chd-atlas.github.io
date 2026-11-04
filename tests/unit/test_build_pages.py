@@ -79,6 +79,7 @@ from chd_atlas.vocab import (
     ValidityState,
 )
 from tests.unit._stamp import stamped
+from tests.unit._svg import g_part
 from tests.unit.test_build_cell_type_chart import dataset as cell_type_dataset
 from tests.unit.test_build_cell_type_chart import payload as cell_type_payload
 from tests.unit.test_build_cell_type_chart import specificity as cell_type_specificity
@@ -9867,7 +9868,9 @@ def test_the_card_counts_approved_literature_findings_as_atlas_curation(
     sentence counts more. Fixtures differ in findings and papers on purpose
     (3 from 2, 5 from 3), so a count of one cannot stand in for the other.
     """
-    fact = _facts(GATA4, curation, groups=(LesionGroup.SEPTAL,) if curated_(curation) else ())
+    fact = _facts(
+        GATA4, curation, groups=(LesionGroup.SEPTAL,) if curation is AtlasCuration.CURATED else ()
+    )
     build_gene_pages(
         {GATA4: fact},
         Emitter(root=tmp_path),
@@ -9915,7 +9918,10 @@ def test_the_card_counts_the_approved_findings_and_not_those_awaiting_approval(
 
     `test_a_gene_whose_findings_all_await_approval_is_not_yet_curated` has no
     approved finding, so the card sentence never counts there; and `_approved`
-    waits on nothing. Measured at B6: a mutant adding `pending_approval` to the
+    sets `pending_approval` to 0 in every fixture it builds, so
+    `test_the_card_counts_approved_literature_findings_as_atlas_curation`
+    cannot tell a count that adds the waiting findings from one that
+    leaves them out. Measured at B6: a mutant adding `pending_approval` to the
     count survived every test in the repository until this one. 2 approved from
     2 papers plus 4 waiting must read "2 findings from 2 papers", never 6.
     """
@@ -9941,10 +9947,6 @@ def test_the_card_counts_the_approved_findings_and_not_those_awaiting_approval(
     assert re.findall(r'<p class="card-curation">(.*?)</p>', rail) == [
         "Curated by the atlas: 2 findings from 2 papers."
     ]
-
-
-def curated_(curation: AtlasCuration) -> bool:
-    return curation is AtlasCuration.CURATED
 
 
 def test_every_value_the_card_interpolates_is_escaped(tmp_path: Path) -> None:
@@ -10593,6 +10595,10 @@ def test_the_section_reads_line_timeline_papers_exclusions_searches(tmp_path: Pa
     positions = [section.index(part) for part in parts]
     assert positions == sorted(positions)
     assert len(set(positions)) == len(parts)
+    # `index` finds only the first of each, so a figure or a fold drawn twice would
+    # still read in order: each must be there exactly once.
+    assert section.count("<svg") == 1
+    assert [section.count(fold) for fold in parts[2:]] == [1, 1, 1]
 
 
 def test_a_summary_a_review_note_a_query_and_a_curator_name_are_escaped(tmp_path: Path) -> None:
@@ -10632,11 +10638,6 @@ def _tl_groups(
     return _paper_groups(findings, pubs), pubs
 
 
-def _tl_part(svg: str, css: str) -> str:
-    start = svg.index(f'<g class="{css}">')
-    return svg[start : svg.index("</g>", start)]
-
-
 def _tl_centres(part: str) -> list[tuple[float, float]]:
     centres = []
     for m in re.finditer(r"<(circle|rect|polygon) ([^>]*)>", part):
@@ -10653,11 +10654,11 @@ def _tl_centres(part: str) -> list[tuple[float, float]]:
 
 
 def _tl_marks(svg: str) -> list[tuple[float, float]]:
-    return _tl_centres(_tl_part(svg, "lit-marks"))
+    return _tl_centres(g_part(svg, "lit-marks"))
 
 
 def _tl_key_labels(svg: str) -> list[str]:
-    return re.findall(r'<text class="chart-label"[^>]*>([^<]*)</text>', _tl_part(svg, "lit-key"))
+    return re.findall(r'<text class="chart-label"[^>]*>([^<]*)</text>', g_part(svg, "lit-key"))
 
 
 def _tl_years(svg: str) -> list[str]:
@@ -10676,13 +10677,16 @@ def test_one_mark_per_paper_and_same_year_papers_never_share_a_position() -> Non
             ("PMID:3", 2005, ("cohort_screen", "family_segregation")),
             ("PMID:4", 2010, ("rare_variant_association",)),
             ("PMID:5", 2015, ("common_variant_association",)),
+            ("PMID:6", 2020, ("case_report",)),
         ]
     )
     svg = _literature_timeline(groups, pubs)
     marks = _tl_marks(svg)
-    assert len(marks) == 5
-    assert len(set(marks)) == 5
-    assert len(_tl_centres(_tl_part(svg, "lit-key"))) == 5
+    assert len(marks) == 6
+    assert len(set(marks)) == 6
+    # Six papers, five distinct shapes: PMID:1 and PMID:6 are both case reports, so a
+    # key drawn once per paper rather than once per shape would hold six glyphs.
+    assert len(_tl_centres(g_part(svg, "lit-key"))) == 5
 
 
 def test_twelve_papers_in_one_year_all_fit_inside_the_figure() -> None:
@@ -10869,7 +10873,7 @@ def test_an_atlas_authors_paper_declares_itself_in_the_fold_and_the_timeline() -
     assert "study by an atlas author" not in other_summary.group(1)
 
     titles = re.findall(
-        r"<title>(.*?)</title>", _tl_part(_literature_timeline(groups, pubs), "lit-marks")
+        r"<title>(.*?)</title>", g_part(_literature_timeline(groups, pubs), "lit-marks")
     )
     own_title = [t for t in titles if " · PMID:8988165 · " in t]
     other_title = [t for t in titles if " · PMID:2 · " in t]
