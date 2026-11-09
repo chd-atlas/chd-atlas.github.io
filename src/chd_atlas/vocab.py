@@ -677,4 +677,7 @@ class ExclusionReason(StrEnum):
     NO_FINDING_IN_GENE = "no_finding_in_gene"
     NOT_CHD = "not_chd"
     SAME_DATA_AS = "same_data_as"
+    # The full text could not be read and the abstract supports no finding: a
+    # gap in what the atlas read, not a judgement on the paper (owner, 2026-11-09).
+    FULL_TEXT_NOT_ACCESSIBLE = "full_text_not_accessible"
     OTHER = "other"

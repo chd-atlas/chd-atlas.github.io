@@ -63,6 +63,7 @@
         "no_finding_in_gene",
         "not_chd",
         "same_data_as",
+        "full_text_not_accessible",
         "other"
       ],
       "title": "ExclusionReason",

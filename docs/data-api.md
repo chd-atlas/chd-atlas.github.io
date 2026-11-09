@@ -1601,7 +1601,9 @@ what the build publishes for every gene today.
   ISO date), `hits` (the total the search returned) and `new_hits` (the hits no
   earlier search in the record had returned).
 - `triage` is a tally, not the per-paper decisions: `included`, `pending` (not
-  yet triaged) and `excluded`, an object keyed by exclusion reason.
+  yet triaged) and `excluded`, an object keyed by exclusion reason. A paper
+  counted under `full_text_not_accessible` was not judged irrelevant: its full
+  text could not be read and its abstract supports no finding.
 - `pending_approval` counts findings no named person has approved. Their content
   is not published; the count is what stops their absence being silent. The same
   rule applies to a finding's paper: a record in `curation/publications.yaml`

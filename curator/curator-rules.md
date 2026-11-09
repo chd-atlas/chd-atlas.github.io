@@ -54,10 +54,13 @@ convention only a person can check.
   search hand-off ends with every new hit pending, by design.
 - Exclude only for a reason the abstract shows. When unsure, include.
 - An excluded paper needs a `reason` (`SCHEMA001`). `same_data_as` needs `same_as`, which
-  must name a PMID included in the same file (`SCHEMA001`, `LIT006`). `other` needs a
-  `note` (`SCHEMA001`).
-- A paper that cannot be read is not excluded. Include it, and record what the abstract
-  supports, marked `not_accessible`.
+  must name a PMID included in the same file (`SCHEMA001`, `LIT006`). `other` and
+  `full_text_not_accessible` need a `note` (`SCHEMA001`).
+- A paper that cannot be read is included, and its findings record what the abstract
+  supports, marked `not_accessible`. Where the abstract supports no finding, the curator
+  excludes the paper as `full_text_not_accessible`, with a `note` naming what the abstract
+  lacks (no abstract, no count, no carrier's heart lesion). It is a gap in what was read,
+  not a judgement on the paper.
 - An included paper needs at least one finding (`LIT003`).
 
 ## Findings
