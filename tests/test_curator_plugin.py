@@ -244,6 +244,19 @@ def test_backticked_names_are_real_values_fields_or_options() -> None:
             assert token in known, f"{path.name}: `{token}` is not a value, field or option"
 
 
+def test_a_paragraph_naming_count_unit_names_only_a_findings_units() -> None:
+    # The rules once offered `individuals`, a burden-mirror CountUnit a Finding refuses.
+    # It is one word and a real value of another enum, so the check above passed it.
+    enums = _enum_values()
+    units = set().union(*(values for name, values in enums.items() if name.endswith("Unit")))
+    for path in ALL_FILES:
+        prose = re.sub(r"^[ ]*```.*?^[ ]*```", "", _text(path), flags=re.S | re.M)
+        for paragraph in re.split(r"\n(?=\s*\n|\s*(?:- |\d+\. ))", prose):
+            if "`count_unit`" in paragraph:
+                named = set(re.findall(r"`([a-z_]+)`", paragraph)) & units
+                assert named <= enums["ScreenUnit"], f"{path.name}: {sorted(named)}"
+
+
 def test_every_study_type_the_files_name_exists_and_the_table_is_the_contract() -> None:
     study_types = {m.value for m in vocab.StudyType}
     text = _text(CURATOR / "skills" / "literature-extract" / "SKILL.md")

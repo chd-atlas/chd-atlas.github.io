@@ -54,10 +54,13 @@ convention only a person can check.
   search hand-off ends with every new hit pending, by design.
 - Exclude only for a reason the abstract shows. When unsure, include.
 - An excluded paper needs a `reason` (`SCHEMA001`). `same_data_as` needs `same_as`, which
-  must name a PMID included in the same file (`SCHEMA001`, `LIT006`). `other` needs a
-  `note` (`SCHEMA001`).
-- A paper that cannot be read is not excluded. Include it, and record what the abstract
-  supports, marked `not_accessible`.
+  must name a PMID included in the same file (`SCHEMA001`, `LIT006`). `other` and
+  `full_text_not_accessible` need a `note` (`SCHEMA001`).
+- A paper that cannot be read is included, and its findings record what the abstract
+  supports, marked `not_accessible`. Where the abstract supports no finding, the curator
+  excludes the paper as `full_text_not_accessible`, with a `note` naming what the abstract
+  lacks (no abstract, no count, no carrier's heart lesion). It is a gap in what was read,
+  not a judgement on the paper.
 - An included paper needs at least one finding (`LIT003`).
 
 ## Findings
@@ -70,10 +73,10 @@ convention only a person can check.
   counts; the genotyping methods appear only with `common_variant_association`. All
   `SCHEMA001`. An infinite or NaN `p_value` or `odds_ratio` (`.inf`, `.nan`) is refused
   (`SCHEMA001`): write the bound the paper gives, or leave the field out.
-- `carriers` and `screened` are counted in `count_unit`. With `probands` or `individuals`
-  a carrier is a person. With `families`, `screened` is families and each origin count is
-  carrier families, so how many relatives carry the variant goes in the `summary` with a
-  locator, not in a count.
+- `carriers` and `screened` are counted in `count_unit`. With `probands` a carrier is a
+  person. With `families`, `screened` is families and each origin count is carrier
+  families, so how many relatives carry the variant goes in the `summary` with a locator,
+  not in a count.
 - `lesion_groups` agree with the `phenotypes` that `curation/phenotypes.yaml` maps to a
   group (`REF007`, `REF009`); a phenotype it does not map is not checked.
 - `burden_study` links a study `mirrors/burden.tsv` already holds for this gene; with no
