@@ -106,9 +106,7 @@ triage:
     reason: not_human_genetics
   - pmid: PMID:37500725
     search: 1
-    decision: excluded
-    reason: full_text_not_accessible
-    note: the abstract gives no count of carriers with a heart lesion
+    decision: included
   - pmid: PMID:40015456
     search: 1
     decision: excluded
@@ -574,3 +572,57 @@ findings:
     approved_digest: sha256:4cc4138783316d9217805cb0ce3bd5f44a8739649a82a84d46808a6fe9c1a49c
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000107
+    publication: PMID:37500725
+    design: cohort_screen
+    methods: [exome, chromosomal_microarray]
+    count_unit: probands
+    screened: 16
+    carriers: {de_novo: 13, inherited: 1, origin_unknown: 2}
+    variant_classes: [snv_indel, cnv]
+    phenotypes: [HP:0001631, HP:0001680, HP:0001629, HP:0012303, HP:0006695, HP:0034350, HP:0034349, HP:0031253, HP:0031632, HP:0001647]
+    lesion_groups: [septal, lvoto, avsd, other, rvoto]
+    syndromic: syndromic
+    shares_probands_with: []
+    cohorts: [ddd]
+    locators:
+      - kind: in_text
+        element: Results, Clinical findings
+      - kind: in_text
+        element: Results, Molecular findings
+      - kind: in_text
+        element: Results, CHD
+      - kind: in_text
+        element: Table 1
+    summary: "A series ascertained for the variant, not a CHD cohort: 16 unrelated probands, each with congenital heart disease and a rare heterozygous NR2F2 variant (15 single-nucleotide variants, one 1.87 Mb deletion of the whole gene), reported by clinicians from many centres; trio exome sequencing for all but case 8 (father untested) and case 12 (chromosomal microarray). The series was gathered because of the variant, so no number of people screened exists and screened equals the carriers counted. The heart lesions are the series' own, with counts over all 17 individuals the paper describes (the 16 probands and the proband's mildly affected mosaic mother), namely atrial septal defect 8, coarctation of the aorta 8, ventricular septal defect 5, aortic arch anomalies 3, atrioventricular septal defect 2, plus valvular and supravalvular pulmonic stenosis, an aberrant left subclavian artery, tricuspid regurgitation and bicuspid aortic valve among the less common defects, and an aberrant right subclavian artery seen prenatally in individual 15. Two of the variants were found in the DDD study. Origin is derived, not printed as such. Individual 5-1's variant was inherited from a mosaic mother, and the paper says the inheritance of two others is unknown (from the text, individuals 8 and 9), so de novo is the 16 probands less those 3."
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-09
+    approved_digest: sha256:6f2bb0e7083c6140036793c008848d03789c732df44aee9d8427f99f8c6b2a51
+    review_status: pending_review
+    review_note: The Results text states 15 of 17 individuals had de novo variants, 1 inherited and 2 of unknown inheritance, which sums to 18 and not 17; de novo is written here as 13, the 16 probands less the 3 not shown to be de novo.
+  - id: CHDA:LIT:0000108
+    publication: PMID:37500725
+    design: case_report
+    methods: [exome]
+    count_unit: probands
+    screened: 1
+    carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001684]
+    lesion_groups: [septal]
+    syndromic: isolated
+    shares_probands_with: unknown
+    cohorts: [pcgc]
+    locators:
+      - kind: in_text
+        element: Results, Molecular findings
+      - kind: in_text
+        element: Figure 1 legend
+    summary: Review of whole exome sequencing data of the Pediatric Cardiac Genomics Consortium cohort found one additional individual with a rare de novo NR2F2 missense variant, p.(Gly98Ser), who had a secundum atrial septal defect and a left aortic arch with normal branching. The paper reports no extracardiac feature for this individual. The paper states this individual is not part of its own cohort of 17; the paper gives no count of PCGC individuals reviewed, and the full clinical detail is in a supplementary table the paper cites and this reading did not include.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-09
+    approved_digest: sha256:8167a9bc88c734062e8b384db7e2bb4701750de80b2ef6ae02f39c80d555efd6

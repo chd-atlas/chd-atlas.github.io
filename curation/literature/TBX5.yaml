@@ -54,9 +54,7 @@ triage:
     note: the abstract names no carrier's heart lesion
   - pmid: PMID:8988165
     search: 1
-    decision: excluded
-    reason: full_text_not_accessible
-    note: the abstract names no carrier's heart lesion
+    decision: included
   - pmid: PMID:9207801
     search: 1
     decision: excluded
@@ -3269,3 +3267,41 @@ findings:
     approved_digest: sha256:baaf0630af185db432db6c541a3b8d6e91412725d370e38a0a544ae5cab2bdf0
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000105
+    publication: PMID:8988165
+    design: family_segregation
+    methods: [targeted_sequencing]
+    count_unit: families
+    screened: 1
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001671]
+    lesion_groups: [septal]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Results, Identification of mutations in TBX5; Figure 3a
+      - kind: in_text
+        element: Figure 2a
+    summary: In Holt-Oram syndrome Family F a G-to-T change at cDNA residue 205 (Glu69ter, a nonsense variant) was found by cycle sequencing of exon 3 in an unrelated proband; every clinically affected member tested was heterozygous and no unaffected member carried it (DdeI digestion), and none of more than 100 normal chromosomes did. The paper does not give the number of family members tested, a LOD score, or the carrier's own heart lesion; the cardiac phenotype shown is the septal defects the paper describes for the syndrome, which it also describes in its abstract as cardiac septation defects.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+  - id: CHDA:LIT:0000106
+    publication: PMID:8988165
+    design: family_segregation
+    methods: [targeted_sequencing]
+    count_unit: families
+    screened: 1
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001671]
+    lesion_groups: [septal]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Results, Identification of mutations in TBX5; Figure 3b
+      - kind: in_text
+        element: Figure 2a
+    summary: In Holt-Oram syndrome Family B a G-to-A change at cDNA residue 710 (Arg237Gln, a missense variant) was found by cycle sequencing of exon 7 in an unrelated proband; all 3 affected members carried it, no unaffected member did, and none of more than 100 normal chromosomes did. The paper gives no LOD score and no heart lesion for the carriers; the cardiac phenotype shown is the septal defects the paper describes for the syndrome.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
