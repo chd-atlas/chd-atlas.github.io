@@ -61,7 +61,23 @@ convention only a person can check.
   excludes the paper as `full_text_not_accessible`, with a `note` naming what the abstract
   lacks (no abstract, no count, no carrier's heart lesion). It is a gap in what was read,
   not a judgement on the paper.
-- An included paper needs at least one finding (`LIT003`).
+- DNA methylation or RNA expression measured in human samples is not human genetic
+  evidence: exclude it as `not_human_genetics`. A paper that also reports a variant in
+  the gene is included, and only its variant result is extracted.
+- An erratum or corrigendum is excluded as `other` with `note: erratum to PMID:<the
+  corrected paper>`. The extractor reads it with the corrected paper and writes a number
+  it corrects as corrected, with a locator naming the erratum.
+- A negative result: a CHD cohort screened for the gene with no carrier is included (its
+  finding is a `cohort_screen` with every carrier count 0); a single patient or family in
+  whom the gene was tested and ruled out, the cause lying elsewhere, is excluded as
+  `no_finding_in_gene`.
+- Cell, protein or in-silico work on variants that reports no carrier of its own is
+  `not_human_genetics`, even when the variants came from patients in earlier papers.
+- A trait that is not a congenital heart lesion (atrial fibrillation alone, adult heart
+  structure, myocardial infarction) is `not_chd`; a review whose only new analysis is of
+  such a trait is `review_article`.
+- An included paper needs at least one finding (`LIT003`). Never write a finding only to
+  clear `LIT003`: say why the paper has none, and the curator re-triages it.
 
 ## Findings
 
@@ -77,8 +93,32 @@ convention only a person can check.
   person. With `families`, `screened` is families and each origin count is carrier
   families, so how many relatives carry the variant goes in the `summary` with a locator,
   not in a count.
+- Origin. A carrier family is `inherited` when the paper shows the variant passing from a
+  carrier parent to a child, `de_novo` when it arose in the family's affected child
+  (absent in both parents), and `origin_unknown` only when no transmission is shown. A
+  proband is `de_novo` if absent in both parents, `inherited` if found in a parent, and
+  otherwise `origin_unknown`.
+- A paper that names no detection method has `methods: [not_stated]`, alone (`SCHEMA001`).
+  Never write the nearest method.
+- `methods` lists every method that found the variant in a counted carrier, proband or
+  relative (capillary sequencing of relatives counts). Never a step that only confirms a
+  variant already found, nor one that found nothing.
+- A pooled analysis of cohorts the paper also reports one by one is not a finding of its
+  own: one finding per cohort.
+- A number the paper does not print (a total summed from its stages) is written only with
+  the summary saying how it was derived.
+- A finding needs a congenital heart lesion. Carriers with only rhythm or conduction
+  disease, a cardiomyopathy (such as LVNC) or no heart defect get no finding of their
+  own; name them in the summary of the paper's CHD finding where it matters. A paper left
+  with no finding is re-triaged `not_chd` by the curator.
+- `phenotypes` are the carriers' own congenital heart lesions, each as the most specific
+  HPO term the paper names (the paper says secundum: the secundum term). The cohort's
+  lesions only for a screen with no carrier, or where the paper never gives the carriers'
+  lesions; then the summary says the lesions are the cohort's. No extracardiac features.
 - `lesion_groups` agree with the `phenotypes` that `curation/phenotypes.yaml` maps to a
-  group (`REF007`, `REF009`); a phenotype it does not map is not checked.
+  group (`REF007`, `REF009`); a phenotype it does not map is not checked. `other` is only
+  for a structural lesion with no group (patent ductus arteriosus, Ebstein anomaly, cor
+  triatriatum) and for CHD whose type the paper does not give (HP:0001627).
 - `burden_study` links a study `mirrors/burden.tsv` already holds for this gene; with no
   such row the finding is refused (`LIT014`).
 - Independence: list `cohorts` from the registry. Set `shares_probands_with` to the

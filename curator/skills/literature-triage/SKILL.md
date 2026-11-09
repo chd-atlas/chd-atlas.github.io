@@ -33,11 +33,11 @@ Triage reads an abstract and applies a short rule list.
    |---|---|
    | `not_peer_reviewed` | a preprint, thesis, a conference or meeting abstract, or other unreviewed item |
    | `review_article` | a review or commentary with no new data |
-   | `not_human_genetics` | animal, cell or protein work with no human genetic finding |
+   | `not_human_genetics` | animal, cell or protein work with no human genetic finding; or DNA methylation or RNA expression measured in human samples with no variant in the gene reported (a paper that also reports a variant in the gene is included) |
    | `no_finding_in_gene` | the gene named only as background, or nothing reported about a variant in it; a gene among a study's reported results is a finding: include |
    | `not_chd` | no congenital heart phenotype |
    | `same_data_as` | the same patients and the same result reported again (add `same_as`); a paper with new results on the same patients is included, and its finding names the other in `shares_probands_with` |
-   | `other` | none of the above (add `note` saying why) |
+   | `other` | none of the above (add `note` saying why); an erratum or corrigendum is excluded here with `note: erratum to PMID:<the corrected paper>` |
 
    ```yaml
    - pmid: PMID:10000001
@@ -54,7 +54,11 @@ Triage reads an abstract and applies a short rule list.
      reason: no_finding_in_gene
    ```
 4. A paper whose abstract is missing or whose full text you cannot reach is not excluded
-   for that. Include it; the extract step records it as `not_accessible`.
+   for that. Include it; the extract step records it as `not_accessible`. The one
+   exception is an erratum, which PubMed usually prints with no abstract and the corrected
+   paper's title. Exclude it only when you know it is one (its title says so, or the
+   curator told you); a hit with no abstract whose title repeats another hit's is
+   included and named in your hand-off as unsure.
 5. `same_as` names a PMID that is `included` in this same file. Set the other paper's
    decision first.
 6. Run `.venv/bin/chd-atlas validate`.
