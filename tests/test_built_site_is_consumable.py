@@ -742,6 +742,12 @@ def test_exactly_the_four_records_the_owner_marked_carry_an_open_question(site: 
     of its rows names all seven series), each note once, inside the fold and
     nowhere else on the page. A scope term's question is published in
     `scope.json` only, so its note is asserted absent from every page.
+
+    Literature findings are records of another kind and carry their own marks,
+    rendered beside their summaries in the Literature section (TBX5's and
+    NR2F2's pending reviews, since the pilot's findings were published). The
+    page-wide count adds those the gene's bundle publishes, so a cohort note
+    leaking outside its fold still fails.
     """
     cohorts = {cohort["id"]: cohort for cohort in _read(site, "cohorts.json")["cohorts"]}
     terms = {term["id"]: term for term in _read(site, "scope.json")["terms"]}
@@ -804,7 +810,12 @@ def test_exactly_the_four_records_the_owner_marked_carry_an_open_question(site: 
             notes = page[page.index('<details class="cohort-notes">') :]
             notes = notes[: notes.index("</details>")]
         assert notes.count("<strong>Pending review:</strong>") == expected, entry["gene"]
-        assert page.count("Pending review") == expected, entry["gene"]
+        literature = sum(
+            1
+            for finding in bundle["literature"]["findings"]
+            if finding["review_status"] == "pending_review"
+        )
+        assert page.count("Pending review") == expected + literature, entry["gene"]
         carrying += bool(expected)
     assert carrying == 77
     for path in sorted(site.rglob("*.html")):
@@ -1250,6 +1261,9 @@ def test_every_trajectory_mark_sits_where_the_payload_puts_it(site: Path) -> Non
             continue
         markup = page.read_text()
         section = markup[markup.find("Developmental expression") :]
+        # The section ends at the next heading: the Literature timeline below is
+        # also a `chart` SVG, and it is not an expression figure.
+        section = section[: section.find("<h2", 1)] if "<h2" in section[1:] else section
         figures = re.findall(r'<svg class="chart" viewBox="0 0 560 \d+".*?</svg>', section, re.S)
         if not figures:
             continue

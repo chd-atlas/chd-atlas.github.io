@@ -15,9 +15,11 @@ count is what keeps that omission from being silent.
 
 A ``Publication`` that a curator added for a finding's paper
 (``literature add-publication``) carries the ``study_type`` the extracting agent
-read, so ``publications.json`` withholds it until a finding of that paper is
-approved, unless something else the build publishes cites it
-(``build/literature.py``; owner decision 3, superseding ruling R32).
+read, so ``publications.json`` withholds it while literature findings cite it
+and none of them is approved, unless something else the build publishes cites
+it; a record no finding cites publishes as before
+(``build/literature.withheld_publications``; owner decision 3, superseding
+ruling R32).
 
 A finding that carries a ``review_status`` is published all the same, with its
 mark and note (ruling R24): the mark is a published qualifier, never a
