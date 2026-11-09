@@ -2479,3 +2479,569 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+  - id: CHDA:LIT:0000070
+    publication: PMID:19586889
+    design: cohort_screen
+    methods: [not_stated]
+    count_unit: probands
+    screened: 100
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001627]
+    lesion_groups: [other]
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+      - kind: in_text
+        element: Results 2.1
+    summary: A screen of the 1,200 bp region upstream of TBX5 (promoter and regulatory sequence, not the coding exons) in 100 patients with simple congenital heart disease found no mutation. The paper does not give the lesions, so the phenotype is the cohort's and is the unspecified heart-morphology term.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+  - id: CHDA:LIT:0000071
+    publication: PMID:27958623
+    design: family_segregation
+    methods: [gene_panel]
+    count_unit: families
+    screened: 1
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+    variant_classes: [cnv]
+    phenotypes: [HP:0001684]
+    lesion_groups: [septal]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Results
+      - kind: in_text
+        element: Figure 1
+    summary: One Polish family with Holt-Oram syndrome carried a heterozygous deletion of the whole TBX5 coding sequence (87.1 kb, found by MLPA in the proband and her mother, and in two further relatives). Nine members were tested, four carriers all affected and five non-carriers all unaffected; the proband and one other carrier had a secundum atrial septal defect, and the mother had an arrhythmia without a reported structural defect.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+  - id: CHDA:LIT:0000072
+    publication: PMID:29555671
+    design: cohort_screen
+    methods: [exome]
+    count_unit: families
+    screened: 30
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001631, HP:0001629]
+    lesion_groups: [septal]
+    syndromic: isolated
+    shares_probands_with: [CHDA:LIT:0000073]
+    locators:
+      - kind: in_text
+        element: Results, hcCHD Gene Screen
+      - kind: in_text
+        element: Table 2
+    summary: Exome sequencing of 30 Australian families with congenital heart disease found a novel TBX5 stop-gain variant, p.Tyr407Ter, in one family (Family 00860). Family 00860 had atrial and ventricular septal defects; Table 2 also lists mitral regurgitation and left ventricular hypoplasia for it. The paper notes that subtle upper-limb abnormalities may have been missed.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+  - id: CHDA:LIT:0000073
+    publication: PMID:29555671
+    design: family_segregation
+    methods: [exome]
+    count_unit: families
+    screened: 1
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001631, HP:0001629]
+    lesion_groups: [septal]
+    syndromic: isolated
+    shares_probands_with: [CHDA:LIT:0000072]
+    locators:
+      - kind: in_text
+        element: Results, hcCHD Gene Screen
+      - kind: in_text
+        element: Table 2
+    summary: In Family 00860 the dominantly inherited TBX5 stop-gain p.Tyr407Ter segregated with disease in all six affected family members, who had atrial and ventricular septal defects. The paper does not give a count of unaffected carriers or of affected non-carriers.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+  - id: CHDA:LIT:0000074
+    publication: PMID:32641638
+    design: cohort_screen
+    methods: [targeted_sequencing]
+    count_unit: probands
+    screened: 198
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001719, HP:0001629]
+    lesion_groups: [conotruncal, septal]
+    syndromic: isolated
+    shares_probands_with: [CHDA:LIT:0000075]
+    locators:
+      - kind: in_text
+        element: Abstract
+      - kind: in_text
+        element: Results, identification of a pathogenic TBX5 mutation
+    summary: Sequencing of the TBX5 coding exons and flanking introns in 198 unrelated patients with congenital heart disease found one heterozygous missense variant, p.Pro231Leu (c.692C>T), in one index patient with familial double outlet right ventricle, ventricular septal defect and atrioventricular block. The variant was absent from 266 healthy controls.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+  - id: CHDA:LIT:0000075
+    publication: PMID:32641638
+    design: family_segregation
+    methods: [targeted_sequencing]
+    count_unit: families
+    screened: 1
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001719, HP:0001629]
+    lesion_groups: [conotruncal, septal]
+    syndromic: isolated
+    shares_probands_with: [CHDA:LIT:0000074]
+    locators:
+      - kind: in_text
+        element: Table II
+      - kind: in_text
+        element: Results, identification of a pathogenic TBX5 mutation
+    summary: In the index patient's family p.Pro231Leu co-segregated with double outlet right ventricle, ventricular septal defect and atrioventricular block in an autosomal dominant pattern with complete penetrance. Five affected members were heterozygous carriers (Table II); two deceased affected members were not genotyped, and the paper does not give counts of unaffected carriers or of affected non-carriers.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+  - id: CHDA:LIT:0000076
+    publication: PMID:42751140
+    design: case_report
+    methods: [exome]
+    count_unit: probands
+    screened: 1
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001684, HP:0001629]
+    lesion_groups: [septal]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+      - kind: in_text
+        element: Case Presentation
+    summary: A 10-year-old boy with Holt-Oram syndrome had bilateral thumb anomalies, a large secundum atrial septal defect and two small muscular ventricular septal defects that closed spontaneously. Exome sequencing found a maternally inherited TBX5 frameshift, c.130del p.(Ala44ProfsTer22), which his mother also carried.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+  - id: CHDA:LIT:0000077
+    publication: PMID:12818525
+    design: family_segregation
+    methods: [not_stated]
+    count_unit: families
+    screened: 2
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 2}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001631]
+    lesion_groups: [septal]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: Two unrelated families with Holt-Oram syndrome carried the same truncating variant (Y136X) in exon 5; the abstract reports an atrial septal defect in both families, and no transmission between generations is described.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000078
+    publication: PMID:15639924
+    design: cohort_screen
+    methods: [not_stated]
+    count_unit: families
+    screened: 61
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001627]
+    lesion_groups: [other]
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: No TBX5 mutation was detected in the eight exons of 61 families with simple congenital heart disease (216 individuals, 65 patients); the abstract does not give the lesions, so the phenotype is the cohort's.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000079
+    publication: PMID:16792966
+    design: case_report
+    methods: [not_stated]
+    count_unit: probands
+    screened: 1
+    carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001684, HP:0001629]
+    lesion_groups: [septal]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: A boy with Holt-Oram syndrome, a large ostium secundum atrial septal defect and a ventricular septal defect carried an intron 7 TBX5 variant (probable splicing change) that was absent from both parents; the abstract notes parental germline mosaicism is not excluded.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000080
+    publication: PMID:18451335
+    design: family_segregation
+    methods: [targeted_sequencing]
+    count_unit: families
+    screened: 1
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001627]
+    lesion_groups: [other]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: One large family with atypical Holt-Oram syndrome carried the missense variant c.373G>A (p.Gly125Arg), which the authors report cosegregates with the disease in all investigated affected members; few members have congenital heart disease, and the abstract does not give the lesion.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000081
+    publication: PMID:18706711
+    design: family_segregation
+    methods: [targeted_sequencing]
+    count_unit: families
+    screened: 1
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001631]
+    lesion_groups: [septal]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: One two-generation consanguineous family with atrial septal defects and postaxial hexodactyly carried the missense variant V263M in all four individuals studied who had cardiac abnormalities; the abstract gives the cardiac abnormality as atrial septal defect for the family.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000082
+    publication: PMID:19187613
+    design: common_variant_association
+    methods: [not_stated]
+    cases: 192
+    controls: 192
+    p_value: 0.0037
+    phenotypes: [HP:0001629]
+    lesion_groups: [septal]
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: In 192 Han Chinese children with ventricular septal defect not associated with forelimb malformation and 192 matched controls, SNP rs11067075 in TBX5 was associated with the defect (P = 0.0037, single-marker analysis); a 27-SNP haplotype was also associated (P = 0.05).
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000083
+    publication: PMID:21272410
+    design: case_report
+    methods: [not_stated]
+    count_unit: probands
+    screened: 1
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001631, HP:0011636]
+    lesion_groups: [septal, other]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: A 36-year-old man with Holt-Oram syndrome carried a novel exon 8 acceptor splice-site variant (c.663-1G>A) and had an atrial septal defect and an anomalous right coronary artery crossing between the aorta and the pulmonary artery.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000084
+    publication: PMID:23266815
+    design: case_report
+    methods: [chromosomal_microarray]
+    count_unit: probands
+    screened: 1
+    carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+    variant_classes: [chromosomal]
+    phenotypes: [HP:0001680]
+    lesion_groups: [lvoto]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: A fetus with coarctation of the aorta, ventriculomegaly and thickened nuchal fold carried a de novo partial trisomy 12q (12q24.21 to qter) with partial monosomy 6q, found by aCGH; the authors discuss the duplication of TBX3, TBX5 and MED13L in relation to the coarctation.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000085
+    publication: PMID:24408148
+    design: family_segregation
+    methods: [not_stated]
+    count_unit: families
+    screened: 1
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001629]
+    lesion_groups: [septal]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: One family in which an 8-year-old boy with a ventricular septal defect and upper-extremity abnormalities and his mother, with deformed hands and forearms, both carried heterozygous p.L65Qfs*10; the fetus (13 weeks) did not carry it. The abstract states a cardiac history for the boy only.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000086
+    publication: PMID:24664498
+    design: case_report
+    methods: [not_stated]
+    count_unit: probands
+    screened: 1
+    carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0006695, HP:0001680]
+    lesion_groups: [avsd, lvoto]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: A 9-year-old boy with Holt-Oram syndrome, an intermediate atrioventricular canal defect and aortic coarctation carried a de novo Arg279ter variant, previously described.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000087
+    publication: PMID:24664963
+    design: case_report
+    methods: [not_stated]
+    count_unit: probands
+    screened: 1
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [cnv]
+    phenotypes: [HP:0001627]
+    lesion_groups: [other]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: One patient with a contiguous deletion of TBX5 and TBX3 had features of Holt-Oram and ulnar-mammary syndromes, congenital cardiac defects and progressive cardiac conduction disease; the abstract does not give the lesion.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000088
+    publication: PMID:25263169
+    design: cohort_screen
+    methods: [not_stated]
+    count_unit: probands
+    screened: 94
+    carriers: {de_novo: 1, inherited: 1, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001636, HP:0001684]
+    lesion_groups: [conotruncal, septal]
+    syndromic: both
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: Screening of 94 patients with tetralogy of Fallot found two TBX5 variants, p.R279X (de novo, in a patient with Holt-Oram features) and maternally inherited p.S372L (no skeletal defects); both patients also had an ostium secundum atrial septal defect.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000089
+    publication: PMID:26490186
+    design: cohort_screen
+    methods: [targeted_sequencing]
+    count_unit: probands
+    screened: 111
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0011662]
+    lesion_groups: [other]
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: In 111 Japanese patients with non-syndromic congenital heart disease, one carried the novel TBX5 T-box variant p.Pro108Thr and had tricuspid atresia; it was found in none of 200 controls.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000090
+    publication: PMID:27026770
+    design: family_segregation
+    methods: [targeted_sequencing]
+    count_unit: families
+    screened: 1
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001629]
+    lesion_groups: [septal]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: One Holt-Oram family carried the novel variant c.241A>T (p.Arg81Trp) in its affected members and in a 16-week fetus with a ventricular septal defect and upper-limb reduction; an earlier child had an atrial septal defect and upper-limb anomalies, but the abstract does not say whether that child was tested.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000091
+    publication: PMID:28434921
+    design: cohort_screen
+    methods: [targeted_sequencing]
+    count_unit: probands
+    screened: 354
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001629]
+    lesion_groups: [septal]
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: Sequencing of all TBX5 coding exons in 354 sporadic patients with isolated ventricular septal defect, with 341 controls, found one novel heterozygous missense variant, c.40C>A (p.Pro14Thr), in one patient; its origin is not stated in the abstract.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000092
+    publication: PMID:28606231
+    design: cohort_screen
+    methods: [targeted_sequencing]
+    count_unit: probands
+    screened: 68
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001627]
+    lesion_groups: [other]
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: PCR and DNA sequencing of TBX5 coding regions 4, 5 and 8 in 68 children with congenital heart disease born after in vitro fertilization found no TBX5 mutation (the abstract states this for the two groups together). The abstract gives no lesion type, so the heart defects recorded are the cohort's.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000093
+    publication: PMID:28606231
+    design: cohort_screen
+    methods: [targeted_sequencing]
+    count_unit: probands
+    screened: 98
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001627]
+    lesion_groups: [other]
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: PCR and DNA sequencing of TBX5 coding regions 4, 5 and 8 in 98 naturally conceived children with congenital heart disease found no TBX5 mutation (the abstract states this for the two groups together). The abstract gives no lesion type, so the heart defects recorded are the cohort's.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000094
+    publication: PMID:30552424
+    design: cohort_screen
+    methods: [not_stated]
+    count_unit: probands
+    screened: 212
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 78}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001631, HP:0001627]
+    lesion_groups: [septal, other]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: Of 212 patients referred for suspected Holt-Oram syndrome and screened for TBX5 between 2002 and 2014, 78 carried a TBX5 variant (origin and variant type not stated). A congenital heart defect was present in 91% of the 78 carriers, atrial septal defect the most common (61.5%); the abstract gives no other lesions, so the second term records an unspecified heart defect.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000095
+    publication: PMID:33930582
+    design: family_segregation
+    methods: [chromosomal_microarray]
+    count_unit: families
+    screened: 1
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [cnv]
+    phenotypes: [HP:0001643, HP:0001650, HP:0001627]
+    lesion_groups: [other, lvoto]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: One large German family with at least 17 affected individuals over 6 generations carried a duplication at 12q24.21 comprising TBX5 and TBX3 (array-CGH; FISH confirmed a tandem duplication). Cardiac findings included congenital heart defects, persistent arterial duct and aortic stenosis; the abstract does not state how many carry the duplication or its origin.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000096
+    publication: PMID:33996178
+    design: cohort_screen
+    methods: [gene_panel]
+    count_unit: probands
+    screened: 207
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 0}
+    variant_classes: [cnv]
+    phenotypes: [HP:0001627]
+    lesion_groups: [other]
+    syndromic: both
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: MLPA of GATA4, NKX2-5, TBX5, BMP4 and CRELD1 and the 22q11.2 region in 207 children with congenital heart disease found no TBX5 copy-number variant. The abstract gives no lesion types for the whole cohort, so the heart defects recorded are the cohort's.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000097
+    publication: PMID:38062907
+    design: case_report
+    methods: [exome]
+    count_unit: probands
+    screened: 1
+    carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001627]
+    lesion_groups: [other]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: Whole exome sequencing of one patient with congenital tracheal stenosis and a congenital heart defect found a de novo TBX5 variant, NM_181486.4:c.680T>C, p.(Ile227Thr). The abstract does not give the heart lesion.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000098
+    publication: PMID:42778323
+    design: case_report
+    methods: [not_stated]
+    count_unit: probands
+    screened: 1
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0010773, HP:0006695]
+    lesion_groups: [anomalous_venous_return, avsd]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: A 51-year-old patient with corrected partially anomalous pulmonary venous return and an atrioventricular canal defect had a pathological TBX5 mutation on genetic testing, consistent with Holt-Oram syndrome; method, variant and origin are not stated in the abstract.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.

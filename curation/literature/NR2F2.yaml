@@ -443,3 +443,119 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+  - id: CHDA:LIT:0000099
+    publication: PMID:17931990
+    design: case_report
+    methods: [karyotype_or_fish, chromosomal_microarray]
+    count_unit: probands
+    screened: 1
+    carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+    variant_classes: [cnv]
+    phenotypes: [HP:0001627]
+    lesion_groups: [other]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: A girl with growth retardation, congenital heart malformation and oculocutaneous albinism had a 6.87 Mb terminal 15q26.2-qter deletion that appeared to have arisen de novo and contains NR2F2 and IGF1R. The abstract does not give the heart lesion; the lesion shown is the generic term.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000100
+    publication: PMID:21172461
+    design: case_report
+    methods: [chromosomal_microarray]
+    count_unit: probands
+    screened: 1
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [cnv]
+    phenotypes: [HP:0001627]
+    lesion_groups: [other]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: A girl with congenital heart defects had a 5.78 Mb terminal deletion of chromosome 15q detected by array-CGH; the authors consider NR2F2 a candidate gene within it. The abstract does not give the heart lesion or the deletion's origin.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000101
+    publication: PMID:29222010
+    design: cohort_screen
+    methods: [targeted_sequencing]
+    count_unit: probands
+    screened: 168
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001719, HP:0001629]
+    lesion_groups: [conotruncal, septal]
+    syndromic: isolated
+    shares_probands_with: [CHDA:LIT:0000102]
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: Sequencing of the NR2F2 coding exons and splice boundaries in 168 unrelated CHD patients found one nonsense variant (c.247G>T, p.G83X) in a patient with double outlet right ventricle and ventricular septal defect; it was absent from 230 ethnically matched controls.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000102
+    publication: PMID:29222010
+    design: family_segregation
+    methods: [targeted_sequencing]
+    count_unit: families
+    screened: 1
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001719, HP:0001629]
+    lesion_groups: [conotruncal, septal]
+    syndromic: isolated
+    shares_probands_with: [CHDA:LIT:0000101]
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: The p.G83X variant was present in all affected and absent from unaffected members of the index patient's family, co-segregating with CHD as an autosomal dominant trait with complete penetrance. The abstract gives no number of family members.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000103
+    publication: PMID:29663647
+    design: case_report
+    methods: [exome]
+    count_unit: probands
+    screened: 1
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001680, HP:0001629]
+    lesion_groups: [lvoto, septal]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: An 11-month-old boy with global developmental delay, dysmorphic features, coarctation of the aorta and ventricular septal defect carried a pathogenic NR2F2 variant found by whole exome sequencing. The abstract text does not state the variant's origin or class.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.
+  - id: CHDA:LIT:0000104
+    publication: PMID:37500725
+    design: cohort_screen
+    methods: [not_stated]
+    count_unit: probands
+    screened: 17
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 16}
+    variant_classes: [snv_indel, cnv]
+    phenotypes: [HP:0001627]
+    lesion_groups: [other]
+    syndromic: syndromic
+    shares_probands_with: []
+    locators:
+      - kind: in_text
+        element: Abstract
+    summary: Seventeen previously unreported individuals with heterozygous NR2F2 variants (predicted loss of function, missense and one large deletion), the majority de novo and one nonsense variant inherited from a mildly affected mosaic mother. Heart defects are described as common among them, but the abstract gives neither their number nor their lesions; the lesion shown is the generic term, and origin_unknown holds the individuals whose origin the abstract does not count.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    review_status: not_accessible
+    review_note: Only the PubMed abstract was read; the full text was not.

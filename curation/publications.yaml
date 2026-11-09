@@ -1331,3 +1331,494 @@ publications:
     study_type: family_linkage
     doi: 10.1016/j.hrcr.2017.12.002
     pmcid: PMC5944048
+  - id: PMID:19586889
+    title: '[The mechanism of TBX5 abnormal expression in simple congenital heart disease].'
+    journal: Yi chuan = Hereditas
+    year: 2009
+    authors:
+      - Xin N
+      - Qiu GR
+      - Gong LG
+      - Xu XY
+      - Sun KL
+    # A DHPLC screen of the 1,200 bp region upstream of TBX5 in 100 patients with simple CHD, plus methylation and cell-line work; first finding is a cohort_screen.
+    study_type: cohort_sequencing
+    doi: 10.3724/sp.j.1005.2009.00374
+  - id: PMID:27958623
+    title: Clinical expression of Holt-Oram syndrome on the basis of own clinical experience considering prenatal diagnosis.
+    journal: Ginekologia polska
+    year: 2016
+    authors:
+      - Walencka Z
+      - Jamsheer A
+      - Surmiak P
+      - Baumert M
+      - Jezela-Stanek A
+      - Witek A
+      - Materna-Kiryluk A
+      - Latos-Bieleńska A
+      - Socha M
+      - Sowińska-Seidler A
+    # A clinical report of one Holt-Oram syndrome family in which nine members were tested for the TBX5 deletion; the paper calls it a case report, the first finding is a family_segregation.
+    study_type: family_linkage
+    doi: 10.5603/GP.2016.0072
+  - id: PMID:29555671
+    title: A Screening Approach to Identify Clinically Actionable Variants Causing Congenital Heart Disease in Exome Data.
+    journal: Circulation. Genomic and precision medicine
+    year: 2018
+    authors:
+      - Szot JO
+      - Cuny H
+      - Blue GM
+      - Humphreys DT
+      - Ip E
+      - Harrison K
+      - Sholler GF
+      - Giannoulatou E
+      - Leo P
+      - Duncan EL
+      - Sparrow DB
+      - Ho JWK
+      - Graham RM
+      - Pachter N
+      - Chapman G
+      - Winlaw DS
+      - Dunwoodie SL
+    # Exome sequencing of 30 families with CHD, filtered through a 90-gene CHD list; first finding is a cohort_screen.
+    study_type: cohort_sequencing
+    doi: 10.1161/CIRCGEN.117.001978
+  - id: PMID:32641638
+    title: A New TBX5 Loss-of-Function Mutation Contributes to Congenital Heart Defect and Atrioventricular Block.
+    journal: International heart journal
+    year: 2020
+    authors:
+      - Zhang Y
+      - Sun YM
+      - Xu YJ
+      - Zhao CM
+      - Yuan F
+      - Guo XJ
+      - Guo YH
+      - Yang CX
+      - Gu JN
+      - Qiao Q
+      - Wang J
+      - Yang YQ
+    # Sequencing of TBX5 in 198 unrelated CHD patients and 266 controls, with a family and luciferase assays; first finding is a cohort_screen.
+    study_type: cohort_sequencing
+    doi: 10.1536/ihj.19-650
+  - id: PMID:42751140
+    title: 'A Novel Pathogenic Frameshift Variant Associated With Holt-Oram Syndrome: A Case Report.'
+    journal: Case reports in genetics
+    year: 2026
+    authors:
+      - Sarkar S
+      - Rana AN
+      - Gianneschi G
+      - Bizargity P
+    # The paper describes itself as a case report of one boy and his family.
+    study_type: case_report
+    doi: 10.1155/crig/8875290
+    pmcid: PMC13579245
+  - id: PMID:12818525
+    title: 'Holt-Oram syndrome: a new mutation in the TBX5 gene in two unrelated families.'
+    journal: Annales de genetique
+    year: 2003
+    authors:
+      - Gruenauer-Kloevekorn C
+      - Froster UG
+    # The abstract reports two unrelated families with Holt-Oram syndrome sharing one truncating TBX5 variant and compares their defects; no linkage analysis is described.
+    study_type: family_linkage
+    doi: 10.1016/s0003-3995(03)00006-6
+  - id: PMID:15639924
+    title: '[Studies on the mutation and expression of TBX5 gene in human simple congenital heart disease].'
+    journal: Yi chuan = Hereditas
+    year: 2003
+    authors:
+      - Gong LG
+      - Qiu GR
+      - Qiu GB
+      - He G
+      - Sun KL
+    # The abstract screens the TBX5 exons in 61 CHD families by PCR-DGGE and finds no mutation, plus an expression comparison in myocardium.
+    study_type: cohort_sequencing
+  - id: PMID:16792966
+    title: '[Holt-Oram syndrome: characterization of a novel mutation].'
+    journal: 'Anales de pediatria (Barcelona, Spain : 2003)'
+    year: 2006
+    authors:
+      - Fernández García-Moya L
+      - Lapunzina Badía P
+      - Delicado Navarro A
+      - Sharif A
+      - Cross G
+      - Mori Alvarez MA
+      - de Torres Perezhidalgo ML
+      - Palomares Bralo M
+      - García Sánchez P
+      - García-Guereta Silva L
+      - López Pajares I
+    # The abstract describes one boy with Holt-Oram syndrome and his TBX5 intron 7 variant.
+    study_type: case_report
+    doi: 10.1157/13089924
+  - id: PMID:18451335
+    title: A gain-of-function TBX5 mutation is associated with atypical Holt-Oram syndrome and paroxysmal atrial fibrillation.
+    journal: Circulation research
+    year: 2008
+    authors:
+      - Postma AV
+      - van de Meerakker JB
+      - Mathijssen IB
+      - Barnett P
+      - Christoffels VM
+      - Ilgun A
+      - Lam J
+      - Wilde AA
+      - Lekanne Deprez RH
+      - Moorman AF
+    # The abstract describes one large atypical Holt-Oram family sequenced for TBX5, with cosegregation and functional assays.
+    study_type: family_linkage
+    doi: 10.1161/CIRCRESAHA.107.168294
+  - id: PMID:18706711
+    title: A novel TBX5 missense mutation (V263M) in a family with atrial septal defects and postaxial hexodactyly.
+    journal: International journal of cardiology
+    year: 2008
+    authors:
+      - Faria MH
+      - Rabenhorst SH
+      - Pereira AC
+      - Krieger JE
+    # The abstract describes a two-generation family clinically assessed and tested for TBX5 by direct sequencing.
+    study_type: family_linkage
+    doi: 10.1016/j.ijcard.2008.06.090
+  - id: PMID:19187613
+    title: Association of TBX5 gene polymorphism with ventricular septal defect in the Chinese Han population.
+    journal: Chinese medical journal
+    year: 2009
+    authors:
+      - Liu CX
+      - Shen AD
+      - Li XF
+      - Jiao WW
+      - Bai S
+      - Yuan F
+      - Guan XL
+      - Zhang XG
+      - Zhang GR
+      - Li ZZ
+    # The abstract describes a SNP and haplotype association of TBX5 in 192 VSD patients and 192 controls, as part of a larger study, with no array named.
+    study_type: candidate_variant
+  - id: PMID:21272410
+    title: 'Holt-Oram syndrome: novel TBX5 mutation and associated anomalous right coronary artery.'
+    journal: Cardiology in the young
+    year: 2011
+    authors:
+      - Vianna CB
+      - Miura N
+      - Pereira AC
+      - Jatene MB
+    # The abstract reports one man with a novel TBX5 splice variant.
+    study_type: case_report
+    doi: 10.1017/S1047951111000072
+  - id: PMID:23266815
+    title: Prenatal diagnosis and molecular cytogenetic characterization of de novo partial trisomy 12q (12q24.21→qter) and partial monosomy 6q (6q27→qter) associated with coarctation of the aorta, ventriculomegaly and thickened nuchal fold.
+    journal: Gene
+    year: 2013
+    authors:
+      - Chen CP
+      - Chen YY
+      - Chern SR
+      - Wu PS
+      - Su JW
+      - Chen YT
+      - Chen LF
+      - Wang W
+    # The abstract presents one fetus with a de novo partial trisomy 12q found by aCGH.
+    study_type: case_report
+    doi: 10.1016/j.gene.2012.12.051
+  - id: PMID:24408148
+    title: 'A new mutation in the TBX5 gene in Holt-Oram syndrome: two cases in the same family and prenatal diagnosis.'
+    journal: Journal of tropical pediatrics
+    year: 2014
+    authors:
+      - Atik T
+      - Dervisoglu H
+      - Onay H
+      - Ozkinay F
+      - Cogulu O
+    # The abstract reports two affected relatives in one family with a novel TBX5 variant, with prenatal testing of a fetus.
+    study_type: family_linkage
+    doi: 10.1093/tropej/fmt109
+  - id: PMID:24664498
+    title: 'Holt-Oram syndrome with intermediate atrioventricular canal defect, and aortic coarctation: functional characterization of a de novo TBX5 mutation.'
+    journal: American journal of medical genetics. Part A
+    year: 2014
+    authors:
+      - Baban A
+      - Pitto L
+      - Pulignani S
+      - Cresci M
+      - Mariani L
+      - Gambacciani C
+      - Digilio MC
+      - Pongiglione G
+      - Albanese S
+    # The abstract reports one boy with a de novo TBX5 variant and functional characterisation.
+    study_type: case_report
+    doi: 10.1002/ajmg.a.36459
+  - id: PMID:24664963
+    title: 'Phenotype of a patient with contiguous deletion of TBX5 and TBX3: expanding the disease spectrum.'
+    journal: American journal of medical genetics. Part A
+    year: 2014
+    authors:
+      - Bogarapu S
+      - Bleyl SB
+      - Calhoun A
+      - Viskochil D
+      - Saarel EV
+      - Everitt MD
+      - Frank DU
+    # The abstract reports one patient with a contiguous TBX5/TBX3 deletion.
+    study_type: case_report
+    doi: 10.1002/ajmg.a.36447
+  - id: PMID:25263169
+    title: Identification of TBX5 mutations in a series of 94 patients with Tetralogy of Fallot.
+    journal: American journal of medical genetics. Part A
+    year: 2014
+    authors:
+      - Baban A
+      - Postma AV
+      - Marini M
+      - Trocchio G
+      - Santilli A
+      - Pelegrini M
+      - Sirleto P
+      - Lerone M
+      - Albanese SB
+      - Barnett P
+      - Boogerd CJ
+      - Dallapiccola B
+      - Digilio MC
+      - Ravazzolo R
+      - Pongiglione G
+    # The abstract describes screening of 94 tetralogy of Fallot patients for TBX5, NKX2.5 and GATA4 variants.
+    study_type: cohort_sequencing
+    doi: 10.1002/ajmg.a.36783
+  - id: PMID:26490186
+    title: Genetic mutation analysis in Japanese patients with non-syndromic congenital heart disease.
+    journal: Journal of human genetics
+    year: 2016
+    authors:
+      - Yoshida A
+      - Morisaki H
+      - Nakaji M
+      - Kitano M
+      - Kim KS
+      - Sagawa K
+      - Ishikawa S
+      - Satokata I
+      - Mitani Y
+      - Kato H
+      - Hamaoka K
+      - Echigo S
+      - Shiraishi I
+      - Morisaki T
+    # The abstract describes sequencing of seven genes in 111 Japanese patients with non-syndromic CHD.
+    study_type: cohort_sequencing
+    doi: 10.1038/jhg.2015.126
+  - id: PMID:27026770
+    title: A novel mutated sequence in the T-box transcription factor-5 (TBX-5) gene (c.241A>T) in Holt-Oram syndrome.
+    journal: Journal of the Turkish German Gynecological Association
+    year: 2016
+    authors:
+      - Ersoy AÖ
+      - Topçu V
+      - Kale İ
+      - Ersoy E
+      - Özler S
+      - Danışman N
+    # The abstract reports one Holt-Oram family with a novel TBX5 variant found in affected members and a fetus.
+    study_type: family_linkage
+    doi: 10.5152/jtgga.2015.15233
+    pmcid: PMC4794294
+  - id: PMID:28434921
+    title: Identification of a novel and functional mutation in the TBX5 gene in a patient by screening from 354 patients with isolated ventricular septal defect.
+    journal: European journal of medical genetics
+    year: 2017
+    authors:
+      - Chen HX
+      - Zhang X
+      - Hou HT
+      - Wang J
+      - Yang Q
+      - Wang XL
+      - He GW
+    # Case-control mutational analysis: TBX5 sequenced in 354 isolated-VSD patients and 341 controls, one carrier found.
+    study_type: cohort_sequencing
+    doi: 10.1016/j.ejmg.2017.04.011
+  - id: PMID:28606231
+    title: '[NKX2.5 and TBX5 gene mutations in in vitro fertilization children with congenital heart disease].'
+    journal: Zhongguo dang dai er ke za zhi = Chinese journal of contemporary pediatrics
+    year: 2017
+    authors:
+      - Yang JH
+      - Xu XY
+      - Mi HY
+      - Jiang Y
+      - Ma XM
+      - Li L
+    # Sequencing of TBX5 regions in 68 IVF and 98 naturally conceived children with CHD, no carriers.
+    study_type: cohort_sequencing
+    doi: 10.7499/j.issn.1008-8830.2017.06.008
+    pmcid: PMC7390306
+  - id: PMID:30552424
+    title: 'Holt-Oram syndrome: clinical and molecular description of 78 patients with TBX5 variants.'
+    journal: 'European journal of human genetics : EJHG'
+    year: 2019
+    authors:
+      - Vanlerberghe C
+      - Jourdain AS
+      - Ghoumid J
+      - Frenois F
+      - Mezel A
+      - Vaksmann G
+      - Lenne B
+      - Delobel B
+      - Porchet N
+      - Cormier-Daire V
+      - Smol T
+      - Escande F
+      - Manouvrier-Hanu S
+      - Petit F
+    # Retrospective review of 212 patients referred for suspected Holt-Oram syndrome who underwent TBX5 screening, 78 with a variant.
+    study_type: cohort_sequencing
+    doi: 10.1038/s41431-018-0303-3
+    pmcid: PMC6460573
+  - id: PMID:33930582
+    title: 'TBX3 and TBX5 duplication: A family with an atypical overlapping Holt-Oram/ulnar-mammary syndrome phenotype.'
+    journal: European journal of medical genetics
+    year: 2021
+    authors:
+      - Cenni C
+      - Andres S
+      - Hempel M
+      - Strom TM
+      - Thomas E
+      - Davies A
+      - Timoney N
+      - Frigiola A
+      - Logan M
+      - Holder-Espinasse M
+    # Report of one large family across 6 generations bearing a 12q24.21 duplication.
+    study_type: family_linkage
+    doi: 10.1016/j.ejmg.2021.104213
+  - id: PMID:33996178
+    title: GATA 4 Deletions Associated with Congenital Heart Diseases in South Brazil.
+    journal: Journal of pediatric genetics
+    year: 2021
+    authors:
+      - Floriani MA
+      - Glaeser AB
+      - Dorfman LE
+      - Agnes G
+      - Rosa RFM
+      - Zen PRG
+    # MLPA copy-number screen of 207 children with CHD, no TBX5 CNV.
+    study_type: cohort_sequencing
+    doi: 10.1055/s-0040-1714691
+    pmcid: PMC8110368
+  - id: PMID:38062907
+    title: TBX5 pathogenic variant in a patient with congenital heart defect and tracheal stenosis.
+    journal: Congenital anomalies
+    year: 2024
+    authors:
+      - Yamoto K
+      - Kato F
+      - Yamoto M
+      - Fukumoto K
+      - Shimizu K
+      - Saitsu H
+      - Ogata T
+    # Single patient with tracheal stenosis and CHD studied by whole exome sequencing.
+    study_type: case_report
+    doi: 10.1111/cga.12548
+  - id: PMID:42778323
+    title: 'Atrial Flutter in Partially Anomalous Pulmonary Venous Return: Electrophysiological Insights in Holt-Oram Syndrome.'
+    journal: 'Pacing and clinical electrophysiology : PACE'
+    year: 2026
+    authors:
+      - Kosmopoulos M
+      - Asatryan B
+      - Barth A
+      - Doshi A
+      - Hale Z
+      - Cedars A
+      - Aronis KN
+    # Single patient case report of atrial flutter ablation with a TBX5 mutation found on genetic testing.
+    study_type: case_report
+    doi: 10.1111/pace.70442
+  - id: PMID:17931990
+    title: Proportional growth failure and oculocutaneous albinism in a girl with a 6.87 Mb deletion of region 15q26.2-->qter.
+    journal: European journal of medical genetics
+    year: 2007
+    authors:
+      - Poot M
+      - Eleveld MJ
+      - van 't Slot R
+      - van Genderen MM
+      - Verrijn Stuart AA
+      - Hochstenbach R
+      - Beemer FA
+    # The paper reports one girl with a 15q26.2-qter deletion and compares her with earlier cases.
+    study_type: case_report
+    doi: 10.1016/j.ejmg.2007.08.003
+  - id: PMID:21172461
+    title: 5.78 Mb terminal deletion of chromosome 15q in a girl, evaluation of NR2F2 as candidate gene for congenital heart defects.
+    journal: European journal of medical genetics
+    year: 2011
+    authors:
+      - Nakamura E
+      - Makita Y
+      - Okamoto T
+      - Nagaya K
+      - Hayashi T
+      - Sugimoto M
+      - Manabe H
+      - Taketazu G
+      - Kajino H
+      - Fujieda K
+    # The paper reports one girl with a terminal 15q deletion and evaluates NR2F2 as a candidate.
+    study_type: case_report
+    doi: 10.1016/j.ejmg.2010.12.004
+  - id: PMID:29222010
+    title: A novel NR2F2 loss-of-function mutation predisposes to congenital heart defect.
+    journal: European journal of medical genetics
+    year: 2018
+    authors:
+      - Qiao XH
+      - Wang Q
+      - Wang J
+      - Liu XY
+      - Xu YJ
+      - Huang RT
+      - Xue S
+      - Li YJ
+      - Zhang M
+      - Qu XK
+      - Li RG
+      - Qiu XB
+      - Yang YQ
+    # The paper sequenced NR2F2 in 168 unrelated CHD patients, then tested the carrier's family and 230 controls (first finding is the screen).
+    study_type: cohort_sequencing
+    doi: 10.1016/j.ejmg.2017.12.003
+  - id: PMID:29663647
+    title: Novel de novo pathogenic variant in the NR2F2 gene in a boy with congenital heart defect and dysmorphic features.
+    journal: American journal of medical genetics. Part A
+    year: 2018
+    authors:
+      - Upadia J
+      - Gonzales PR
+      - Robin NH
+    # The paper reports one boy found by whole exome sequencing.
+    study_type: case_report
+    doi: 10.1002/ajmg.a.38700
