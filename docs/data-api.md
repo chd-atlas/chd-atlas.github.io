@@ -1642,8 +1642,9 @@ TBX5's, abridged:
   published data. `carriers` and `screened` are counted in `count_unit`: with
   `families`, `screened` is families and each origin count is carrier families.
 
-The gene page renders this as its Literature section, after the developmental
-expression section. A gene with no search says only "Not yet curated." Otherwise
+The gene page renders this as its Literature section, right after the atlas's
+curated evidence (on a gene with none, after the validity table) and before the
+rare-variant and expression sections. A gene with no search says only "Not yet curated." Otherwise
 one visible line gives the papers found and how they were decided (included,
 excluded, not yet triaged), and the findings awaiting approval. With one search
 it reads "searched" and that search's date; with several it reads "N searches,
@@ -1803,9 +1804,10 @@ ClinGen or GenCC record for any other disease — and links
 a record for a disease outside scope. A curated gene's page
 follows it with the curated evidence — a line saying each assertion is this
 atlas's own curation and changes no classification above, linking
-[`methods.html#curated-evidence`](#methodshtml); each assertion, its evidence
-items with their class, strength and summary; and the publications that
-evidence cites.
+[`methods.html#curated-evidence`](#methodshtml); then each assertion and its
+evidence items, each with its class, strength and summary and the paper it
+cites, named by first author and year, linked to PubMed, its title on hover.
+The Literature section follows on every gene page.
 
 The rare-variant section opens with one line attributing every count and
 statistic in its study tables to the upstream study — "Every count and statistic
@@ -1880,7 +1882,7 @@ is no summary diamond, ending with a link, *How to read rare-variant results*,
 to [`methods.html#rare-variants`](#methodshtml), which states the key in
 general.
 
-The developmental expression section, which the Literature section follows, opens with one visible
+The developmental expression section, the page's last, opens with one visible
 line. On a page with cell-type data and a bulk profile it reads "Cell-type values pool 8 hearts at
 9 to 15 weeks and the timeline below is from bulk tissue; a low or absent value
 is not evidence a gene is unimportant to heart development." and the cell-type

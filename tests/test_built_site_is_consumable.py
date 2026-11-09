@@ -2360,7 +2360,9 @@ def test_a_gene_page_carries_no_more_visible_prose_than_its_measured_budget(site
     since 2 of the 119 pages carry a record. TBX5's page reads 1,302 words and
     NR2F2's 1,115, above the median, and two pages cannot add a sentence to
     (b), which counts only sentences on 90% of pages. Both constants stay at
-    998 and 20.
+    998 and 20. Moving Literature beside the curated evidence and dropping the
+    Publications table (same day) moved no figure but those two pages', each
+    one word lighter by the lost heading: TBX5 1,301, NR2F2 1,114.
 
     "cells" is the history: (a) with cells counted, the figure this test
     asserted until review, 957 at zero headroom. (b) never counted them, and

@@ -1629,18 +1629,34 @@ def test_the_doc_describes_the_literature_section_and_what_publishes_before_appr
     """Final review S2, S3, S13, R32, R37: the sentences beside correct output (§4.20, §4.25).
 
     Held against the build where a build can say it: the methods page has seven
-    `<h2 id>` sections (the doc said six), every gene page ends on the Literature
-    section (the doc said expression was last), and both counts are 0.
+    `<h2 id>` sections (the doc said six), and the gene page's section order and
+    the literature counts are the build's. The page ended on Literature until
+    the owner moved it beside the curated evidence (2026-11-09); expression is
+    last again, and the doc says so.
     """
     doc = " ".join(DOC.read_text().split())
     methods = (site / "methods.html").read_text()
     assert len(re.findall(r'<h2 id="[^"]+"', methods)) == 7
     assert "It has seven sections, in this order" in doc and "six sections" not in doc
     assert "- `#literature` says how a gene page's Literature section is built" in doc
+    # Literature sits with the atlas's own curation, before the mirrored layers
+    # (owner, 2026-11-09); expression is last again. TBX5 has every section.
     page = (site / "genes" / "HGNC_11604.html").read_text()
-    assert page.rindex("<h2") == page.index("<h2>Literature</h2>")
-    assert "last on the page" not in doc
-    assert "which the Literature section follows" in doc
+    order = [
+        page.index(heading)
+        for heading in (
+            "<h2>Mirrored gene&ndash;disease validity</h2>",
+            "<h2>Curated evidence</h2>",
+            "<h2>Literature</h2>",
+            '<h2 id="rare-variants">Rare-variant association</h2>',
+            "<h2>Developmental expression</h2>",
+        )
+    ]
+    assert order == sorted(order)
+    assert page.rindex("<h2") == page.index("<h2>Developmental expression</h2>")
+    assert "<h2>Publications</h2>" not in page
+    assert "The developmental expression section, the page's last," in doc
+    assert "right after the atlas's curated evidence (on a gene with none, after the" in doc
     assert 'A gene with no search says only "Not yet curated."' in doc
     counts = json.loads((site / "manifest.json").read_text())["counts"]
     symbols = sorted(b["symbol"] for b in _bundles(site) if b["literature"]["searches"])

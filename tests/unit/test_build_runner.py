@@ -870,7 +870,7 @@ def test_a_literature_file_reaches_its_bundle_page_and_the_counts(
 
     page = (out / "genes" / "HGNC_11604.html").read_text()
     start = page.index("<h2>Literature</h2>")
-    section = page[start : page.index("</div></div>", start)]
+    section = page[start : page.index("<h2", start + 1)]
     assert section.startswith(
         '<h2>Literature</h2><p class="method">PubMed, searched 2026-11-02: 9 papers; '
         "2 included, 3 excluded, 4 not yet triaged; 1 finding awaits approval.</p>"
