@@ -258,10 +258,10 @@ _VALIDITY: Final = (
 )
 
 # What a curated gene's page adds (owner decision 2026-10-26, E3). A gene page
-# renders "Curated evidence" and "Publications" only for a gene with a lesion
-# assertion (`pages._evidence_section`, gated on `AtlasCuration.CURATED`), and
-# this page explained every other section but those two. Each clause read off
-# the code that day:
+# renders "Curated evidence" only for a gene with a lesion assertion
+# (`pages._evidence_section`, gated on `AtlasCuration.CURATED`), and this page
+# explained every other section but that one. Each clause read off the code
+# that day:
 #
 # * An assertion is `LesionAssertion`: a curator's record that the gene belongs
 #   to one or more lesion groups (`lesion_groups`, at least one), with
@@ -277,11 +277,9 @@ _VALIDITY: Final = (
 #   reads the validity records alone, and `derive.gene_facts` headlines the
 #   strongest ClinGen record whatever the assertions say; an assertion feeds
 #   only `lesion_groups` and the curation fields.
-# * "Publications" lists the distinct publications the evidence cites, sorted,
-#   with their id, title and year (`_CITATION_HEADERS`), and renders exactly
-#   where "Curated evidence" does. Named as a curated gene's page's own: it
-#   read "The Publications section that follows" until review (2026-10-27),
-#   and on this page what follows is the rare-variant section.
+# * A closing sentence described the "Publications" section that followed it
+#   on a curated gene's page; the owner removed that section on 2026-11-09
+#   (each evidence row now names its paper) and the sentence went with it.
 _CURATED_EVIDENCE: Final = (
     '<h2 id="curated-evidence">Curated evidence</h2>'
     "<p>Where this atlas holds a lesion assertion for a gene, its page carries a "
@@ -296,9 +294,7 @@ _CURATED_EVIDENCE: Final = (
     "the card's curated line counts both.</p>"
     "<p>An assertion is this atlas's own work, and it <strong>changes nothing "
     "mirrored</strong>: a gene is published, and its grade is headlined, on the upstream "
-    "validity records alone, so no assertion admits a gene or moves its grade. A gene "
-    "with a lesion assertion also has a <strong>Publications</strong> section, which lists every "
-    "publication its evidence cites, with its title and year.</p>"
+    "validity records alone, so no assertion admits a gene or moves its grade.</p>"
 )
 
 # How to read a gene page's rare-variant section (2026-10-26, D50). The page

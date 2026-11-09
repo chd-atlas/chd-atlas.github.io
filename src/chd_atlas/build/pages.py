@@ -690,8 +690,6 @@ _MATRIX_LEAD_NOTE: Final = (
 # rare-variant reading notes every gene page folded under "How to read these
 # numbers". They moved, with their histories, to `methods._RARE_VARIANTS` (D50).
 
-_CITATION_HEADERS: Final = ("id", "title", "year")
-
 
 def _heart_expression_summary(
     profile: ExpressionProfile | None,
@@ -2130,14 +2128,14 @@ def _orphanet_notes(
 def _evidence_section(
     records: Sequence[LesionAssertion], publications: Mapping[str, Publication]
 ) -> str:
-    """Each assertion, its evidence, and the publications that evidence cites.
+    """Each assertion and its evidence, each item naming the paper it cites.
 
-    A cited publication missing from `publications` renders as an em dash rather
-    than being dropped from the list: the citation is the curator's, and a row
-    that disappears because a lookup missed is the silent evidence loss this
-    project treats as its characteristic failure. `referential.py` already
-    refuses a corpus that cites an unknown publication, so this is a guard on a
-    bypassed gate.
+    The paper is named in the row, "Basson CT et al. 1997" linked to PubMed with
+    its title on hover (`_paper_link`), as the rare-variant and literature
+    sections name theirs. A "Publications" table listing the cited papers by id,
+    title and year followed this section until the owner removed it
+    (2026-11-09): it repeated what the rows linked, and the Literature section
+    takes its place on the page.
     """
     blocks: list[str] = []
     for assertion in records:
@@ -2155,29 +2153,13 @@ def _evidence_section(
                     item.evidence_class.value,
                     item.strength.value,
                     item.summary,
-                    Link(text=item.publication, href=_pubmed(item.publication)),
+                    _paper_link(item.publication, publications),
                 )
             )
             for item in assertion.evidence
         ]
         blocks.append(
             f"<h3>{html.escape(assertion.id)}</h3>{summary}{data_table(_EVIDENCE_HEADERS, items)}"
-        )
-    # Sorted: the set is built by iterating assertions, and a `set` of strings
-    # iterates in an order that varies with `PYTHONHASHSEED` -- which would make
-    # the page's checksum differ between two builds of one commit.
-    cited = sorted({item.publication for record in records for item in record.evidence})
-    citations = []
-    for reference in cited:
-        publication = publications.get(reference)
-        citations.append(
-            Row(
-                cells=(
-                    reference,
-                    publication.title if publication is not None else _EM_DASH,
-                    str(publication.year) if publication is not None else _EM_DASH,
-                )
-            )
         )
     # The section's link to `methods.html#curated-evidence` (owner decision
     # 2026-10-26, E3), in the pattern of the other sections' one-line intros.
@@ -2186,10 +2168,25 @@ def _evidence_section(
         "<h2>Curated evidence</h2>"
         "<p>Each lesion assertion below is this atlas's own curation, and changes no "
         'classification above. <a href="../methods.html#curated-evidence">How to read '
-        "curated evidence</a>.</p>"
-        + "".join(blocks)
-        + "<h2>Publications</h2>"
-        + data_table(_CITATION_HEADERS, citations)
+        "curated evidence</a>.</p>" + "".join(blocks)
+    )
+
+
+def _paper_link(pmid: str, publications: Mapping[str, Publication]) -> Markup:
+    """A cited paper as "Basson CT et al. 1997", linked to PubMed, its title on hover.
+
+    A paper missing from `publications` keeps its link and is labelled by its
+    PMID (`_study_label`'s fallback) with no hover title, rather than dropping
+    the citation: the row is the curator's, and a citation that vanishes because
+    a lookup missed is the silent evidence loss this project guards against.
+    `referential.py` refuses a corpus citing an unknown publication, so this is
+    a guard on a bypassed gate.
+    """
+    publication = publications.get(pmid)
+    hover = f' title="{html.escape(publication.title)}"' if publication is not None else ""
+    return Markup(
+        f'<a href="{html.escape(_pubmed(pmid))}"{hover}>'
+        f"{html.escape(_study_label(pmid, publications))}</a>"
     )
 
 
@@ -6890,6 +6887,12 @@ def build_gene_pages(
                 if fact.atlas_curation is AtlasCuration.CURATED
                 else ""
             )
+            # The atlas's literature beside its lesion assertions (owner,
+            # 2026-11-09), on every page, "Not yet curated." included: both are
+            # the atlas's own curation, so they sit together after the mirrored
+            # validity they are distinguished from. It was the page's last
+            # section until then, appended after expression.
+            + _literature_section(gene_literature_bundle, publications)
             # After the atlas's own section, not between it and the mirrored
             # validity table, which keeps the atlas's own curation beside the
             # classifications it is distinguished from. The old main-column
@@ -6906,9 +6909,7 @@ def build_gene_pages(
             )
             # Last: burden and expression are both mirrored/derived evidence
             # layers rather than the atlas's own curation, and expression is
-            # the newer of the two -- appending keeps every existing section's
-            # position, and therefore every existing test slicing this page by
-            # position, unchanged.
+            # the newer of the two.
             + _expression_section(
                 profile_by_gene.get(gene, EMPTY_EXPRESSION_PROFILE),
                 dataset_registry,
@@ -6916,8 +6917,6 @@ def build_gene_pages(
                 cell_types.get(gene, EMPTY_CELL_TYPE_EXPRESSION),
                 gene=symbol,
             )
-            # After expression, for the same reason expression is after burden.
-            + _literature_section(gene_literature_bundle, publications)
             + "</div></div>"
         )
         emitter.write_text(

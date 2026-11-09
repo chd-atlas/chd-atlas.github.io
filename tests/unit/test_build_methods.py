@@ -438,18 +438,19 @@ def test_validity_states_how_a_gene_page_lists_its_records(page: str) -> None:
 def test_curated_evidence_says_what_an_assertion_is_and_that_it_changes_nothing_mirrored(
     page: str,
 ) -> None:
-    """The two sections only a curated gene's page carries (owner decision 2026-10-26, E3).
+    """The section only a curated gene's page carries (owner decision 2026-10-26, E3).
 
-    TBX5's page has "Curated evidence" and "Publications" and this page
+    TBX5's page had "Curated evidence" and "Publications" and this page
     explained every other section but those, while the card's "How to read
-    this page" promised it. Each clause read off the code that day:
+    this page" promised it. The owner removed "Publications" on 2026-11-09
+    (each evidence row now names its paper), and its closing sentence here
+    went with it. Each clause read off the code that day:
     `LesionAssertion` (lesion groups, inheritance, mechanism, syndromic status
     -- the four rows the page's definition list renders), `Evidence` (one
     required publication, a class, a strength of four values, the curator's
     summary -- the table's four columns), `validity.published_genes` and
     `derive.gene_facts` (the gate and the headline read the validity records
-    alone, D37), and `pages._evidence_section` (the publications cited, with
-    title and year).
+    alone, D37), and `pages._evidence_section`.
 
     **One clause of the owner's draft was false.** "Each claim tied to a
     publication and quoted evidence": an evidence item's `summary` is the
@@ -473,9 +474,7 @@ def test_curated_evidence_says_what_an_assertion_is_and_that_it_changes_nothing_
         "the card's curated line counts both.</p>"
         "<p>An assertion is this atlas's own work, and it <strong>changes nothing "
         "mirrored</strong>: a gene is published, and its grade is headlined, on the upstream "
-        "validity records alone, so no assertion admits a gene or moves its grade. A gene "
-        "with a lesion assertion also has a <strong>Publications</strong> section, which lists "
-        "every publication its evidence cites, with its title and year.</p>"
+        "validity records alone, so no assertion admits a gene or moves its grade.</p>"
     )
 
 
