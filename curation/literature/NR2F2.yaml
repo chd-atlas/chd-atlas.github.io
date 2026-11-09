@@ -464,6 +464,8 @@ findings:
         element: Abstract
     summary: A girl with growth retardation, congenital heart malformation and oculocutaneous albinism had a 6.87 Mb terminal 15q26.2-qter deletion that appeared to have arisen de novo and contains NR2F2 and IGF1R. The abstract does not give the heart lesion; the lesion shown is the generic term.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-09
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000100
@@ -484,6 +486,8 @@ findings:
     summary: A girl with congenital heart defects had a 5.78 Mb terminal deletion of chromosome 15q detected by array-CGH; the authors consider NR2F2 a candidate gene within it. The abstract does not give the heart lesion or the deletion's origin.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-09
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000101
@@ -504,6 +508,8 @@ findings:
     summary: Sequencing of the NR2F2 coding exons and splice boundaries in 168 unrelated CHD patients found one nonsense variant (c.247G>T, p.G83X) in a patient with double outlet right ventricle and ventricular septal defect; it was absent from 230 ethnically matched controls.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-09
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000102
@@ -523,6 +529,8 @@ findings:
         element: Abstract
     summary: The p.G83X variant was present in all affected and absent from unaffected members of the index patient's family, co-segregating with CHD as an autosomal dominant trait with complete penetrance. The abstract gives no number of family members.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-09
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000103
@@ -543,5 +551,7 @@ findings:
     summary: An 11-month-old boy with global developmental delay, dysmorphic features, coarctation of the aorta and ventricular septal defect carried a pathogenic NR2F2 variant found by whole exome sequencing. The abstract text does not state the variant's origin or class.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-09
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
