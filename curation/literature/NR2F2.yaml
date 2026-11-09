@@ -106,10 +106,14 @@ triage:
     reason: not_human_genetics
   - pmid: PMID:37500725
     search: 1
-    decision: included
+    decision: excluded
+    reason: full_text_not_accessible
+    note: the abstract gives no count of carriers with a heart lesion
   - pmid: PMID:40015456
     search: 1
-    decision: included
+    decision: excluded
+    reason: full_text_not_accessible
+    note: the abstract gives no count of carriers
   - pmid: PMID:40883017
     search: 1
     decision: excluded
@@ -488,7 +492,7 @@ findings:
     methods: [targeted_sequencing]
     count_unit: probands
     screened: 168
-    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
     phenotypes: [HP:0001719, HP:0001629]
     lesion_groups: [conotruncal, septal]
@@ -499,6 +503,7 @@ findings:
         element: Abstract
     summary: Sequencing of the NR2F2 coding exons and splice boundaries in 168 unrelated CHD patients found one nonsense variant (c.247G>T, p.G83X) in a patient with double outlet right ventricle and ventricular septal defect; it was absent from 230 ethnically matched controls.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000102
@@ -507,7 +512,7 @@ findings:
     methods: [targeted_sequencing]
     count_unit: families
     screened: 1
-    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
     phenotypes: [HP:0001719, HP:0001629]
     lesion_groups: [conotruncal, septal]
@@ -538,24 +543,5 @@ findings:
     summary: An 11-month-old boy with global developmental delay, dysmorphic features, coarctation of the aorta and ventricular septal defect carried a pathogenic NR2F2 variant found by whole exome sequencing. The abstract text does not state the variant's origin or class.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
-    review_status: not_accessible
-    review_note: Only the PubMed abstract was read; the full text was not.
-  - id: CHDA:LIT:0000104
-    publication: PMID:37500725
-    design: cohort_screen
-    methods: [not_stated]
-    count_unit: probands
-    screened: 17
-    carriers: {de_novo: 0, inherited: 1, origin_unknown: 16}
-    variant_classes: [snv_indel, cnv]
-    phenotypes: [HP:0001627]
-    lesion_groups: [other]
-    syndromic: syndromic
-    shares_probands_with: []
-    locators:
-      - kind: in_text
-        element: Abstract
-    summary: Seventeen previously unreported individuals with heterozygous NR2F2 variants (predicted loss of function, missense and one large deletion), the majority de novo and one nonsense variant inherited from a mildly affected mosaic mother. Heart defects are described as common among them, but the abstract gives neither their number nor their lesions; the lesion shown is the generic term, and origin_unknown holds the individuals whose origin the abstract does not count.
-    extracted_by: agent:literature-extract/claude-sonnet-5-5
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
