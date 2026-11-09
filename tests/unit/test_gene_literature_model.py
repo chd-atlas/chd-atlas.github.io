@@ -181,6 +181,8 @@ def test_carriers_at_exactly_screened_are_accepted() -> None:
         ({"decision": "excluded", "reason": "other"}, False),
         ({"decision": "excluded", "reason": "other", "note": "  "}, False),
         ({"decision": "excluded", "reason": "other", "note": "a thesis"}, True),
+        ({"decision": "excluded", "reason": "full_text_not_accessible"}, False),
+        ({"decision": "excluded", "reason": "full_text_not_accessible", "note": "no count"}, True),
         ({"decision": "included", "search": 0}, False),
     ],
 )

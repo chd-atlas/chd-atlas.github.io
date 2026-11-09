@@ -10400,10 +10400,14 @@ def test_one_paper_is_not_pluralised(tmp_path: Path) -> None:
 def test_the_exclusion_tally_lists_each_reason_with_its_count_and_is_absent_when_none(
     tmp_path: Path,
 ) -> None:
-    with_tally = _lit_page(tmp_path, _lit(excluded={"no_finding_in_gene": 2, "not_chd": 3}))
+    with_tally = _lit_page(
+        tmp_path,
+        _lit(excluded={"full_text_not_accessible": 4, "no_finding_in_gene": 2, "not_chd": 3}),
+    )
     assert (
         "<details><summary>Excluded papers, by reason</summary><ul>"
         "<li>no finding in this gene: 2</li><li>not about congenital heart disease: 3</li>"
+        "<li>full text not accessible: 4</li>"
         "</ul></details>"
     ) in with_tally
     assert "Excluded papers" not in _lit_page(tmp_path, _lit(excluded={}))

@@ -6314,6 +6314,7 @@ _EXCLUSION_LABELS: Final = (
     ("no_finding_in_gene", "no finding in this gene"),
     ("not_chd", "not about congenital heart disease"),
     ("same_data_as", "same data as another paper"),
+    ("full_text_not_accessible", "full text not accessible"),
     ("other", "other"),
 )
 

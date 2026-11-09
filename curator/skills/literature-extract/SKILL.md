@@ -46,9 +46,9 @@ Read `curator/curator-rules.md` first. Model tier: a mid-tier model (for example
    finding; write it only where the paper states its cohort is new. Otherwise write
    `unknown`. The curator checks independence by reading this
    field in the `review` listing.
-6. A paper you cannot read stays in. Record only what the abstract supports, use the
-   locator element `Abstract`, and set `review_status: not_accessible` with a
-   `review_note` saying what could not be read.
+6. A paper you cannot read stays in: record what its abstract supports, with locator
+   element `Abstract`, `review_status: not_accessible` and a `review_note` naming what was
+   not read. If it supports nothing, the curator excludes it as `full_text_not_accessible`.
 7. Where the paper disagrees with a source the finding rests on, set
    `review_status: pending_review` and state only the measured disagreement in
    `review_note`.

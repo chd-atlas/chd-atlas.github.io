@@ -127,6 +127,11 @@ class TriageEntry(BaseModel):
             raise ValueError(f"{self.pmid}: same_as is only for the reason same_data_as")
         if self.reason is ExclusionReason.OTHER and self.note is None:
             raise ValueError(f"{self.pmid}: the reason 'other' needs a note")
+        if self.reason is ExclusionReason.FULL_TEXT_NOT_ACCESSIBLE and self.note is None:
+            raise ValueError(
+                f"{self.pmid}: the reason 'full_text_not_accessible' needs a note naming "
+                "what the abstract lacks"
+            )
         return self
 
 
