@@ -52,8 +52,8 @@ What the build produced, and a checksum for every file in it.
     "assertions": 2, "burden_combined": 108, "burden_rows": 1210,
     "burden_surviving_genes": 32, "cell_type_datasets": 1, "cell_type_genes": 118,
     "cohort_families": 2, "cohorts": 20, "datasets": 2, "featured": 1, "functional": 0,
-    "genes": 119, "literature_findings": 0, "literature_genes": 0, "phenotypes": 8, "profile_datasets": 1, "profile_genes": 119,
-    "publications": 11, "scope_terms": 105
+    "genes": 119, "literature_findings": 94, "literature_genes": 2, "phenotypes": 8, "profile_datasets": 1, "profile_genes": 119,
+    "publications": 86, "scope_terms": 105
   },
   "files": {
     "genes/index.json": "sha256:<64 hex>",
@@ -138,7 +138,8 @@ wrong by the next one.
     [`literature`](#the-bundles-literature-object-searches-a-triage-tally-and-approved-findings)
     records at least one search.
   - `literature_findings` (since `2.21`) is the number of approved findings in
-    those bundles. Both are `0` today: no `curation/literature` file exists.
+    those bundles. Today two genes carry a literature record, NR2F2 and TBX5, with
+    94 approved findings between them.
 
   Each of the eleven counts only what the published genes' bundles carry, except
   `cohort_families`, which groups the whole burden mirror's cohorts: restricting
@@ -753,8 +754,14 @@ abridged, and each is documented in full further down.
   },
   "expression_profile": { "datasets": [ { "dataset": "E-MTAB-6814", … } ] },
   "cell_type_expression": { "datasets": [ { "dataset": "hoc", … } ] },
-  "literature": { "searches": [], "triage": { "included": 0, "excluded": {}, "pending": 0 },
-                  "pending_approval": 0, "findings": [] }
+  "literature": {
+    "searches": [ { "source": "pubmed", "run_on": "2026-11-03", "hits": 400, "new_hits": 400, … } ],
+    "triage": { "included": 66, "excluded": { "full_text_not_accessible": 36, "not_chd": 17, … },
+                "pending": 0 },
+    "pending_approval": 0,
+    "findings": [ { "id": "CHDA:LIT:0000015", "publication": "PMID:12789647",
+                    "design": "cohort_screen", … }, … ]
+  }
 }
 ```
 
@@ -1589,12 +1596,24 @@ abridged:
 ### The bundle's `literature` object: searches, a triage tally and approved findings
 
 On every gene bundle (since `2.21`). Always present; a gene with no
-`curation/literature` file carries exactly the empty shape below, which is also
-what the build publishes for every gene today.
+`curation/literature` file carries exactly the empty shape below, as 117 of the
+119 published genes do today.
 
 ```json
 { "searches": [], "triage": { "included": 0, "excluded": {}, "pending": 0 },
   "pending_approval": 0, "findings": [] }
+```
+
+TBX5's, abridged:
+
+```json
+{ "searches": [ { "source": "pubmed", "run_on": "2026-11-03", "hits": 400, "new_hits": 400, … } ],
+  "triage": { "included": 66, "excluded": { "full_text_not_accessible": 36, "not_chd": 17, … },
+              "pending": 0 },
+  "pending_approval": 0,
+  "findings": [ { "id": "CHDA:LIT:0000015", "publication": "PMID:12789647", "design": "cohort_screen",
+                  "count_unit": "probands", "screened": 49,
+                  "carriers": { "de_novo": 0, "inherited": 9, "origin_unknown": 8 }, … }, … ] }
 ```
 
 - `searches` lists each recorded PubMed search: `source`, `query`, `run_on` (an

@@ -2354,6 +2354,14 @@ def test_a_gene_page_carries_no_more_visible_prose_than_its_measured_budget(site
     measured 972 is 26 words, 2.7% (the 3% rule of E4 would give 1,002 for 972,
     and the constant is not raised); 20 over a measured 20 is none.
 
+    Then the pilot's literature landed (Task C1, 2026-11-09), the first
+    populated sections on the committed corpus: measured with this parser on a
+    fresh build of 53bf6c4, 972 words and 20 sentences (119 pages), unchanged,
+    since 2 of the 119 pages carry a record. TBX5's page reads 1,302 words and
+    NR2F2's 1,115, above the median, and two pages cannot add a sentence to
+    (b), which counts only sentences on 90% of pages. Both constants stay at
+    998 and 20.
+
     "cells" is the history: (a) with cells counted, the figure this test
     asserted until review, 957 at zero headroom. (b) never counted them, and
     the review's fixes to methods.html left every gene page's bytes as at
