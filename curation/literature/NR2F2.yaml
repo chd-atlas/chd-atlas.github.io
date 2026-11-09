@@ -153,6 +153,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:0dec0caceff08a6ab7c9566b4c248ec3e7308b3ac985efaf9355df3efa56b3a1
   - id: CHDA:LIT:0000002
     publication: PMID:24702954
     design: cohort_screen
@@ -172,6 +173,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:6aee7285dbc06ccd1b5259cee6c72e1a72d54a6f7c11260e07ba53bbb38fc722
   - id: CHDA:LIT:0000003
     publication: PMID:24702954
     design: rare_variant_association
@@ -195,6 +197,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:9594d687befd0b64d6e9f459d3a872287b5c8067727291474c2d2920c7a6baa4
   - id: CHDA:LIT:0000004
     publication: PMID:24702954
     design: family_segregation
@@ -219,6 +222,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:9929df99d8f6983d2141c44afcae9b7cc81b2fa26ea45373bc49fd7fd40f242a
     review_status: pending_review
     review_note: The paper gives this duplication as c.220_222dup in Table 1 and as c.222_224dup in the Methods and Results, and the protein change as p.Gln75dup in Table 1 and Methods but p.Gln70dup in the luciferase results text.
   - id: CHDA:LIT:0000005
@@ -242,6 +246,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:c0a628a9b7e2c39fbaf11af500deba763b9eeab44e8f8be20c6ab0ab2e5347fb
   - id: CHDA:LIT:0000006
     publication: PMID:24702954
     design: case_report
@@ -263,6 +268,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:e1b930c67b025c1cea5d8f7a53f6dbb7da973326758b1029e636f53de09a6237
     review_status: pending_review
     review_note: The paper gives this splice donor variant as c.970+1G>A in Table 1 and as c.2359+1G>A in the Results text.
   - id: CHDA:LIT:0000007
@@ -287,6 +293,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:47ad9b3d679a867de45718e9b1cb54d95afe23abd7826cf238e3f878163d9390
   - id: CHDA:LIT:0000008
     publication: PMID:29089047
     design: cohort_screen
@@ -311,6 +318,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:dc110f11d750261edfc1a0e249befdba698f1b50460ed923a914ea91db2da5cf
   - id: CHDA:LIT:0000009
     publication: PMID:29478779
     design: cohort_screen
@@ -332,6 +340,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:8d796f0b697abcd89ff51d7f7ed38119606a1a1e4381a9d1d132bacba7df03be
   - id: CHDA:LIT:0000010
     publication: PMID:30720060
     design: cohort_screen
@@ -354,6 +363,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:c2995c4b66be5354b101ce13fe83ad00b98c30c8c573b267323dc7394f847f7f
   - id: CHDA:LIT:0000011
     publication: PMID:30720060
     design: family_segregation
@@ -378,6 +388,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:aac5fa14ba353f82f96cb8ee6922fdd8141cdf2129a3d28942dbec084f64cdd5
   - id: CHDA:LIT:0000012
     publication: PMID:31687637
     design: case_report
@@ -400,6 +411,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:29510ef1889808a591b65be148073b8757ac137de44061938f871f76f510b2b0
   - id: CHDA:LIT:0000013
     publication: PMID:32037394
     design: cohort_screen
@@ -424,6 +436,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:6272c453f8bedb6f5ca2ec9797ba33c1866d9c786baaa80637223ca191a76dd3
   - id: CHDA:LIT:0000014
     publication: PMID:34530895
     design: case_report
@@ -447,6 +460,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:0fef0f1f738e358f2138a1111df506dea00022c204d6baa862dce742bb68f453
   - id: CHDA:LIT:0000099
     publication: PMID:17931990
     design: case_report
@@ -466,6 +480,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:97c4b8b4c124c37c323785a861af7b3430f93f5c9ce15fe3d0b5b5d15316f66d
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000100
@@ -488,6 +503,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:bcd48088ecccf1d902305338e5558f543dd7f37322f5faab56c0adad2a5b223b
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000101
@@ -510,6 +526,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:eef89933ed065a71d2ce8c0a6c21aee3cca518d17b2d2d9a60b6fdd8125acdf1
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000102
@@ -531,6 +548,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:f78fc1309117bf8f240c6b43ff87a4402acaf8da57d22dd78bb3774610f7834d
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000103
@@ -553,5 +571,6 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:4cc4138783316d9217805cb0ce3bd5f44a8739649a82a84d46808a6fe9c1a49c
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.

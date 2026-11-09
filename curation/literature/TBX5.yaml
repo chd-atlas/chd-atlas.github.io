@@ -1605,6 +1605,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:66fbbe5387ae68253831f7957b3e1b2ccdf426b887a5247030efac99ae3df963
   - id: CHDA:LIT:0000016
     publication: PMID:18828908
     design: case_report
@@ -1627,6 +1628,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:0a6343e011a94a0b1e921f73ec681a07b02b77a1a57058b132ac1c6a8937ac7b
   - id: CHDA:LIT:0000017
     publication: PMID:21637475
     design: cohort_screen
@@ -1650,6 +1652,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:56bbd131464392b9b081dc89ee07c118f8eed980ff10f1cd45122dd5e13cc6f2
   - id: CHDA:LIT:0000018
     publication: PMID:21637475
     design: cohort_screen
@@ -1671,6 +1674,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:c50a12677e058249f5904a9fa84ac85cbbbb1a9768239ccbda85af8ed44293af
   - id: CHDA:LIT:0000019
     publication: PMID:22190901
     design: case_report
@@ -1690,6 +1694,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:d143b3b2a1ad0a32d87f5d5bafdd3015ca73d45ccc7139fbfae9eeff997b56bd
   - id: CHDA:LIT:0000020
     publication: PMID:22011241
     design: cohort_screen
@@ -1714,6 +1719,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:8a1977e729c7b6bed6853744a84503391d6a677cb6202ea24235890ba867c0c9
     review_status: pending_review
     review_note: The Results call the one TBX5 change "a synonymous variant" while naming it D111Y, a protein substitution; the Discussion treats it as a nonsynonymous variant.
   - id: CHDA:LIT:0000021
@@ -1740,6 +1746,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:01c094bfe21c73b63f7e75f002ecea9416e51a1d2cb31a389727dd46c0ba334d
   - id: CHDA:LIT:0000022
     publication: PMID:22543974
     design: cohort_screen
@@ -1762,6 +1769,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:8204285a1ab58e69925ed18faa17d5b1e57be4d59cd9eef40f86c604ec2b7f1b
   - id: CHDA:LIT:0000023
     publication: PMID:26989721
     design: cohort_screen
@@ -1783,6 +1791,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:777409f969c30b9acf4aeefd74f1f5e5ad8efe00a10fbcd001479a4b0d2e0a8e
   - id: CHDA:LIT:0000024
     publication: PMID:25216260
     design: cohort_screen
@@ -1805,6 +1814,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:907521904546cd533c70873791dd3112e412de59663243c2623e83595c07ffe9
   - id: CHDA:LIT:0000025
     publication: PMID:25274398
     design: family_segregation
@@ -1826,6 +1836,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:e8c5bac9541a77f0b4a05c4ab30ead5361ed9479bac204ffdc64b8ee8141da6b
   - id: CHDA:LIT:0000026
     publication: PMID:26036351
     design: cohort_screen
@@ -1848,6 +1859,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:9bb978648a3b3818660da862e9fb87b62213d6662b54838f98d610924e869b31
   - id: CHDA:LIT:0000027
     publication: PMID:26219450
     design: case_report
@@ -1869,6 +1881,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:65b0bf8ee8bb60bd6cc75cdc716e7ff5a4af797ddd3bd2e4db8c6f891e9dbcaa
   - id: CHDA:LIT:0000029
     publication: PMID:26283027
     design: common_variant_association
@@ -1891,6 +1904,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:54949a182297c2346c96cee02fdbd3c184d207c05e10c9348e4e9edfaa0fbc81
   - id: CHDA:LIT:0000031
     publication: PMID:27035640
     design: family_segregation
@@ -1915,6 +1929,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:c99ccdbbca009dae4942c95bbd9cc854f22e958842266cdd9d8a153073cf8236
   - id: CHDA:LIT:0000032
     publication: PMID:27652283
     design: case_report
@@ -1936,6 +1951,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:0ea68a5e85f6c76611bfef98669c7efb3ec0236f1a7ba828430fc8b527b58da3
   - id: CHDA:LIT:0000034
     publication: PMID:28761722
     design: common_variant_association
@@ -1957,6 +1973,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:5146a793cbbfd8f616b34e86bf4bffcd601a4703bf47ed8aa70ec0963ef27659
   - id: CHDA:LIT:0000035
     publication: PMID:28761722
     design: common_variant_association
@@ -1978,6 +1995,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:43023d738770f7a0812c5c44078e9990963621a60c4f8baa186177b39e716ac1
   - id: CHDA:LIT:0000037
     publication: PMID:29707177
     design: cohort_screen
@@ -2000,6 +2018,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:d9aabf6482c24193cad9276cc8b7d2a7c7196333cc2933dc75a9451f2c0430e2
   - id: CHDA:LIT:0000038
     publication: PMID:29755943
     design: family_segregation
@@ -2022,6 +2041,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:a2bb5b4d7198fed7c1cd50d28d558108111c8bf56477f2d9177e4edd1bbca522
   - id: CHDA:LIT:0000040
     publication: PMID:29952356
     design: cohort_screen
@@ -2044,6 +2064,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:3438871c811fa797b0fb5b13025e923288e8f7178998017d1c03818f3cee68e3
   - id: CHDA:LIT:0000041
     publication: PMID:30538526
     design: case_report
@@ -2066,6 +2087,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:70527935c379c290242eb3f27f7c38003d6865c5ea08fac7824ac6c964aa6371
   - id: CHDA:LIT:0000042
     publication: PMID:30221396
     design: cohort_screen
@@ -2088,6 +2110,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:709df779c9e27596b5f495b11638050da8311e69bdd3f39351ce321a2b00f316
   - id: CHDA:LIT:0000043
     publication: PMID:30834692
     design: common_variant_association
@@ -2111,6 +2134,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:f3bd7e028b4543a509387dd69e31ec567db24a50c5a4ace98b5381976b98d0d8
   - id: CHDA:LIT:0000044
     publication: PMID:31388035
     design: cohort_screen
@@ -2135,6 +2159,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:ab81e41a709933defc984c49c8ea33c05734320c57e23ff62a715d67dc06593c
   - id: CHDA:LIT:0000047
     publication: PMID:33306779
     design: cohort_screen
@@ -2157,6 +2182,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:80ee82a445a737ac6ada20d6eb4896bf7fd5202899c02d5d9b2a83e7b442a3d5
   - id: CHDA:LIT:0000048
     publication: PMID:33306779
     design: family_segregation
@@ -2179,6 +2205,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:2d78a479dd8a42e69b8795c9dbaf50c87319f9ad8b175dec660d9ef339d88bb6
   - id: CHDA:LIT:0000049
     publication: PMID:33281169
     design: case_report
@@ -2198,6 +2225,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:e69f6f1b74ccc3b8c5f4b3367f41a846e47baba9c8f7c3b1005062d2ba9d82ba
   - id: CHDA:LIT:0000050
     publication: PMID:33369127
     design: family_segregation
@@ -2220,6 +2248,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:37852e600799c12fa551bde4cb3c43179369a659b0a0a1adb4a596853af397bc
   - id: CHDA:LIT:0000052
     publication: PMID:33866394
     design: case_report
@@ -2242,6 +2271,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:c16bd59866b320470e34f2a7c0e5d3d0c286c11c628efc9309cf08e367f1f580
   - id: CHDA:LIT:0000053
     publication: PMID:34738001
     design: family_segregation
@@ -2263,6 +2293,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:5aac8113c9e75b73b454265a6ef08cbc85db024e78c048211485f4ad9a1346f9
   - id: CHDA:LIT:0000054
     publication: PMID:34490705
     design: family_segregation
@@ -2287,6 +2318,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:ac515d20c86332d3d3cdff54483f54ec1b434bffc54f51145143291259add407
   - id: CHDA:LIT:0000056
     publication: PMID:35514310
     design: family_segregation
@@ -2313,6 +2345,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:9d52db58ec55c0e99c08fee116d43680a1b53c0144f82eba1c9b52f1c7bff274
   - id: CHDA:LIT:0000057
     publication: PMID:35711406
     design: case_report
@@ -2333,6 +2366,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:1b4dca6e2ba510a898a614b49fd4330ece792179078545f7a64a210a05c93f6b
   - id: CHDA:LIT:0000058
     publication: PMID:35870951
     design: common_variant_association
@@ -2357,6 +2391,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:6582543d70fcc5896363933b03d3552b9c2a687a6c192c2c0b2ebf5c6efd4020
     review_status: pending_review
     review_note: 'The case and control numbers disagree within the paper: Methods and the abstract give 200 cases and 150 controls, the Table 2 header gives 121 cases and 121 controls, and the counts in Table 3 sum to 101 cases and 100 controls.'
   - id: CHDA:LIT:0000059
@@ -2383,6 +2418,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:c9138d0ba97693b5109d879103d0d8435e5adac0a020c885a6a88bd8458c8a41
   - id: CHDA:LIT:0000061
     publication: PMID:36936432
     design: case_report
@@ -2407,6 +2443,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:0e4465edb28e425ba0939c4396b767894a24692b4fbd79a899a57f4265151515
   - id: CHDA:LIT:0000062
     publication: PMID:38397197
     design: cohort_screen
@@ -2429,6 +2466,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:6742837f9b6bf18fb59863c518deb8bccc2d98ee17f95ff2b9e4b5ff58bd0df5
   - id: CHDA:LIT:0000063
     publication: PMID:39230761
     design: case_report
@@ -2451,6 +2489,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:87477aa61dc0c1f149e6a6d35f953356a2506043723d862c05b42b9434682a44
   - id: CHDA:LIT:0000064
     publication: PMID:39541167
     design: case_report
@@ -2473,6 +2512,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:559be08a3ba36fd4a698a06c889ad3ec8f70064a83ffbc9c560fbd3fe340262d
   - id: CHDA:LIT:0000066
     publication: PMID:40126773
     design: case_report
@@ -2496,6 +2536,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:6ef57eb362f0d80c1856c1577ddf6360ef5f34acf6903eee3799640a30966d95
   - id: CHDA:LIT:0000067
     publication: PMID:42311150
     design: common_variant_association
@@ -2517,6 +2558,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:ab5b6635cc63104dd9533eb2164ef8a5c735e3917236012dd6e096b04b320344
   - id: CHDA:LIT:0000068
     publication: PMID:42311150
     design: common_variant_association
@@ -2538,6 +2580,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:071c874101b9275194578273db6bd0f82328b3b58a0d0bceab5ee3ef27636abc
   - id: CHDA:LIT:0000069
     publication: PMID:42482497
     design: family_segregation
@@ -2560,6 +2603,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
+    approved_digest: sha256:ecfa7455c1f413581459868b59f31ab776e9bcfcd02238fafbf390883891025e
   - id: CHDA:LIT:0000070
     publication: PMID:19586889
     design: cohort_screen
@@ -2582,6 +2626,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:ed7f49d479a4556dc739821fd4f327533fb941ababf9e3dcc0bf6317d262ecc5
   - id: CHDA:LIT:0000071
     publication: PMID:27958623
     design: family_segregation
@@ -2604,6 +2649,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:0957ba7a44dac88ff329211f3aabc0e6768b5a3e567e65e9a4278f594f645a68
   - id: CHDA:LIT:0000072
     publication: PMID:29555671
     design: cohort_screen
@@ -2626,6 +2672,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:1108caa750d009f59c1c2494c6c9f838a35ef99058e1aeb1ef9508289530532a
   - id: CHDA:LIT:0000073
     publication: PMID:29555671
     design: family_segregation
@@ -2647,6 +2694,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:73d34f344f2ddd31733224bd4d670b1eac9d60664b2742eb650b42d797f58097
   - id: CHDA:LIT:0000074
     publication: PMID:32641638
     design: cohort_screen
@@ -2669,6 +2717,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:d45adb81790efc5f9bbdef73969d0f56d25547e9104685341d8c2541b447d1ff
   - id: CHDA:LIT:0000075
     publication: PMID:32641638
     design: family_segregation
@@ -2691,6 +2740,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:8fda25061ca50f3b003091340f7002ddf0ed5afa89dff20caa56dab4f0409d67
   - id: CHDA:LIT:0000076
     publication: PMID:42751140
     design: case_report
@@ -2713,6 +2763,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:3cff8903fb4a7bfca72e8988088c8e834a14ba8aa90e2ac22c38c6288d7a6204
   - id: CHDA:LIT:0000077
     publication: PMID:12818525
     design: family_segregation
@@ -2733,6 +2784,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:25744924bb9d2b8624246d1a6a15f3d2d702997a310e96aec72b82cffee5326c
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000078
@@ -2755,6 +2807,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:9d86fe5b6b02cb01dafce3f71185f7599daf93bade5653275c7df0e4e0f33ab5
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000079
@@ -2777,6 +2830,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:49d539dde8a3a8ee410726fcdb23c57ccdbdd07e23720de068aaa611a89fbb72
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000080
@@ -2799,6 +2853,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:863b55bb63171801249180b243f59803dc764ee769af046d50bc36d0d1b5f208
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000081
@@ -2821,6 +2876,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:da22547f18124c82ca7f593931aed1a59b46eb14ad57e64401b4e2c4c5bd243d
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000082
@@ -2843,6 +2899,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:228997bc97d8af456f61aad00caacaf3f306dde3acb0bded0e88489b8f5f38e1
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000083
@@ -2865,6 +2922,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:72907fff33aa2abe96a7dde926f62ca29e063c42387711b856686be336f57db0
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000084
@@ -2887,6 +2945,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:383731ad28b22fecef6e32fafd61d5b7d155e2a3379825950ba76040eb965eea
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000085
@@ -2909,6 +2968,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:b06b49871118a953d1be59d55b30909c58b4a9b5b1e14a614c89d73f5d79b1f9
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000086
@@ -2931,6 +2991,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:073130441886eb3eca8f34c4da1afd6b76e4a2e2751192994dbc13e79aceb47c
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000087
@@ -2953,6 +3014,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:ed0316f238edd7daec71cce0ec67723044e95796878cb0ba475375293fdff25a
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000088
@@ -2975,6 +3037,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:57e8d7444e47fd8076e824ab9c7c9cc5a43169b5d48018910540f551aa90cf86
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000089
@@ -2997,6 +3060,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:dd2c58fcbd83687a56b91af448e7227ea0ae6e8989e47fb4fad877cacb545a97
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000090
@@ -3019,6 +3083,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:85071447fcd579047840c5374cd01ffe493a49d4235dbe7e8bceb0494f7c826b
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000091
@@ -3042,6 +3107,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:3570e0af73077433cc98828e3f6cf43adab95b0aa74003cba3a40ce983c70661
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000092
@@ -3063,6 +3129,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:9d4d27fdd95b17a4feed1f4c6fa848ae6af73ca3509e47cb30b6d0daf28ff4cf
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000093
@@ -3084,6 +3151,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:f95119707cadd3d8062b72ec624819845e62d1684173d587a50c3a6041ae1e83
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000094
@@ -3106,6 +3174,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:4c6c083a1287785ac74e70e3876ddb40c7902ec7fc5d3725583fd3f0c239c841
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000095
@@ -3128,6 +3197,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:9417b90c40c543385bf88a3322bb1513be1063e8c4df4a93b35789e03e7fb549
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000096
@@ -3150,6 +3220,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:a661423c355c438e6e6232cc10bbf73387f19ea139b4ffe291f1e79b9a6815e8
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000097
@@ -3172,6 +3243,7 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:7504113b454b51293ed24718862940e08e89609062bd8d7806d4332653b7019e
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000098
@@ -3194,5 +3266,6 @@ findings:
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
+    approved_digest: sha256:baaf0630af185db432db6c541a3b8d6e91412725d370e38a0a544ae5cab2bdf0
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
