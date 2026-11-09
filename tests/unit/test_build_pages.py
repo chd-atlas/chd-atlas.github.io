@@ -297,6 +297,13 @@ def test_an_uncurated_gene_page_says_the_atlas_has_not_curated_it(
     assert "#curated-evidence" not in page
     assert "Holt-Oram syndrome" in _validity_table(page)
     assert "GATA4" in page
+    # An uncurated gene's Literature line moves up with everyone's (owner,
+    # 2026-11-09): straight after the validity table. This fixture has no
+    # burden rows, so no rare-variant section; the real-build order, with it,
+    # is pinned in `test_docs_match_the_build`.
+    literature = page.index("<h2>Literature</h2><p>Not yet curated.</p>")
+    assert page.index("<h2>Mirrored gene&ndash;disease validity</h2>") < literature
+    assert literature < page.index("<h2>Developmental expression</h2>")
 
 
 def test_a_curated_gene_page_carries_its_evidence_quote_and_pmid(
@@ -324,6 +331,13 @@ def test_a_curated_gene_page_carries_its_evidence_quote_and_pmid(
     Asserted as the full attribute rather than as the bare number, because
     "8988165" is a substring of "PMID:8988165" and a substring check on the
     digits alone cannot fail.
+
+    **The anchor is pinned whole since the Publications table went (owner,
+    2026-11-09).** That table repeated, as id, title and year, the papers the
+    evidence rows already linked, and Literature now sits in its place. So the
+    row names its paper the way the rest of the page does, first author and
+    year, with the title on hover: the label, the href and the title are each
+    a way the row could stop identifying its paper.
     """
     emitter = Emitter(root=tmp_path)
     build_gene_pages(
@@ -340,10 +354,13 @@ def test_a_curated_gene_page_carries_its_evidence_quote_and_pmid(
     )
 
     page = _page(tmp_path, "HGNC_11604.html")
-    assert "PMID:8988165" in page
-    assert 'href="https://pubmed.ncbi.nlm.nih.gov/8988165/"' in page
+    assert (
+        '<a href="https://pubmed.ncbi.nlm.nih.gov/8988165/" '
+        'title="Mutations in human TBX5 cause limb and cardiac malformation.">'
+        "Basson CT et al. 1997</a>"
+    ) in page
     assert "A nonsense TBX5 mutation was found in affected members." in page
-    assert "Mutations in human TBX5 cause limb and cardiac malformation." in page
+    assert "<h2>Publications</h2>" not in page
     # Scoped to the lesion-assertion axis rather than the bare phrase: this
     # gene carries no profiles data either (the call above passes no
     # `profiles=`), so its page also carries the unrelated "not yet curated a
@@ -361,15 +378,26 @@ def test_a_curated_gene_page_carries_its_evidence_quote_and_pmid(
     assert 'href="../genes/HGNC_11604.json"' in page
     # The section links its reading notes, in the pattern of every other
     # section's intro (owner decision 2026-10-26, E3); sliced to the section.
-    section = page[page.index("<h2>Curated evidence</h2>") : page.index("<h2>Publications</h2>")]
+    section = page[page.index("<h2>Curated evidence</h2>") : page.index("<h2>Literature</h2>")]
     assert section.startswith(
         "<h2>Curated evidence</h2><p>Each lesion assertion below is this atlas's own "
         "curation, and changes no classification above. "
         '<a href="../methods.html#curated-evidence">How to read curated evidence</a>.</p>'
     )
-    assert page.index("<h2>Mirrored gene&ndash;disease validity</h2>") < page.index(
-        "<h2>Curated evidence</h2>"
-    )
+    # The atlas's own curation sits together: its lesion assertions, then its
+    # literature, both after the mirrored validity they are distinguished from
+    # and before the mirrored layers (owner, 2026-11-09). No burden rows here,
+    # so no rare-variant section; `test_docs_match_the_build` pins it on TBX5.
+    order = [
+        page.index(heading)
+        for heading in (
+            "<h2>Mirrored gene&ndash;disease validity</h2>",
+            "<h2>Curated evidence</h2>",
+            "<h2>Literature</h2>",
+            "<h2>Developmental expression</h2>",
+        )
+    ]
+    assert order == sorted(order)
 
 
 def test_a_symbol_carrying_markup_is_escaped(
@@ -10262,9 +10290,14 @@ def _lit(
 
 
 def _literature_html(page: str) -> str:
-    """The Literature section: from its heading to the `</div></div>` closing the layout."""
+    """The Literature section: from its heading to the next section's heading.
+
+    It ran to the `</div></div>` closing the layout while Literature was the
+    page's last section; since it moved up (2026-11-09) that slice would take in
+    the rare-variant and expression sections below it.
+    """
     start = page.index("<h2>Literature</h2>")
-    return page[start : page.index("</div></div>", start)]
+    return page[start : page.index("<h2", start + 1)]
 
 
 def _lit_page(tmp_path: Path, literature: GeneLiterature | None) -> str:
