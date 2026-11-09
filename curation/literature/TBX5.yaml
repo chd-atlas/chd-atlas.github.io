@@ -302,7 +302,9 @@ triage:
     decision: included
   - pmid: PMID:16329098
     search: 1
-    decision: included
+    decision: excluded
+    reason: other
+    note: TBX5 carriers cited from earlier work; no TBX5 result of its own
   - pmid: PMID:16332960
     search: 1
     decision: excluded
@@ -390,7 +392,8 @@ triage:
     decision: included
   - pmid: PMID:18378906
     search: 1
-    decision: included
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:18391012
     search: 1
     decision: excluded
@@ -771,7 +774,8 @@ triage:
     reason: not_human_genetics
   - pmid: PMID:25725155
     search: 1
-    decision: included
+    decision: excluded
+    reason: not_chd
   - pmid: PMID:25886110
     search: 1
     decision: excluded
@@ -904,7 +908,8 @@ triage:
     reason: not_human_genetics
   - pmid: PMID:28164238
     search: 1
-    decision: included
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:28337273
     search: 1
     decision: excluded
@@ -1128,7 +1133,8 @@ triage:
     reason: not_human_genetics
   - pmid: PMID:32449309
     search: 1
-    decision: included
+    decision: excluded
+    reason: not_chd
   - pmid: PMID:32641638
     search: 1
     decision: included
@@ -1175,7 +1181,8 @@ triage:
     reason: not_human_genetics
   - pmid: PMID:33576403
     search: 1
-    decision: included
+    decision: excluded
+    reason: not_chd
   - pmid: PMID:33597201
     search: 1
     decision: excluded
@@ -1390,7 +1397,8 @@ triage:
     decision: included
   - pmid: PMID:39268717
     search: 1
-    decision: included
+    decision: excluded
+    reason: not_human_genetics
   - pmid: PMID:39541167
     search: 1
     decision: included
