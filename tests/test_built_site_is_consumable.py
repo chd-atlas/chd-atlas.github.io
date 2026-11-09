@@ -742,6 +742,12 @@ def test_exactly_the_four_records_the_owner_marked_carry_an_open_question(site: 
     of its rows names all seven series), each note once, inside the fold and
     nowhere else on the page. A scope term's question is published in
     `scope.json` only, so its note is asserted absent from every page.
+
+    Literature findings are records of another kind and carry their own marks,
+    rendered beside their summaries in the Literature section (TBX5's and
+    NR2F2's pending reviews, since the pilot's findings were published). The
+    page-wide count adds those the gene's bundle publishes, so a cohort note
+    leaking outside its fold still fails.
     """
     cohorts = {cohort["id"]: cohort for cohort in _read(site, "cohorts.json")["cohorts"]}
     terms = {term["id"]: term for term in _read(site, "scope.json")["terms"]}
@@ -804,7 +810,12 @@ def test_exactly_the_four_records_the_owner_marked_carry_an_open_question(site: 
             notes = page[page.index('<details class="cohort-notes">') :]
             notes = notes[: notes.index("</details>")]
         assert notes.count("<strong>Pending review:</strong>") == expected, entry["gene"]
-        assert page.count("Pending review") == expected, entry["gene"]
+        literature = sum(
+            1
+            for finding in bundle["literature"]["findings"]
+            if finding["review_status"] == "pending_review"
+        )
+        assert page.count("Pending review") == expected + literature, entry["gene"]
         carrying += bool(expected)
     assert carrying == 77
     for path in sorted(site.rglob("*.html")):
@@ -1250,6 +1261,9 @@ def test_every_trajectory_mark_sits_where_the_payload_puts_it(site: Path) -> Non
             continue
         markup = page.read_text()
         section = markup[markup.find("Developmental expression") :]
+        # The section ends at the next heading: the Literature timeline below is
+        # also a `chart` SVG, and it is not an expression figure.
+        section = section[: section.find("<h2", 1)] if "<h2" in section[1:] else section
         figures = re.findall(r'<svg class="chart" viewBox="0 0 560 \d+".*?</svg>', section, re.S)
         if not figures:
             continue
@@ -2339,6 +2353,14 @@ def test_a_gene_page_carries_no_more_visible_prose_than_its_measured_budget(site
     words. Headroom, stated because the row above left it unsaid: 998 over a
     measured 972 is 26 words, 2.7% (the 3% rule of E4 would give 1,002 for 972,
     and the constant is not raised); 20 over a measured 20 is none.
+
+    Then the pilot's literature landed (Task C1, 2026-11-09), the first
+    populated sections on the committed corpus: measured with this parser on a
+    fresh build of 53bf6c4, 972 words and 20 sentences (119 pages), unchanged,
+    since 2 of the 119 pages carry a record. TBX5's page reads 1,302 words and
+    NR2F2's 1,115, above the median, and two pages cannot add a sentence to
+    (b), which counts only sentences on 90% of pages. Both constants stay at
+    998 and 20.
 
     "cells" is the history: (a) with cells counted, the figure this test
     asserted until review, 957 at zero headroom. (b) never counted them, and

@@ -1585,33 +1585,36 @@ def test_the_doc_documents_the_cell_type_expression_bundle_key(site: Path) -> No
 
 
 def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
-    """The section exists, its example is the real built empty shape, its counts are the build's.
+    """The section exists, its two examples are real built objects, its counts are the build's.
 
-    The committed corpus carries no `curation/literature` file, so every bundle
-    holds the empty shape and both counts are 0 (measured on the build under
-    test: asserted below, so a corpus that gains a file fails here and asks for
-    a populated example). The example is held to a real bundle through `_agrees`
-    with no `...`: an unmarked object must be complete.
+    Until the literature pilot landed (2026-11-09) every bundle held the empty
+    shape and a tripwire here asked for a populated example once a file did.
+    Now the section carries both: the empty shape, held with no `...` to a gene
+    with no literature record (an unmarked object must be complete), and
+    TBX5's object, abridged and held value by value through `_agrees`. The
+    census figures the doc states in prose are the manifest's.
     """
     counts = json.loads((site / "manifest.json").read_text())["counts"]
     bundles = _bundles(site)
-    assert all(b["literature"]["searches"] == [] for b in bundles), (
-        "a literature file landed; document a populated example"
-    )
-    assert counts["literature_genes"] == 0
-    assert counts["literature_findings"] == 0
+    with_record = [b for b in bundles if b["literature"]["searches"]]
+    assert counts["literature_genes"] == len(with_record)
+    assert counts["literature_findings"] == sum(len(b["literature"]["findings"]) for b in bundles)
+    empty = next(b for b in bundles if not b["literature"]["searches"])
 
     doc = DOC.read_text()
     heading = "### The bundle's `literature` object: searches, a triage tally and approved findings"
     assert heading in doc
     section = doc[doc.index(heading) + len(heading) :]
     section = re.split(r"\n#{2,3} ", section)[0]
-    block = re.search(r"```json\n(.*?)```", section, re.S)
-    assert block, "no JSON example in the literature section"
+    blocks = re.findall(r"```json\n(.*?)```", section, re.S)
+    assert len(blocks) == 2, "the literature section shows the empty shape and TBX5's"
+    _agrees(_abridged(blocks[0]), empty["literature"], "literature (empty)")
     tbx5 = json.loads((site / "genes" / "HGNC_11604.json").read_text())
-    _agrees(_abridged(block.group(1)), tbx5["literature"], "literature")
-    assert "`2.21`" in " ".join(doc.split())
+    _agrees(_abridged(blocks[1]), tbx5["literature"], "literature (TBX5)")
+    empty_count = len(bundles) - len(with_record)
     prose = " ".join(section.split())
+    assert f"as {empty_count} of the {len(bundles)} published genes do today" in prose
+    assert "`2.21`" in " ".join(doc.split())
     for needle in (
         "`pending_approval` counts findings no named person has approved",
         "sorted by publication year, then numeric PMID, then finding id",
@@ -1639,7 +1642,13 @@ def test_the_doc_describes_the_literature_section_and_what_publishes_before_appr
     assert "last on the page" not in doc
     assert "which the Literature section follows" in doc
     assert 'A gene with no search says only "Not yet curated."' in doc
-    assert "Both are `0` today: no `curation/literature` file exists." in doc
+    counts = json.loads((site / "manifest.json").read_text())["counts"]
+    symbols = sorted(b["symbol"] for b in _bundles(site) if b["literature"]["searches"])
+    assert (
+        f"Today {['no', 'one', 'two', 'three'][counts['literature_genes']]} genes carry a "
+        f"literature record, {' and '.join(symbols)}, with {counts['literature_findings']} "
+        "approved findings between them."
+    ) in doc
     assert "`case_report`, `cohort_sequencing`, `gwas` and `candidate_variant`" in doc
     assert "`[]` is an assertion, not an absence" in doc
     assert "An id in the list may name a finding that is not yet approved" in doc
