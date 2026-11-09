@@ -70,10 +70,10 @@ convention only a person can check.
   counts; the genotyping methods appear only with `common_variant_association`. All
   `SCHEMA001`. An infinite or NaN `p_value` or `odds_ratio` (`.inf`, `.nan`) is refused
   (`SCHEMA001`): write the bound the paper gives, or leave the field out.
-- `carriers` and `screened` are counted in `count_unit`. With `probands` or `individuals`
-  a carrier is a person. With `families`, `screened` is families and each origin count is
-  carrier families, so how many relatives carry the variant goes in the `summary` with a
-  locator, not in a count.
+- `carriers` and `screened` are counted in `count_unit`. With `probands` a carrier is a
+  person. With `families`, `screened` is families and each origin count is carrier
+  families, so how many relatives carry the variant goes in the `summary` with a locator,
+  not in a count.
 - `lesion_groups` agree with the `phenotypes` that `curation/phenotypes.yaml` maps to a
   group (`REF007`, `REF009`); a phenotype it does not map is not checked.
 - `burden_study` links a study `mirrors/burden.tsv` already holds for this gene; with no
