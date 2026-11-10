@@ -15,6 +15,7 @@ from chd_atlas.models.dataset import Dataset
 from chd_atlas.models.functional import FunctionalFile
 from chd_atlas.models.gene_literature import GeneLiteratureFile
 from chd_atlas.models.literature import FeaturedFile, PhenotypeFile, PublicationFile
+from chd_atlas.models.package import PackageManifest
 from chd_atlas.tables import TABLE_SCHEMAS, Column, TableSchema, table_layout
 
 EXPORTED_MODELS: Final[dict[str, type[BaseModel]]] = {
@@ -25,6 +26,7 @@ EXPORTED_MODELS: Final[dict[str, type[BaseModel]]] = {
     "featured_file": FeaturedFile,
     "phenotype_file": PhenotypeFile,
     "dataset": Dataset,
+    "package_manifest": PackageManifest,
 }
 
 
