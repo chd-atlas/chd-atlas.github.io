@@ -54,8 +54,17 @@ with an empty cell smallest: the order `validate.sort_order._precedes` checks.
 
 `ING010` is every refusal about the repository rather than the package: a
 current mirror, ``sources.yaml`` or committed package manifest the ingest
-cannot read before writing, a ``mirrors/genes.tsv`` that is absent or lists no
-gene, and any validation error once the package is applied.
+cannot read before writing, a registry the filter cannot use, and any
+validation error once the package is applied.
+
+The registry filter is ``mirrors/genes.tsv``'s genes for every package but
+``hgnc``. The ``hgnc`` package writes ``genes.tsv`` itself, so filtering it to
+the file it replaces would keep a stale registry stale: its filter is the
+registry `chd_atlas.registry` derives from the scope and the two validity
+mirrors. So an ``hgnc`` ingest needs no ``genes.tsv`` at all, and refuses when
+the registry cannot be derived (`RegistryUnavailable`, its reason quoted) or
+derives empty; any other package refuses when ``genes.tsv`` is absent or lists
+no gene. Either empty registry would drop every row.
 Validation warnings never refuse an ingest (`ValidationReport.ok`); they are
 returned for the caller to print.
 """
@@ -81,6 +90,7 @@ from chd_atlas.fs import write_bytes_atomically
 from chd_atlas.genes import Resolved
 from chd_atlas.ingest.package import (
     BLANK,
+    HGNC_SOURCE,
     IngestRefused,
     LoadedPackage,
     LoadedTable,
@@ -96,6 +106,7 @@ from chd_atlas.models.package import (
     RegistrySlice,
     load_manifest,
 )
+from chd_atlas.registry import SCOPE_FILE, RegistryUnavailable, derive_registry_from_root
 from chd_atlas.tables import GENES, PACKAGES_DIR, TableSchema, cell_text, table_layout
 from chd_atlas.validate.runner import ValidationReport, validate_repository
 from chd_atlas.validate.sources import PackagePin, load_sources
@@ -111,7 +122,8 @@ UNFILTERED_TABLES: Final[frozenset[str]] = frozenset({"clingen_validity", "gencc
 # The source that owns each flat table without a ``source`` column (ING014).
 # `_merge` replaces such a table whole, so any other source's package would
 # overwrite the owner's rows. Ids as `mirrors/sources.yaml` records them
-# (measured 2026-11-10). `genes`, the third such table, is refused as ING009.
+# (measured 2026-11-10). `genes`, the third such table, belongs to `hgnc`, and
+# `load_package` refuses it from any other package (ING009) before this runs.
 FLAT_TABLE_OWNERS: Final[dict[str, str]] = {
     "clingen_validity": "clingen",
     "gencc_submissions": "gencc",
@@ -133,7 +145,8 @@ class IngestResult:
     # Registry genes with no resolved row in any gene-keyed table of the
     # package, sorted; empty for a package with no gene-keyed table.
     registry_genes_absent: tuple[str, ...]
-    # How many genes `mirrors/genes.tsv` lists.
+    # How many genes the registry filter held: those `mirrors/genes.tsv` lists,
+    # or for `hgnc` those the scope and the validity mirrors derive.
     registry_genes: int
     coverage: Literal["every_gene"] | RegistrySlice
     dropped: tuple[DroppedRows, ...]
@@ -150,17 +163,7 @@ def ingest_package(root: Path, source_id: str, package_dir: Path) -> IngestResul
     package = load_package(package_dir, source_id)
     _refuse_omitted_or_owned_tables(root, source_id, package)
     resolver = GeneIdResolver.from_root(root, package.manifest.ids)
-    registry = frozenset(
-        _column(_read_mirror(root / "mirrors" / "genes.tsv", GENES), GENES, "hgnc_id")
-    )
-    if not registry:
-        # Not left to validation: with no registry the filter drops every row,
-        # and a report saying so would read as a fact about the package.
-        raise IngestRefused(
-            "ING010",
-            "mirrors/genes.tsv is absent or lists no gene, so the registry filter "
-            "would drop every row",
-        )
+    registry = _registry(root, source_id)
 
     _refuse_changed_bytes_under_a_pinned_version(root, source_id, package)
 
@@ -233,6 +236,36 @@ def ingest_package(root: Path, source_id: str, package_dir: Path) -> IngestResul
         dropped=tuple(manifest.dropped),
         warnings=tuple(issue for issue in report.issues if issue.severity is Severity.WARNING),
     )
+
+
+def _registry(root: Path, source_id: str) -> frozenset[str]:
+    """The genes the filter keeps (see the module docstring); refuses an empty one.
+
+    Not left to validation: with no registry the filter drops every row, and a
+    report saying so would read as a fact about the package.
+    """
+    if source_id == HGNC_SOURCE:
+        try:
+            derived = derive_registry_from_root(root)
+        except RegistryUnavailable as exc:
+            raise IngestRefused("ING010", f"the gene registry cannot be derived: {exc}") from exc
+        if not derived:
+            raise IngestRefused(
+                "ING010",
+                "the derived registry is empty: no validity mirror row names a gene against "
+                f"a disease in {SCOPE_FILE}, so the filter would drop every row",
+            )
+        return derived
+    current = frozenset(
+        _column(_read_mirror(root / "mirrors" / "genes.tsv", GENES), GENES, "hgnc_id")
+    )
+    if not current:
+        raise IngestRefused(
+            "ING010",
+            "mirrors/genes.tsv is absent or lists no gene, so the registry filter "
+            "would drop every row",
+        )
+    return current
 
 
 def _label(name: str, shard: str | None) -> str:

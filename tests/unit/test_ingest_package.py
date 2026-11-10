@@ -107,13 +107,11 @@ def test_ING005_each_shape_condition_reaches_its_own_refusal(
 @pytest.mark.parametrize(
     ("fields", "code"),
     [
-        # The genes table is refused before its version or its bytes are read.
-        ({"name": "genes", "genes": 2, "format_version": 9, "sha256": "0" * 64}, "ING009"),
         ({"format_version": 2}, "ING002"),
         ({"rows": 99}, "ING003"),
         ({"genes": 99}, "ING003"),
     ],
-    ids=["ING009-before-version-and-bytes", "ING002-format-version", "ING003-rows", "ING003-genes"],
+    ids=["ING002-format-version", "ING003-rows", "ING003-genes"],
 )
 def test_a_manifest_entry_the_table_does_not_honour_is_its_own_code(
     tmp_path: Path, fields: dict[str, object], code: str
@@ -121,6 +119,43 @@ def test_a_manifest_entry_the_table_does_not_honour_is_its_own_code(
     directory = write_package(tmp_path)
     edit_table(directory, **fields)
     assert refusal(directory).code == code
+
+
+@pytest.mark.parametrize(
+    ("package", "ids", "table", "fragment"),
+    [
+        # Refused before the table's version or its bytes are read.
+        (
+            "toy_burden",
+            "symbol",
+            {"name": "genes", "genes": 2, "format_version": 9, "sha256": "0" * 64},
+            "only the hgnc package may ship the genes table; package 'toy_burden' does",
+        ),
+        ("hgnc", "hgnc_id", {}, "the hgnc package must ship the genes table; this one does not"),
+        (
+            "hgnc",
+            "symbol",
+            {"name": "genes", "genes": 2, "format_version": 2},
+            "the hgnc package's gene ids must be hgnc_id; this one declares 'symbol'",
+        ),
+    ],
+    ids=["genes-in-another-package", "hgnc-without-genes", "hgnc-keyed-by-symbol"],
+)
+def test_only_the_hgnc_package_may_ship_genes(
+    tmp_path: Path, package: str, ids: str, table: dict[str, object], fragment: str
+) -> None:
+    """ING009: `genes` is the registry, so one source writes it, keyed by HGNC id.
+
+    The second case's table is still the fixture's burden table, whose rows name
+    `toy_burden` as their source, so a check moved after the tables load would
+    surface as ING007 instead.
+    """
+    directory = write_package(tmp_path, package=package, ids=ids)
+    if table:
+        edit_table(directory, **table)
+    error = refusal(directory, package)
+    assert error.code == "ING009"
+    assert error.message == fragment
 
 
 def test_ING001_table_file_absent_from_the_package(tmp_path: Path) -> None:

@@ -291,3 +291,47 @@ def validate_one_uniprot_per_gene(genes: pl.DataFrame) -> list[ValidationIssue]:
             )
         )
     return sorted(issues, key=lambda issue: issue.message)
+
+
+# How many missing ids GEN006 names before it gives the total instead.
+_GEN006_SHOWN = 10
+
+
+def validate_registry_is_current(
+    derived: frozenset[str], genes: pl.DataFrame
+) -> list[ValidationIssue]:
+    """GEN006: every gene of the derived registry has a row in `mirrors/genes.tsv`.
+
+    `derived` is `registry.derive_registry` over the scope and the two validity
+    mirrors: the genes `chd-atlas ingest hgnc` writes. A gene it holds that the
+    file lacks has no symbol, identity ids or UniProt accession in the atlas,
+    and an ingest filtered to the file drops its rows as outside the registry.
+    A scope or validity-mirror change after the last HGNC ingest leaves the
+    file in that state, as does a hand edit. One ERROR naming
+    the missing ids (sorted, the first ten and then the total), never one per
+    gene. A gene the file holds and the registry does not is not reported here.
+
+    A frame without an ``hgnc_id`` column yields nothing: `validate_table`
+    reports that as TBL001.
+    """
+    if "hgnc_id" not in genes.columns:
+        return []
+    present = {str(gene) for gene in genes["hgnc_id"].to_list() if gene is not None}
+    missing = sorted(derived - present)
+    if not missing:
+        return []
+    shown = ", ".join(missing[:_GEN006_SHOWN])
+    more = f" (first {_GEN006_SHOWN} of {len(missing)})" if len(missing) > _GEN006_SHOWN else ""
+    noun = "gene" if len(missing) == 1 else "genes"
+    return [
+        ValidationIssue(
+            code="GEN006",
+            severity=Severity.ERROR,
+            location="mirrors/genes.tsv",
+            message=(
+                f"mirrors/genes.tsv lacks {len(missing)} {noun} the registry derives from "
+                f"curation/chd_scope.yaml and the validity mirrors{more}: {shown}; "
+                "re-ingest hgnc (or run `chd-atlas ingest --all`)"
+            ),
+        )
+    ]

@@ -59,3 +59,6 @@ every path left changed.
 The package is refused with `ING015` if any table cell begins with a double quote; `validate` reports
 the same in a committed mirror as `TBL013` (the CSV reader would otherwise merge rows silently).
 It is refused with `ING016` if its version equals the pinned one but its manifest bytes differ: a version names one set of bytes.
+Only the `hgnc` package ships the `genes` table, always keyed by `hgnc_id` (`ING009`); its ingest writes
+`mirrors/genes.tsv` filtered to the registry the atlas derives from `curation/chd_scope.yaml` and the two validity mirrors.
+`validate` reports a gene that registry holds and `mirrors/genes.tsv` lacks as `GEN006`; re-ingest `hgnc` to clear it.

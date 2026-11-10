@@ -23,6 +23,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -679,7 +680,7 @@ def write_tables(
         specs.append(
             {
                 "name": name,
-                "format_version": 1,
+                "format_version": schema.version,
                 "file": file,
                 "sha256": hashlib.sha256(data).hexdigest(),
                 "rows": len(rows),
@@ -853,4 +854,148 @@ def test_a_repin_that_keeps_its_version_must_keep_its_bytes(
 
     # The identical package is allowed and changes no byte.
     ingest_package(repo, SOURCE, v1)
+    assert tree(repo) == before
+
+
+# --- the hgnc package: `genes.tsv` is the registry the atlas derives ----------
+
+HGNC_VERSION = "2026-10-16"
+TBX5, TBX1, RGS9 = "HGNC:11604", "HGNC:11592", "HGNC:10004"
+A1BG = {
+    "hgnc_id": "HGNC:5",
+    "symbol": "A1BG",
+    "name": "alpha-1-B glycoprotein",
+    "ensembl_gene": "ENSG00000121410",
+    "ncbi_gene": "1",
+    "locus": "19q13.43",
+    "uniprot": "P04217",
+    "mane_select": "NM_130786.4",
+}
+
+
+def committed_lines(relative: str, *starts: str) -> list[str]:
+    """The header and, in order, the first committed line starting with each prefix."""
+    header, *lines = (REPO_ROOT / relative).read_text(encoding="utf-8").splitlines()
+    return [header, *(next(line for line in lines if line.startswith(s)) for s in starts)]
+
+
+def hgnc_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genes: str | None) -> Path:
+    """The committed scope, and validity mirrors that derive {TBX5, TBX1}.
+
+    ClinGen names TBX5 for Holt-Oram syndrome (in scope) and RGS9 for
+    bradyopsia (not); GenCC names TBX1 for conotruncal heart malformations
+    (SGC-102133, in scope) and RGS9 for bradyopsia (SGC-101840). Every line is
+    copied from the committed mirrors. ``genes.tsv`` lists ``genes`` alone, or
+    is absent when it is None. Validation is stubbed, as in `small_repo`.
+    """
+    repo = tmp_path / "repo"
+    (repo / "curation").mkdir(parents=True)
+    (repo / "mirrors").mkdir()
+    shutil.copy(REPO_ROOT / "curation" / "chd_scope.yaml", repo / "curation")
+    shutil.copy(REPO_ROOT / "mirrors" / "sources.yaml", repo / "mirrors")
+    mirrors = {
+        "clingen_gene_validity.tsv": (f"{RGS9}\t", f"{TBX5}\tTBX5\tMONDO:0007732\t"),
+        "gencc_submissions.tsv": ("SGC-101840\t", "SGC-102133\t"),
+    }
+    for name, starts in mirrors.items():
+        lines = committed_lines(f"mirrors/{name}", *starts)
+        (repo / "mirrors" / name).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if genes is not None:
+        lines = committed_lines("mirrors/genes.tsv", f"{genes}\t")
+        (repo / "mirrors" / "genes.tsv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    monkeypatch.setattr(apply, "validate_repository", lambda _: ValidationReport())
+    return repo
+
+
+def hgnc_package(tmp_path: Path) -> Path:
+    """TBX5's and TBX1's committed registry rows, and A1BG, which the registry lacks."""
+    header, *lines = committed_lines("mirrors/genes.tsv", f"{TBX5}\t", f"{TBX1}\t")
+    columns = header.split("\t")
+    rows = [dict(zip(columns, line.split("\t"), strict=True)) for line in lines] + [A1BG]
+    return write_tables(
+        tmp_path / "pkg", [("genes", None, rows)], package="hgnc", version=HGNC_VERSION
+    )
+
+
+@pytest.mark.parametrize("current", [TBX5, None], ids=["genes-lists-tbx5-only", "no-genes-tsv"])
+def test_hgnc_ingest_writes_the_derived_registry_not_the_current_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, current: str | None
+) -> None:
+    """The filter is the registry derived from the scope, not the `genes.tsv` it replaces.
+
+    TBX1 is in the derived registry and not in the current file, so a filter
+    on the current file would drop it (or, with no file, refuse as ING010).
+    """
+    repo = hgnc_repo(tmp_path, monkeypatch, current)
+    package = hgnc_package(tmp_path)
+
+    result = ingest_package(repo, "hgnc", package)
+
+    expected = committed_lines("mirrors/genes.tsv", f"{TBX1}\t", f"{TBX5}\t")
+    assert (repo / "mirrors" / "genes.tsv").read_text(encoding="utf-8") == "\n".join(
+        expected
+    ) + "\n"
+    counts = (result.rows_in, result.rows_written, result.rows_outside_registry)
+    assert counts == (3, 2, 1)
+    assert (result.registry_genes, result.registry_genes_absent) == (2, ())
+    cache = repo / "local" / "packages" / "hgnc" / HGNC_VERSION
+    assert (cache / "manifest.json").read_bytes() == (package / "manifest.json").read_bytes()
+    assert (cache / "genes.tsv").read_bytes() == (package / "genes.tsv").read_bytes()
+
+
+def _keep_only_rgs9(repo: Path) -> None:
+    for name, start in (
+        ("clingen_gene_validity.tsv", f"{RGS9}\t"),
+        ("gencc_submissions.tsv", "SGC-101840\t"),
+    ):
+        lines = committed_lines(f"mirrors/{name}", start)
+        (repo / "mirrors" / name).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _symbol_for_an_id(repo: Path) -> None:
+    path = repo / "mirrors" / "clingen_gene_validity.tsv"
+    text = path.read_text(encoding="utf-8")
+    path.write_text(text.replace(f"{TBX5}\t", "TBX5\t", 1), encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("damage", "fragment"),
+    [
+        (
+            _keep_only_rgs9,
+            "the derived registry is empty: no validity mirror row names a gene against a "
+            "disease in curation/chd_scope.yaml, so the filter would drop every row",
+        ),
+        (
+            lambda repo: (repo / "curation" / "chd_scope.yaml").unlink(),
+            "the gene registry cannot be derived: curation/chd_scope.yaml is missing",
+        ),
+        (
+            lambda repo: (repo / "mirrors" / "gencc_submissions.tsv").unlink(),
+            "the gene registry cannot be derived: mirrors/gencc_submissions.tsv is missing",
+        ),
+        (
+            _symbol_for_an_id,
+            "the gene registry cannot be derived: mirrors/clingen_gene_validity.tsv fails "
+            "its schema",
+        ),
+    ],
+    ids=["derives-nothing", "no-scope", "no-gencc-mirror", "clingen-fails-its-schema"],
+)
+def test_an_hgnc_ingest_refuses_a_registry_it_cannot_derive_before_any_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    damage: Callable[[Path], None],
+    fragment: str,
+) -> None:
+    repo = hgnc_repo(tmp_path, monkeypatch, TBX5)
+    damage(repo)
+    package = hgnc_package(tmp_path)
+    before = tree(repo)
+
+    with pytest.raises(IngestRefused) as excinfo:
+        ingest_package(repo, "hgnc", package)
+
+    assert excinfo.value.code == "ING010"
+    assert excinfo.value.message.startswith(fragment)
     assert tree(repo) == before
