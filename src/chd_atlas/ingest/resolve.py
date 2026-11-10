@@ -25,6 +25,7 @@ Two deliberate limits:
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -114,12 +115,28 @@ def _hgnc_rows(root: Path) -> list[dict[str, object]]:
             "the HGNC package is ingested first, in phase 2",
         )
     try:
+        manifest_bytes = (directory / "manifest.json").read_bytes()
+        digest = hashlib.sha256(manifest_bytes).hexdigest()
+        if digest != source.package.manifest_sha256:
+            raise IngestRefused(
+                "ING008",
+                f"the cached HGNC manifest's sha256 is {digest}, but the pin says "
+                f"{source.package.manifest_sha256}; the cache is not the pinned package",
+            )
         manifest = load_manifest(directory / "manifest.json")
+        if manifest.package != _HGNC_SOURCE or manifest.version != source.package.version:
+            raise IngestRefused(
+                "ING008",
+                f"the cached manifest is package '{manifest.package}' version "
+                f"'{manifest.version}', not the pinned hgnc {source.package.version}",
+            )
         spec = next((table for table in manifest.tables if table.name == "genes"), None)
         if spec is None:
             raise IngestRefused("ING008", f"the cached HGNC package {directory} has no genes table")
         data = _read_bytes(directory, spec)
         frame = _parse(_decompress(data, spec) if spec.file.endswith(".gz") else data, spec)
+    except OSError as exc:
+        raise IngestRefused("ING008", f"the cached HGNC manifest cannot be read: {exc}") from exc
     except ManifestError as exc:
         raise IngestRefused("ING008", f"the cached HGNC package is unreadable: {exc}") from exc
     except IngestRefused as exc:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
+from typing import Any
 
 import polars as pl
 import pytest
@@ -103,23 +103,42 @@ def test_hgnc_ids_pass_through_and_a_malformed_one_is_unknown(tmp_path: Path) ->
     assert {item.resolution for item in unresolved} == {Resolution.UNKNOWN}
 
 
+def _no_genes_table(manifest: dict[str, Any]) -> None:
+    manifest["tables"][0]["name"] = "burden"
+
+
+def _wrong_package(manifest: dict[str, Any]) -> None:
+    manifest["package"] = "other"
+
+
+def _wrong_version(manifest: dict[str, Any]) -> None:
+    manifest["version"] = "1999-01-01"
+
+
 @pytest.mark.parametrize(
-    "damage", ["no_pin", "no_cache", "no_manifest", "no_genes_table", "bad_registry"]
+    "damage, kwargs",
+    [
+        ("no_pin", {"pinned": False}),
+        ("no_cache", {"cached": False}),
+        ("no_manifest", {"raw_manifest": "{not json"}),
+        ("no_genes_table", {"edit_manifest": _no_genes_table}),
+        # The pin is "a"*64 while the cache carries its own, valid manifest: a
+        # stale or swapped cache. The manifest and table agree with each other.
+        ("manifest_is_not_the_pinned_one", {"pin_sha256": "a" * 64}),
+        ("manifest_is_another_package", {"edit_manifest": _wrong_package}),
+        ("manifest_is_another_version", {"edit_manifest": _wrong_version}),
+        ("bad_registry", {}),
+    ],
 )
-def test_an_unusable_hgnc_package_is_ing008(tmp_path: Path, damage: str) -> None:
+def test_an_unusable_hgnc_package_is_ing008(
+    tmp_path: Path, damage: str, kwargs: dict[str, Any]
+) -> None:
     # A committed mirrors/genes.tsv exists and must NOT be used as a fallback.
     (tmp_path / "mirrors").mkdir()
     (tmp_path / "mirrors" / "genes.tsv").write_text(
         "hgnc_id\tsymbol\nHGNC:11604\tTBX5\n", encoding="utf-8"
     )
-    write_hgnc_root(tmp_path, HGNC_ROWS, pinned=damage != "no_pin", cached=damage != "no_cache")
-    cache = package_cache(tmp_path, "hgnc", "2026-10-16")
-    if damage == "no_manifest":
-        (cache / "manifest.json").write_text("{not json", encoding="utf-8")
-    if damage == "no_genes_table":
-        manifest = json.loads((cache / "manifest.json").read_text(encoding="utf-8"))
-        manifest["tables"][0]["name"] = "burden"
-        (cache / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    write_hgnc_root(tmp_path, HGNC_ROWS, **kwargs)
     if damage == "bad_registry":
         (tmp_path / "mirrors" / "sources.yaml").write_text("sources: []\n", encoding="utf-8")
     with pytest.raises(IngestRefused) as excinfo:
@@ -127,3 +146,5 @@ def test_an_unusable_hgnc_package_is_ing008(tmp_path: Path, damage: str) -> None
     assert excinfo.value.code == "ING008"
     if damage in {"no_pin", "no_cache"}:
         assert "HGNC package is ingested first" in excinfo.value.message
+    if damage.startswith("manifest_is"):
+        assert "pin" in excinfo.value.message

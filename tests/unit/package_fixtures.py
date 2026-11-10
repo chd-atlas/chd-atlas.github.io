@@ -5,7 +5,7 @@ from __future__ import annotations
 import gzip
 import hashlib
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -189,30 +189,22 @@ def write_hgnc_root(
     gz: bool = False,
     pinned: bool = True,
     cached: bool = True,
+    edit_manifest: Callable[[dict[str, Any]], None] | None = None,
+    raw_manifest: str | None = None,
+    pin_sha256: str | None = None,
 ) -> Path:
     """A temp repository root holding an ``hgnc`` source, its pin and a cached HGNC package.
 
-    Writes ``mirrors/sources.yaml`` (one entry, with a ``package`` pin when
-    ``pinned``) and ``local/packages/hgnc/<version>/`` holding ``manifest.json``
-    and a ``genes`` table of ``rows`` (when ``cached``). Never touches the real
-    ``local/``: ``root`` is the caller's ``tmp_path``.
+    Writes ``local/packages/hgnc/<version>/`` holding ``manifest.json`` and a
+    ``genes`` table of ``rows`` (when ``cached``), then ``mirrors/sources.yaml``
+    (one entry, with a ``package`` pin when ``pinned``). The pin is the real
+    sha256 of the manifest bytes written, so a test damages the cache *with* a
+    matching pin; ``pin_sha256`` overrides it to model a stale or swapped cache.
+    ``edit_manifest`` mutates the manifest dict before writing and
+    ``raw_manifest`` replaces its text. Never touches the real ``local/``: ``root``
+    is the caller's ``tmp_path``.
     """
-    mirrors = root / "mirrors"
-    mirrors.mkdir(parents=True, exist_ok=True)
-    pin = (
-        f'    package: {{version: "{version}", manifest_sha256: "{"a" * 64}"}}\n' if pinned else ""
-    )
-    (mirrors / "sources.yaml").write_text(
-        "sources:\n"
-        "  - id: hgnc\n"
-        "    name: HUGO Gene Nomenclature Committee\n"
-        f'    version: "{version}"\n'
-        "    retrieved_on: 2026-10-25\n"
-        "    url: https://www.genenames.org/\n"
-        "    licence: CC0-1.0\n"
-        "    redistribution: permitted\n" + pin,
-        encoding="utf-8",
-    )
+    manifest_sha = "0" * 64
     if cached:
         directory = root / "local" / "packages" / "hgnc" / version
         directory.mkdir(parents=True)
@@ -236,5 +228,27 @@ def write_hgnc_root(
                 }
             ],
         )
-        (directory / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        if edit_manifest is not None:
+            edit_manifest(manifest)
+        text = raw_manifest if raw_manifest is not None else json.dumps(manifest)
+        (directory / "manifest.json").write_bytes(text.encode("utf-8"))
+        manifest_sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    mirrors = root / "mirrors"
+    mirrors.mkdir(parents=True, exist_ok=True)
+    pin = (
+        f'    package: {{version: "{version}", manifest_sha256: "{pin_sha256 or manifest_sha}"}}\n'
+        if pinned
+        else ""
+    )
+    (mirrors / "sources.yaml").write_text(
+        "sources:\n"
+        "  - id: hgnc\n"
+        "    name: HUGO Gene Nomenclature Committee\n"
+        f'    version: "{version}"\n'
+        "    retrieved_on: 2026-10-25\n"
+        "    url: https://www.genenames.org/\n"
+        "    licence: CC0-1.0\n"
+        "    redistribution: permitted\n" + pin,
+        encoding="utf-8",
+    )
     return root
