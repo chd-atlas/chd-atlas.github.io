@@ -14,6 +14,7 @@ import typer
 from chd_atlas import pubmed
 from chd_atlas.build.runner import BuildRefused, build_site
 from chd_atlas.build.validity import gene_validity
+from chd_atlas.changes import render_markdown, site_changes
 from chd_atlas.corpus import load_curation
 from chd_atlas.fs import write_bytes_atomically
 from chd_atlas.gene_literature_diff import diff_findings
@@ -165,6 +166,28 @@ def ingest(
         raise typer.Exit(code=1) from exc
     for line in _ingest_lines(result):
         typer.echo(line)
+
+
+@app.command("report-changes")
+def report_changes(
+    base_root: Path = typer.Option(..., "--base-root", help="The base checkout."),
+    base_site: Path = typer.Option(..., "--base-site", help="The site built from the base."),
+    head_root: Path = typer.Option(..., "--head-root", help="The head checkout."),
+    head_site: Path = typer.Option(..., "--head-site", help="The site built from the head."),
+    out: Path | None = typer.Option(None, "--out", help="Write the report here, not to stdout."),
+) -> None:
+    """Report what a change does to the published site, as one Markdown comment."""
+    for flag, path in (("--base-root", base_root), ("--head-root", head_root)):
+        if not path.is_dir():
+            raise _fail(f"{flag} {path} is not a directory", 2)
+    for flag, path in (("--base-site", base_site), ("--head-site", head_site)):
+        if not (path / "manifest.json").is_file():
+            raise _fail(f"{flag} {path} has no manifest.json", 2)
+    report = render_markdown(site_changes(base_root, base_site, head_root, head_site))
+    if out is None:
+        typer.echo(report, nl=False)
+    else:
+        write_bytes_atomically(out, report.encode("utf-8"))
 
 
 def _ingest_lines(result: IngestResult) -> list[str]:
