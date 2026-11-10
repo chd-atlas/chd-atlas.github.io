@@ -184,3 +184,14 @@ def test_ING007_a_row_from_another_source(tmp_path: Path, source: str, named: st
     refused = refusal(write_package(tmp_path, rows))
     assert refused.code == "ING007"
     assert refused.message == f"table 'burden' has rows whose source is not 'toy_burden': [{named}]"
+
+
+def test_a_package_cell_that_opens_with_a_quote_is_refused(tmp_path: Path) -> None:
+    rows = default_burden_rows()
+    rows[1]["method_note"] = '"""open x"'  # CSV-quoted: parses to "open x
+    refused = refusal(write_package(tmp_path, rows))
+    assert refused.code == "ING015"
+    assert "burden" in refused.message
+    assert "method_note" in refused.message
+    assert "1 cell " in refused.message
+    assert "data row 2" in refused.message

@@ -20,6 +20,7 @@ from chd_atlas.tables import (
     PROFILES,
     TABLE_SCHEMAS,
     TableSchema,
+    leading_quote_fields,
     mirror_paths,
     read_table,
     unexpected_mirror_entries,
@@ -495,6 +496,34 @@ def _relative_to_root(issues: list[ValidationIssue], root: Path) -> list[Validat
     return [replace(issue, location=issue.location.removeprefix(prefix)) for issue in issues]
 
 
+def _leading_quote_issues(root: Path) -> list[ValidationIssue]:
+    """TBL013: a mirror field beginning with ``"``, one issue per file.
+
+    Reads raw bytes, not the parsed frame, because the parse is what loses the
+    rows (see `tables.leading_quote_fields`). A file that cannot be decoded is
+    skipped here; `validate_table` reports it as TBL000.
+    """
+    issues: list[ValidationIssue] = []
+    for path, _ in mirror_paths(root):
+        try:
+            found = leading_quote_fields(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
+            continue
+        if found:
+            shown = ", ".join(f"line {line} field {field}" for line, field in found[:5])
+            more = f" (first 5 of {len(found)})" if len(found) > 5 else ""
+            issues.append(
+                ValidationIssue(
+                    "TBL013",
+                    Severity.ERROR,
+                    f"{path.relative_to(root)}:{found[0][0]}",
+                    f"{len(found)} field(s) begin with a double quote{more}: {shown}; "
+                    "polars would read them as quoted fields and can merge rows",
+                )
+            )
+    return issues
+
+
 def validate_repository(root: Path) -> ValidationReport:
     issues: list[ValidationIssue] = []
 
@@ -511,6 +540,8 @@ def validate_repository(root: Path) -> ValidationReport:
         schema = TABLE_SCHEMAS[schema_name]
         issues.extend(validate_table(path, schema))
         issues.extend(validate_sort_order(path, schema))
+    # Unconditional and over raw text: see `_leading_quote_issues`.
+    issues.extend(_leading_quote_issues(root))
     # Unconditional: the loop above iterates what the schemas expect, so an entry
     # nothing claims — a shard directory lost to a typo — is invisible to it.
     issues.extend(unexpected_mirror_entries(root))

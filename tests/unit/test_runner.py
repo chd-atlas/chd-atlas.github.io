@@ -1580,3 +1580,23 @@ def test_a_stray_package_manifest_reaches_the_report_on_the_loaded_registry_bran
 
     assert [i.code for i in report.issues if i.code == "SRC006"] == ["SRC006"]
     assert not any(i.code in {"SRC000", "SRC001"} for i in report.issues)
+
+
+def test_a_mirror_field_that_opens_with_a_quote_is_an_error(tmp_path: Path) -> None:
+    """TBL013 reads raw text, so a quote the parser would swallow is still reported.
+
+    A `"` in mid-cell is ordinary and must not report. The repository is bare
+    apart from the one mirror; only TBL013 is asserted on.
+    """
+    lines = (REPO_ROOT / "mirrors" / "burden.tsv").read_text().split("\n")[:4]
+    cells = lines[2].split("\t")
+    cells[18] = '"open'
+    cells[17] = 'mid"dle'
+    lines[2] = "\t".join(cells)
+    (tmp_path / "mirrors").mkdir()
+    (tmp_path / "mirrors" / "burden.tsv").write_text("\n".join(lines) + "\n")
+    found = [i for i in validate_repository(tmp_path).issues if i.code == "TBL013"]
+    assert len(found) == 1
+    assert found[0].location == "mirrors/burden.tsv:3"
+    assert "line 3 field 19" in found[0].message
+    assert "line 3 field 18" not in found[0].message

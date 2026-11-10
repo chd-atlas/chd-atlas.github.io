@@ -92,6 +92,19 @@ def _load_table(directory: Path, spec: PackageTable, source_id: str) -> LoadedTa
             f"table '{spec.name}' columns differ from the schema; "
             f"missing: {missing or 'none'}; extra: {extra or 'none'}",
         )
+    opening = {
+        name: frame[name].str.starts_with('"').fill_null(False) for name in schema.column_names
+    }
+    total = sum(int(flags.sum()) for flags in opening.values())
+    if total:
+        first = next(name for name, flags in opening.items() if flags.any())
+        row = int(opening[first].arg_max() or 0) + 1
+        raise IngestRefused(
+            "ING015",
+            f"table '{spec.name}' has {total} {'cell' if total == 1 else 'cells'} opening "
+            f"with a double quote; first column '{first}', first at data row {row} "
+            "(1 = the first row after the header)",
+        )
     if frame.height != spec.rows:
         raise IngestRefused(
             "ING003", f"table '{spec.name}' has {frame.height} rows; the manifest says {spec.rows}"

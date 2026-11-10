@@ -1157,6 +1157,27 @@ def unexpected_mirror_entries(root: Path) -> list[ValidationIssue]:
     return issues
 
 
+def leading_quote_fields(text: str) -> list[tuple[int, int]]:
+    """The (line, field) of every tab-separated field that begins with ``"``.
+
+    Both are 1-based and the header is line 1. Pure and over raw text on purpose:
+    polars' default CSV quoting reads a cell opening with ``"`` as the start of a
+    quoted field that may swallow following rows (measured in feeds phase 1 on a
+    ``burden.tsv`` copy: ``"open`` at line 900 and ``close"`` at line 910 gave
+    1,795 rows from read_table, 0 validation issues, 10 rows vanished), so the
+    parsed frame cannot be what reports it.
+    """
+    lines = text.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    return [
+        (number, index)
+        for number, line in enumerate(lines, start=1)
+        for index, field in enumerate(line.split("\t"), start=1)
+        if field.startswith('"')
+    ]
+
+
 def mirror_paths(root: Path) -> list[tuple[Path, str]]:
     """Every mirror TSV under ``root/mirrors``, paired with its schema name."""
     paths: list[tuple[Path, str]] = []

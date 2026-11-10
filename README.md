@@ -55,3 +55,6 @@ then validates. If anything fails, every file it touched is restored. Exit 0 app
 1 refused (every file restored), 2 when `--root` or `--package` is not a directory or on
 a filesystem error; if the restore itself fails, the "could not restore" message names
 every path left changed.
+
+The package is refused with `ING015` if any table cell begins with a double quote; `validate` reports
+the same in a committed mirror as `TBL013` (the CSV reader would otherwise merge rows silently).
