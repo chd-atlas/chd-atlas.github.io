@@ -8,6 +8,10 @@ empty rather than raised on.
 
 Every list in `SiteChanges` is sorted by the caller-visible key (gene id, count
 key, path, source id), so two runs over the same pair render the same bytes.
+`mirror_rows` is the one list with a different order: every (table, gene) whose
+rows went to zero comes first, then the rest, each part sorted by (table, gene),
+because a gene losing all its rows is the change the report must never fold
+away (spec §4.4: "a gene going from 9 rows to 0 is named").
 """
 
 from __future__ import annotations
@@ -21,12 +25,17 @@ from typing import Any, Final
 import polars as pl
 
 from chd_atlas.models.package import DroppedRows, ManifestError, load_manifest
-from chd_atlas.tables import BURDEN, TABLE_SCHEMAS, mirror_paths
+from chd_atlas.tables import BURDEN, PACKAGES_DIR, TABLE_SCHEMAS, mirror_paths
 from chd_atlas.validate.sources import PackagePin, load_sources
 
 REPORT_MARKER: Final = "<!-- chd-atlas:site-change-report -->"
 
-# Every rendered list stops here and counts the remainder.
+# A rendered list stops here and counts the remainder: genes entering, leaving
+# and changed (capped by gene, so a gene's own lines are never cut), manifest
+# counts, packages and changed files. Mirror rows are capped per table, and a
+# gene whose rows went to zero is never capped. A changed gene's lines, a
+# package's licence and dropped lines, and the unreadable-mirror lines are not
+# capped.
 LIST_CAP: Final = 50
 
 _GRADE_FIELDS: Final = (
@@ -55,9 +64,17 @@ class PackageChange:
     after: str | None
     dropped: tuple[DroppedRows, ...]
     input_rows: int | None
-    # Set when the head pin's committed manifest could not be read; `dropped`
-    # and `input_rows` are then unknown, and the report says so.
+    # Set when the head pin's committed manifest could not be read; `dropped`,
+    # `input_rows` and `licence_evidence` are then unknown, and the report says so.
     manifest_error: str | None = None
+    # From the base and head `sources.yaml` entries; None where a side has no
+    # entry for the source.
+    licence_before: str | None = None
+    licence_after: str | None = None
+    redistribution_before: str | None = None
+    redistribution_after: str | None = None
+    # The head pin's committed manifest's `licence_evidence`.
+    licence_evidence: str | None = None
 
 
 @dataclass(frozen=True)
@@ -81,6 +98,8 @@ class SiteChanges:
     # (table, side) pairs whose mirror could not be read; those tables are
     # left out of `mirror_rows` rather than counted as zero.
     unreadable_mirrors: tuple[tuple[str, str], ...] = ()
+    # Each manifest's `source_commit` (base, head); None where it is null.
+    source_commits: tuple[str | None, str | None] = (None, None)
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -191,10 +210,16 @@ def _counts(base: dict[str, Any], head: dict[str, Any]) -> tuple[tuple[str, obje
     )
 
 
-# What polars raises for a TSV that cannot give the gene column: the column is
-# absent (ColumnNotFoundError, measured also for a header-only file and for an
-# unterminated quote), the file is empty (NoDataError), or it will not parse
-# (ComputeError).
+# What polars raises for a TSV that cannot give the gene column, measured on
+# polars 1.43.1 by reading small files with the call below: the header lacks
+# the column, including when a quote opening a header cell swallows the rest of
+# the file into one name (ColumnNotFoundError); the file is empty
+# (NoDataError); a gene cell opens a quote that never closes (ComputeError).
+# Two shapes raise nothing. A header-only file with the gene column reads as
+# zero rows, which is what it holds. A quote opening a cell of another column
+# swallows the rest of the file into that cell, so that row and every row
+# after it read as one row with a null gene. This reader does not detect that;
+# no committed mirror contains a quote character (measured 2026-11-10).
 _UNREADABLE: Final = (
     pl.exceptions.ColumnNotFoundError,
     pl.exceptions.NoDataError,
@@ -240,9 +265,14 @@ def _mirror_changes(
     now, now_bad = _mirror_counts(head_root, relative)
     skipped = was_bad | now_bad
     changes = tuple(
-        MirrorRowChange(table, gene, was[(table, gene)], now[(table, gene)])
-        for table, gene in sorted(was.keys() | now.keys())
-        if was[(table, gene)] != now[(table, gene)] and table not in skipped
+        sorted(
+            (
+                MirrorRowChange(table, gene, was[(table, gene)], now[(table, gene)])
+                for table, gene in was.keys() | now.keys()
+                if was[(table, gene)] != now[(table, gene)] and table not in skipped
+            ),
+            key=lambda change: (change.after != 0, change.table, change.gene),
+        )
     )
     unreadable = tuple(sorted([(t, "base") for t in was_bad] + [(t, "head") for t in now_bad]))
     return changes, unreadable
@@ -253,27 +283,41 @@ def _pin_text(pin: PackagePin | None) -> str | None:
 
 
 def _package_changes(base_root: Path, head_root: Path) -> tuple[PackageChange, ...]:
-    was = {source.id: source.package for source in load_sources(base_root)[0].sources}
-    now = {source.id: source.package for source in load_sources(head_root)[0].sources}
+    was = load_sources(base_root)[0].by_id
+    now = load_sources(head_root)[0].by_id
     changes = []
     for source_id in sorted(was.keys() | now.keys()):
-        before, after = was.get(source_id), now.get(source_id)
+        old, new = was.get(source_id), now.get(source_id)
+        before = None if old is None else old.package
+        after = None if new is None else new.package
         if before == after:
             continue
         dropped: tuple[DroppedRows, ...] = ()
         input_rows: int | None = None
+        evidence: str | None = None
         error: str | None = None
         if after is not None:
             try:
-                manifest = load_manifest(head_root / "mirrors" / "packages" / f"{source_id}.json")
+                manifest = load_manifest(head_root / "mirrors" / PACKAGES_DIR / f"{source_id}.json")
             except ManifestError as exc:
                 error = str(exc)
             else:
                 dropped = tuple(manifest.dropped)
                 input_rows = manifest.input_counts.rows
+                evidence = manifest.licence_evidence
         changes.append(
             PackageChange(
-                source_id, _pin_text(before), _pin_text(after), dropped, input_rows, error
+                source_id,
+                _pin_text(before),
+                _pin_text(after),
+                dropped,
+                input_rows,
+                error,
+                licence_before=None if old is None else old.licence,
+                licence_after=None if new is None else new.licence,
+                redistribution_before=None if old is None else old.redistribution.value,
+                redistribution_after=None if new is None else new.redistribution.value,
+                licence_evidence=evidence,
             )
         )
     return tuple(changes)
@@ -327,7 +371,15 @@ def site_changes(base_root: Path, base_site: Path, head_root: Path, head_site: P
         mirror_rows=mirror_rows,
         packages=_package_changes(base_root, head_root),
         unreadable_mirrors=unreadable_mirrors,
+        source_commits=(
+            _commit_or_none(base_manifest.get("source_commit")),
+            _commit_or_none(head_manifest.get("source_commit")),
+        ),
     )
+
+
+def _commit_or_none(value: object) -> str | None:
+    return value if isinstance(value, str) else None
 
 
 def _capped(items: list[str]) -> list[str]:
@@ -337,13 +389,47 @@ def _capped(items: list[str]) -> list[str]:
     return shown
 
 
-def _section(title: str, items: list[str]) -> list[str]:
-    return ["", f"### {title}", "", *_capped(items)] if items else []
+def _section(title: str, items: list[str], *, cap: bool = True) -> list[str]:
+    if not items:
+        return []
+    return ["", f"### {title}", "", *(_capped(items) if cap else items)]
+
+
+def _mirror_lines(changes: SiteChanges) -> list[str]:
+    """Unreadable tables, then every gene going to zero, then the rest capped per table."""
+    lines = [
+        f"- {table}: unreadable on {side}, rows not compared"
+        for table, side in changes.unreadable_mirrors
+    ]
+    lines += [
+        f"- {c.table} {c.gene}: {c.before} → **0**" for c in changes.mirror_rows if c.after == 0
+    ]
+    rest: dict[str, list[str]] = {}
+    for c in changes.mirror_rows:
+        if c.after != 0:
+            rest.setdefault(c.table, []).append(f"- {c.table} {c.gene}: {c.before} → {c.after}")
+    for table in sorted(rest):
+        lines += rest[table][:LIST_CAP]
+        if len(rest[table]) > LIST_CAP:
+            lines.append(f"… and {len(rest[table]) - LIST_CAP} more in {table}")
+    return lines
+
+
+def _commit_text(value: str | None) -> str:
+    return "an unrecorded commit" if value is None else value
 
 
 def render_markdown(changes: SiteChanges) -> str:
     """One Markdown comment. Only non-empty sections are printed."""
-    lines = [REPORT_MARKER, "", "## Site-change report"]
+    base_commit, head_commit = changes.source_commits
+    lines = [
+        REPORT_MARKER,
+        "",
+        "## Site-change report",
+        "",
+        f"Base built from {_commit_text(base_commit)}; "
+        f"head built from {_commit_text(head_commit)}.",
+    ]
     before, after = changes.schema_version
     if before != after:
         lines += ["", f"Schema version: {before} → {after}"]
@@ -357,17 +443,8 @@ def render_markdown(changes: SiteChanges) -> str:
         "Manifest counts",
         [f"- {key}: {_show(was)} → {_show(now)}" for key, was, now in changes.counts],
     )
-    lines += _section(
-        "Mirror rows per gene",
-        [
-            f"- {table}: unreadable on {side}, rows not compared"
-            for table, side in changes.unreadable_mirrors
-        ]
-        + [
-            f"- {c.table} {c.gene}: {c.before} → {'**0**' if c.after == 0 else c.after}"
-            for c in changes.mirror_rows
-        ],
-    )
+    # Capped per table inside `_mirror_lines`, never as a whole: see LIST_CAP.
+    lines += _section("Mirror rows per gene", _mirror_lines(changes), cap=False)
     lines += _section("Packages", [_package_text(p) for p in changes.packages])
     if changes.files_changed:
         lines += _section(
@@ -394,9 +471,18 @@ def _section_by_gene(changes: SiteChanges) -> list[str]:
 def _package_text(change: PackageChange) -> str:
     text = f"- {change.source_id}: {_show(change.before)} → {_show(change.after)}"
     if change.manifest_error is not None:
-        return f"{text}; head manifest unreadable ({change.manifest_error})"
-    if change.input_rows is not None:
+        text += f"; head manifest unreadable ({change.manifest_error})"
+    elif change.input_rows is not None:
         text += f"; {change.input_rows} input rows"
+    # Each on its own line, so a redistribution change cannot hide in a long one.
+    for label, was, now in (
+        ("licence", change.licence_before, change.licence_after),
+        ("redistribution", change.redistribution_before, change.redistribution_after),
+    ):
+        shown = _show(now) if was == now else f"{_show(was)} → {_show(now)}"
+        text += f"\n  - {label}: {shown}"
+    if change.licence_evidence is not None:
+        text += f"\n  - licence evidence (head manifest): {change.licence_evidence}"
     for dropped in change.dropped:
         examples = f" (e.g. {', '.join(dropped.examples)})" if dropped.examples else ""
         text += f"\n  - dropped {dropped.count}: {dropped.reason}{examples}"
