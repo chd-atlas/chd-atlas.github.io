@@ -76,29 +76,30 @@ def test_ING006_package_id_differs_from_the_source(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "fields",
+    ("fields", "fragment"),
     [
-        {"name": "no_such_table"},
-        {"shard": "hoc"},
-        {"genes": None},
+        ({"name": "no_such_table"}, "not a table"),
+        ({"name": "cell_type_profiles", "shard": None}, "sharded"),
+        ({"shard": "hoc"}, "flat"),
+        ({"name": "orphanet_omim", "genes": 2}, "no gene column"),
+        ({"genes": None}, "has a gene column"),
+    ],
+    ids=[
+        "unknown",
+        "sharded-without-shard",
+        "flat-with-shard",
+        "count-on-geneless",
+        "gene-keyed-no-count",
     ],
 )
-def test_ING005_table_not_describable_by_its_schema(
-    tmp_path: Path, fields: dict[str, object]
+def test_ING005_each_shape_condition_reaches_its_own_refusal(
+    tmp_path: Path, fields: dict[str, object], fragment: str
 ) -> None:
     directory = write_package(tmp_path)
     edit_table(directory, **fields)
-    assert refusal(directory).code == "ING005"
-
-
-def test_ING005_sharded_table_without_a_shard_and_gene_count_on_a_geneless_table(
-    tmp_path: Path,
-) -> None:
-    directory = write_package(tmp_path)
-    edit_table(directory, name="cell_type_profiles")
-    assert refusal(directory).code == "ING005"
-    edit_table(directory, name="profile_quantiles", genes=2)
-    assert refusal(directory).code == "ING005"
+    error = refusal(directory)
+    assert error.code == "ING005"
+    assert fragment in error.message
 
 
 def test_a_table_both_unknown_and_mis_hashed_reports_ING005(tmp_path: Path) -> None:
@@ -148,8 +149,9 @@ def test_ING011_carriage_return_is_checked_on_decompressed_bytes(tmp_path: Path,
         (False, "x".encode("utf-16")),
         (False, tsv_bytes([burden_row()], BURDEN_COLUMNS) + b"HGNC:1\textra\n"),
         (False, b""),
+        (False, b"stud\xffy\t" + tsv_bytes([burden_row()], BURDEN_COLUMNS)[6:]),
     ],
-    ids=["bad-gzip", "truncated-gzip", "not-utf8", "ragged-row", "empty"],
+    ids=["bad-gzip", "truncated-gzip", "not-utf8", "ragged-row", "empty", "bad-byte-in-header"],
 )
 def test_ING011_every_unreadable_body_is_refused_not_raised(
     tmp_path: Path, gz: bool, body: bytes

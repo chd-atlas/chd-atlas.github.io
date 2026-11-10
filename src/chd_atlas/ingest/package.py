@@ -123,10 +123,15 @@ def _schema_for(spec: PackageTable) -> TableSchema:
         )
     if not sharded and spec.shard is not None:
         raise IngestRefused("ING005", f"table '{spec.name}' is flat and the manifest gives a shard")
-    if (spec.genes is None) != (schema.gene_column is None):
+    if spec.genes is None and schema.gene_column is not None:
         raise IngestRefused(
             "ING005",
-            f"table '{spec.name}' must give a gene count exactly when it has a gene column",
+            f"table '{spec.name}' has a gene column but the manifest gives no gene count",
+        )
+    if spec.genes is not None and schema.gene_column is None:
+        raise IngestRefused(
+            "ING005",
+            f"table '{spec.name}' has no gene column but the manifest gives a gene count",
         )
     if spec.name == "genes":
         raise IngestRefused(
@@ -157,11 +162,14 @@ def _decompress(data: bytes, spec: PackageTable) -> bytes:
 def _parse(text: bytes, spec: PackageTable) -> pl.DataFrame:
     """Read every cell as text, refusing a body polars would quietly repair.
 
-    Measured with polars 1.43: ``pl.read_csv`` decodes invalid UTF-8 lossily
-    rather than raising, and pads a row with too few fields with nulls. Both
-    would turn a damaged file into plausible rows, so they are checked here. The
-    field-count check is line-based, so a quoted cell spanning lines is refused
-    too; whether any upstream table carries one is unmeasured.
+    Measured on polars 1.43.1 by reading small byte strings with ``pl.read_csv``:
+    an invalid byte in a data cell raises ``ComputeError``, but one in the header
+    row is decoded lossily (the column name becomes ``a\ufffd``), which would
+    surface as a misleading ING012; and a row with too few fields is padded with
+    nulls, which would pass as a row. The explicit decode and the field-count
+    check close those two. The field-count check is line-based, so a quoted
+    cell spanning lines is refused too; whether any upstream table carries one
+    is unmeasured.
     """
     try:
         decoded = text.decode("utf-8")
