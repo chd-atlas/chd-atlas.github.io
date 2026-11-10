@@ -71,7 +71,9 @@ def test_schemas_export_writes_files(tmp_path: Path) -> None:
     result = runner.invoke(app, ["schemas", "export", "--target", str(tmp_path)])
     assert result.exit_code == 0
     assert (tmp_path / "assertion_file.schema.json").is_file()
-    assert "7 schema(s)" in result.stdout
+    assert (tmp_path / "package_manifest.schema.json").is_file()
+    assert "wrote 8 schema(s)" in result.stdout
+    assert "wrote 16 table schema(s)" in result.stdout
 
 
 def test_help_lists_both_commands() -> None:
