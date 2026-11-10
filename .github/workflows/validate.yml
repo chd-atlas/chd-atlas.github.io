@@ -86,9 +86,16 @@ jobs:
 
       # The base is checked out beside the head so it can be built with ITS OWN
       # code below. Comparing a head build against a base built by the head's
-      # code would hide exactly what a code PR changes.
+      # code would hide exactly what a code PR changes. It is HEAD^1, the first
+      # parent of the merge commit actions/checkout built the head from, not the
+      # payload's base.sha: a re-run or a later push to the base branch leaves
+      # the payload sha old while the merge ref moves, and the report would then
+      # credit the PR with the base branch's newer changes.
       - name: Check out the base commit
-        run: git worktree add "$RUNNER_TEMP/base" "${{ github.event.pull_request.base.sha }}"
+        run: |
+          base=$(git rev-parse HEAD^1)
+          echo "comparing against base $base (payload base.sha: ${{ github.event.pull_request.base.sha }})"
+          git worktree add "$RUNNER_TEMP/base" "$base"
 
       # `--project` makes uv use the base's pyproject and uv.lock and create its
       # own environment under the worktree; `--locked` fails on a drifted lock
