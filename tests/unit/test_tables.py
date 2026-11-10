@@ -1181,3 +1181,27 @@ def test_cell_type_profiles_refuses_an_unknown_region_a_unit_but_cpm_and_a_fract
     )
     assert named == [("TBL004", "region"), ("TBL004", "unit"), ("TBL006", "fraction_expressing")]
     assert len(issues) == 3
+
+
+def test_a_tsv_under_mirrors_packages_is_tbl009(tmp_path: Path) -> None:
+    packages = tmp_path / "mirrors" / "packages"
+    packages.mkdir(parents=True)
+    (packages / "toy_burden.json").write_text("{}")
+    (packages / "toy_burden.tsv").write_text("hgnc_id\n")
+    (packages / "nested").mkdir()
+
+    issues = unexpected_mirror_entries(tmp_path)
+
+    assert sorted((i.code, i.location) for i in issues) == [
+        ("TBL009", str(packages / "nested")),
+        ("TBL009", str(packages / "toy_burden.tsv")),
+    ]
+
+
+def test_mirrors_packages_may_be_absent_or_hold_only_json(tmp_path: Path) -> None:
+    (tmp_path / "mirrors").mkdir()
+    assert unexpected_mirror_entries(tmp_path) == []
+
+    (tmp_path / "mirrors" / "packages").mkdir()
+    (tmp_path / "mirrors" / "packages" / "toy_burden.json").write_text("{}")
+    assert unexpected_mirror_entries(tmp_path) == []

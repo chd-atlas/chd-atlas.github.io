@@ -1,8 +1,11 @@
+import hashlib
+import json
 from pathlib import Path
 
 import pytest
 
-from chd_atlas.validate.sources import load_sources
+from chd_atlas.validate.sources import load_sources, validate_package_pins
+from tests.unit.package_fixtures import manifest_dict
 
 SOURCES_YAML = """\
 sources:
@@ -264,3 +267,101 @@ def test_a_malformed_pin_is_refused(tmp_path: Path, digest: str, accepted: bool)
     if accepted:
         assert registry.by_id["clinvar"].package is not None
         assert registry.by_id["clinvar"].package.manifest_sha256 == digest
+
+
+# --- package pins agree with their committed manifests (feeds phase 1, task 4) ---
+
+
+def _pinned_repo(
+    root: Path, *, manifest: dict[str, object] | None = None, raw: bytes | None = None
+) -> Path:
+    """A repo whose `clinvar` source pins package `toy_burden`; returns the manifest path.
+
+    The pin is computed from the bytes written, so a test changes exactly one thing.
+    """
+    data = raw if raw is not None else json.dumps(manifest or manifest_dict()).encode()
+    pin = (
+        "    package:\n"
+        f'      version: "{manifest_dict()["version"]}"\n'
+        f'      manifest_sha256: "{hashlib.sha256(data).hexdigest()}"\n'
+    )
+    text = SOURCES_YAML.replace("  - id: clinvar\n", "  - id: toy_burden\n", 1).replace(
+        "    redistribution: permitted\n", "    redistribution: permitted\n" + pin, 1
+    )
+    _write_sources(root, text)
+    path = root / "mirrors" / "packages" / "toy_burden.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return path
+
+
+def _pin_issues(root: Path) -> list[tuple[str, str]]:
+    registry, load_issues = load_sources(root)
+    assert load_issues == []
+    return [(i.code, i.location) for i in validate_package_pins(root, registry)]
+
+
+def test_a_pin_matching_its_committed_manifest_is_clean(tmp_path: Path) -> None:
+    _pinned_repo(tmp_path)
+
+    assert _pin_issues(tmp_path) == []
+
+
+def test_a_pin_whose_manifest_is_missing_is_src005(tmp_path: Path) -> None:
+    path = _pinned_repo(tmp_path)
+    path.unlink()
+
+    assert _pin_issues(tmp_path) == [("SRC005", str(path))]
+
+
+def test_a_pin_whose_manifest_bytes_changed_is_src005(tmp_path: Path) -> None:
+    path = _pinned_repo(tmp_path)
+    data = bytearray(path.read_bytes())
+    data[-2] ^= 0x01  # one byte inside the JSON, not the closing brace
+    path.write_bytes(bytes(data))
+
+    assert _pin_issues(tmp_path) == [("SRC005", str(path))]
+
+
+def test_a_manifest_for_another_package_is_src005(tmp_path: Path) -> None:
+    path = _pinned_repo(tmp_path, manifest=manifest_dict(package="other_package"))
+
+    registry, _ = load_sources(tmp_path)
+    issues = validate_package_pins(tmp_path, registry)
+
+    assert [(i.code, i.location) for i in issues] == [("SRC005", str(path))]
+    assert "other_package" in issues[0].message
+
+
+def test_a_manifest_of_another_version_is_src005(tmp_path: Path) -> None:
+    path = _pinned_repo(tmp_path, manifest=manifest_dict(version="2026-11-11.1"))
+
+    assert _pin_issues(tmp_path) == [("SRC005", str(path))]
+
+
+def test_a_committed_manifest_that_is_not_a_manifest_is_src005_not_a_raise(
+    tmp_path: Path,
+) -> None:
+    path = _pinned_repo(tmp_path, raw=b"{not json")
+
+    registry, _ = load_sources(tmp_path)
+    issues = validate_package_pins(tmp_path, registry)
+
+    assert [(i.code, i.location) for i in issues] == [("SRC005", str(path))]
+    assert "cannot read manifest" in issues[0].message
+
+
+def test_a_manifest_no_pin_claims_is_src006(tmp_path: Path) -> None:
+    _write_sources(tmp_path)
+    stray = tmp_path / "mirrors" / "packages" / "orphan_pkg.json"
+    stray.parent.mkdir(parents=True)
+    stray.write_text("{}")
+    (stray.parent / "notes.txt").write_text("ignored here; TBL009 owns it")
+
+    assert _pin_issues(tmp_path) == [("SRC006", str(stray))]
+
+
+def test_no_pins_and_no_packages_directory_is_clean(tmp_path: Path) -> None:
+    _write_sources(tmp_path)
+
+    assert _pin_issues(tmp_path) == []

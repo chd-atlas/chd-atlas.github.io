@@ -6,6 +6,7 @@ because the atlas redistributes third-party data.
 
 from __future__ import annotations
 
+import hashlib
 from datetime import date
 from pathlib import Path, PurePosixPath
 
@@ -21,7 +22,10 @@ from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
 
 from chd_atlas.duplicates import duplicates
+from chd_atlas.fs import list_dir
 from chd_atlas.issues import Severity, ValidationIssue
+from chd_atlas.models.package import ManifestError, load_manifest
+from chd_atlas.tables import PACKAGES_DIR
 from chd_atlas.vocab import Redistribution
 
 
@@ -251,4 +255,72 @@ def validate_source_references(
                         f"and must not be mirrored",
                     )
                 )
+    return issues
+
+
+def validate_package_pins(root: Path, registry: SourceRegistry) -> list[ValidationIssue]:
+    """Check each source's `package` pin against the manifest committed for it.
+
+    The pin is only checkable because the manifest travels with the repository
+    (`mirrors/packages/<source_id>.json`, byte-for-byte the package's own), so
+    this reads that file: its sha256 is taken over the bytes on disk, never a
+    re-serialisation, and its `package` and `version` must be the pin's. A file
+    that exists but is not a valid manifest is SRC005 carrying the
+    `ManifestError` text, not a raise: validators report, the build refuses.
+    Any `.json` whose stem is no pinned source is SRC006; other entries under
+    the directory are TBL009's (`unexpected_mirror_entries`).
+    """
+    directory = root / "mirrors" / PACKAGES_DIR
+    issues: list[ValidationIssue] = []
+    pinned: set[str] = set()
+
+    for source in registry.sources:
+        pin = source.package
+        if pin is None:
+            continue
+        pinned.add(source.id)
+        path = directory / f"{source.id}.json"
+
+        def refuse(message: str, *, path: Path = path) -> None:
+            issues.append(ValidationIssue("SRC005", Severity.ERROR, str(path), message))
+
+        try:
+            data = path.read_bytes()
+        except OSError as exc:
+            refuse(f"source '{source.id}' pins a package but its manifest cannot be read: {exc}")
+            continue
+        digest = hashlib.sha256(data).hexdigest()
+        if digest != pin.manifest_sha256:
+            refuse(
+                f"manifest sha256 is {digest}, but the pin for '{source.id}' says "
+                f"{pin.manifest_sha256}"
+            )
+            continue
+        try:
+            manifest = load_manifest(path)
+        except ManifestError as exc:
+            refuse(str(exc))
+            continue
+        if manifest.package != source.id:
+            refuse(f"manifest is for package '{manifest.package}', not '{source.id}'")
+        if manifest.version != pin.version:
+            refuse(
+                f"manifest version is '{manifest.version}', but the pin for "
+                f"'{source.id}' says '{pin.version}'"
+            )
+
+    # An unreadable directory is reported once, as TBL009, by
+    # `unexpected_mirror_entries`; repeating it here would double-count it.
+    entries = list_dir(directory, "TBL009")[0] if directory.is_dir() else []
+    for entry in entries:
+        if entry.is_file() and entry.suffix == ".json" and entry.stem not in pinned:
+            issues.append(
+                ValidationIssue(
+                    "SRC006",
+                    Severity.ERROR,
+                    str(entry),
+                    f"'{entry.name}' is a package manifest but no source in "
+                    f"mirrors/sources.yaml pins package '{entry.stem}'",
+                )
+            )
     return issues

@@ -1020,6 +1020,13 @@ FLAT_TABLES: Final[dict[str, str]] = {
 }
 
 
+# Beside the table directories, not among them: it holds one committed package
+# manifest (`<source_id>.json`) per pinned source, never table rows, so
+# `mirror_paths` does not glob it. `validate_package_pins` checks the manifests;
+# `unexpected_mirror_entries` checks that nothing else lives here.
+PACKAGES_DIR: Final = "packages"
+
+
 def table_layout(name: str) -> tuple[Literal["flat", "sharded"], str]:
     """How a table lives under ``mirrors/``: ``("flat", file)`` or ``("sharded", dir)``."""
     if name in FLAT_TABLES:
@@ -1042,7 +1049,7 @@ def unexpected_mirror_entries(root: Path) -> list[ValidationIssue]:
     if not mirrors.is_dir():
         return []
 
-    expected_dirs = set(SHARDED_TABLES.values())
+    expected_dirs = set(SHARDED_TABLES.values()) | {PACKAGES_DIR}
     expected_files = set(FLAT_TABLES.values()) | {"sources.yaml"}
     issues: list[ValidationIssue] = []
 
@@ -1067,7 +1074,28 @@ def unexpected_mirror_entries(root: Path) -> list[ValidationIssue]:
             shards, shard_listing_issues = list_dir(entry, "TBL009")
             issues.extend(shard_listing_issues)
             for shard in shards:
-                if not shard.is_file():
+                if entry.name == PACKAGES_DIR:
+                    if not shard.is_file():
+                        issues.append(
+                            ValidationIssue(
+                                "TBL009",
+                                Severity.ERROR,
+                                str(shard),
+                                f"'{shard.name}' should be a .json package manifest, "
+                                f"not a directory",
+                            )
+                        )
+                    elif shard.suffix != ".json":
+                        issues.append(
+                            ValidationIssue(
+                                "TBL009",
+                                Severity.ERROR,
+                                str(shard),
+                                f"only .json package manifests belong under mirrors/"
+                                f"{PACKAGES_DIR}/; '{shard.name}' is not one",
+                            )
+                        )
+                elif not shard.is_file():
                     issues.append(
                         ValidationIssue(
                             "TBL009",
