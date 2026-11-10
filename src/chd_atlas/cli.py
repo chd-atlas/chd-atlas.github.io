@@ -26,6 +26,8 @@ from chd_atlas.gene_literature_io import (
     with_publication,
     with_search,
 )
+from chd_atlas.ingest.apply import IngestResult, ingest_package
+from chd_atlas.ingest.package import IngestRefused
 from chd_atlas.models.assertion import InTextLocator, Locator
 from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile, finding_digest
 from chd_atlas.models.literature import Publication
@@ -140,6 +142,64 @@ def build(
         raise typer.Exit(code=1) from exc
 
     typer.echo(f"wrote {len(written)} file(s) to {out}")
+
+
+@app.command()
+def ingest(
+    source_id: str = typer.Argument(..., help="The source's id in mirrors/sources.yaml."),
+    package: Path = typer.Option(
+        ..., "--package", help="The package directory: manifest.json and the tables it lists."
+    ),
+    root: Path = typer.Option(Path("."), help="Repository root to ingest into."),
+) -> None:
+    """Merge a verified source package into mirrors/ and pin it in sources.yaml."""
+    # Exit 2 for an argument that cannot work, 1 for a package or repository
+    # the ingest refuses: the same split `validate` and `build` make.
+    for flag, path in (("--root", root), ("--package", package)):
+        if not path.is_dir():
+            raise _fail(f"{flag} {path} is not a directory", 2)
+    try:
+        result = ingest_package(root, source_id, package)
+    except IngestRefused as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
+    for line in _ingest_lines(result):
+        typer.echo(line)
+
+
+def _ingest_lines(result: IngestResult) -> list[str]:
+    """What an ingest wrote and, by name, everything it did not."""
+    lines = [
+        f"ingested {result.source_id} {result.version}: {result.rows_in} row(s) in the "
+        f"package, {result.rows_written} written",
+        f"{result.rows_outside_registry} row(s) name a gene outside the registry and were "
+        f"not written",
+    ]
+    if result.unresolved:
+        names = "; ".join(
+            f"{item.symbol} ({item.resolution.value}"
+            + (f": {', '.join(item.candidates)}" if item.candidates else "")
+            + ")"
+            for item in result.unresolved
+        )
+        lines.append(
+            f"{len(result.unresolved)} gene id(s) did not resolve and their rows were not "
+            f"written: {names}"
+        )
+    absent = result.registry_genes_absent
+    if absent:
+        genes = ", ".join(absent)
+        if result.coverage == "every_gene":
+            lines.append(f"the source reports no row for {len(absent)} registry gene(s): {genes}")
+        else:
+            lines.append(
+                f"{len(absent)} registry gene(s) absent because the registry grew after the "
+                f"slice was cut at {result.coverage.atlas_commit}: {genes}"
+            )
+    for entry in result.dropped:
+        examples = f" (e.g. {', '.join(entry.examples)})" if entry.examples else ""
+        lines.append(f"dropped before packaging: {entry.reason}: {entry.count}{examples}")
+    return lines
 
 
 @schemas_app.command("export")
