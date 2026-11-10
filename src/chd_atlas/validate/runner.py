@@ -35,7 +35,11 @@ from chd_atlas.validate.burden import (
 )
 from chd_atlas.validate.cell_types import validate_cell_type_profiles
 from chd_atlas.validate.gene_literature import validate_gene_literature
-from chd_atlas.validate.genes import validate_identity_ids, validate_mirror_symbols
+from chd_atlas.validate.genes import (
+    validate_identity_ids,
+    validate_mirror_symbols,
+    validate_one_uniprot_per_gene,
+)
 from chd_atlas.validate.ids import load_id_registry, validate_ids
 from chd_atlas.validate.ontology import (
     OntologyRegistry,
@@ -950,6 +954,15 @@ def validate_repository(root: Path) -> ValidationReport:
             str(root / "mirrors" / "genes.tsv"),
         )
     )
+
+    # GEN005: one protein per registry gene. The one call site -- genes.tsv is
+    # read once here, outside both scope branches. An unreadable or missing
+    # registry is already TBL000/TBL008's to report, so nothing extra is emitted.
+    genes_path = root / "mirrors" / "genes.tsv"
+    if genes_path.is_file():
+        genes_frame, _ = read_table(genes_path, TABLE_SCHEMAS["genes"])
+        if genes_frame is not None:
+            issues.extend(validate_one_uniprot_per_gene(genes_frame))
 
     # Same reasoning as the referential skip above: on a failed registry load
     # `registry` is empty, so every source every mirror table uses would report

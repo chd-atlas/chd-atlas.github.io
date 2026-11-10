@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
+import polars as pl
+
 from chd_atlas.build.identity import EMPTY_IDENTITY, GeneIdentity, identity_id_problems
 from chd_atlas.genes import GeneRegistry, Resolution
 from chd_atlas.issues import Severity, ValidationIssue
@@ -252,3 +254,40 @@ def _registry_ids(registry: GeneRegistry) -> set[str]:
         for found in (registry.resolve(symbol) for symbol in registry.approved_symbols())
         if found.gene is not None
     }
+
+
+def validate_one_uniprot_per_gene(genes: pl.DataFrame) -> list[ValidationIssue]:
+    """GEN005: a row of `mirrors/genes.tsv` names at most one UniProt accession.
+
+    The `genes` table is format version 2, whose `uniprot` column accepts
+    HGNC's `|`-separated list (HGNC lists several for 57 genes), so that an
+    every-gene HGNC package conforms. Every row of `mirrors/genes.tsv` is a
+    registry gene, though, and a registry gene must name exactly one protein --
+    RBM10 (HGNC:9896) lists `P0DW28|P98175` and is pinned to `P98175`.
+
+    An ERROR, not a warning, because consumers of `genes.uniprot` assume one
+    accession (measured by reading the call sites): `build/identity.py` builds a
+    UniProt link from the cell, `build/omics.py` maps accession to gene, and
+    `validate/referential.py` reads it too. A list reaching the build would
+    publish a broken link. A null or blank cell yields nothing.
+    """
+    if "uniprot" not in genes.columns or "hgnc_id" not in genes.columns:
+        return []
+    issues: list[ValidationIssue] = []
+    for gene, cell in zip(genes["hgnc_id"].to_list(), genes["uniprot"].to_list(), strict=True):
+        if cell is None or "|" not in str(cell):
+            continue
+        accessions = [part for part in str(cell).split("|") if part]
+        issues.append(
+            ValidationIssue(
+                code="GEN005",
+                severity=Severity.ERROR,
+                location="mirrors/genes.tsv",
+                message=(
+                    f"{gene} lists {len(accessions)} UniProt accessions "
+                    f"({', '.join(accessions)}); a registry gene names exactly one "
+                    "protein, so pin the gene's own protein in the HGNC recipe"
+                ),
+            )
+        )
+    return sorted(issues, key=lambda issue: issue.message)

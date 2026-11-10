@@ -1600,3 +1600,15 @@ def test_a_mirror_field_that_opens_with_a_quote_is_an_error(tmp_path: Path) -> N
     assert found[0].location == "mirrors/burden.tsv:3"
     assert "line 3 field 19" in found[0].message
     assert "line 3 field 18" not in found[0].message
+
+
+def test_a_registry_row_listing_two_uniprot_accessions_fails_the_repository(
+    tmp_path: Path,
+) -> None:
+    """GEN005 reaches `validate_repository`: the one call site, on the real runner path."""
+    _orphanet_mirrors_missing(tmp_path)
+    genes = tmp_path / "mirrors" / "genes.tsv"
+    genes.write_text(genes.read_text().replace("Q06124", "Q06124|P98175"))
+    report = validate_repository(tmp_path)
+    assert [i.code for i in report.issues if i.code == "GEN005"] == ["GEN005"]
+    assert not report.ok

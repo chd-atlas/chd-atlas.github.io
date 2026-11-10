@@ -94,7 +94,9 @@ def test_an_exported_table_states_what_validate_table_checks(tmp_path: Path) -> 
     export_table_schemas(tmp_path)
 
     def load(name: str) -> dict:  # type: ignore[type-arg]
-        return json.loads((tmp_path / f"{name}.v1.json").read_text(encoding="utf-8"))
+        return json.loads(
+            (tmp_path / f"{name}.v{TABLE_SCHEMAS[name].version}.json").read_text(encoding="utf-8")
+        )
 
     burden = load("burden")
     fields = {f["name"]: f for f in burden["fields"]}
@@ -143,3 +145,21 @@ def test_a_superseded_table_version_is_removed(tmp_path: Path) -> None:
     stray.write_text("{}\n", encoding="utf-8")
     export_table_schemas(tmp_path)
     assert not stray.exists()
+
+
+def test_the_genes_table_schema_is_version_2_and_takes_an_accession_list(tmp_path: Path) -> None:
+    import re
+
+    export_table_schemas(tmp_path)
+    assert (tmp_path / "genes.v2.json").is_file()
+    assert not (tmp_path / "genes.v1.json").exists()
+    document = json.loads((tmp_path / "genes.v2.json").read_text(encoding="utf-8"))
+    assert document["version"] == 2
+    uniprot = next(f for f in document["fields"] if f["name"] == "uniprot")
+    pattern = uniprot["constraints"]["pattern"]
+    assert re.match(pattern, "P0DW28|P98175")
+    assert not re.match(pattern, "P0DW28|")
+    hgnc = next(f for f in document["fields"] if f["name"] == "hgnc_id")
+    assert "only in the `hgnc` package" in hgnc["description"]
+    # Only `genes` moved: every other table is still version 1.
+    assert {n for n, t in TABLE_SCHEMAS.items() if t.version != 1} == {"genes"}

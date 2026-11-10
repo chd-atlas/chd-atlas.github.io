@@ -31,6 +31,7 @@ from chd_atlas.identifiers import (
     ORPHA_PATTERN,
     PMID_PATTERN,
     SEQUENCE_ONTOLOGY_PATTERN,
+    UNIPROT_LIST_PATTERN,
     UNIPROT_PATTERN,
     XREF_TARGET_PATTERN,
 )
@@ -391,10 +392,13 @@ GENES = TableSchema(
         Column("ensembl_gene", pl.String, nullable=True),
         Column("ncbi_gene", pl.Int64, nullable=True),
         Column("locus", pl.String, nullable=True),
-        Column("uniprot", pl.String, nullable=True, pattern=UNIPROT_PATTERN),
+        Column("uniprot", pl.String, nullable=True, pattern=UNIPROT_LIST_PATTERN),
         Column("mane_select", pl.String, nullable=True),
     ),
     sort_key=("hgnc_id",),
+    # v2: `uniprot` takes HGNC's `|`-separated accession list so an every-gene
+    # HGNC package conforms. GEN005 still refuses a list on a registry row.
+    version=2,
 )
 
 PTM_SITES = TableSchema(
