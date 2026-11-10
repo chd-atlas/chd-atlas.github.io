@@ -249,6 +249,30 @@ def test_a_gene_going_to_zero_is_never_folded_into_a_capped_table(tmp_path: Path
     assert not any(line.startswith("… and") and "profiles" in line for line in lines)
 
 
+def test_more_than_the_cap_of_genes_going_to_zero_are_all_listed(tmp_path: Path) -> None:
+    """Sixty genes lose their only burden row: none may be folded into "… and N more".
+
+    The sibling test has two zero genes against a cap of 50, so wrapping the zero
+    lines in `_capped` again changes nothing it observes (mutation M26 survived
+    the whole suite). Here 60 > LIST_CAP, and HGNC:2059 is the sixtieth.
+    """
+    gone = [f"HGNC:{2000 + i}" for i in range(60)]
+    changes = site_changes(
+        write_root(tmp_path / "br", [*gone, G_STAY]),
+        write_site(tmp_path / "bs", []),
+        write_root(tmp_path / "hr", [G_STAY]),
+        write_site(tmp_path / "hs", []),
+    )
+
+    section = render_markdown(changes).split("### Mirror rows per gene")[1].split("###")[0]
+    lines = [line for line in section.splitlines() if line]
+    zero_lines = [line for line in lines if line.endswith("→ **0**")]
+    assert len(zero_lines) == 60
+    assert "- burden HGNC:2059: 1 → **0**" in lines
+    assert "- burden HGNC:2050: 1 → **0**" in lines
+    assert not any(line.startswith("… and") for line in lines)
+
+
 def test_a_base_bundle_without_literature_is_read_as_empty(tmp_path: Path) -> None:
     head = {
         "burden": [row()],

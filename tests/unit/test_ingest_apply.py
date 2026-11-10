@@ -775,6 +775,31 @@ def test_a_shard_without_a_source_column_another_source_pinned_is_ing014(
     assert tree(repo) == before
 
 
+def test_the_registry_filter_drops_a_row_outside_the_registry_and_counts_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The filter alone, with validation stubbed (mutation M10).
+
+    Without the filter, the module-scoped ingest fixture fails in fixture setup because
+    validation (BUR011) refuses the stray row; that detects the mutant by an
+    error, not by an assertion about the filter. Validation is stubbed here, so
+    the only thing keeping HGNC:5 out of `burden.tsv` is the filter.
+    """
+    repo = small_repo(tmp_path, monkeypatch)
+    inside = toy_rows()[:6]
+    outside = {**inside[1], "gene": OUTSIDE_GENE}
+    assert OUTSIDE_GENE not in registry(repo)
+    package = write_tables(tmp_path / "pkg", [("burden", None, [*inside, outside])])
+
+    result = ingest_package(repo, SOURCE, package)
+
+    assert (result.rows_in, result.rows_written, result.rows_outside_registry) == (7, 6, 1)
+    lines = (repo / "mirrors" / "burden.tsv").read_text(encoding="utf-8").splitlines()
+    genes = [line.split("\t")[1] for line in lines[1:]]
+    assert OUTSIDE_GENE not in genes
+    assert genes == ["HGNC:10023"] * 6
+
+
 def test_a_row_dropped_without_being_named_stops_the_ingest_before_any_write(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
