@@ -20,24 +20,38 @@ sharded table with a ``source`` column):
   ``source`` column (``cell_type_profiles``, ``variants``) only that shard's
   rows whose ``source`` is the package id.
 
-Only the tables the manifest names are replaced. A table an earlier pinned
-version of the same package carried and this one omits **keeps its rows**: a
-phase-2 decision, since deleting them is a guess either way and phase 1
-ingests no real package.
+Only the tables the manifest names are replaced, and two refusals guard what
+that cannot see. Both are checked before anything is written.
 
-Cells are written verbatim (Decision 8); only the gene column is rewritten, to
-the HGNC id it resolved to. A current mirror is read as text, never through
-`read_table`'s dtypes, so the rows another source owns are rewritten as the
-bytes they were (measured over every committed mirror; see
+- ``ING013``: a package omits a (table, shard) that the source's committed
+  manifest (``mirrors/packages/<source_id>.json``, when one exists) carried.
+  Keeping those rows would leave rows no pinned manifest lists, and deleting
+  them would remove evidence nobody chose to remove, so neither happens.
+- ``ING014``: a package writes a table without a ``source`` column that
+  another source owns, which `_merge` would replace whole. A flat one is owned
+  by the source `FLAT_TABLE_OWNERS` names; a shard is owned by the source whose
+  committed manifest lists it. The converter-written shards no manifest lists
+  yet, ``profiles/E-MTAB-6814.tsv`` and ``profile_quantiles/E-MTAB-6814.tsv``,
+  stay unprotected until phase 3 pins them.
+
+Cells are written as polars parsed them, which Decision 8 calls verbatim: a
+package table is read as quoted TSV and a mirror is written unquoted, so a cell
+that opens with a quote loses its quoting (measured on polars 1.43.1: ``"x"``
+is written ``x``, ``"p""q"`` is written ``p"q``, while ``mid"dle`` is written
+as it came). Only the gene column is rewritten, to the HGNC id it resolved to.
+A current mirror is read as text, never through `read_table`'s dtypes, so the
+rows another source owns are rewritten as the bytes they were (measured over
+every committed mirror; see
 `test_every_committed_mirror_reads_and_rewrites_byte_for_byte`). Rows are
 sorted by the schema's ``sort_key``, each column compared as its schema dtype
 with an empty cell smallest: the order `validate.sort_order._precedes` checks.
 
 `ING010` is every refusal about the repository rather than the package: a
-current mirror or ``sources.yaml`` the ingest cannot read before writing, a
-``mirrors/genes.tsv`` that is absent or lists no gene, and any validation
-error once the package is applied.
-Validation warnings never refuse an ingest (`ValidationReport.ok`).
+current mirror, ``sources.yaml`` or committed package manifest the ingest
+cannot read before writing, a ``mirrors/genes.tsv`` that is absent or lists no
+gene, and any validation error once the package is applied.
+Validation warnings never refuse an ingest (`ValidationReport.ok`); they are
+returned for the caller to print.
 """
 
 from __future__ import annotations
@@ -58,12 +72,25 @@ from ruamel.yaml.tokens import CommentToken
 
 from chd_atlas.fs import write_bytes_atomically
 from chd_atlas.genes import Resolved
-from chd_atlas.ingest.package import IngestRefused, LoadedPackage, LoadedTable, load_package
+from chd_atlas.ingest.package import (
+    BLANK,
+    IngestRefused,
+    LoadedPackage,
+    LoadedTable,
+    load_package,
+)
 from chd_atlas.ingest.resolve import GeneIdResolver, package_cache, resolve_frame
-from chd_atlas.issues import Severity
-from chd_atlas.models.package import DroppedRows, PackageSource, RegistrySlice
-from chd_atlas.tables import GENES, PACKAGES_DIR, TableSchema, table_layout
-from chd_atlas.validate.runner import validate_repository
+from chd_atlas.issues import Severity, ValidationIssue
+from chd_atlas.models.package import (
+    DroppedRows,
+    ManifestError,
+    PackageManifest,
+    PackageSource,
+    RegistrySlice,
+    load_manifest,
+)
+from chd_atlas.tables import GENES, PACKAGES_DIR, TableSchema, cell_text, table_layout
+from chd_atlas.validate.runner import ValidationReport, validate_repository
 from chd_atlas.validate.sources import PackagePin
 
 # Written whole, never filtered to the registry: spec §4.4 derives the registry
@@ -74,20 +101,38 @@ from chd_atlas.validate.sources import PackagePin
 # committed mirrors carry them all. Their gene column is still resolved.
 UNFILTERED_TABLES: Final[frozenset[str]] = frozenset({"clingen_validity", "gencc_submissions"})
 
+# The source that owns each flat table without a ``source`` column (ING014).
+# `_merge` replaces such a table whole, so any other source's package would
+# overwrite the owner's rows. Ids as `mirrors/sources.yaml` records them
+# (measured 2026-11-10). `genes`, the third such table, is refused as ING009.
+FLAT_TABLE_OWNERS: Final[dict[str, str]] = {
+    "clingen_validity": "clingen",
+    "gencc_submissions": "gencc",
+}
+
 
 @dataclass(frozen=True)
 class IngestResult:
     source_id: str
     version: str
+    # rows_in == rows_written + rows_outside_registry + rows_unresolved, which
+    # `ingest_package` checks before writing.
     rows_in: int
     rows_written: int
     rows_outside_registry: int
+    # Rows whose gene id is one of `unresolved`'s, and so were not written.
+    rows_unresolved: int
     unresolved: tuple[Resolved, ...]
-    # Registry genes with no row in any gene-keyed table of the package, sorted;
-    # empty for a package with no gene-keyed table.
+    # Registry genes with no resolved row in any gene-keyed table of the
+    # package, sorted; empty for a package with no gene-keyed table.
     registry_genes_absent: tuple[str, ...]
+    # How many genes `mirrors/genes.tsv` lists.
+    registry_genes: int
     coverage: Literal["every_gene"] | RegistrySlice
     dropped: tuple[DroppedRows, ...]
+    # The warnings `validate_repository` reported with the package applied; an
+    # error would have refused the ingest.
+    warnings: tuple[ValidationIssue, ...]
 
 
 Row = tuple[str, ...]
@@ -96,6 +141,7 @@ Row = tuple[str, ...]
 def ingest_package(root: Path, source_id: str, package_dir: Path) -> IngestResult:
     """Merge ``package_dir`` into ``root`` as source ``source_id``, or refuse and restore."""
     package = load_package(package_dir, source_id)
+    _refuse_omitted_or_owned_tables(root, source_id, package)
     resolver = GeneIdResolver.from_root(root, package.manifest.ids)
     registry = frozenset(
         _column(_read_mirror(root / "mirrors" / "genes.tsv", GENES), GENES, "hgnc_id")
@@ -113,7 +159,7 @@ def ingest_package(root: Path, source_id: str, package_dir: Path) -> IngestResul
     unresolved: dict[str, Resolved] = {}
     present: set[str] = set()
     gene_keyed = False
-    rows_in = rows_written = rows_outside = 0
+    rows_in = rows_written = rows_outside = rows_unresolved = 0
     for table in package.tables:
         schema = table.schema
         frame = table.frame
@@ -121,8 +167,14 @@ def ingest_package(root: Path, source_id: str, package_dir: Path) -> IngestResul
         gene_column = schema.gene_column
         if gene_column is not None:
             gene_keyed = True
+            raw_ids = frame[gene_column].to_list()
             frame, missed = resolve_frame(frame, gene_column, resolver)
             unresolved.update((item.symbol, item) for item in missed)
+            # Counted by the names reported, not by the rows `resolve_frame`
+            # kept, so a row dropped without being named breaks the identity
+            # checked below rather than passing as unresolved.
+            named = {item.symbol for item in missed}
+            rows_unresolved += sum((cell_text(raw) or BLANK) in named for raw in raw_ids)
             present.update(str(gene) for gene in frame[gene_column].to_list())
             if schema.name not in UNFILTERED_TABLES:
                 kept = frame.filter(pl.col(gene_column).is_in(sorted(registry)))
@@ -135,6 +187,13 @@ def ingest_package(root: Path, source_id: str, package_dir: Path) -> IngestResul
         rows_written += len(rows)
         path = _mirror_path(root, table)
         writes[path] = _render(schema, _merge(_read_mirror(path, schema), rows, schema, source_id))
+    if rows_in != rows_written + rows_outside + rows_unresolved:
+        # Never reached through data: every row is written, counted outside the
+        # registry or named as unresolved. A raise, not an assert (`-O`).
+        raise RuntimeError(
+            f"ingest row accounting does not add up: {rows_in} in, {rows_written} written, "
+            f"{rows_outside} outside the registry, {rows_unresolved} unresolved"
+        )
 
     manifest = package.manifest
     digest = hashlib.sha256(package.manifest_bytes).hexdigest()
@@ -148,7 +207,7 @@ def ingest_package(root: Path, source_id: str, package_dir: Path) -> IngestResul
     writes[sources_path] = with_source_entry(sources, source_id, manifest.source, pin)
     writes.update(_cache_writes(root, package))
 
-    _apply(root, writes)
+    report = _apply(root, writes)
 
     coverage = manifest.coverage
     return IngestResult(
@@ -157,14 +216,80 @@ def ingest_package(root: Path, source_id: str, package_dir: Path) -> IngestResul
         rows_in=rows_in,
         rows_written=rows_written,
         rows_outside_registry=rows_outside,
+        rows_unresolved=rows_unresolved,
         unresolved=tuple(unresolved[symbol] for symbol in sorted(unresolved)),
         registry_genes_absent=tuple(sorted(registry - present)) if gene_keyed else (),
+        registry_genes=len(registry),
         coverage=coverage if coverage == "every_gene" else coverage.registry_slice,
         dropped=tuple(manifest.dropped),
+        warnings=tuple(issue for issue in report.issues if issue.severity is Severity.WARNING),
     )
 
 
-def _apply(root: Path, writes: dict[Path, bytes]) -> None:
+def _label(name: str, shard: str | None) -> str:
+    return name if shard is None else f"{name} shard {shard}"
+
+
+def _committed_manifests(root: Path) -> dict[str, PackageManifest]:
+    """Every committed package manifest, by the source id its file is named for."""
+    found: dict[str, PackageManifest] = {}
+    for path in sorted((root / "mirrors" / PACKAGES_DIR).glob("*.json")):
+        try:
+            found[path.stem] = load_manifest(path)
+        except ManifestError as exc:
+            raise IngestRefused(
+                "ING010",
+                f"a committed package manifest cannot be read, so which tables it "
+                f"carried is unknown: {exc}",
+            ) from exc
+    return found
+
+
+def _refuse_omitted_or_owned_tables(root: Path, source_id: str, package: LoadedPackage) -> None:
+    """ING013 and ING014 (see the module docstring); reads, never writes."""
+    committed = _committed_manifests(root)
+    carried = {(table.spec.name, table.spec.shard) for table in package.tables}
+    previous = committed.get(source_id)
+    if previous is not None:
+        omitted = sorted(
+            {(table.name, table.shard) for table in previous.tables} - carried,
+            key=lambda pair: (pair[0], pair[1] or ""),
+        )
+        if omitted:
+            raise IngestRefused(
+                "ING013",
+                f"{source_id} {package.manifest.version} omits what its committed manifest "
+                f"({previous.version}) carried: {', '.join(_label(*pair) for pair in omitted)}; "
+                f"those rows would be left under no pinned manifest",
+            )
+    for table in package.tables:
+        name, shard = table.spec.name, table.spec.shard
+        if table.schema.source_column is not None:
+            continue
+        if table_layout(name)[0] == "flat":
+            owner = FLAT_TABLE_OWNERS.get(name)
+            if owner is not None and owner != source_id:
+                raise IngestRefused(
+                    "ING014",
+                    f"table '{name}' has no source column and belongs to source '{owner}'; "
+                    f"package '{source_id}' would replace all of it",
+                )
+            continue
+        claimants = sorted(
+            other
+            for other, manifest in committed.items()
+            if other != source_id
+            and any((t.name, t.shard) == (name, shard) for t in manifest.tables)
+        )
+        if claimants:
+            raise IngestRefused(
+                "ING014",
+                f"{_label(name, shard)} has no source column and the committed manifest of "
+                f"{', '.join(claimants)} carries it; package '{source_id}' would replace it",
+            )
+
+
+def _apply(root: Path, writes: dict[Path, bytes]) -> ValidationReport:
     """Write every payload, then validate; on any exception restore all of it and re-raise."""
     before = {path: path.read_bytes() if path.is_file() else None for path in writes}
     created = sorted(
@@ -188,6 +313,7 @@ def _apply(root: Path, writes: dict[Path, bytes]) -> None:
     except BaseException:
         _restore(before, created)
         raise
+    return report
 
 
 def _restore(before: dict[Path, bytes | None], created: list[Path]) -> None:
@@ -232,9 +358,10 @@ def _cache_writes(root: Path, package: LoadedPackage) -> dict[Path, bytes]:
 
     Nothing else in the package directory is cached. The manifest is the bytes
     `load_package` verified; the tables are read once more and not re-hashed.
-    The one reader of a cache today, `resolve._hgnc_rows`, verifies it again:
-    the manifest against the pin, each table against the manifest. A package
-    directory that *is* the cache rewrites its own bytes, which changes nothing.
+    The one reader of a cache today, `resolve._hgnc_rows`, verifies what it
+    reads again: the manifest against the pin, and the one table it reads,
+    ``genes``, against the manifest. A package directory that *is* the cache
+    rewrites its own bytes, which changes nothing.
     """
     cache = package_cache(root, package.manifest.package, package.manifest.version)
     writes = {cache / "manifest.json": package.manifest_bytes}

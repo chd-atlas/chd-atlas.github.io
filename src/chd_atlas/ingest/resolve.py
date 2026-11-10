@@ -4,7 +4,8 @@ A package carries gene ids as its source gives them (`GeneIdKind`). The atlas
 keys every join on HGNC id, so `resolve_frame` rewrites the column and returns,
 beside the rows that resolved, one `Resolved` per distinct id that did not.
 **An unresolved id is named, never dropped silently**: that list is what the
-ingest report and the refusal threshold read.
+ingest report names, and `ingest_package` counts the rows it drops by those
+names.
 
 The registry is the pinned HGNC package's `genes` table read from the local
 cache (`local/packages/hgnc/<version>/`), never `mirrors/genes.tsv`: the two
@@ -35,14 +36,13 @@ import polars as pl
 
 from chd_atlas.genes import GeneRegistry, Resolution, Resolved
 from chd_atlas.identifiers import HGNC_PATTERN
-from chd_atlas.ingest.package import IngestRefused, _decompress, _parse, _read_bytes
+from chd_atlas.ingest.package import BLANK, IngestRefused, _decompress, _parse, _read_bytes
 from chd_atlas.models.package import ManifestError, load_manifest
 from chd_atlas.tables import cell_text
 from chd_atlas.validate.sources import load_sources
 from chd_atlas.vocab import GeneIdKind
 
 _HGNC = re.compile(HGNC_PATTERN)
-_BLANK = "<blank>"
 _HGNC_SOURCE = "hgnc"
 
 
@@ -61,7 +61,7 @@ class GeneIdResolver:
         """One raw id, stripped, resolved or reported. A blank is ``<blank>``, UNKNOWN."""
         name = cell_text(raw)
         if name is None:
-            return Resolved(_BLANK, Resolution.UNKNOWN)
+            return Resolved(BLANK, Resolution.UNKNOWN)
         if self.kind is GeneIdKind.HGNC_ID:
             if _HGNC.match(name):
                 return Resolved(name, Resolution.APPROVED, name, (name,))

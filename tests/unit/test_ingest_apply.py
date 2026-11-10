@@ -32,7 +32,7 @@ from chd_atlas.ingest import apply
 from chd_atlas.ingest.apply import ingest_package, with_source_entry
 from chd_atlas.ingest.package import IngestRefused
 from chd_atlas.models.package import PackageSource, RegistrySlice
-from chd_atlas.tables import TABLE_SCHEMAS, mirror_paths
+from chd_atlas.tables import TABLE_SCHEMAS, mirror_paths, table_layout
 from chd_atlas.validate.runner import ValidationReport
 from chd_atlas.validate.sort_order import validate_sort_order
 from chd_atlas.validate.sources import PackagePin, load_sources
@@ -160,7 +160,12 @@ def test_ingest_replaces_only_the_packages_own_burden_rows(ingested: Ingested) -
 
 def test_rows_outside_the_registry_are_counted_not_written(ingested: Ingested) -> None:
     result = ingested.first
-    assert (result.rows_in, result.rows_written, result.rows_outside_registry) == (8, 6, 1)
+    assert (
+        result.rows_in,
+        result.rows_written,
+        result.rows_outside_registry,
+        result.rows_unresolved,
+    ) == (8, 6, 1, 1)
     assert result.unresolved == (Resolved("TBX5", Resolution.UNKNOWN),)
     genes = {line.split("\t")[1] for line in ingested.burden_after[1:]}
     assert OUTSIDE_GENE not in genes
@@ -170,6 +175,7 @@ def test_rows_outside_the_registry_are_counted_not_written(ingested: Ingested) -
 def test_a_registry_slice_names_the_registry_genes_it_lacks(ingested: Ingested) -> None:
     result = ingested.first
     assert result.coverage == RegistrySlice(atlas_commit=SLICE_COMMIT, genes=185)
+    assert result.registry_genes == len(registry(ingested.repo))
     expected = registry(ingested.repo) - {"HGNC:10023"}
     assert len(expected) == len(registry(ingested.repo)) - 1
     # HGNC:11604 (TBX5) is in the registry and was named only by symbol, so it
@@ -609,3 +615,164 @@ def test_the_committed_sources_yaml_round_trips_byte_for_byte() -> None:
     )
     tail = f"    package:\n      version: v1\n      manifest_sha256: {'cd' * 32}\n"
     assert pinned == raw + tail.encode()
+
+
+# --- what a package may not do: ING013, ING014, and the row accounting ---------
+
+
+def small_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """`genes.tsv` and `sources.yaml` only, validation stubbed to pass.
+
+    Each test below refuses before anything is written, so validation never
+    runs on the refused package; the stub lets the setup ingest succeed, and
+    makes a removed guard show as a package that was written.
+    """
+    repo = tmp_path / "repo"
+    (repo / "mirrors").mkdir(parents=True)
+    for name in ("genes.tsv", "sources.yaml"):
+        shutil.copy(REPO_ROOT / "mirrors" / name, repo / "mirrors" / name)
+    monkeypatch.setattr(apply, "validate_repository", lambda _: ValidationReport())
+    return repo
+
+
+def mirror_rows(relative: str, gene: str) -> list[dict[str, str]]:
+    """A committed mirror's rows for one gene, cells verbatim."""
+    header, *lines = (REPO_ROOT / relative).read_text(encoding="utf-8").splitlines()
+    columns = header.split("\t")
+    rows = [dict(zip(columns, line.split("\t"), strict=True)) for line in lines]
+    return [row for row in rows if row["gene"] == gene]
+
+
+def write_tables(
+    directory: Path, tables: list[tuple[str, str | None, list[dict[str, str]]]], **manifest: Any
+) -> Path:
+    """A package of ``(table, shard, rows)``, each file in its schema's column order."""
+    directory.mkdir(parents=True)
+    specs = []
+    for name, shard, rows in tables:
+        schema = TABLE_SCHEMAS[name]
+        data = tsv_bytes(rows, schema.column_names)
+        file = f"{name}.tsv" if shard is None else f"{name}-{shard}.tsv"
+        (directory / file).write_bytes(data)
+        gene = schema.gene_column
+        specs.append(
+            {
+                "name": name,
+                "format_version": 1,
+                "file": file,
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "rows": len(rows),
+                "genes": None if gene is None else len({row[gene] for row in rows}),
+                "shard": shard,
+            }
+        )
+    payload = manifest_dict(**{"ids": "hgnc_id", **manifest, "tables": specs})
+    (directory / "manifest.json").write_text(json.dumps(payload), encoding="utf-8")
+    return directory
+
+
+PROFILE = "mirrors/profiles/E-MTAB-6814.tsv"
+
+
+def test_a_version_omitting_a_table_its_pinned_version_carried_is_ing013(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = small_repo(tmp_path, monkeypatch)
+    profile = mirror_rows(PROFILE, "HGNC:10023")[:1]
+    burden = toy_rows()[:6]
+    v1 = write_tables(
+        tmp_path / "v1", [("burden", None, burden), ("profiles", "toy_a", profile)], version="v1"
+    )
+    ingest_package(repo, SOURCE, v1)
+    assert (repo / "mirrors" / "profiles" / "toy_a.tsv").is_file()
+    before = tree(repo)
+    v2 = write_tables(tmp_path / "v2", [("burden", None, burden)], version="v2")
+
+    with pytest.raises(IngestRefused) as excinfo:
+        ingest_package(repo, SOURCE, v2)
+
+    assert excinfo.value.code == "ING013"
+    assert excinfo.value.message == (
+        "toy_burden v2 omits what its committed manifest (v1) carried: profiles shard toy_a; "
+        "those rows would be left under no pinned manifest"
+    )
+    assert tree(repo) == before
+
+
+def test_a_flat_table_without_a_source_column_is_written_only_by_its_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`_merge` replaces such a table whole; `toy_burden` would erase every ClinGen row.
+
+    `test_a_validity_table_is_replaced_whole_and_not_filtered` is the owner's
+    own package, which is written.
+    """
+    repo = small_repo(tmp_path, monkeypatch)
+    shutil.copy(REPO_ROOT / "mirrors" / "clingen_gene_validity.tsv", repo / "mirrors")
+    rows = mirror_rows("mirrors/clingen_gene_validity.tsv", "HGNC:10023")
+    package = write_tables(tmp_path / "pkg", [("clingen_validity", None, rows)])
+    before = tree(repo)
+
+    with pytest.raises(IngestRefused) as excinfo:
+        ingest_package(repo, SOURCE, package)
+
+    assert excinfo.value.code == "ING014"
+    assert excinfo.value.message == (
+        "table 'clingen_validity' has no source column and belongs to source 'clingen'; "
+        "package 'toy_burden' would replace all of it"
+    )
+    assert tree(repo) == before
+    assert apply.FLAT_TABLE_OWNERS == {"clingen_validity": "clingen", "gencc_submissions": "gencc"}
+    # Every flat table without a source column has an owner but `genes`, which is ING009.
+    unowned = {
+        name
+        for name, schema in TABLE_SCHEMAS.items()
+        if schema.source_column is None and table_layout(name)[0] == "flat"
+    } - set(apply.FLAT_TABLE_OWNERS)
+    assert unowned == {"genes"}
+
+
+def test_a_shard_without_a_source_column_another_source_pinned_is_ing014(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = small_repo(tmp_path, monkeypatch)
+    profile = mirror_rows(PROFILE, "HGNC:10023")[:1]
+    owner = write_tables(tmp_path / "owner", [("profiles", "toy_a", profile)], package="toy_cells")
+    ingest_package(repo, "toy_cells", owner)
+    before = tree(repo)
+    package = write_tables(tmp_path / "pkg", [("profiles", "toy_a", profile)])
+
+    with pytest.raises(IngestRefused) as excinfo:
+        ingest_package(repo, SOURCE, package)
+
+    assert excinfo.value.code == "ING014"
+    assert excinfo.value.message == (
+        "profiles shard toy_a has no source column and the committed manifest of toy_cells "
+        "carries it; package 'toy_burden' would replace it"
+    )
+    assert tree(repo) == before
+
+
+def test_a_row_dropped_without_being_named_stops_the_ingest_before_any_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The row identity is a guard on `resolve_frame`'s promise: a dropped id is named."""
+    repo = small_repo(tmp_path, monkeypatch)
+    resolve = apply.resolve_frame
+
+    def lossy(*args: Any) -> Any:
+        kept, missed = resolve(*args)
+        return kept.head(kept.height - 1), missed
+
+    monkeypatch.setattr(apply, "resolve_frame", lossy)
+    package = write_tables(tmp_path / "pkg", [("burden", None, toy_rows()[:6])])
+    before = tree(repo)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        ingest_package(repo, SOURCE, package)
+
+    assert str(excinfo.value) == (
+        "ingest row accounting does not add up: 6 in, 5 written, "
+        "0 outside the registry, 0 unresolved"
+    )
+    assert tree(repo) == before

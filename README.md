@@ -52,4 +52,6 @@ uv run chd-atlas ingest SOURCE_ID --package DIR
 A curator runs this, never CI. It verifies the package, merges its rows into `mirrors/`,
 pins it in `mirrors/sources.yaml` with its manifest at `mirrors/packages/SOURCE_ID.json`,
 then validates. If anything fails, every file it touched is restored. Exit 0 applied,
-1 refused, 2 when `--root` or `--package` is not a directory.
+1 refused (every file restored), 2 when `--root` or `--package` is not a directory or on
+a filesystem error; if the restore itself fails, the "could not restore" message names
+every path left changed.

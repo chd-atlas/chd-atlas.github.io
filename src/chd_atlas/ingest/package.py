@@ -15,6 +15,7 @@ import io
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Final
 
 import polars as pl
 
@@ -25,6 +26,9 @@ from chd_atlas.models.package import (
     load_manifest,
 )
 from chd_atlas.tables import TABLE_SCHEMAS, TableSchema, cell_text, table_layout
+
+# How a blank or whitespace-only cell is named in a refusal or a report.
+BLANK: Final = "<blank>"
 
 
 class IngestRefused(Exception):
@@ -103,7 +107,13 @@ def _load_table(directory: Path, spec: PackageTable, source_id: str) -> LoadedTa
             )
     source_column = schema.source_column
     if source_column is not None:
-        foreign = sorted({str(v) for v in frame[source_column].to_list() if v != source_id})
+        foreign = sorted(
+            {
+                BLANK if cell_text(v) is None else str(v)
+                for v in frame[source_column].to_list()
+                if v != source_id
+            }
+        )
         if foreign:
             raise IngestRefused(
                 "ING007",

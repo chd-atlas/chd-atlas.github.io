@@ -14,8 +14,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from typer.testing import CliRunner
 
 from chd_atlas.changes import REPORT_MARKER, MirrorRowChange, render_markdown, site_changes
+from chd_atlas.cli import app
 from tests.unit.package_fixtures import manifest_dict
 
 G_STAY = "HGNC:1"
@@ -450,3 +452,22 @@ def test_an_unreadable_mirror_is_named_not_reported_as_zero(
     section = render_markdown(changes).split("### Mirror rows per gene")[1].split("###")[0]
     assert "- burden: unreadable on base, rows not compared" in section
     assert "→ **0**" not in section, label
+
+
+def test_an_unwritable_out_exits_2_with_its_message(tmp_path: Path) -> None:
+    """As `build` treats an unwritable --out: exit 2, `error: …`, no traceback."""
+    out = tmp_path / "missing" / "report.md"
+    paths = {
+        "--base-root": write_root(tmp_path / "br"),
+        "--base-site": write_site(tmp_path / "bs", []),
+        "--head-root": write_root(tmp_path / "hr"),
+        "--head-site": write_site(tmp_path / "hs", []),
+        "--out": out,
+    }
+    args = ["report-changes", *(item for flag, path in paths.items() for item in (flag, str(path)))]
+
+    result = CliRunner().invoke(app, args)
+
+    assert result.exit_code == 2
+    assert result.stdout.startswith(f"error: could not write the report to {out}: ")
+    assert not out.parent.exists()

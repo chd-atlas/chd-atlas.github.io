@@ -192,7 +192,13 @@ def test_ING003_a_blank_gene_cell_is_not_a_gene(tmp_path: Path) -> None:
     assert refusal(directory).code == "ING003"
 
 
-def test_ING007_a_row_from_another_source(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("source", "named"), [("someone_else", "'someone_else'"), ("", "'<blank>'"), (" ", "'<blank>'")]
+)
+def test_ING007_a_row_from_another_source(tmp_path: Path, source: str, named: str) -> None:
+    """A blank source is named `<blank>`, as an unresolved blank gene id is, never 'None'."""
     rows = default_burden_rows()
-    rows[1]["source"] = "someone_else"
-    assert refusal(write_package(tmp_path, rows)).code == "ING007"
+    rows[1]["source"] = source
+    refused = refusal(write_package(tmp_path, rows))
+    assert refused.code == "ING007"
+    assert refused.message == f"table 'burden' has rows whose source is not 'toy_burden': [{named}]"
