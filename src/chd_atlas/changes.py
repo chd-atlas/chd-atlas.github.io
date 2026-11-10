@@ -78,6 +78,9 @@ class SiteChanges:
     files_total: int
     mirror_rows: tuple[MirrorRowChange, ...]
     packages: tuple[PackageChange, ...]
+    # (table, side) pairs whose mirror could not be read; those tables are
+    # left out of `mirror_rows` rather than counted as zero.
+    unreadable_mirrors: tuple[tuple[str, str], ...] = ()
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -188,38 +191,61 @@ def _counts(base: dict[str, Any], head: dict[str, Any]) -> tuple[tuple[str, obje
     )
 
 
-def _mirror_counts(root: Path, relative: dict[Path, str]) -> Counter[tuple[str, str]]:
-    """Rows per (table, gene), the gene column read as text and nothing else."""
+# What polars raises for a TSV that cannot give the gene column: the column is
+# absent (ColumnNotFoundError, measured also for a header-only file and for an
+# unterminated quote), the file is empty (NoDataError), or it will not parse
+# (ComputeError).
+_UNREADABLE: Final = (
+    pl.exceptions.ColumnNotFoundError,
+    pl.exceptions.NoDataError,
+    pl.exceptions.ComputeError,
+)
+
+
+def _mirror_counts(
+    root: Path, relative: dict[Path, str]
+) -> tuple[Counter[tuple[str, str]], set[str]]:
+    """Rows per (table, gene), the gene column read as text and nothing else.
+
+    Also the tables with a file that could not be read. Those are not counted
+    as zero: a file that gave no gene column says nothing about its genes.
+    """
     found: Counter[tuple[str, str]] = Counter()
+    unreadable: set[str] = set()
     for rel, table in relative.items():
         path = root / rel
         gene_column = TABLE_SCHEMAS[table].gene_column
         if gene_column is None or not path.is_file():
             continue
-        # Text, one column: a column added, retyped or dropped between base and
-        # head must not fail the report. A file lacking the column reads as no
-        # rows, which the report then shows as every gene going to 0.
+        # Text, one column: a column added or retyped between base and head
+        # must not fail the report.
         try:
             frame = pl.read_csv(path, separator="\t", infer_schema_length=0, columns=[gene_column])
-        except pl.exceptions.ColumnNotFoundError:
+        except _UNREADABLE:
+            unreadable.add(table)
             continue
         for gene in frame[gene_column].drop_nulls():
             found[(table, gene)] += 1
-    return found
+    return found, unreadable
 
 
-def _mirror_changes(base_root: Path, head_root: Path) -> tuple[MirrorRowChange, ...]:
+def _mirror_changes(
+    base_root: Path, head_root: Path
+) -> tuple[tuple[MirrorRowChange, ...], tuple[tuple[str, str], ...]]:
     relative: dict[Path, str] = {}
     for root in (head_root, base_root):
         for path, table in mirror_paths(root):
             relative[path.relative_to(root)] = table
-    was = _mirror_counts(base_root, relative)
-    now = _mirror_counts(head_root, relative)
-    return tuple(
+    was, was_bad = _mirror_counts(base_root, relative)
+    now, now_bad = _mirror_counts(head_root, relative)
+    skipped = was_bad | now_bad
+    changes = tuple(
         MirrorRowChange(table, gene, was[(table, gene)], now[(table, gene)])
         for table, gene in sorted(was.keys() | now.keys())
-        if was[(table, gene)] != now[(table, gene)]
+        if was[(table, gene)] != now[(table, gene)] and table not in skipped
     )
+    unreadable = tuple(sorted([(t, "base") for t in was_bad] + [(t, "head") for t in now_bad]))
+    return changes, unreadable
 
 
 def _pin_text(pin: PackagePin | None) -> str | None:
@@ -286,6 +312,7 @@ def site_changes(base_root: Path, base_site: Path, head_root: Path, head_site: P
     def named(index: dict[str, dict[str, Any]], ids: set[str]) -> tuple[tuple[str, str], ...]:
         return tuple((gene, str(index[gene].get("symbol", ""))) for gene in sorted(ids))
 
+    mirror_rows, unreadable_mirrors = _mirror_changes(base_root, head_root)
     return SiteChanges(
         schema_version=(
             str(base_manifest.get("schema_version")),
@@ -297,8 +324,9 @@ def site_changes(base_root: Path, base_site: Path, head_root: Path, head_site: P
         counts=_counts(base_manifest, head_manifest),
         files_changed=tuple(sorted(changed)),
         files_total=len(base_files.keys() | head_files.keys()) + 1,
-        mirror_rows=_mirror_changes(base_root, head_root),
+        mirror_rows=mirror_rows,
         packages=_package_changes(base_root, head_root),
+        unreadable_mirrors=unreadable_mirrors,
     )
 
 
@@ -332,6 +360,10 @@ def render_markdown(changes: SiteChanges) -> str:
     lines += _section(
         "Mirror rows per gene",
         [
+            f"- {table}: unreadable on {side}, rows not compared"
+            for table, side in changes.unreadable_mirrors
+        ]
+        + [
             f"- {c.table} {c.gene}: {c.before} → {'**0**' if c.after == 0 else c.after}"
             for c in changes.mirror_rows
         ],

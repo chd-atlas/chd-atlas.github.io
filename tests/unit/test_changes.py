@@ -328,3 +328,26 @@ def test_the_report_opens_with_its_marker(tmp_path: Path) -> None:
     text = render_markdown(pair(tmp_path, [], []))
     assert text.startswith("<!-- chd-atlas:site-change-report -->\n")
     assert REPORT_MARKER == "<!-- chd-atlas:site-change-report -->"
+
+
+@pytest.mark.parametrize(
+    ("unreadable", "label"),
+    [
+        ("study\tsource\nPMID:1\ttoy\n", "lacking the gene column"),
+        ("", "empty"),
+    ],
+)
+def test_an_unreadable_mirror_is_named_not_reported_as_zero(
+    tmp_path: Path, unreadable: str, label: str
+) -> None:
+    base_root = write_root(tmp_path / "br", [G_GRADE, G_GRADE, G_STAY])
+    (base_root / "mirrors" / "burden.tsv").write_text(unreadable, encoding="utf-8")
+    head_root = write_root(tmp_path / "hr", [G_STAY])
+    changes = site_changes(
+        base_root, write_site(tmp_path / "bs", []), head_root, write_site(tmp_path / "hs", [])
+    )
+    assert changes.mirror_rows == ()
+    assert changes.unreadable_mirrors == (("burden", "base"),)
+    section = render_markdown(changes).split("### Mirror rows per gene")[1].split("###")[0]
+    assert "- burden: unreadable on base, rows not compared" in section
+    assert "→ **0**" not in section, label
