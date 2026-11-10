@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from chd_atlas.changes import REPORT_MARKER, MirrorRowChange, render_markdown, site_changes
+from chd_atlas.changes import MirrorRowChange, render_markdown, site_changes
 from chd_atlas.cli import app
 from tests.unit.package_fixtures import manifest_dict
 
@@ -192,37 +192,23 @@ def test_burden_rows_are_added_removed_and_changed_by_study_stratum_and_conseque
     )
 
 
-def test_a_gene_whose_rows_go_to_zero_is_named_in_bold(tmp_path: Path) -> None:
-    base_site = write_site(tmp_path / "bs", [])
-    head_site = write_site(tmp_path / "hs", [])
-    changes = site_changes(
-        write_root(tmp_path / "br", [G_GRADE, G_GRADE, G_STAY, G_STAY, G_STAY]),
-        base_site,
-        write_root(tmp_path / "hr", [G_STAY]),
-        head_site,
-    )
-    # A gene going to zero comes first, although HGNC:1 sorts before HGNC:2.
-    assert [(c.table, c.gene, c.before, c.after) for c in changes.mirror_rows] == [
-        ("burden", G_GRADE, 2, 0),
-        ("burden", G_STAY, 3, 1),
-    ]
-    section = render_markdown(changes).split("### Mirror rows per gene")[1].split("###")[0]
-    assert "- burden HGNC:2: 2 → **0**" in section
-    assert "- burden HGNC:1: 3 → 1\n" in section
+def test_a_gene_going_to_zero_is_never_folded_into_a_cap(tmp_path: Path) -> None:
+    """Sixty burden genes lose their only row, sixty GenCC genes lose one of two, a
+    sixty-first loses its only one, and TBX5's nine `profiles` rows go to none.
 
-
-def test_a_gene_going_to_zero_is_never_folded_into_a_capped_table(tmp_path: Path) -> None:
-    """Sixty GenCC genes lose a row and a sixty-first loses its only one; TBX5's
-    nine `profiles` rows go to none.
-
-    By (table, gene) `profiles` sorts after `gencc_submissions`, so a single cap
-    over the section would fold TBX5 into the remainder (the reviewer's
-    measurement), and HGNC:2999 sorts after every other GenCC gene, so a cap per
-    table alone would fold it. Zeros come first and are never capped; the rest
-    is capped per table, so `profiles`' own non-zero change survives too.
+    Every zero is listed: 62 > LIST_CAP, so wrapping the zero lines in `_capped`
+    again would fold some (mutation M26 survived the whole suite while the only
+    test had two zero genes). By (table, gene) `profiles` sorts after
+    `gencc_submissions`, so a single cap over the section would fold TBX5 into the
+    remainder (the reviewer's measurement), and HGNC:2999 sorts after every other
+    GenCC gene, so a cap per table alone would fold it. Zeros come first and are
+    never capped; the rest is capped per table, so `profiles`' own non-zero change
+    survives too.
     """
+    gone = [f"HGNC:{3000 + i}" for i in range(60)]
     many = [f"HGNC:{2000 + i}" for i in range(60)]
-    base_root, head_root = write_root(tmp_path / "br"), write_root(tmp_path / "hr")
+    base_root = write_root(tmp_path / "br", [*gone, G_STAY])
+    head_root = write_root(tmp_path / "hr", [G_STAY])
     write_genes(base_root / "mirrors" / "gencc_submissions.tsv", [*many, *many, "HGNC:2999"])
     write_genes(head_root / "mirrors" / "gencc_submissions.tsv", many)
     shard = Path("mirrors") / "profiles" / "E-MTAB-6814.tsv"
@@ -233,44 +219,25 @@ def test_a_gene_going_to_zero_is_never_folded_into_a_capped_table(tmp_path: Path
         base_root, write_site(tmp_path / "bs", []), head_root, write_site(tmp_path / "hs", [])
     )
 
-    assert changes.mirror_rows[:2] == (
+    # The zeros come first in the data too: by (table, gene) alone, the sixty
+    # non-zero GenCC changes would come before HGNC:2999 and `profiles`.
+    assert changes.mirror_rows[:62] == (
+        *(MirrorRowChange("burden", gene, 1, 0) for gene in gone),
         MirrorRowChange("gencc_submissions", "HGNC:2999", 1, 0),
         MirrorRowChange("profiles", "HGNC:11604", 9, 0),
     )
     section = render_markdown(changes).split("### Mirror rows per gene")[1].split("###")[0]
     lines = [line for line in section.splitlines() if line]
-    assert lines[:2] == [
+    assert lines[:62] == [
+        *(f"- burden {gene}: 1 → **0**" for gene in gone),
         "- gencc_submissions HGNC:2999: 1 → **0**",
         "- profiles HGNC:11604: 9 → **0**",
     ]
-    assert sum(line.startswith("- gencc_submissions ") for line in lines[2:]) == 50
-    assert "… and 10 more in gencc_submissions" in lines
+    assert sum(line.startswith("- gencc_submissions ") for line in lines[62:]) == 50
+    assert [line for line in lines if line.startswith("… and")] == [
+        "… and 10 more in gencc_submissions"
+    ]
     assert "- profiles HGNC:7: 2 → 1" in lines
-    assert not any(line.startswith("… and") and "profiles" in line for line in lines)
-
-
-def test_more_than_the_cap_of_genes_going_to_zero_are_all_listed(tmp_path: Path) -> None:
-    """Sixty genes lose their only burden row: none may be folded into "… and N more".
-
-    The sibling test has two zero genes against a cap of 50, so wrapping the zero
-    lines in `_capped` again changes nothing it observes (mutation M26 survived
-    the whole suite). Here 60 > LIST_CAP, and HGNC:2059 is the sixtieth.
-    """
-    gone = [f"HGNC:{2000 + i}" for i in range(60)]
-    changes = site_changes(
-        write_root(tmp_path / "br", [*gone, G_STAY]),
-        write_site(tmp_path / "bs", []),
-        write_root(tmp_path / "hr", [G_STAY]),
-        write_site(tmp_path / "hs", []),
-    )
-
-    section = render_markdown(changes).split("### Mirror rows per gene")[1].split("###")[0]
-    lines = [line for line in section.splitlines() if line]
-    zero_lines = [line for line in lines if line.endswith("→ **0**")]
-    assert len(zero_lines) == 60
-    assert "- burden HGNC:2059: 1 → **0**" in lines
-    assert "- burden HGNC:2050: 1 → **0**" in lines
-    assert not any(line.startswith("… and") for line in lines)
 
 
 def test_a_base_bundle_without_literature_is_read_as_empty(tmp_path: Path) -> None:
@@ -304,6 +271,8 @@ def test_identical_sites_report_no_published_file_changes(tmp_path: Path) -> Non
     assert changes.files_total == 2
     assert changes.counts == ()
     text = render_markdown(changes)
+    # The CI job finds its own comment by this first line.
+    assert text.startswith("<!-- chd-atlas:site-change-report -->\n")
     assert "No published file changes." in text
     # Both commits head the report, so a stale comment can be told from a current one.
     assert f"\nBase built from {'1' * 40}; head built from {'2' * 40}.\n" in text
@@ -347,13 +316,16 @@ def test_a_count_and_a_file_change_are_listed_and_genes_is_not(tmp_path: Path) -
     assert "4 of 5 files changed" in text
 
 
-def test_a_changed_pin_reports_its_dropped_rows(tmp_path: Path) -> None:
-    head_root = write_root(tmp_path / "hr", pin=("2026-11-10.1", SHA_B))
+def test_a_changed_pin_reports_its_dropped_rows_and_licence_lines(tmp_path: Path) -> None:
+    head_root = write_root(
+        tmp_path / "hr", pin=("2026-11-10.1", SHA_B), redistribution="permitted_with_attribution"
+    )
     (head_root / "mirrors" / "packages").mkdir()
     (head_root / "mirrors" / "packages" / "toy_burden.json").write_text(
         json.dumps(
             manifest_dict(
-                dropped=[{"reason": "symbol not in HGNC", "count": 2, "examples": ["FOO1"]}]
+                dropped=[{"reason": "symbol not in HGNC", "count": 2, "examples": ["FOO1"]}],
+                licence_evidence="Supplement footer, CC BY 4.0",
             )
         ),
         encoding="utf-8",
@@ -370,36 +342,17 @@ def test_a_changed_pin_reports_its_dropped_rows(tmp_path: Path) -> None:
     assert package.after == "2026-11-10.1 (sha256:bbbbbbbbbbbb)"
     assert [(d.reason, d.count) for d in package.dropped] == [("symbol not in HGNC", 2)]
     assert package.input_rows == 10
-    section = render_markdown(changes).split("### Packages")[1]
-    assert "dropped 2: symbol not in HGNC (e.g. FOO1)" in section
-    assert "10 input rows" in section
-
-
-def test_a_repin_shows_the_licence_and_a_redistribution_change_on_its_own_line(
-    tmp_path: Path,
-) -> None:
-    head_root = write_root(
-        tmp_path / "hr", pin=("v2", SHA_B), redistribution="permitted_with_attribution"
-    )
-    (head_root / "mirrors" / "packages").mkdir()
-    (head_root / "mirrors" / "packages" / "toy_burden.json").write_text(
-        json.dumps(manifest_dict(licence_evidence="Supplement footer, CC BY 4.0")),
-        encoding="utf-8",
-    )
-    changes = site_changes(
-        write_root(tmp_path / "br", pin=("v1", SHA_A)),
-        write_site(tmp_path / "bs", []),
-        head_root,
-        write_site(tmp_path / "hs", []),
-    )
-    [package] = changes.packages
     assert (package.licence_before, package.licence_after) == ("CC-BY-4.0", "CC-BY-4.0")
     assert (package.redistribution_before, package.redistribution_after) == (
         "permitted",
         "permitted_with_attribution",
     )
     assert package.licence_evidence == "Supplement footer, CC BY 4.0"
-    lines = render_markdown(changes).split("### Packages")[1].split("###")[0].splitlines()
+    section = render_markdown(changes).split("### Packages")[1].split("###")[0]
+    assert "dropped 2: symbol not in HGNC (e.g. FOO1)" in section
+    assert "10 input rows" in section
+    # A redistribution change is its own line, so it cannot hide in a long one.
+    lines = section.splitlines()
     assert "  - licence: CC-BY-4.0" in lines
     assert "  - redistribution: permitted → permitted_with_attribution" in lines
     assert "  - licence evidence (head manifest): Supplement footer, CC BY 4.0" in lines
@@ -449,12 +402,6 @@ def test_lists_are_capped_at_fifty_with_the_remainder_counted(
         assert f"… and {n - 50} more" in text
 
 
-def test_the_report_opens_with_its_marker(tmp_path: Path) -> None:
-    text = render_markdown(pair(tmp_path, [], []))
-    assert text.startswith("<!-- chd-atlas:site-change-report -->\n")
-    assert REPORT_MARKER == "<!-- chd-atlas:site-change-report -->"
-
-
 @pytest.mark.parametrize(
     ("unreadable", "label"),
     [
@@ -478,7 +425,7 @@ def test_an_unreadable_mirror_is_named_not_reported_as_zero(
     assert "→ **0**" not in section, label
 
 
-def test_an_unwritable_out_exits_2_with_its_message(tmp_path: Path) -> None:
+def test_a_bad_out_or_site_exits_2_with_its_message(tmp_path: Path) -> None:
     """As `build` treats an unwritable --out: exit 2, `error: …`, no traceback."""
     out = tmp_path / "missing" / "report.md"
     paths = {
@@ -488,10 +435,17 @@ def test_an_unwritable_out_exits_2_with_its_message(tmp_path: Path) -> None:
         "--head-site": write_site(tmp_path / "hs", []),
         "--out": out,
     }
-    args = ["report-changes", *(item for flag, path in paths.items() for item in (flag, str(path)))]
 
-    result = CliRunner().invoke(app, args)
+    def invoke(**changed: Path) -> Any:
+        given = {**paths, **{f"--{flag.replace('_', '-')}": path for flag, path in changed.items()}}
+        args = [item for flag, path in given.items() for item in (flag, str(path))]
+        return CliRunner().invoke(app, ["report-changes", *args])
 
+    result = invoke()
     assert result.exit_code == 2
     assert result.stdout.startswith(f"error: could not write the report to {out}: ")
     assert not out.parent.exists()
+
+    result = invoke(head_site=tmp_path)
+    assert result.exit_code == 2
+    assert result.stdout == f"error: --head-site {tmp_path} has no manifest.json\n"

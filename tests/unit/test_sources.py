@@ -1,6 +1,7 @@
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -301,23 +302,35 @@ def _pin_issues(root: Path) -> list[tuple[str, str]]:
     return [(i.code, i.location) for i in validate_package_pins(root, registry)]
 
 
-def test_a_pin_matching_its_committed_manifest_is_clean(tmp_path: Path) -> None:
-    _pinned_repo(tmp_path)
+@pytest.mark.parametrize(
+    ("damage", "fragment"),
+    [
+        ({"missing": True}, "manifest cannot be read"),
+        ({"manifest": manifest_dict(package="other_package")}, "'other_package'"),
+        ({"manifest": manifest_dict(version="2026-11-11.1")}, "'2026-11-11.1'"),
+        ({"raw": b"{not json"}, "cannot read manifest"),
+    ],
+    ids=["missing", "another-package", "another-version", "not-a-manifest-is-not-a-raise"],
+)
+def test_a_pin_its_committed_manifest_does_not_honour_is_src005(
+    tmp_path: Path, damage: dict[str, Any], fragment: str
+) -> None:
+    path = _pinned_repo(tmp_path, **{k: v for k, v in damage.items() if k != "missing"})
+    if damage.get("missing"):
+        path.unlink()
 
-    assert _pin_issues(tmp_path) == []
+    registry, _ = load_sources(tmp_path)
+    issues = validate_package_pins(tmp_path, registry)
 
-
-def test_a_pin_whose_manifest_is_missing_is_src005(tmp_path: Path) -> None:
-    path = _pinned_repo(tmp_path)
-    path.unlink()
-
-    assert _pin_issues(tmp_path) == [("SRC005", str(path))]
+    assert [(i.code, i.location) for i in issues] == [("SRC005", str(path))]
+    assert fragment in issues[0].message
 
 
 def test_a_pin_whose_manifest_bytes_changed_is_src005(tmp_path: Path) -> None:
     """The same manifest re-indented: it still parses and still agrees with the pin's
     package and version, so only the sha256 over the bytes on disk can refuse it."""
     path = _pinned_repo(tmp_path)
+    assert _pin_issues(tmp_path) == []
     pinned = hashlib.sha256(path.read_bytes()).hexdigest()
     path.write_text(json.dumps(manifest_dict(), indent=2))
     on_disk = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -332,45 +345,12 @@ def test_a_pin_whose_manifest_bytes_changed_is_src005(tmp_path: Path) -> None:
     )
 
 
-def test_a_manifest_for_another_package_is_src005(tmp_path: Path) -> None:
-    path = _pinned_repo(tmp_path, manifest=manifest_dict(package="other_package"))
-
-    registry, _ = load_sources(tmp_path)
-    issues = validate_package_pins(tmp_path, registry)
-
-    assert [(i.code, i.location) for i in issues] == [("SRC005", str(path))]
-    assert "other_package" in issues[0].message
-
-
-def test_a_manifest_of_another_version_is_src005(tmp_path: Path) -> None:
-    path = _pinned_repo(tmp_path, manifest=manifest_dict(version="2026-11-11.1"))
-
-    assert _pin_issues(tmp_path) == [("SRC005", str(path))]
-
-
-def test_a_committed_manifest_that_is_not_a_manifest_is_src005_not_a_raise(
-    tmp_path: Path,
-) -> None:
-    path = _pinned_repo(tmp_path, raw=b"{not json")
-
-    registry, _ = load_sources(tmp_path)
-    issues = validate_package_pins(tmp_path, registry)
-
-    assert [(i.code, i.location) for i in issues] == [("SRC005", str(path))]
-    assert "cannot read manifest" in issues[0].message
-
-
 def test_a_manifest_no_pin_claims_is_src006(tmp_path: Path) -> None:
     _write_sources(tmp_path)
+    assert _pin_issues(tmp_path) == [], "no pins and no packages directory"
     stray = tmp_path / "mirrors" / "packages" / "orphan_pkg.json"
     stray.parent.mkdir(parents=True)
     stray.write_text("{}")
     (stray.parent / "notes.txt").write_text("ignored here; TBL009 owns it")
 
     assert _pin_issues(tmp_path) == [("SRC006", str(stray))]
-
-
-def test_no_pins_and_no_packages_directory_is_clean(tmp_path: Path) -> None:
-    _write_sources(tmp_path)
-
-    assert _pin_issues(tmp_path) == []

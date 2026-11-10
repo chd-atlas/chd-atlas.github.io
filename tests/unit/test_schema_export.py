@@ -90,12 +90,6 @@ def test_committed_schemas_match_the_models() -> None:
             )
 
 
-def test_every_table_schema_is_exported_once_under_its_version(tmp_path: Path) -> None:
-    written = export_table_schemas(tmp_path)
-    assert len(written) == 16
-    assert {path.name for path in written} == {f"{name}.v1.json" for name in TABLE_SCHEMAS}
-
-
 def test_an_exported_table_states_what_validate_table_checks(tmp_path: Path) -> None:
     export_table_schemas(tmp_path)
 

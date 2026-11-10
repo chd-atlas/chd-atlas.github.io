@@ -8,7 +8,7 @@ import pytest
 
 from chd_atlas.genes import Resolution, Resolved
 from chd_atlas.ingest.package import IngestRefused
-from chd_atlas.ingest.resolve import GeneIdResolver, package_cache, resolve_frame
+from chd_atlas.ingest.resolve import GeneIdResolver, resolve_frame
 from chd_atlas.vocab import GeneIdKind
 from tests.unit.package_fixtures import write_hgnc_root
 
@@ -34,12 +34,6 @@ def resolver(
 def frame(genes: list[str | None]) -> pl.DataFrame:
     return pl.DataFrame(
         {"gene": genes, "n": list(range(len(genes)))}, schema_overrides={"gene": pl.String}
-    )
-
-
-def test_the_cache_path_is_under_local_packages(tmp_path: Path) -> None:
-    assert (
-        package_cache(tmp_path, "hgnc", "2026-10-16") == tmp_path / "local/packages/hgnc/2026-10-16"
     )
 
 

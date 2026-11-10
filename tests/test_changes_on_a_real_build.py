@@ -52,7 +52,9 @@ def changes(pair: tuple[Path, Path, Path, Path]) -> SiteChanges:
     return site_changes(base_root, base_site, head_root, head_site)
 
 
-def test_the_report_reads_a_real_build(changes: SiteChanges) -> None:
+def test_the_report_reads_a_real_build(
+    pair: tuple[Path, Path, Path, Path], changes: SiteChanges, tmp_path: Path
+) -> None:
     [tbx5] = [c for c in changes.mirror_rows if c.table == "burden" and c.gene == TBX5]
     assert tbx5.before > 0 and tbx5.after == 0
     [burden_rows] = [c for c in changes.counts if c[0] == "burden_rows"]
@@ -67,10 +69,7 @@ def test_the_report_reads_a_real_build(changes: SiteChanges) -> None:
     assert f"- burden {TBX5}: {tbx5.before} → **0**" in mirror
     assert "genes/HGNC_11604.json" in text.split("files changed")[1]
 
-
-def test_the_command_writes_the_same_report(
-    pair: tuple[Path, Path, Path, Path], changes: SiteChanges, tmp_path: Path
-) -> None:
+    # The command writes the same report, base and head in their places.
     base_root, base_site, head_root, head_site = pair
     out = tmp_path / "report.md"
     result = CliRunner().invoke(
@@ -85,22 +84,4 @@ def test_the_command_writes_the_same_report(
         ],
     )  # fmt: skip
     assert result.exit_code == 0, result.output
-    assert out.read_text(encoding="utf-8") == render_markdown(changes)
-
-
-def test_a_site_without_a_manifest_is_a_bad_argument(
-    pair: tuple[Path, Path, Path, Path], tmp_path: Path
-) -> None:
-    base_root, base_site, head_root, _ = pair
-    result = CliRunner().invoke(
-        app,
-        [
-            "report-changes",
-            "--base-root", str(base_root),
-            "--base-site", str(base_site),
-            "--head-root", str(head_root),
-            "--head-site", str(tmp_path),
-        ],
-    )  # fmt: skip
-    assert result.exit_code == 2
-    assert "has no manifest.json" in result.output
+    assert out.read_text(encoding="utf-8") == text

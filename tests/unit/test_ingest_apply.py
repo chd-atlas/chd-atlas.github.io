@@ -5,6 +5,8 @@ Every test that writes works on a temporary copy of `curation/`, `mirrors/` and
 checkout. `validate_repository` over the real corpus costs seconds, so the
 happy path is ingested once per module, twice (the second time to prove a
 re-ingest changes nothing), and its tests read the snapshots the fixture took.
+The second ingest runs with validation stubbed: its bytes are asserted to be
+the first's, which validation already passed, so a real run would re-answer it.
 
 Package rows are `sierant2025_ds6`'s own rows for HGNC:10023 with `source`
 rewritten to `toy_burden` and `maf_max` set to `0.0001`, a value no committed
@@ -31,6 +33,7 @@ from chd_atlas.genes import Resolution, Resolved
 from chd_atlas.ingest import apply
 from chd_atlas.ingest.apply import ingest_package, with_source_entry
 from chd_atlas.ingest.package import IngestRefused
+from chd_atlas.issues import Severity
 from chd_atlas.models.package import PackageSource, RegistrySlice
 from chd_atlas.tables import TABLE_SCHEMAS, mirror_paths, table_layout
 from chd_atlas.validate.runner import ValidationReport
@@ -113,7 +116,10 @@ class Ingested:
         self.first = ingest_package(self.repo, SOURCE, self.package)
         self.after = tree(self.repo)
         self.burden_after = burden_lines(self.repo)
-        self.second = ingest_package(self.repo, SOURCE, self.package)
+        with pytest.MonkeyPatch.context() as patch:
+            report = ValidationReport(list(self.first.warnings))
+            patch.setattr(apply, "validate_repository", lambda _: report)
+            self.second = ingest_package(self.repo, SOURCE, self.package)
         self.again = tree(self.repo)
 
 
@@ -158,7 +164,7 @@ def test_ingest_replaces_only_the_packages_own_burden_rows(ingested: Ingested) -
     assert validate_sort_order(path, TABLE_SCHEMAS["burden"]) == []
 
 
-def test_rows_outside_the_registry_are_counted_not_written(ingested: Ingested) -> None:
+def test_the_result_counts_and_names_what_was_not_written(ingested: Ingested) -> None:
     result = ingested.first
     assert (
         result.rows_in,
@@ -170,10 +176,11 @@ def test_rows_outside_the_registry_are_counted_not_written(ingested: Ingested) -
     genes = {line.split("\t")[1] for line in ingested.burden_after[1:]}
     assert OUTSIDE_GENE not in genes
     assert "TBX5" not in genes
+    # The warnings validation reported with the package applied (the corpus's
+    # own SCP003/SCP007), which `chd-atlas ingest` prints after its summary.
+    assert result.warnings
+    assert all(issue.severity is Severity.WARNING for issue in result.warnings)
 
-
-def test_a_registry_slice_names_the_registry_genes_it_lacks(ingested: Ingested) -> None:
-    result = ingested.first
     assert result.coverage == RegistrySlice(atlas_commit=SLICE_COMMIT, genes=185)
     assert result.registry_genes == len(registry(ingested.repo))
     expected = registry(ingested.repo) - {"HGNC:10023"}
@@ -605,21 +612,19 @@ def test_an_entry_updated_in_place_changes_no_line_outside_it() -> None:
 
 
 def test_the_committed_sources_yaml_round_trips_byte_for_byte() -> None:
-    """Re-applying an entry's own values changes nothing (the controller's measurement)."""
+    """Re-applying an entry's own values changes nothing (the controller's measurement).
+
+    And a field added to the source block is written with no writer change: the
+    entry's fields come from the model, not a hand-written list (the drift test
+    makes a new `Source` field a `PackageSource` field).
+    """
     raw = (REPO_ROOT / "mirrors" / "sources.yaml").read_bytes()
-    pinned = with_source_entry(
-        raw,
-        "farah2024_hoc",
-        _source_as_package("farah2024_hoc"),
-        PackagePin(version="v1", manifest_sha256="cd" * 32),
-    )
+    pin = PackagePin(version="v1", manifest_sha256="cd" * 32)
     tail = f"    package:\n      version: v1\n      manifest_sha256: {'cd' * 32}\n"
+
+    pinned = with_source_entry(raw, "farah2024_hoc", _source_as_package("farah2024_hoc"), pin)
+
     assert pinned == raw + tail.encode()
-
-
-def test_a_field_added_to_the_source_block_is_written_with_no_writer_change() -> None:
-    """The entry's fields come from the model, not a hand-written list (the drift
-    test makes a new `Source` field a `PackageSource` field)."""
 
     class Wider(PackageSource):
         citation: str | None = None
@@ -627,16 +632,10 @@ def test_a_field_added_to_the_source_block_is_written_with_no_writer_change() ->
     source = Wider.model_validate(
         {**_source_as_package("farah2024_hoc").model_dump(), "citation": "Farah 2024"}
     )
-    raw = (REPO_ROOT / "mirrors" / "sources.yaml").read_bytes()
-    pin = PackagePin(version="v1", manifest_sha256="cd" * 32)
 
     after = with_source_entry(raw, "farah2024_hoc", source, pin)
 
-    tail = (
-        "    citation: Farah 2024\n"
-        f"    package:\n      version: v1\n      manifest_sha256: {'cd' * 32}\n"
-    )
-    assert after == raw + tail.encode()
+    assert after == raw + ("    citation: Farah 2024\n" + tail).encode()
 
 
 # --- what a package may not do: ING013, ING014, and the row accounting ---------

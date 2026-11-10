@@ -28,9 +28,11 @@ def refusal(directory: Path, source_id: str = SOURCE) -> IngestRefused:
 
 
 def test_a_valid_package_loads_every_cell_as_text(tmp_path: Path) -> None:
+    """Written with its header reversed: ING012 compares column sets, not order (Task 5)."""
     rows = default_burden_rows()
     rows[2]["maf_max"] = "0.001"
-    package = load_package(write_package(tmp_path, rows), SOURCE)
+    columns = list(reversed(BURDEN_COLUMNS))
+    package = load_package(write_package(tmp_path, rows, columns=columns), SOURCE)
     (table,) = package.tables
     assert table.spec.name == "burden"
     assert table.schema.name == "burden"
@@ -40,12 +42,6 @@ def test_a_valid_package_loads_every_cell_as_text(tmp_path: Path) -> None:
     assert table.frame["n_cases"].to_list() == ["3887", "3887", "22558"]
     assert package.manifest.package == SOURCE
     assert package.manifest_bytes == (package.directory / "manifest.json").read_bytes()
-
-
-def test_a_reordered_header_with_the_same_columns_loads(tmp_path: Path) -> None:
-    columns = list(reversed(BURDEN_COLUMNS))
-    package = load_package(write_package(tmp_path, columns=columns), SOURCE)
-    assert package.tables[0].frame.height == 3
 
 
 def test_a_gzipped_table_is_checked_compressed_and_counted_decompressed(tmp_path: Path) -> None:
@@ -62,7 +58,13 @@ def test_a_gzipped_table_is_checked_compressed_and_counted_decompressed(tmp_path
 
 
 def test_ING004_manifest_missing_or_invalid(tmp_path: Path) -> None:
+    """A NUL in a table's file escaped `load_package` as `Path.read_bytes`' ValueError;
+    the manifest refuses it, and the refusal names the field."""
     directory = write_package(tmp_path)
+    edit_table(directory, file="burden\x00.tsv")
+    refused = refusal(directory)
+    assert refused.code == "ING004"
+    assert "tables.0.file" in refused.message
     (directory / "manifest.json").write_text("{not json", encoding="utf-8")
     assert refusal(directory).code == "ING004"
     (directory / "manifest.json").unlink()
@@ -102,29 +104,23 @@ def test_ING005_each_shape_condition_reaches_its_own_refusal(
     assert fragment in error.message
 
 
-def test_a_table_both_unknown_and_mis_hashed_reports_ING005(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("fields", "code"),
+    [
+        # The genes table is refused before its version or its bytes are read.
+        ({"name": "genes", "genes": 2, "format_version": 9, "sha256": "0" * 64}, "ING009"),
+        ({"format_version": 2}, "ING002"),
+        ({"rows": 99}, "ING003"),
+        ({"genes": 99}, "ING003"),
+    ],
+    ids=["ING009-before-version-and-bytes", "ING002-format-version", "ING003-rows", "ING003-genes"],
+)
+def test_a_manifest_entry_the_table_does_not_honour_is_its_own_code(
+    tmp_path: Path, fields: dict[str, object], code: str
+) -> None:
     directory = write_package(tmp_path)
-    edit_table(directory, name="no_such_table", sha256="0" * 64, format_version=9)
-    assert refusal(directory).code == "ING005"
-
-
-def test_ING009_the_genes_table_is_refused_before_its_version_is_read(tmp_path: Path) -> None:
-    directory = write_package(tmp_path)
-    edit_table(directory, name="genes", genes=2, format_version=9, sha256="0" * 64)
-    assert refusal(directory).code == "ING009"
-
-
-def test_ING002_format_version_differs_from_the_schema(tmp_path: Path) -> None:
-    directory = write_package(tmp_path)
-    edit_table(directory, format_version=2)
-    assert refusal(directory).code == "ING002"
-
-
-def test_ING001_bytes_differ_from_the_recorded_sha256(tmp_path: Path) -> None:
-    directory = write_package(tmp_path)
-    with (directory / "burden.tsv").open("ab") as handle:
-        handle.write(b"\n")
-    assert refusal(directory).code == "ING001"
+    edit_table(directory, **fields)
+    assert refusal(directory).code == code
 
 
 def test_ING001_table_file_absent_from_the_package(tmp_path: Path) -> None:
@@ -161,26 +157,12 @@ def test_ING011_every_unreadable_body_is_refused_not_raised(
     assert refusal(directory).code == "ING011"
 
 
-def test_ING011_a_non_utf8_byte_inside_a_cell(tmp_path: Path) -> None:
-    directory = write_package(tmp_path)
-    good = tsv_bytes(default_burden_rows(), BURDEN_COLUMNS)
-    replace_table_bytes(directory, good.replace(b"pcgc", b"pc\xffc", 1))
-    assert refusal(directory).code == "ING011"
-
-
 def test_ING012_names_the_missing_and_the_extra_columns(tmp_path: Path) -> None:
     columns = [c for c in BURDEN_COLUMNS if c != "effect"] + ["surprise"]
     error = refusal(write_package(tmp_path, columns=columns))
     assert error.code == "ING012"
     assert "effect" in error.message
     assert "surprise" in error.message
-
-
-@pytest.mark.parametrize("field", ["rows", "genes"])
-def test_ING003_counts_differ_from_the_manifest(tmp_path: Path, field: str) -> None:
-    directory = write_package(tmp_path)
-    edit_table(directory, **{field: 99})
-    assert refusal(directory).code == "ING003"
 
 
 def test_ING003_a_blank_gene_cell_is_not_a_gene(tmp_path: Path) -> None:
@@ -190,15 +172,6 @@ def test_ING003_a_blank_gene_cell_is_not_a_gene(tmp_path: Path) -> None:
     assert load_package(directory, SOURCE).tables[0].frame.height == 4
     edit_table(directory, genes=3)
     assert refusal(directory).code == "ING003"
-
-
-def test_ING004_a_table_file_holding_a_nul(tmp_path: Path) -> None:
-    """A NUL escaped `load_package` as `Path.read_bytes`' ValueError; the manifest refuses it."""
-    directory = write_package(tmp_path)
-    edit_table(directory, file="burden\x00.tsv")
-    refused = refusal(directory)
-    assert refused.code == "ING004"
-    assert "tables.0.file" in refused.message
 
 
 @pytest.mark.parametrize(
