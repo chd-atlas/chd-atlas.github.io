@@ -315,12 +315,21 @@ def test_a_pin_whose_manifest_is_missing_is_src005(tmp_path: Path) -> None:
 
 
 def test_a_pin_whose_manifest_bytes_changed_is_src005(tmp_path: Path) -> None:
+    """The same manifest re-indented: it still parses and still agrees with the pin's
+    package and version, so only the sha256 over the bytes on disk can refuse it."""
     path = _pinned_repo(tmp_path)
-    data = bytearray(path.read_bytes())
-    data[-2] ^= 0x01  # one byte inside the JSON, not the closing brace
-    path.write_bytes(bytes(data))
+    pinned = hashlib.sha256(path.read_bytes()).hexdigest()
+    path.write_text(json.dumps(manifest_dict(), indent=2))
+    on_disk = hashlib.sha256(path.read_bytes()).hexdigest()
+    assert on_disk != pinned
 
-    assert _pin_issues(tmp_path) == [("SRC005", str(path))]
+    registry, _ = load_sources(tmp_path)
+    issues = validate_package_pins(tmp_path, registry)
+
+    assert [(i.code, i.location) for i in issues] == [("SRC005", str(path))]
+    assert issues[0].message == (
+        f"manifest sha256 is {on_disk}, but the pin for 'toy_burden' says {pinned}"
+    )
 
 
 def test_a_manifest_for_another_package_is_src005(tmp_path: Path) -> None:

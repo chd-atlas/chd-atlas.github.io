@@ -7,8 +7,10 @@ REPO_ROOT = Path(__file__).parent.parent
 
 
 def test_the_committed_repository_validates_cleanly() -> None:
+    """0 errors and the baseline 3 warnings (two SCP003, one SCP007), measured 2026-11-10."""
     report = validate_repository(REPO_ROOT)
     assert report.ok, report.render()
+    assert report.warning_count == 3, report.render()
 
 
 def test_the_seed_corpus_is_not_empty() -> None:
@@ -157,13 +159,3 @@ def test_every_profile_dataset_pins_its_stage_sequence_against_a_literal() -> No
     for accession, dataset in sorted(profiles.items()):
         ordered = [stage.token for stage in sorted(dataset.stages, key=lambda item: item.order)]
         assert ordered == _EXPECTED_STAGE_ORDER[accession], accession
-
-
-def test_the_real_repository_has_no_pins_and_validates_clean() -> None:
-    """No source pins a package and `mirrors/packages/` does not exist (measured 2026-11-10)."""
-    report = validate_repository(REPO_ROOT)
-
-    assert not (REPO_ROOT / "mirrors" / "packages").exists()
-    assert not any(issue.code in {"SRC005", "SRC006"} for issue in report.issues)
-    assert report.error_count == 0
-    assert report.warning_count == 3
