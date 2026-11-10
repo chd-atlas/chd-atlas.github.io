@@ -216,15 +216,7 @@ def test_reingesting_the_same_version_changes_no_byte(ingested: Ingested) -> Non
         assert ingested.after[f"{cache}/{name}"] == (ingested.package / name).read_bytes()
     # Only what the ingest wrote changed: the burden mirror, the committed
     # manifest, sources.yaml and the cache.
-    keys = ingested.before.keys() | ingested.after.keys()
-    changed = {
-        key
-        for key in keys
-        if key not in ingested.before
-        or key not in ingested.after
-        or ingested.before[key] != ingested.after[key]
-    }
-    assert changed == {
+    assert changed_paths(ingested.before, ingested.after) == {
         "mirrors/burden.tsv",
         "mirrors/sources.yaml",
         "mirrors/packages",
@@ -238,13 +230,25 @@ def test_reingesting_the_same_version_changes_no_byte(ingested: Ingested) -> Non
     }
 
 
-def recording_writes(monkeypatch: pytest.MonkeyPatch, fail_on: str | None = None) -> list[Path]:
-    """Record every path `apply` writes; raise OSError on the first write to ``fail_on``."""
+def recording_writes(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    refuse: str | None = None,
+    refuse_after_first: str | None = None,
+) -> list[Path]:
+    """Record every path `apply` writes, and fail writes by file name.
+
+    Every write to a file named ``refuse`` raises OSError and leaves it as it
+    was, as a read-only file or a full disk would. Writes to a file named
+    ``refuse_after_first`` succeed once and raise from then on, so the
+    restore's write of it fails.
+    """
     written: list[Path] = []
 
     def write(path: Path, payload: bytes) -> None:
+        earlier = written.count(path)
         written.append(path)
-        if fail_on is not None and path.name == fail_on:
+        if path.name == refuse or (path.name == refuse_after_first and earlier):
             raise OSError(f"injected: cannot write {path}")
         write_bytes_atomically(path, payload)
 
@@ -292,17 +296,61 @@ def test_a_write_that_raises_restores_every_file(
     (tmp_path / "pkg").mkdir()
     package = write_package(tmp_path / "pkg", toy_rows()[:6], ids="hgnc_id")
     before = tree(repo)
-    written = recording_writes(monkeypatch, fail_on="sources.yaml")
+    written = recording_writes(monkeypatch, refuse="sources.yaml")
     validated: list[Path] = []
     monkeypatch.setattr(apply, "validate_repository", validated.append)
 
-    with pytest.raises(OSError, match="injected"):
+    # The write's own error, not "could not restore": sources.yaml was never
+    # changed, so the restore does not try to rewrite it (and fail again).
+    with pytest.raises(OSError, match=r"^injected: cannot write \S+/mirrors/sources\.yaml$"):
         ingest_package(repo, SOURCE, package)
 
     assert repo / "mirrors" / "burden.tsv" in written
     assert repo / "mirrors" / "packages" / f"{SOURCE}.json" in written
     assert validated == []
     assert tree(repo) == before
+
+
+def test_a_restore_that_cannot_complete_names_only_what_it_left_changed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """sources.yaml refuses every write; burden.tsv takes the ingest's write, not the restore's.
+
+    The message names burden.tsv alone, the one path left changed, and the
+    write's own error survives as its context.
+    """
+    repo = copy_repo(tmp_path / "repo")
+    (tmp_path / "pkg").mkdir()
+    package = write_package(tmp_path / "pkg", toy_rows()[:6], ids="hgnc_id")
+    before = tree(repo)
+    recording_writes(monkeypatch, refuse="sources.yaml", refuse_after_first="burden.tsv")
+    monkeypatch.setattr(apply, "validate_repository", _never_validated)
+
+    with pytest.raises(OSError) as excinfo:
+        ingest_package(repo, SOURCE, package)
+
+    burden = repo / "mirrors" / "burden.tsv"
+    assert str(excinfo.value) == (
+        f"the ingest failed and could not restore: {burden}: injected: cannot write {burden}"
+    )
+    original = excinfo.value.__context__
+    assert str(original) == f"injected: cannot write {repo / 'mirrors' / 'sources.yaml'}"
+    assert changed_paths(before, tree(repo)) == {"mirrors/burden.tsv"}, (
+        "the message must name exactly what was left changed"
+    )
+
+
+def changed_paths(before: dict[str, bytes | None], after: dict[str, bytes | None]) -> set[str]:
+    """Paths added, removed, or (files) with different bytes."""
+    return {
+        key
+        for key in before.keys() | after.keys()
+        if (key in before) != (key in after) or before.get(key) != after.get(key)
+    }
+
+
+def _never_validated(_: Path) -> ValidationReport:
+    raise AssertionError("validation must not run after a write fails")
 
 
 def test_a_validity_table_is_replaced_whole_and_not_filtered(
@@ -349,6 +397,73 @@ def test_a_validity_table_is_replaced_whole_and_not_filtered(
     assert (result.rows_written, result.rows_outside_registry) == (2, 0)
     mirror = (repo / "mirrors" / "clingen_gene_validity.tsv").read_text().splitlines()
     assert mirror == [header, chosen[1], chosen[0]]
+
+
+def test_a_shard_keeps_other_sources_rows_and_every_other_shard(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A `cell_type_profiles` package owns its own rows of shard ``hoc`` and nothing else.
+
+    `hoc.tsv` starts with one `farah2024_hoc` row (foreign, kept byte for byte)
+    and one stale `toy_cells` row (owned, replaced). A second shard holding a
+    `toy_cells` row is another shard, so it is kept. Rows are four real
+    committed hoc rows, chosen so the foreign one sorts between the package's
+    two. Validation is stubbed, as in the validity-table test.
+    """
+    repo = tmp_path / "repo"
+    shards = repo / "mirrors" / "cell_type_profiles"
+    shards.mkdir(parents=True)
+    for name in ("genes.tsv", "sources.yaml"):
+        shutil.copy(REPO_ROOT / "mirrors" / name, repo / "mirrors" / name)
+    header, *lines = (REPO_ROOT / "mirrors/cell_type_profiles/hoc.tsv").read_text().splitlines()
+    ivs, la, lv, fourth = (line.rsplit("\t", 1)[0] for line in lines[:4])
+    assert lines[1].endswith("\tfarah2024_hoc")
+    foreign = f"{la}\tfarah2024_hoc"
+    (shards / "hoc.tsv").write_text(f"{header}\n{foreign}\n{fourth}\ttoy_cells\n")
+    (shards / "other.tsv").write_text(f"{header}\n{fourth}\ttoy_cells\n")
+    columns = header.split("\t")
+    package_lines = [f"{ivs}\ttoy_cells", f"{lv}\ttoy_cells"]
+    rows = [dict(zip(columns, line.split("\t"), strict=True)) for line in package_lines]
+    data = tsv_bytes(rows, columns)
+    package = tmp_path / "pkg"
+    package.mkdir()
+    (package / "cells.tsv").write_bytes(data)
+    table = {
+        "name": "cell_type_profiles",
+        "format_version": 1,
+        "file": "cells.tsv",
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "rows": 2,
+        "genes": 1,
+        "shard": "hoc",
+    }
+    manifest = manifest_dict(package="toy_cells", ids="hgnc_id", tables=[table])
+    (package / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr(apply, "validate_repository", lambda _: ValidationReport())
+    before = tree(repo)
+
+    ingest_package(repo, "toy_cells", package)
+
+    after = tree(repo)
+    assert (shards / "hoc.tsv").read_text().splitlines() == [
+        header,
+        package_lines[0],
+        foreign,
+        package_lines[1],
+    ]
+    cache = "local/packages/toy_cells/2026-11-10.1"
+    assert changed_paths(before, after) == {
+        "mirrors/cell_type_profiles/hoc.tsv",
+        "mirrors/sources.yaml",
+        "mirrors/packages",
+        "mirrors/packages/toy_cells.json",
+        "local",
+        "local/packages",
+        "local/packages/toy_cells",
+        cache,
+        f"{cache}/manifest.json",
+        f"{cache}/cells.tsv",
+    }
 
 
 @pytest.mark.parametrize(

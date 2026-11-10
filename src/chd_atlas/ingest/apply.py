@@ -191,12 +191,21 @@ def _apply(root: Path, writes: dict[Path, bytes]) -> None:
 
 
 def _restore(before: dict[Path, bytes | None], created: list[Path]) -> None:
-    """Put every path back as it was, deepest created directory removed first."""
+    """Put back every path that differs from its snapshot; remove created directories.
+
+    A path already as it was is left alone. A write that failed (a full disk, a
+    read-only ``sources.yaml``) left its target untouched, and rewriting it
+    would fail the same way: the restore would then report a file nobody
+    changed as one it could not put back, and the real error would be buried
+    under that one. So "could not restore" names only paths that still differ.
+    """
     failures: list[str] = []
     for path, data in before.items():
         try:
+            if (path.read_bytes() if path.is_file() else None) == data:
+                continue
             if data is None:
-                path.unlink(missing_ok=True)
+                path.unlink()
             else:
                 write_bytes_atomically(path, data)
         except OSError as exc:
