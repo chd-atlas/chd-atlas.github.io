@@ -42,3 +42,14 @@ uv run chd-atlas validate
 
 Reports every problem it finds rather than stopping at the first, and exits 1 on
 any error, 2 if `--root` is not a directory.
+
+## Ingesting a source package
+
+```bash
+uv run chd-atlas ingest SOURCE_ID --package DIR
+```
+
+A curator runs this, never CI. It verifies the package, merges its rows into `mirrors/`,
+pins it in `mirrors/sources.yaml` with its manifest at `mirrors/packages/SOURCE_ID.json`,
+then validates. If anything fails, every file it touched is restored. Exit 0 applied,
+1 refused, 2 when `--root` or `--package` is not a directory.
