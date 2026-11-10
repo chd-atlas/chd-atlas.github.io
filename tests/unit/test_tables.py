@@ -7,6 +7,7 @@ import polars as pl
 import pytest
 
 from chd_atlas.duplicates import duplicates
+from chd_atlas.identifiers import UNIPROT_LIST_PATTERN
 from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.tables import (
     BURDEN,
@@ -972,6 +973,7 @@ def test_polars_pattern_engine_agrees_with_python_re(tmp_path: Path) -> None:
         r"^SGC-\d+$",
         r"^\d{4}-\d{2}-\d{2}.*$",
         r"^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})(-\d+)?$",
+        UNIPROT_LIST_PATTERN,  # `genes` v2: `|`-separated accession list
         r"^PMID:\d+$",
         r"^[a-z0-9]+(_[a-z0-9]+)*(;[a-z0-9]+(_[a-z0-9]+)*)*$",
         # The Orphanet scope mirrors, 2026-10-25.
@@ -1003,6 +1005,12 @@ def test_polars_pattern_engine_agrees_with_python_re(tmp_path: Path) -> None:
         "Q99593\n",
         "Q99593-2",
         "Q99593-2\n",
+        # The `|` list: empty tokens from a leading, trailing or doubled separator.
+        "P0DW28|P98175",
+        "P0DW28|",
+        "|P98175",
+        "P0DW28||P98175",
+        "P0DW28|P98175\n",
         "A0A123",
         "SGC-102815",
         "SGC-102815\n",
