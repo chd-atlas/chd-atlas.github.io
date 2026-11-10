@@ -179,3 +179,62 @@ def replace_table_bytes(directory: Path, data: bytes) -> None:
     manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
     (directory / manifest["tables"][0]["file"]).write_bytes(data)
     edit_table(directory, sha256=hashlib.sha256(data).hexdigest())
+
+
+def write_hgnc_root(
+    root: Path,
+    rows: Sequence[Mapping[str, str]],
+    *,
+    version: str = "2026-10-16",
+    gz: bool = False,
+    pinned: bool = True,
+    cached: bool = True,
+) -> Path:
+    """A temp repository root holding an ``hgnc`` source, its pin and a cached HGNC package.
+
+    Writes ``mirrors/sources.yaml`` (one entry, with a ``package`` pin when
+    ``pinned``) and ``local/packages/hgnc/<version>/`` holding ``manifest.json``
+    and a ``genes`` table of ``rows`` (when ``cached``). Never touches the real
+    ``local/``: ``root`` is the caller's ``tmp_path``.
+    """
+    mirrors = root / "mirrors"
+    mirrors.mkdir(parents=True, exist_ok=True)
+    pin = (
+        f'    package: {{version: "{version}", manifest_sha256: "{"a" * 64}"}}\n' if pinned else ""
+    )
+    (mirrors / "sources.yaml").write_text(
+        "sources:\n"
+        "  - id: hgnc\n"
+        "    name: HUGO Gene Nomenclature Committee\n"
+        f'    version: "{version}"\n'
+        "    retrieved_on: 2026-10-25\n"
+        "    url: https://www.genenames.org/\n"
+        "    licence: CC0-1.0\n"
+        "    redistribution: permitted\n" + pin,
+        encoding="utf-8",
+    )
+    if cached:
+        directory = root / "local" / "packages" / "hgnc" / version
+        directory.mkdir(parents=True)
+        raw = tsv_bytes(rows, TABLE_SCHEMAS["genes"].column_names)
+        name = "genes.tsv.gz" if gz else "genes.tsv"
+        on_disk = gzip.compress(raw, mtime=0) if gz else raw
+        (directory / name).write_bytes(on_disk)
+        manifest = manifest_dict(
+            package="hgnc",
+            version=version,
+            ids="hgnc_id",
+            tables=[
+                {
+                    "name": "genes",
+                    "format_version": 1,
+                    "file": name,
+                    "sha256": hashlib.sha256(on_disk).hexdigest(),
+                    "rows": len(rows),
+                    "genes": len(rows),
+                    "shard": None,
+                }
+            ],
+        )
+        (directory / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    return root
