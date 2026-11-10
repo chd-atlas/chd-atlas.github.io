@@ -58,3 +58,4 @@ every path left changed.
 
 The package is refused with `ING015` if any table cell begins with a double quote; `validate` reports
 the same in a committed mirror as `TBL013` (the CSV reader would otherwise merge rows silently).
+It is refused with `ING016` if its version equals the pinned one but its manifest bytes differ: a version names one set of bytes.

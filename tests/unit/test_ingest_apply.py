@@ -822,3 +822,35 @@ def test_a_row_dropped_without_being_named_stops_the_ingest_before_any_write(
         "0 outside the registry, 0 unresolved"
     )
     assert tree(repo) == before
+
+
+def test_a_repin_that_keeps_its_version_must_keep_its_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = small_repo(tmp_path, monkeypatch)
+    rows = toy_rows()[:6]
+    v1 = write_tables(tmp_path / "v1", [("burden", None, rows)], version="v1")
+    ingest_package(repo, SOURCE, v1)
+    pinned = load_sources(repo)[0]
+    pin = next(s.package for s in pinned.sources if s.id == SOURCE)
+    assert pin is not None
+    before = tree(repo)
+
+    # Same version, different bytes: one row fewer, hashes and counts honest.
+    edited = write_tables(tmp_path / "edited", [("burden", None, rows[:5])], version="v1")
+    digest = hashlib.sha256((edited / "manifest.json").read_bytes()).hexdigest()
+    assert digest != pin.manifest_sha256
+    with pytest.raises(IngestRefused) as excinfo:
+        ingest_package(repo, SOURCE, edited)
+
+    assert excinfo.value.code == "ING016"
+    assert excinfo.value.message == (
+        f"toy_burden v1 is pinned at sha256:{pin.manifest_sha256[:12]}\u2026; "
+        f"this package's manifest is sha256:{digest[:12]}\u2026; "
+        f"a package that changes its bytes must change its version"
+    )
+    assert tree(repo) == before
+
+    # The identical package is allowed and changes no byte.
+    ingest_package(repo, SOURCE, v1)
+    assert tree(repo) == before

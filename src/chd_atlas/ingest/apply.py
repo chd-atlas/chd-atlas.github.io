@@ -34,6 +34,12 @@ that cannot see. Both are checked before anything is written.
   yet, ``profiles/E-MTAB-6814.tsv`` and ``profile_quantiles/E-MTAB-6814.tsv``,
   stay unprotected until phase 3 pins them.
 
+- ``ING016``: a package carries the version the source is already pinned at but
+  a manifest whose sha256 differs from the pin's. A version names exactly one
+  set of bytes (spec F13), so changed bytes must change the version. The same
+  version with the same bytes is allowed: that is how a scope change re-filters
+  a source.
+
 Cells are written as polars parsed them, which Decision 8 calls verbatim: a
 package table is read as quoted TSV and a mirror is written unquoted, so a cell
 that opens with a quote loses its quoting (measured on polars 1.43.1: ``"x"``
@@ -92,7 +98,7 @@ from chd_atlas.models.package import (
 )
 from chd_atlas.tables import GENES, PACKAGES_DIR, TableSchema, cell_text, table_layout
 from chd_atlas.validate.runner import ValidationReport, validate_repository
-from chd_atlas.validate.sources import PackagePin
+from chd_atlas.validate.sources import PackagePin, load_sources
 
 # Written whole, never filtered to the registry: spec §4.4 derives the registry
 # from these two, so filtering them would discard the rows the next derivation
@@ -155,6 +161,8 @@ def ingest_package(root: Path, source_id: str, package_dir: Path) -> IngestResul
             "mirrors/genes.tsv is absent or lists no gene, so the registry filter "
             "would drop every row",
         )
+
+    _refuse_changed_bytes_under_a_pinned_version(root, source_id, package)
 
     writes: dict[Path, bytes] = {}
     unresolved: dict[str, Resolved] = {}
@@ -244,6 +252,29 @@ def _committed_manifests(root: Path) -> dict[str, PackageManifest]:
                 f"carried is unknown: {exc}",
             ) from exc
     return found
+
+
+def _refuse_changed_bytes_under_a_pinned_version(
+    root: Path, source_id: str, package: LoadedPackage
+) -> None:
+    """ING016 (see the module docstring); reads, never writes."""
+    registry, issues = load_sources(root)
+    if any(issue.severity is Severity.ERROR for issue in issues):
+        raise IngestRefused(
+            "ING010",
+            "mirrors/sources.yaml cannot be read: " + "; ".join(i.message for i in issues),
+        )
+    pin = next((s.package for s in registry.sources if s.id == source_id), None)
+    if pin is None or pin.version != package.manifest.version:
+        return
+    digest = hashlib.sha256(package.manifest_bytes).hexdigest()
+    if pin.manifest_sha256 != digest:
+        raise IngestRefused(
+            "ING016",
+            f"{source_id} {pin.version} is pinned at sha256:{pin.manifest_sha256[:12]}\u2026; "
+            f"this package's manifest is sha256:{digest[:12]}\u2026; "
+            f"a package that changes its bytes must change its version",
+        )
 
 
 def _refuse_omitted_or_owned_tables(root: Path, source_id: str, package: LoadedPackage) -> None:
