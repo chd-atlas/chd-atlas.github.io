@@ -13,11 +13,21 @@ from chd_atlas.validate.sources import Source
 from tests.unit.package_fixtures import manifest_dict
 
 
-def test_a_complete_manifest_round_trips() -> None:
-    raw = manifest_dict()
+@pytest.mark.parametrize(
+    "coverage",
+    ["every_gene", {"registry_slice": {"atlas_commit": "b" * 40, "genes": 181}}],
+)
+def test_a_complete_manifest_round_trips(coverage: Any) -> None:
+    raw = manifest_dict(coverage=coverage)
     manifest = PackageManifest.model_validate(raw)
     assert manifest.model_dump(mode="json") == raw
     assert manifest_dict() is not manifest_dict()
+
+
+def test_a_bare_registry_slice_without_its_wrapper_is_refused() -> None:
+    raw = manifest_dict(coverage={"atlas_commit": "b" * 40, "genes": 181})
+    with pytest.raises(ValidationError, match="coverage"):
+        PackageManifest.model_validate(raw)
 
 
 def test_a_manifest_without_a_recipe_commit_is_refused() -> None:

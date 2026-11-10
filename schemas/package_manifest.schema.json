@@ -334,6 +334,20 @@
       ],
       "title": "RegistrySlice",
       "type": "object"
+    },
+    "SliceCoverage": {
+      "additionalProperties": false,
+      "description": "The spec's nested form: ``{\"registry_slice\": {\"atlas_commit\": ..., \"genes\": ...}}``.",
+      "properties": {
+        "registry_slice": {
+          "$ref": "#/$defs/RegistrySlice"
+        }
+      },
+      "required": [
+        "registry_slice"
+      ],
+      "title": "SliceCoverage",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -348,7 +362,7 @@
           "type": "string"
         },
         {
-          "$ref": "#/$defs/RegistrySlice"
+          "$ref": "#/$defs/SliceCoverage"
         }
       ],
       "title": "Coverage"

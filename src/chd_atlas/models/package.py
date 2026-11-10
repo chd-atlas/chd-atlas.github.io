@@ -77,6 +77,14 @@ class RegistrySlice(BaseModel):
     genes: int = Field(ge=0)
 
 
+class SliceCoverage(BaseModel):
+    """The spec's nested form: ``{"registry_slice": {"atlas_commit": ..., "genes": ...}}``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    registry_slice: RegistrySlice
+
+
 class BuiltBy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -111,7 +119,7 @@ class PackageManifest(BaseModel):
     package: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     version: str = Field(pattern=r"^[A-Za-z0-9._-]+$")
     ids: GeneIdKind
-    coverage: Literal["every_gene"] | RegistrySlice
+    coverage: Literal["every_gene"] | SliceCoverage
     tables: list[PackageTable] = Field(min_length=1)
     inputs: list[PackageInput] = Field(min_length=1)
     input_counts: InputCounts
