@@ -240,3 +240,27 @@ def test_a_files_own_version_and_date_are_declared_together(
     _, issues = load_sources(tmp_path)
 
     assert [i.code for i in issues] == ([] if accepted else ["SRC002"])
+
+
+@pytest.mark.parametrize(
+    ("digest", "accepted"),
+    [
+        pytest.param("a" * 64, True, id="64 hex"),
+        pytest.param("a" * 63, False, id="63 hex"),
+        pytest.param("A" * 64, False, id="uppercase"),
+    ],
+)
+def test_a_malformed_pin_is_refused(tmp_path: Path, digest: str, accepted: bool) -> None:
+    """A package pin names a manifest by its sha256; anything else is SRC002."""
+    pin = f'    package:\n      version: "2026.1"\n      manifest_sha256: "{digest}"\n'
+    _write_sources(
+        tmp_path,
+        SOURCES_YAML.replace("    licence: public-domain\n", pin + "    licence: public-domain\n"),
+    )
+
+    registry, issues = load_sources(tmp_path)
+
+    assert [i.code for i in issues] == ([] if accepted else ["SRC002"])
+    if accepted:
+        assert registry.by_id["clinvar"].package is not None
+        assert registry.by_id["clinvar"].package.manifest_sha256 == digest

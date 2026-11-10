@@ -25,6 +25,19 @@ from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.vocab import Redistribution
 
 
+class PackagePin(BaseModel):
+    """The data package a source's mirrored rows were ingested from (spec F11).
+
+    `version` is the package's own version; `manifest_sha256` is the sha256 of
+    its `manifest.json`, which is what makes the pin checkable.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: str = Field(min_length=1)
+    manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class Source(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -46,6 +59,8 @@ class Source(BaseModel):
     # every run so the three cannot describe different files. Both or neither.
     file_version: str | None = None
     file_date: str | None = None
+    # `None` for a source mirrored before packages existed (spec F11).
+    package: PackagePin | None = None
 
     @field_validator("licence")
     @classmethod
