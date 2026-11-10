@@ -6,12 +6,20 @@ or `mirrors/gencc_submissions.tsv` names against a disease listed in
 the genes the site publishes: a lookup table, so that widening the publication
 gate does not require re-mirroring.
 
-`scripts/convert_hgnc.py::_in_scope_genes` held this rule until feeds phase 2,
-reading the scope ids with a regular expression over the YAML text. Here they
-are `ChdScopeFile.diseases[].id`; measured 2026-11-10, the file's 105 ``- id:``
-lines are all MONDO ids under ``diseases``, so the two readings agree, and the
-derivation over the committed corpus is the 185 genes of `mirrors/genes.tsv`
-(`tests/unit/test_registry.py` pins both).
+`scripts/convert_hgnc.py::_in_scope_genes` holds the same rule and still uses
+it when a curator runs that converter; stage E of feeds phase 2 deletes the
+converter. It reads the scope ids with a regular expression over the YAML
+text; here they are `ChdScopeFile.diseases[].id`. Measured 2026-11-10, the
+file's 105 ``- id:`` lines are all MONDO ids under ``diseases``, so the two
+readings agree on the committed file. `tests/unit/test_registry.py` pins one
+thing about the committed corpus: this module derives exactly the 185 genes of
+`mirrors/genes.tsv`. Nothing compares the two implementations directly.
+
+A validity mirror that is ABSENT counts as a mirror with no rows: its genes
+are not in the registry, and a registry derived from the other mirror alone is
+a subset of the full one. A mirror that is present but unreadable is not
+treated so (see `derive_registry_from_root` and the GEN006 call site in
+`validate/runner.py`).
 
 Two readers use it: `chd-atlas ingest hgnc` writes `mirrors/genes.tsv` filtered
 to it, and `validate_repository` reports a gene it holds that `genes.tsv`
@@ -32,6 +40,8 @@ from chd_atlas.models.scope import ChdScopeFile
 from chd_atlas.tables import CLINGEN_VALIDITY, GENCC_SUBMISSIONS, read_table, validate_table
 
 SCOPE_FILE: Final = "curation/chd_scope.yaml"
+# What an absent validity mirror contributes to the derivation: no rows.
+ABSENT_MIRROR: Final = pl.DataFrame(schema={"gene": pl.String, "disease": pl.String})
 _MIRRORS: Final = (
     ("mirrors/clingen_gene_validity.tsv", CLINGEN_VALIDITY),
     ("mirrors/gencc_submissions.tsv", GENCC_SUBMISSIONS),
@@ -66,11 +76,18 @@ def derive_registry(
 def derive_registry_from_root(root: Path) -> frozenset[str]:
     """`derive_registry` over ``root``'s scope file and validity mirrors.
 
-    Raises `RegistryUnavailable` when the scope file is missing, unreadable or
-    fails `ChdScopeFile`, or when either mirror is missing or reports an error
-    against its table schema (`validate_table`, which also covers a file
-    polars cannot read). Measured 2026-11-10: `validate_table` over both
-    committed mirrors takes about 0.16 s and reports nothing.
+    An absent mirror is `ABSENT_MIRROR`, as GEN006 treats it, so an ``hgnc``
+    ingest with one mirror absent writes the registry the other derives, and
+    validation agrees with it; both absent derive nothing, which the ingest
+    refuses. Raises `RegistryUnavailable` when the scope file is missing,
+    unreadable or fails `ChdScopeFile`, or when a mirror that is present
+    reports any error against its table schema (`validate_table`, which also
+    covers a file polars cannot read). That is stricter than GEN006, which
+    skips only a mirror it cannot read and leaves other schema errors to
+    `validate_table`'s own report: validate reports, while an ingest is about
+    to write a registry and must not write one from a mirror that validation
+    would refuse. Measured 2026-11-10: `validate_table` over both committed
+    mirrors takes about 0.16 s and reports nothing.
     """
     scope_path = root / SCOPE_FILE
     if not scope_path.is_file():
@@ -84,7 +101,8 @@ def derive_registry_from_root(root: Path) -> frozenset[str]:
     for relative, schema in _MIRRORS:
         path = root / relative
         if not path.is_file():
-            raise RegistryUnavailable(f"{relative} is missing")
+            frames.append(ABSENT_MIRROR)
+            continue
         errors = [i for i in validate_table(path, schema) if i.severity is Severity.ERROR]
         if errors:
             raise RegistryUnavailable(

@@ -16,7 +16,7 @@ from chd_atlas.genes import GeneRegistry
 from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.models.dataset import Dataset
 from chd_atlas.orphanet_scope import load_orphanet_tables, pinned_structural_phenotypes
-from chd_atlas.registry import RegistryUnavailable, derive_registry
+from chd_atlas.registry import ABSENT_MIRROR, RegistryUnavailable, derive_registry
 from chd_atlas.tables import (
     CHD_CASE_SPLITS,
     PROFILE_QUANTILES,
@@ -219,6 +219,13 @@ def _mirror_gene_labels(root: Path) -> list[tuple[str, str, str]]:
     return labelled
 
 
+# The two validity mirrors, by schema name, in `derive_registry`'s argument order.
+_VALIDITY_MIRRORS = (
+    ("clingen_validity", "clingen_gene_validity.tsv"),
+    ("gencc_submissions", "gencc_submissions.tsv"),
+)
+
+
 def _validity_frames(root: Path) -> dict[str, pl.DataFrame | None]:
     """Both validity mirrors by schema name, as `read_table` returns them.
 
@@ -228,11 +235,28 @@ def _validity_frames(root: Path) -> dict[str, pl.DataFrame | None]:
     """
     return {
         schema_name: read_table(root / "mirrors" / filename, TABLE_SCHEMAS[schema_name])[0]
-        for schema_name, filename in (
-            ("clingen_validity", "clingen_gene_validity.tsv"),
-            ("gencc_submissions", "gencc_submissions.tsv"),
-        )
+        for schema_name, filename in _VALIDITY_MIRRORS
     }
+
+
+def _registry_frames(
+    root: Path, frames: dict[str, pl.DataFrame | None]
+) -> tuple[pl.DataFrame, pl.DataFrame] | None:
+    """(clingen, gencc) for GEN006's derivation, or None when a mirror cannot be read.
+
+    An absent mirror is `ABSENT_MIRROR`; a present one that `read_table` could
+    not read returns None, so GEN006 is skipped and TBL000 says why.
+    """
+    chosen: list[pl.DataFrame] = []
+    for schema_name, filename in _VALIDITY_MIRRORS:
+        frame = frames[schema_name]
+        if frame is None:
+            if (root / "mirrors" / filename).is_file():
+                return None
+            frame = ABSENT_MIRROR
+        chosen.append(frame)
+    clingen, gencc = chosen
+    return clingen, gencc
 
 
 def _mirrored_validity(
@@ -963,29 +987,34 @@ def validate_repository(root: Path) -> ValidationReport:
                 for assertion in corpus.assertions
             }
             issues.extend(validate_curation_is_in_scope(curated_genes, in_scope_genes))
-            # GEN006: the registry `chd-atlas ingest hgnc` would write, against
-            # the one committed. Only here, where the corpus (so the scope)
-            # loaded and a validity mirror read; and only when both did, since a
-            # registry derived from one mirror would be a different registry.
-            # Every way it does not run is an error already: a corpus that
-            # failed is REF000's branch, both mirrors unreadable is TBL012, one
-            # unreadable is TBL000, a missing `gene`/`disease` column is TBL001
-            # (the except below), an absent or unreadable `genes.tsv` is TBL008.
-            # One mirror ABSENT while the other reads raises none of these, and
-            # GEN006 does not run. What speaks then is SCP001, once per scope
-            # term only the absent mirror names: measured 2026-11-10 with
-            # `gencc_submissions.tsv` deleted from a copy, 72 SCP001 errors and
-            # nothing else new. A scope every term of which the remaining
-            # mirror names would get no error at all.
-            clingen = validity_frames["clingen_validity"]
-            gencc = validity_frames["gencc_submissions"]
-            if clingen is not None and gencc is not None and genes_frame is not None:
-                try:
-                    derived = derive_registry(scope_terms, clingen, gencc)
-                except RegistryUnavailable:
-                    derived = None
-                if derived is not None:
-                    issues.extend(validate_registry_is_current(derived, genes_frame))
+
+        # GEN006: the registry `chd-atlas ingest hgnc` would write, against the
+        # one committed. One call site, after the validity-mirror if/else and
+        # reached from both of its branches (CLAUDE.md section 4.34), in this
+        # branch because the scope is the corpus's and a failed corpus load is
+        # REF000's. The rule: it runs whenever the scope parsed and no validity
+        # mirror is present but unreadable. An ABSENT mirror counts as one with
+        # no rows (`registry.ABSENT_MIRROR`): the registry the other derives is
+        # a subset of the full one, so every gene GEN006 then names really is
+        # missing. Until review (2026-11-11) it required both mirrors, and a
+        # repository with one absent, an in-scope gene the other names and that
+        # gene missing from `genes.tsv` validated with zero issues.
+        #
+        # It is skipped, and an error already says why, when a mirror is present
+        # but unreadable (TBL000), when one lacks a `gene` or `disease` column
+        # (TBL001; the except below), and when `genes.tsv` is absent or
+        # unreadable (TBL008, above). With both mirrors absent it runs on an
+        # empty registry and reports nothing; TBL012 is the error there.
+        registry_frames = _registry_frames(root, validity_frames)
+        if registry_frames is not None and genes_frame is not None:
+            try:
+                derived = derive_registry(
+                    (str(entry.id) for entry in corpus.chd_scope), *registry_frames
+                )
+            except RegistryUnavailable:
+                derived = None
+            if derived is not None:
+                issues.extend(validate_registry_is_current(derived, genes_frame))
 
     # Issue #33: every cross-source join keys on HGNC id, and the registry that
     # makes that possible has to stay able to resolve the symbols the mirrors

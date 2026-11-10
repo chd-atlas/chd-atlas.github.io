@@ -36,6 +36,7 @@ from chd_atlas.ingest.apply import ingest_package, with_source_entry
 from chd_atlas.ingest.package import IngestRefused
 from chd_atlas.issues import Severity
 from chd_atlas.models.package import PackageSource, RegistrySlice
+from chd_atlas.registry import RegistryUnavailable, derive_registry_from_root
 from chd_atlas.tables import TABLE_SCHEMAS, mirror_paths, table_layout
 from chd_atlas.validate.runner import ValidationReport
 from chd_atlas.validate.sort_order import validate_sort_order
@@ -958,29 +959,61 @@ def _symbol_for_an_id(repo: Path) -> None:
     path.write_text(text.replace(f"{TBX5}\t", "TBX5\t", 1), encoding="utf-8")
 
 
+def _no_validity_mirrors(repo: Path) -> None:
+    for name in ("clingen_gene_validity.tsv", "gencc_submissions.tsv"):
+        (repo / "mirrors" / name).unlink()
+
+
+def _scope_fails_its_model(repo: Path) -> None:
+    """An authority outside `ScopeAuthority`: the file parses as YAML, not as `ChdScopeFile`."""
+    path = repo / "curation" / "chd_scope.yaml"
+    text = path.read_text(encoding="utf-8")
+    old = "    admitted_by: clingen_chd_panel\n"
+    assert old in text
+    path.write_text(text.replace(old, "    admitted_by: the_atlas_itself\n", 1), encoding="utf-8")
+
+
+def every_file(repo: Path) -> dict[str, bytes | None]:
+    """Every file (bytes) and directory (None) under the repository, curation included."""
+    return {
+        path.relative_to(repo).as_posix(): path.read_bytes() if path.is_file() else None
+        for path in sorted(repo.rglob("*"))
+    }
+
+
+_UNDERIVABLE = "the gene registry cannot be derived: "
+_EMPTY = (
+    "the derived registry is empty: no validity mirror row names a gene against a "
+    "disease in curation/chd_scope.yaml, so the filter would drop every row"
+)
+
+
 @pytest.mark.parametrize(
     ("damage", "fragment"),
     [
-        (
-            _keep_only_rgs9,
-            "the derived registry is empty: no validity mirror row names a gene against a "
-            "disease in curation/chd_scope.yaml, so the filter would drop every row",
-        ),
+        (_keep_only_rgs9, _EMPTY),
+        # An absent mirror has no rows, so both absent derive nothing.
+        (_no_validity_mirrors, _EMPTY),
         (
             lambda repo: (repo / "curation" / "chd_scope.yaml").unlink(),
-            "the gene registry cannot be derived: curation/chd_scope.yaml is missing",
+            _UNDERIVABLE + "curation/chd_scope.yaml is missing",
         ),
         (
-            lambda repo: (repo / "mirrors" / "gencc_submissions.tsv").unlink(),
-            "the gene registry cannot be derived: mirrors/gencc_submissions.tsv is missing",
+            _scope_fails_its_model,
+            _UNDERIVABLE + "curation/chd_scope.yaml cannot be read: SCHEMA001 ",
         ),
         (
             _symbol_for_an_id,
-            "the gene registry cannot be derived: mirrors/clingen_gene_validity.tsv fails "
-            "its schema",
+            _UNDERIVABLE + "mirrors/clingen_gene_validity.tsv fails its schema",
         ),
     ],
-    ids=["derives-nothing", "no-scope", "no-gencc-mirror", "clingen-fails-its-schema"],
+    ids=[
+        "derives-nothing",
+        "no-validity-mirrors",
+        "no-scope",
+        "scope-fails-its-model",
+        "clingen-fails-its-schema",
+    ],
 )
 def test_an_hgnc_ingest_refuses_a_registry_it_cannot_derive_before_any_write(
     tmp_path: Path,
@@ -988,14 +1021,46 @@ def test_an_hgnc_ingest_refuses_a_registry_it_cannot_derive_before_any_write(
     damage: Callable[[Path], None],
     fragment: str,
 ) -> None:
+    """ING010, with every file of the repository byte-unchanged.
+
+    Where the registry cannot be derived, `derive_registry_from_root` itself
+    raises `RegistryUnavailable` with the reason the refusal quotes.
+    """
     repo = hgnc_repo(tmp_path, monkeypatch, TBX5)
     damage(repo)
     package = hgnc_package(tmp_path)
-    before = tree(repo)
+    before = every_file(repo)
 
+    if fragment.startswith(_UNDERIVABLE):
+        with pytest.raises(RegistryUnavailable) as unavailable:
+            derive_registry_from_root(repo)
+        assert str(unavailable.value).startswith(fragment.removeprefix(_UNDERIVABLE))
     with pytest.raises(IngestRefused) as excinfo:
         ingest_package(repo, "hgnc", package)
 
     assert excinfo.value.code == "ING010"
     assert excinfo.value.message.startswith(fragment)
-    assert tree(repo) == before
+    assert every_file(repo) == before
+
+
+@pytest.mark.parametrize(
+    ("absent", "kept"),
+    [("gencc_submissions.tsv", TBX5), ("clingen_gene_validity.tsv", TBX1)],
+    ids=["gencc-absent", "clingen-absent"],
+)
+def test_an_hgnc_ingest_with_one_validity_mirror_absent_derives_from_the_other(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, absent: str, kept: str
+) -> None:
+    """The rule GEN006 applies: an absent mirror has no rows (controller ruling, 2026-11-11).
+
+    So the registry written is the one validation will then check against, and
+    a later ingest of the absent mirror that widens it is reported as GEN006.
+    """
+    repo = hgnc_repo(tmp_path, monkeypatch, TBX5)
+    (repo / "mirrors" / absent).unlink()
+
+    result = ingest_package(repo, "hgnc", hgnc_package(tmp_path))
+
+    written = (repo / "mirrors" / "genes.tsv").read_text(encoding="utf-8")
+    assert written == "\n".join(committed_lines("mirrors/genes.tsv", f"{kept}\t")) + "\n"
+    assert (result.rows_written, result.rows_outside_registry, result.registry_genes) == (1, 2, 1)

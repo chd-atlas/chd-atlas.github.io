@@ -8,6 +8,7 @@ import pytest
 
 from chd_atlas.build.runner import BuildRefused, build_site
 from chd_atlas.issues import Severity, ValidationIssue
+from chd_atlas.tables import TABLE_SCHEMAS
 from chd_atlas.validate.genes import validate_registry_is_current
 from chd_atlas.validate.runner import ValidationReport, validate_repository
 from tests.unit._stamp import stamped
@@ -1637,7 +1638,10 @@ def test_a_registry_missing_an_in_scope_gene_is_an_error(tmp_path: Path) -> None
     (HGNC:9644) for it, so the derived registry is {HGNC:9644}; a header-only
     `genes.tsv` lacks it. Twelve missing ids show the first ten, sorted: the
     set-difference order matched sorted order under 0 of 300 PYTHONHASHSEED
-    values for these ids (probed 2026-11-10), so a dropped sort fails here. A
+    values for these ids and this frame (probed 2026-11-11), so a dropped sort
+    fails here. The frame also lists HGNC:24, which the registry does not
+    derive: a gene the file holds and the registry lacks is not reported, so
+    the message is unchanged by it (a symmetric difference would name it). A
     registry without an `hgnc_id` column is TBL001's to report, not this check's.
     """
     _orphanet_mirrors_missing(tmp_path)
@@ -1671,8 +1675,9 @@ def test_a_registry_missing_an_in_scope_gene_is_an_error(tmp_path: Path) -> None
         "HGNC:12776",
         "HGNC:15802",
     ]
-    present = pl.DataFrame({"hgnc_id": ["HGNC:9644"]})
+    present = pl.DataFrame({"hgnc_id": ["HGNC:9644", "HGNC:24"]})
     (issue,) = validate_registry_is_current(frozenset([*ids, "HGNC:9644"]), present)
+    assert "HGNC:24" not in issue.message
     assert issue.message == (
         "mirrors/genes.tsv lacks 12 genes the registry derives from curation/chd_scope.yaml "
         "and the validity mirrors (first 10 of 12): HGNC:10004, HGNC:1152, HGNC:11592, "
@@ -1680,3 +1685,83 @@ def test_a_registry_missing_an_in_scope_gene_is_an_error(tmp_path: Path) -> None
         + _GEN006_TAIL
     )
     assert validate_registry_is_current(frozenset(ids), pl.DataFrame({"symbol": ["X"]})) == []
+
+
+_HOLT_ORAM_SCOPE = """\
+diseases:
+  - id: MONDO:0007732
+    label: Holt-Oram syndrome
+    reason: Cardiac septation defects are a defining feature.
+    admitted_by: {admitted_by}
+    attributed_to: {attributed_to}
+    syndrome: true
+    admitted_on: 2026-08-03
+"""
+_PTPN11_ROW = (
+    "HGNC:9644\tPTPN11\tprotein tyrosine phosphatase non-receptor type 11\t\t\t"
+    "ENSG00000179295\t5781\t12q24.13\tQ06124\tNM_002834.5\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("state", "expected_errors"),
+    [
+        pytest.param("gencc-absent", ["GEN006"], id="gencc-absent"),
+        pytest.param("clingen-absent", ["GEN006"], id="clingen-absent"),
+        pytest.param("gencc-unreadable", ["TBL000"], id="gencc-present-but-unreadable"),
+    ],
+)
+def test_one_absent_validity_mirror_still_derives_the_registry_gen006_checks(
+    tmp_path: Path, state: str, expected_errors: list[str]
+) -> None:
+    """The reviewer's scenario (2026-11-11): one validity mirror absent, the other names TBX5.
+
+    TBX5 is named for Holt-Oram syndrome, the one scope term, and `genes.tsv`
+    lists only PTPN11. GEN006 required both mirrors until then, and each
+    absent case validated with zero issues and `ok` True: TBL012 needs both
+    mirrors gone, and an absent file raises no TBL000. Now an absent mirror is
+    one with no rows, and GEN006 is the one issue. The ClinGen record is
+    `Disputed` and GenCC has one submitter, so TBX5 is not published and no
+    GEN004 joins it. A mirror that is present but unreadable (here a
+    zero-length file) still skips GEN006, because TBL000 already reports it
+    (the controller's ruling); read as empty instead, it would add a GEN006.
+    """
+    (tmp_path / "curation").mkdir()
+    (tmp_path / "curation" / ".id_registry.yaml").write_text("{}\n")
+    (tmp_path / "mirrors").mkdir()
+    (tmp_path / "mirrors" / "sources.yaml").write_text(VALID_SOURCES_YAML)
+    (tmp_path / "mirrors" / "genes.tsv").write_text(
+        "\t".join(TABLE_SCHEMAS["genes"].column_names) + "\n" + _PTPN11_ROW
+    )
+    scope = tmp_path / "curation" / "chd_scope.yaml"
+    if state == "clingen-absent":
+        scope.write_text(
+            _HOLT_ORAM_SCOPE.format(admitted_by="gencc_submitter", attributed_to="G2P")
+        )
+        (tmp_path / "mirrors" / "gencc_submissions.tsv").write_text(
+            _EMPTY_GENCC_TSV + "SGC-1\tHGNC:11604\tTBX5\tMONDO:0007732\tHolt-Oram syndrome\t"
+            "AD\tDefinitive\tG2P\t2023-01-01\thttps://x\n"
+        )
+    else:
+        scope.write_text(
+            _HOLT_ORAM_SCOPE.format(
+                admitted_by="clingen_expert_panel",
+                attributed_to="Syndromic Disorders Gene Curation Expert Panel",
+            )
+        )
+        (tmp_path / "mirrors" / "clingen_gene_validity.tsv").write_text(
+            _EMPTY_CLINGEN_TSV + "HGNC:11604\tTBX5\tMONDO:0007732\tHolt-Oram syndrome\tAD\t"
+            "SOP11\tDisputed\t2025-03-25T16:00:00.000Z\t"
+            "Syndromic Disorders Gene Curation Expert Panel\thttps://x\n"
+        )
+        if state == "gencc-unreadable":
+            (tmp_path / "mirrors" / "gencc_submissions.tsv").write_bytes(b"")
+
+    report = validate_repository(tmp_path)
+
+    errors = [i for i in report.issues if i.severity is Severity.ERROR]
+    assert [i.code for i in errors] == expected_errors
+    if expected_errors == ["GEN006"]:
+        assert report.issues == errors, "GEN006 must be the only issue"
+        assert "lacks 1 gene" in errors[0].message and "HGNC:11604" in errors[0].message
+    assert report.ok is False
