@@ -28,6 +28,11 @@ def test_the_exported_schemas_are_committed() -> None:
     committed = {path.name for path in (REPO_ROOT / "schemas").glob("*.schema.json")}
     assert committed == {f"{name}.schema.json" for name in EXPORTED_MODELS}
 
+    from chd_atlas.tables import TABLE_SCHEMAS
+
+    tables = {path.name for path in (REPO_ROOT / "schemas" / "tables").glob("*.json")}
+    assert tables == {f"{name}.v1.json" for name in TABLE_SCHEMAS}
+
 
 def test_a_misnamed_assertion_in_the_real_corpus_fails_validation(tmp_path: Path) -> None:
     """The case that motivated the stray-entry sweep: renaming an assertion to

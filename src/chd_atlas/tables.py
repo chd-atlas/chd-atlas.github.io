@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Final, Literal
 
 import polars as pl
 
@@ -69,6 +69,22 @@ class TableSchema:
     name: str
     columns: tuple[Column, ...]
     sort_key: tuple[str, ...]
+    # Bumped when a column is added, removed or retyped; the exported schema is
+    # named `<name>.v<version>.json`.
+    version: int = 1
+
+    @property
+    def gene_column(self) -> str | None:
+        """The column holding the gene: `gene` if present, else `hgnc_id`, else None."""
+        for candidate in ("gene", "hgnc_id"):
+            if candidate in self.column_names:
+                return candidate
+        return None
+
+    @property
+    def source_column(self) -> str | None:
+        """`source` if the table has that column."""
+        return "source" if "source" in self.column_names else None
 
     @property
     def column_names(self) -> tuple[str, ...]:
@@ -1002,6 +1018,15 @@ FLAT_TABLES: Final[dict[str, str]] = {
     "orphanet_omim": "orphanet_omim.tsv",
     "mondo_xrefs": "mondo_xrefs.tsv",
 }
+
+
+def table_layout(name: str) -> tuple[Literal["flat", "sharded"], str]:
+    """How a table lives under ``mirrors/``: ``("flat", file)`` or ``("sharded", dir)``."""
+    if name in FLAT_TABLES:
+        return "flat", FLAT_TABLES[name]
+    if name in SHARDED_TABLES:
+        return "sharded", SHARDED_TABLES[name]
+    raise KeyError(f"{name!r} is neither a flat nor a sharded table")
 
 
 def unexpected_mirror_entries(root: Path) -> list[ValidationIssue]:

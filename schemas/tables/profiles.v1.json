@@ -1,0 +1,99 @@
+{
+  "$comment": "Exported by `chd-atlas schemas export` from src/chd_atlas/tables.py; do not edit.",
+  "fields": [
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "dataset",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^HGNC:\\d+$",
+        "required": true
+      },
+      "name": "gene",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "tissue",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "stage",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "median_abundance",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "cpm",
+          "lfq",
+          "nx",
+          "rpkm",
+          "tpm"
+        ],
+        "required": true
+      },
+      "name": "unit",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "q25",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "q75",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "minimum": 1,
+        "required": true
+      },
+      "name": "n_samples",
+      "type": "integer"
+    }
+  ],
+  "geneColumn": "gene",
+  "layout": {
+    "sharded": "profiles"
+  },
+  "missingValues": [
+    ""
+  ],
+  "name": "profiles",
+  "primaryKey": [
+    "dataset",
+    "gene",
+    "tissue",
+    "stage"
+  ],
+  "sortKey": [
+    "dataset",
+    "gene",
+    "tissue",
+    "stage"
+  ],
+  "sourceColumn": null,
+  "version": 1
+}

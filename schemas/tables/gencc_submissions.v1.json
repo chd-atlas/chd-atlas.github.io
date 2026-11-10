@@ -1,0 +1,113 @@
+{
+  "$comment": "Exported by `chd-atlas schemas export` from src/chd_atlas/tables.py; do not edit.",
+  "fields": [
+    {
+      "constraints": {
+        "pattern": "^SGC-\\d+$",
+        "required": true
+      },
+      "name": "sgc_id",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^HGNC:\\d+$",
+        "required": true
+      },
+      "name": "gene",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "gene_symbol",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^MONDO:\\d{7}$",
+        "required": true
+      },
+      "name": "disease",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "disease_label",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "moi",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "Definitive",
+          "Disputed Evidence",
+          "Limited",
+          "Moderate",
+          "No Known Disease Relationship",
+          "Refuted Evidence",
+          "Strong",
+          "Supportive"
+        ],
+        "required": true
+      },
+      "name": "classification",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "submitter",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}.*$",
+        "required": false
+      },
+      "name": "submitted_on",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "report_url",
+      "type": "string"
+    }
+  ],
+  "geneColumn": "gene",
+  "layout": {
+    "flat": "gencc_submissions.tsv"
+  },
+  "missingValues": [
+    ""
+  ],
+  "name": "gencc_submissions",
+  "primaryKey": [
+    "gene",
+    "disease",
+    "moi",
+    "submitter",
+    "sgc_id"
+  ],
+  "sortKey": [
+    "gene",
+    "disease",
+    "moi",
+    "submitter",
+    "sgc_id"
+  ],
+  "sourceColumn": null,
+  "version": 1
+}

@@ -1,0 +1,70 @@
+{
+  "$comment": "Exported by `chd-atlas schemas export` from src/chd_atlas/tables.py; do not edit.",
+  "fields": [
+    {
+      "constraints": {
+        "pattern": "^ORPHA:\\d+$",
+        "required": true
+      },
+      "name": "orpha",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^OMIM:\\d+$",
+        "required": true
+      },
+      "name": "omim",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "BTNT",
+          "E",
+          "ND",
+          "NTBT"
+        ],
+        "required": true
+      },
+      "name": "relation",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "Not yet validated",
+          "Validated"
+        ],
+        "required": true
+      },
+      "name": "validation",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "source",
+      "type": "string"
+    }
+  ],
+  "geneColumn": null,
+  "layout": {
+    "flat": "orphanet_omim.tsv"
+  },
+  "missingValues": [
+    ""
+  ],
+  "name": "orphanet_omim",
+  "primaryKey": [
+    "orpha",
+    "omim"
+  ],
+  "sortKey": [
+    "orpha",
+    "omim"
+  ],
+  "sourceColumn": "source",
+  "version": 1
+}

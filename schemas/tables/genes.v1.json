@@ -1,0 +1,93 @@
+{
+  "$comment": "Exported by `chd-atlas schemas export` from src/chd_atlas/tables.py; do not edit.",
+  "fields": [
+    {
+      "constraints": {
+        "pattern": "^HGNC:\\d+$",
+        "required": true
+      },
+      "name": "hgnc_id",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "symbol",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "aliases",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "prev_symbols",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "ensembl_gene",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "ncbi_gene",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "locus",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})(-\\d+)?$",
+        "required": false
+      },
+      "name": "uniprot",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "mane_select",
+      "type": "string"
+    }
+  ],
+  "geneColumn": "hgnc_id",
+  "layout": {
+    "flat": "genes.tsv"
+  },
+  "missingValues": [
+    ""
+  ],
+  "name": "genes",
+  "primaryKey": [
+    "hgnc_id"
+  ],
+  "sortKey": [
+    "hgnc_id"
+  ],
+  "sourceColumn": null,
+  "version": 1
+}

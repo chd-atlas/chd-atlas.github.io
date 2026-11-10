@@ -31,7 +31,7 @@ from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile, findin
 from chd_atlas.models.literature import Publication
 from chd_atlas.models.review import ReviewStatus
 from chd_atlas.pubmed import Fetch, PubMedError, urllib_fetch
-from chd_atlas.schema_export import export_schemas
+from chd_atlas.schema_export import TABLE_SCHEMA_DIR, export_schemas, export_table_schemas
 from chd_atlas.tables import TABLE_SCHEMAS, read_table
 from chd_atlas.validate.runner import _gate_published_genes, _symbol_registry, validate_repository
 from chd_atlas.vocab import StudyType, TriageDecision
@@ -153,11 +153,13 @@ def schemas_export(
     # are both OSError.
     try:
         written = export_schemas(target)
+        tables = export_table_schemas(target / TABLE_SCHEMA_DIR)
     except OSError as exc:
         typer.echo(f"error: could not write schemas to {target}: {exc}")
         raise typer.Exit(code=2) from exc
 
     typer.echo(f"wrote {len(written)} schema(s) to {target}")
+    typer.echo(f"wrote {len(tables)} table schema(s) to {target / TABLE_SCHEMA_DIR}")
 
 
 def _fail(message: str, code: int) -> typer.Exit:

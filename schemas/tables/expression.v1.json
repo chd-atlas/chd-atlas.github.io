@@ -1,0 +1,112 @@
+{
+  "$comment": "Exported by `chd-atlas schemas export` from src/chd_atlas/tables.py; do not edit.",
+  "fields": [
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "dataset",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "contrast",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^HGNC:\\d+$",
+        "required": true
+      },
+      "name": "gene",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "log2fc",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "maximum": 1,
+        "minimum": 0,
+        "required": true
+      },
+      "name": "pvalue",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "maximum": 1,
+        "minimum": 0,
+        "required": true
+      },
+      "name": "fdr",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "down",
+          "unchanged",
+          "up"
+        ],
+        "required": true
+      },
+      "name": "direction",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "minimum": 0,
+        "required": false
+      },
+      "name": "n_case",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "minimum": 0,
+        "required": false
+      },
+      "name": "n_control",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "tissue",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "stage",
+      "type": "string"
+    }
+  ],
+  "geneColumn": "gene",
+  "layout": {
+    "sharded": "expression"
+  },
+  "missingValues": [
+    ""
+  ],
+  "name": "expression",
+  "primaryKey": [
+    "contrast",
+    "gene"
+  ],
+  "sortKey": [
+    "contrast",
+    "gene"
+  ],
+  "sourceColumn": null,
+  "version": 1
+}
