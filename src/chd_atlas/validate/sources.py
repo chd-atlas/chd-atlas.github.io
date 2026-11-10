@@ -24,7 +24,7 @@ from ruamel.yaml.error import YAMLError
 from chd_atlas.duplicates import duplicates
 from chd_atlas.fs import list_dir
 from chd_atlas.issues import Severity, ValidationIssue
-from chd_atlas.models.package import ManifestError, load_manifest
+from chd_atlas.models.package import SEGMENT, ManifestError, load_manifest
 from chd_atlas.tables import PACKAGES_DIR
 from chd_atlas.vocab import Redistribution
 
@@ -32,13 +32,15 @@ from chd_atlas.vocab import Redistribution
 class PackagePin(BaseModel):
     """The data package a source's mirrored rows were ingested from (spec F11).
 
-    `version` is the package's own version; `manifest_sha256` is the sha256 of
-    its `manifest.json`, which is what makes the pin checkable.
+    `version` is the package's own version, so it takes the manifest's
+    ``version`` pattern (never ``.`` or ``..``: it names the package's cache
+    directory); `manifest_sha256` is the sha256 of its `manifest.json`, which
+    is what makes the pin checkable.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    version: str = Field(min_length=1)
+    version: str = Field(pattern=SEGMENT)
     manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
@@ -63,7 +65,9 @@ class Source(BaseModel):
     # every run so the three cannot describe different files. Both or neither.
     file_version: str | None = None
     file_date: str | None = None
-    # `None` for a source mirrored before packages existed (spec F11).
+    # `None` when the source's rows were not ingested from a package (spec F11):
+    # every source as of schema 2.22, and for good a source no mirror table
+    # holds rows from, such as `hpo`.
     package: PackagePin | None = None
 
     @field_validator("licence")

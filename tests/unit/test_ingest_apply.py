@@ -617,6 +617,28 @@ def test_the_committed_sources_yaml_round_trips_byte_for_byte() -> None:
     assert pinned == raw + tail.encode()
 
 
+def test_a_field_added_to_the_source_block_is_written_with_no_writer_change() -> None:
+    """The entry's fields come from the model, not a hand-written list (the drift
+    test makes a new `Source` field a `PackageSource` field)."""
+
+    class Wider(PackageSource):
+        citation: str | None = None
+
+    source = Wider.model_validate(
+        {**_source_as_package("farah2024_hoc").model_dump(), "citation": "Farah 2024"}
+    )
+    raw = (REPO_ROOT / "mirrors" / "sources.yaml").read_bytes()
+    pin = PackagePin(version="v1", manifest_sha256="cd" * 32)
+
+    after = with_source_entry(raw, "farah2024_hoc", source, pin)
+
+    tail = (
+        "    citation: Farah 2024\n"
+        f"    package:\n      version: v1\n      manifest_sha256: {'cd' * 32}\n"
+    )
+    assert after == raw + tail.encode()
+
+
 # --- what a package may not do: ING013, ING014, and the row accounting ---------
 
 

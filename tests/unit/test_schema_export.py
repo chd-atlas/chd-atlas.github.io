@@ -118,6 +118,26 @@ def test_an_exported_table_states_what_validate_table_checks(tmp_path: Path) -> 
     assert burden["layout"] == {"flat": "burden.tsv"}
     assert burden["missingValues"] == [""]
 
+    # Plan Decision 5, on the gene field of every table that has one, and only there.
+    assert fields["gene"]["description"] == (
+        "In a source package this column holds the ids the manifest's `ids` names. "
+        "When that is not `hgnc_id`, the cells are the source's own ids (symbols or "
+        "Ensembl gene ids) and this field's `pattern` does not apply to them: "
+        "`chd-atlas ingest` rewrites each to the HGNC id it resolves to, and names "
+        "every id that does not resolve and writes none of its rows."
+    )
+    described = {
+        (name, field["name"])
+        for name in TABLE_SCHEMAS
+        for field in load(name)["fields"]
+        if "description" in field
+    }
+    assert described == {
+        (name, schema.gene_column)
+        for name, schema in TABLE_SCHEMAS.items()
+        if schema.gene_column is not None
+    }
+
     assert load("genes")["geneColumn"] == "hgnc_id"
     assert load("profile_quantiles")["geneColumn"] is None
     assert load("profile_quantiles")["sourceColumn"] is None

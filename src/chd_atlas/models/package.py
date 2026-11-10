@@ -18,6 +18,15 @@ from chd_atlas.vocab import GeneIdKind, Redistribution
 
 _SHA256 = r"^[0-9a-f]{64}$"
 _COMMIT = r"^[0-9a-f]{40}$"
+# A path segment: letters, digits, ``.``, ``_`` and ``-``, but never ``.`` or
+# ``..`` alone, which a path would read as this directory or its parent (a
+# version is a directory under ``local/packages/<source>/``, a shard a file
+# under ``mirrors/<table>/``). Written without a lookahead so the same pattern
+# holds in pydantic's Rust engine and in the exported JSON Schema.
+SEGMENT = r"^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\.\.[A-Za-z0-9._-]+)$"
+# No control character (C0, DEL or C1): a NUL in a path raises ValueError from
+# the filesystem call rather than an error the ingest can report.
+_NO_CONTROL = r"^[^\x00-\x1f\x7f-\x9f]+$"
 
 
 class ManifestError(Exception):
@@ -29,11 +38,11 @@ class PackageTable(BaseModel):
 
     name: str = Field(min_length=1)
     format_version: int = Field(ge=1)
-    file: str = Field(min_length=1)
+    file: str = Field(min_length=1, pattern=_NO_CONTROL)
     sha256: str = Field(pattern=_SHA256)
     rows: int = Field(ge=0)
     genes: int | None = Field(default=None, ge=0)
-    shard: str | None = Field(default=None, pattern=r"^[A-Za-z0-9._-]+$")
+    shard: str | None = Field(default=None, pattern=SEGMENT)
 
     @field_validator("file")
     @classmethod
@@ -78,7 +87,11 @@ class RegistrySlice(BaseModel):
 
 
 class SliceCoverage(BaseModel):
-    """The spec's nested form: ``{"registry_slice": {"atlas_commit": ..., "genes": ...}}``."""
+    """A package cut to the atlas's gene registry at one atlas commit.
+
+    Written ``{"registry_slice": {"atlas_commit": ..., "genes": ...}}``; the
+    alternative is the string ``"every_gene"``.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -96,9 +109,12 @@ class BuiltBy(BaseModel):
 
 
 class PackageSource(BaseModel):
-    """`Source`'s fields minus ``id``, ``ontology_*`` and ``package``.
+    """What ``chd-atlas ingest`` writes into the source's ``mirrors/sources.yaml`` entry.
 
-    A test pins every name and type here against `Source`.
+    Every field of that entry but ``id`` (the manifest's ``package``),
+    ``ontology_prefix``, ``ontology_file`` and ``package`` (the pin ingest
+    writes), with the same names and types. A field left null is removed
+    from the entry.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -117,7 +133,7 @@ class PackageManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     package: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
-    version: str = Field(pattern=r"^[A-Za-z0-9._-]+$")
+    version: str = Field(pattern=SEGMENT)
     ids: GeneIdKind
     coverage: Literal["every_gene"] | SliceCoverage
     tables: list[PackageTable] = Field(min_length=1)

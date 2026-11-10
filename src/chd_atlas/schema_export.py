@@ -1,4 +1,10 @@
-"""Deterministic JSON Schema emission for the YAML record models."""
+"""Deterministic schema export, written to the committed ``schemas/`` directory.
+
+JSON Schema for the YAML record models and for a source package's
+``manifest.json`` (`EXPORTED_MODELS`), and a Frictionless-style Table Schema
+per mirror table (`export_table_schemas`), which is also the format of a
+package's tables.
+"""
 
 from __future__ import annotations
 
@@ -58,7 +64,17 @@ _FIELD_TYPES: Final[dict[Any, str]] = {
 }
 
 
-def _field(column: Column) -> dict[str, Any]:
+# Plan Decision 5, stated where a feeds author reads the table's contract.
+_GENE_COLUMN_NOTE: Final = (
+    "In a source package this column holds the ids the manifest's `ids` names. "
+    "When that is not `hgnc_id`, the cells are the source's own ids (symbols or "
+    "Ensembl gene ids) and this field's `pattern` does not apply to them: "
+    "`chd-atlas ingest` rewrites each to the HGNC id it resolves to, and names "
+    "every id that does not resolve and writes none of its rows."
+)
+
+
+def _field(column: Column, *, gene: bool = False) -> dict[str, Any]:
     field_type = _FIELD_TYPES.get(column.dtype)
     if field_type is None:
         raise ValueError(f"column {column.name!r} has unexportable dtype {column.dtype!r}")
@@ -71,7 +87,10 @@ def _field(column: Column) -> dict[str, Any]:
         constraints["minimum"] = column.minimum
     if column.maximum is not None:
         constraints["maximum"] = column.maximum
-    return {"name": column.name, "type": field_type, "constraints": constraints}
+    field: dict[str, Any] = {"name": column.name, "type": field_type, "constraints": constraints}
+    if gene:
+        field["description"] = _GENE_COLUMN_NOTE
+    return field
 
 
 def _table_document(schema: TableSchema) -> dict[str, Any]:
@@ -81,7 +100,9 @@ def _table_document(schema: TableSchema) -> dict[str, Any]:
         "name": schema.name,
         "version": schema.version,
         "layout": {kind: location},
-        "fields": [_field(column) for column in schema.columns],
+        "fields": [
+            _field(column, gene=column.name == schema.gene_column) for column in schema.columns
+        ],
         "missingValues": [""],
         # TBL007 refuses a duplicate sort key, so the sort key is a primary key.
         "primaryKey": list(schema.sort_key),

@@ -107,6 +107,7 @@
         "pattern": "^HGNC:\\d+$",
         "required": true
       },
+      "description": "In a source package this column holds the ids the manifest's `ids` names. When that is not `hgnc_id`, the cells are the source's own ids (symbols or Ensembl gene ids) and this field's `pattern` does not apply to them: `chd-atlas ingest` rewrites each to the HGNC id it resolves to, and names every id that does not resolve and writes none of its rows.",
       "name": "gene",
       "type": "string"
     },

@@ -172,7 +172,7 @@
     },
     "PackageSource": {
       "additionalProperties": false,
-      "description": "`Source`'s fields minus ``id``, ``ontology_*`` and ``package``.\n\nA test pins every name and type here against `Source`.",
+      "description": "What ``chd-atlas ingest`` writes into the source's ``mirrors/sources.yaml`` entry.\n\nEvery field of that entry but ``id`` (the manifest's ``package``),\n``ontology_prefix``, ``ontology_file`` and ``package`` (the pin ingest\nwrites), with the same names and types. A field left null is removed\nfrom the entry.",
       "properties": {
         "file_date": {
           "anyOf": [
@@ -243,6 +243,7 @@
       "properties": {
         "file": {
           "minLength": 1,
+          "pattern": "^[^\\x00-\\x1f\\x7f-\\x9f]+$",
           "title": "File",
           "type": "string"
         },
@@ -282,7 +283,7 @@
         "shard": {
           "anyOf": [
             {
-              "pattern": "^[A-Za-z0-9._-]+$",
+              "pattern": "^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+)$",
               "type": "string"
             },
             {
@@ -337,7 +338,7 @@
     },
     "SliceCoverage": {
       "additionalProperties": false,
-      "description": "The spec's nested form: ``{\"registry_slice\": {\"atlas_commit\": ..., \"genes\": ...}}``.",
+      "description": "A package cut to the atlas's gene registry at one atlas commit.\n\nWritten ``{\"registry_slice\": {\"atlas_commit\": ..., \"genes\": ...}}``; the\nalternative is the string ``\"every_gene\"``.",
       "properties": {
         "registry_slice": {
           "$ref": "#/$defs/RegistrySlice"
@@ -410,7 +411,7 @@
       "type": "array"
     },
     "version": {
-      "pattern": "^[A-Za-z0-9._-]+$",
+      "pattern": "^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+)$",
       "title": "Version",
       "type": "string"
     }

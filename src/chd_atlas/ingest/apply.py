@@ -59,6 +59,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from enum import Enum
 from io import StringIO
 from pathlib import Path
 from typing import Any, Final, Literal
@@ -504,15 +505,12 @@ def with_source_entry(raw: bytes, source_id: str, source: PackageSource, pin: Pa
     if not isinstance(entries, CommentedSeq):
         raise IngestRefused("ING010", "mirrors/sources.yaml has no `sources:` list")
 
+    # Every `PackageSource` field, in its declaration order, so a field added to
+    # `Source` (and, by the drift test, to `PackageSource`) is written on the
+    # next ingest. An enum is written as its value, a date as a YAML date.
     fields: dict[str, object] = {
-        "name": source.name,
-        "version": source.version,
-        "retrieved_on": source.retrieved_on,
-        "url": source.url,
-        "licence": source.licence,
-        "redistribution": source.redistribution.value,
-        "file_version": source.file_version,
-        "file_date": source.file_date,
+        name: value.value if isinstance(value, Enum) else value
+        for name, value in source.model_dump().items()
     }
     entry = next(
         (

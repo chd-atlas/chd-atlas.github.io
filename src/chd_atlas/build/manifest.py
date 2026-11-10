@@ -508,7 +508,9 @@ from chd_atlas.corpus import Corpus
 #   `cohort_sequencing`, `gwas` or `candidate_variant` (vocab.StudyType).
 #
 # 2.22 (atlas feeds, spec F11). MINOR, additive: every `sources.json` entry
-# gains `package`, `null` until a source is ingested from a package.
+# gains `package`: `null` when the source's rows were not ingested from a
+# package, which is every source in 2.22 and, for good, a source no mirror
+# table holds rows from, such as `hpo`.
 SCHEMA_VERSION: Final = "2.22"
 
 # What `status` publishes today. A literal rather than something derived from

@@ -192,6 +192,15 @@ def test_ING003_a_blank_gene_cell_is_not_a_gene(tmp_path: Path) -> None:
     assert refusal(directory).code == "ING003"
 
 
+def test_ING004_a_table_file_holding_a_nul(tmp_path: Path) -> None:
+    """A NUL escaped `load_package` as `Path.read_bytes`' ValueError; the manifest refuses it."""
+    directory = write_package(tmp_path)
+    edit_table(directory, file="burden\x00.tsv")
+    refused = refusal(directory)
+    assert refused.code == "ING004"
+    assert "tables.0.file" in refused.message
+
+
 @pytest.mark.parametrize(
     ("source", "named"), [("someone_else", "'someone_else'"), ("", "'<blank>'"), (" ", "'<blank>'")]
 )
