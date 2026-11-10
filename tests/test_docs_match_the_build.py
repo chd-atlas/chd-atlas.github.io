@@ -1674,3 +1674,12 @@ def test_the_doc_describes_the_literature_section_and_what_publishes_before_appr
         "functional record, featured entry, dataset or burden row also cites the "
         "paper. A record no finding cites is published as before."
     ) in doc
+
+
+def test_the_documented_sources_example_is_the_built_hpo_entry(site: Path) -> None:
+    """The `sources.json` example is the real `hpo` entry, `package` included."""
+    built = {
+        source["id"]: source
+        for source in json.loads((site / "sources.json").read_text())["sources"]
+    }
+    assert _example("## `sources.json`") == {"sources": [built["hpo"]]}

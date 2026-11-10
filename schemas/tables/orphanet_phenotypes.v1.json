@@ -1,0 +1,77 @@
+{
+  "$comment": "Exported by `chd-atlas schemas export` from src/chd_atlas/tables.py; do not edit.",
+  "fields": [
+    {
+      "constraints": {
+        "pattern": "^ORPHA:\\d+$",
+        "required": true
+      },
+      "name": "orpha",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "disorder_name",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^HP:\\d{7}$",
+        "required": true
+      },
+      "name": "hpo",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "hpo_label",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "Excluded (0%)",
+          "Frequent (79-30%)",
+          "Obligate (100%)",
+          "Occasional (29-5%)",
+          "Very frequent (99-80%)",
+          "Very rare (<4-1%)"
+        ],
+        "required": false
+      },
+      "name": "frequency",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "source",
+      "type": "string"
+    }
+  ],
+  "geneColumn": null,
+  "layout": {
+    "flat": "orphanet_phenotypes.tsv"
+  },
+  "missingValues": [
+    ""
+  ],
+  "name": "orphanet_phenotypes",
+  "primaryKey": [
+    "orpha",
+    "hpo",
+    "frequency"
+  ],
+  "sortKey": [
+    "orpha",
+    "hpo",
+    "frequency"
+  ],
+  "sourceColumn": "source",
+  "version": 1
+}

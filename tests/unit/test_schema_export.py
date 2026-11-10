@@ -3,7 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from chd_atlas.schema_export import EXPORTED_MODELS, export_schemas
+from chd_atlas.schema_export import (
+    EXPORTED_MODELS,
+    TABLE_SCHEMA_DIR,
+    export_schemas,
+    export_table_schemas,
+)
+from chd_atlas.tables import BURDEN, TABLE_SCHEMAS
 
 
 def test_writes_one_schema_file_per_model(tmp_path: Path) -> None:
@@ -72,3 +78,68 @@ def test_committed_schemas_match_the_models() -> None:
             assert target.read_text(encoding="utf-8") == path.read_text(encoding="utf-8"), (
                 f"{path.name} is stale; run `chd-atlas schemas export`"
             )
+        fresh_tables = fresh / TABLE_SCHEMA_DIR
+        export_table_schemas(fresh_tables)
+        committed_tables = committed / TABLE_SCHEMA_DIR
+        assert {p.name for p in committed_tables.glob("*.json")} == {
+            p.name for p in fresh_tables.glob("*.json")
+        }
+        for path in sorted(fresh_tables.glob("*.json")):
+            assert (committed_tables / path.name).read_bytes() == path.read_bytes(), (
+                f"{path.name} is stale; run `chd-atlas schemas export`"
+            )
+
+
+def test_an_exported_table_states_what_validate_table_checks(tmp_path: Path) -> None:
+    export_table_schemas(tmp_path)
+
+    def load(name: str) -> dict:  # type: ignore[type-arg]
+        return json.loads((tmp_path / f"{name}.v1.json").read_text(encoding="utf-8"))
+
+    burden = load("burden")
+    fields = {f["name"]: f for f in burden["fields"]}
+    for column in BURDEN.columns:
+        assert fields[column.name]["constraints"]["required"] is (not column.nullable)
+    assert fields["count_unit"]["constraints"]["enum"] == sorted(
+        ["alleles", "de_novo_mutations", "individuals"]
+    )
+    assert "pattern" in fields["study"]["constraints"]
+    assert "enum" not in fields["study"]["constraints"]
+    assert burden["primaryKey"] == list(BURDEN.sort_key)
+    assert burden["sortKey"] == list(BURDEN.sort_key)
+    assert burden["geneColumn"] == "gene"
+    assert burden["sourceColumn"] == "source"
+    assert burden["layout"] == {"flat": "burden.tsv"}
+    assert burden["missingValues"] == [""]
+
+    # Plan Decision 5, on the gene field of every table that has one, and only there.
+    assert fields["gene"]["description"] == (
+        "In a source package this column holds the ids the manifest's `ids` names. "
+        "When that is not `hgnc_id`, the cells are the source's own ids (symbols or "
+        "Ensembl gene ids) and this field's `pattern` does not apply to them: "
+        "`chd-atlas ingest` rewrites each to the HGNC id it resolves to, and names "
+        "every id that does not resolve and writes none of its rows."
+    )
+    described = {
+        (name, field["name"])
+        for name in TABLE_SCHEMAS
+        for field in load(name)["fields"]
+        if "description" in field
+    }
+    assert described == {
+        (name, schema.gene_column)
+        for name, schema in TABLE_SCHEMAS.items()
+        if schema.gene_column is not None
+    }
+
+    assert load("genes")["geneColumn"] == "hgnc_id"
+    assert load("profile_quantiles")["geneColumn"] is None
+    assert load("profile_quantiles")["sourceColumn"] is None
+    assert load("profiles")["layout"] == {"sharded": "profiles"}
+
+
+def test_a_superseded_table_version_is_removed(tmp_path: Path) -> None:
+    stray = tmp_path / "burden.v0.json"
+    stray.write_text("{}\n", encoding="utf-8")
+    export_table_schemas(tmp_path)
+    assert not stray.exists()

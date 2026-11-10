@@ -1,0 +1,46 @@
+{
+  "$comment": "Exported by `chd-atlas schemas export` from src/chd_atlas/tables.py; do not edit.",
+  "fields": [
+    {
+      "constraints": {
+        "pattern": "^MONDO:\\d{7}$",
+        "required": true
+      },
+      "name": "mondo",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^(ORPHA|OMIM):\\d+$",
+        "required": true
+      },
+      "name": "target",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "source",
+      "type": "string"
+    }
+  ],
+  "geneColumn": null,
+  "layout": {
+    "flat": "mondo_xrefs.tsv"
+  },
+  "missingValues": [
+    ""
+  ],
+  "name": "mondo_xrefs",
+  "primaryKey": [
+    "mondo",
+    "target"
+  ],
+  "sortKey": [
+    "mondo",
+    "target"
+  ],
+  "sourceColumn": "source",
+  "version": 1
+}

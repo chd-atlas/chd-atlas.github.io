@@ -197,7 +197,7 @@ def test_the_manifest_publishes_five_keys_and_nothing_that_varies(
 
     manifest = _published(tmp_path)
     assert set(manifest) == {"schema_version", "source_commit", "status", "counts", "files"}
-    assert manifest["schema_version"] == "2.21" == SCHEMA_VERSION
+    assert manifest["schema_version"] == "2.22" == SCHEMA_VERSION
     assert manifest["status"] == "in-development" == STATUS
     assert manifest["source_commit"] == commit
     assert manifest["files"] == {}

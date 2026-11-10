@@ -59,7 +59,7 @@ What the build produced, and a checksum for every file in it.
     "genes/index.json": "sha256:<64 hex>",
     "publications.json": "sha256:<64 hex>"
   },
-  "schema_version": "2.21",
+  "schema_version": "2.22",
   "source_commit": "<40-hex commit sha, or null outside a git checkout>",
   "status": "in-development"
 }
@@ -303,6 +303,10 @@ wrong by the next one.
   widened the `study_type` of [`publications.json`](#publicationsjson) records by
   four values: `case_report`, `cohort_sequencing`, `gwas` and `candidate_variant`.
   Additive.
+  `2.22` added `package` to every [`sources.json`](#sourcesjson) entry: `null`
+  when the source's rows were not ingested from a data package, which is every
+  source as of `2.22`, and for good a source no mirror table holds rows from,
+  such as `hpo`. Additive.
 - `status` is the atlas's own readiness, so a program can read it without
   scraping `index.html`'s prose. Today it is always `"in-development"` — one
   curated gene-disease assertion alongside mirrored ClinGen/GenCC validity for
@@ -2605,7 +2609,8 @@ What the atlas mirrors, and on whose terms.
       "ontology_prefix": "HP",
       "ontology_file": "ontologies/hp-2026-06-23.obo",
       "file_version": null,
-      "file_date": null
+      "file_date": null,
+      "package": null
     }
   ]
 }
@@ -2630,6 +2635,12 @@ header — `"1.3.42 / 4.1.8 [2025-03-03]"`, dated `2026-06-23` — written besid
 the sha256 by the converter on every run; `null` elsewhere. Orphadata's
 requested citation ends "Data version [date]", and the site's front page prints
 both there.
+
+`package` (since `2.22`) names the data package a source's mirrored rows were
+ingested from: its `version` and the sha256 of its manifest. `null` when the
+source's rows were not ingested from a package: every source as of `2.22`, and
+for good a source no mirror table holds rows from, such as `hpo` above, whose
+release is pinned as an ontology file instead.
 
 The registry also carries `clingen` and `gencc` — the two sources every
 mirrored record in a gene bundle's `validity.records` is attributed to.

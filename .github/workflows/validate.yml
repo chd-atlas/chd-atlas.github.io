@@ -50,3 +50,100 @@ jobs:
       # repo-local path, including the pinned ontology release.
       - name: Validate curation corpus
         run: uv run chd-atlas validate
+
+  # Decision 9: this runs on EVERY pull request, not only those touching
+  # `mirrors/` or `curation/`. A code change can move published bytes just as a
+  # data change can, and a path filter would be one more branch that can hide
+  # one. The job only reads, builds and comments (D6): CI never writes data or
+  # commits anything; a curator runs `chd-atlas ingest` and reviews this report.
+  site-changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # Full history, because the base commit must exist locally for
+      # `git worktree add` below; the default shallow clone has only the merge ref.
+      # No persisted credentials: by default checkout writes the job's token
+      # into .git/config, where the build steps below (the pull request's own
+      # code) could read it. Nothing after checkout needs git to authenticate.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # Building needs no dev extra (pytest, ruff and mypy are not imported by
+      # `chd-atlas build`), so only the locked runtime set is installed.
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Build the head site
+        run: uv run chd-atlas build --root . --out "$RUNNER_TEMP/head-site"
+
+      # The base is checked out beside the head so it can be built with ITS OWN
+      # code below. Comparing a head build against a base built by the head's
+      # code would hide exactly what a code PR changes. It is HEAD^1, the first
+      # parent of the merge commit actions/checkout built the head from, not the
+      # payload's base.sha: a re-run or a later push to the base branch leaves
+      # the payload sha old while the merge ref moves, and the report would then
+      # credit the PR with the base branch's newer changes.
+      - name: Check out the base commit
+        run: |
+          # HEAD^1 is the base only when HEAD is the merge commit checkout makes
+          # for a pull_request event. A HEAD with no second parent is not a
+          # merge, so stop here rather than report against whatever commit
+          # HEAD^1 happens to be (the PR's own previous commit, silently).
+          git rev-parse --verify HEAD^2 >/dev/null
+          base=$(git rev-parse HEAD^1)
+          echo "comparing against base $base (payload base.sha: ${{ github.event.pull_request.base.sha }})"
+          git worktree add "$RUNNER_TEMP/base" "$base"
+
+      # `--project` makes uv use the base's pyproject and uv.lock and create its
+      # own environment under the worktree; `--locked` fails on a drifted lock
+      # rather than silently resolving anew.
+      - name: Build the base site with the base's own code
+        run: >
+          uv run --locked --project "$RUNNER_TEMP/base" chd-atlas build
+          --root "$RUNNER_TEMP/base" --out "$RUNNER_TEMP/base-site"
+
+      # The head's code compares the two built sites and two checkouts, so the
+      # report logic is the version under review even when the base predates it.
+      - name: Write the site-change report
+        run: >
+          uv run chd-atlas report-changes
+          --base-root "$RUNNER_TEMP/base" --base-site "$RUNNER_TEMP/base-site"
+          --head-root . --head-site "$RUNNER_TEMP/head-site"
+          --out "$RUNNER_TEMP/report.md"
+
+      # One comment per pull request, found by the marker the report opens with
+      # and updated in place on every push, so the thread does not fill with
+      # stale reports. Only this workflow's own comments are candidates, so a
+      # person quoting the marker is never overwritten. A missing or empty
+      # report fails the step: a silent no-op comment would read as "nothing
+      # changed". The token is this step's alone: every step above runs the
+      # pull request's code, which must not hold a token that can write.
+      - name: Post or update the comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ ! -s "$RUNNER_TEMP/report.md" ]; then
+            echo "report.md is missing or empty" >&2
+            exit 1
+          fi
+          api="repos/${{ github.repository }}"
+          ids=$(gh api --paginate "$api/issues/${{ github.event.pull_request.number }}/comments" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- chd-atlas:site-change-report -->"))) | .id')
+          # First match only; `head` in the pipe would SIGPIPE gh under pipefail.
+          id=${ids%%$'\n'*}
+          if [ -n "$id" ]; then
+            gh api -X PATCH "$api/issues/comments/$id" -F body=@"$RUNNER_TEMP/report.md"
+          else
+            gh api -X POST "$api/issues/${{ github.event.pull_request.number }}/comments" -F body=@"$RUNNER_TEMP/report.md"
+          fi

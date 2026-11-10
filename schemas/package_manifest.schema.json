@@ -1,0 +1,434 @@
+{
+  "$defs": {
+    "BuiltBy": {
+      "additionalProperties": false,
+      "properties": {
+        "host": {
+          "minLength": 1,
+          "title": "Host",
+          "type": "string"
+        },
+        "hvantk_release": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hvantk Release"
+        },
+        "image_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image Digest"
+        },
+        "job": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Job"
+        },
+        "recipe_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Recipe Commit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "recipe_commit",
+        "host"
+      ],
+      "title": "BuiltBy",
+      "type": "object"
+    },
+    "DroppedRows": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "minimum": 1,
+          "title": "Count",
+          "type": "integer"
+        },
+        "examples": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Examples",
+          "type": "array"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason",
+        "count"
+      ],
+      "title": "DroppedRows",
+      "type": "object"
+    },
+    "GeneIdKind": {
+      "description": "Which identifier a package's gene column holds; `ingest` rewrites it to HGNC ids.",
+      "enum": [
+        "hgnc_id",
+        "symbol",
+        "ensembl_gene_id"
+      ],
+      "title": "GeneIdKind",
+      "type": "string"
+    },
+    "InputCounts": {
+      "additionalProperties": false,
+      "properties": {
+        "genes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Genes"
+        },
+        "rows": {
+          "minimum": 0,
+          "title": "Rows",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rows"
+      ],
+      "title": "InputCounts",
+      "type": "object"
+    },
+    "PackageInput": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "retrieved_on": {
+          "format": "date",
+          "title": "Retrieved On",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "upstream_release": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upstream Release"
+        },
+        "url": {
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "url",
+        "sha256",
+        "retrieved_on"
+      ],
+      "title": "PackageInput",
+      "type": "object"
+    },
+    "PackageSource": {
+      "additionalProperties": false,
+      "description": "What ``chd-atlas ingest`` writes into the source's ``mirrors/sources.yaml`` entry.\n\nEvery field of that entry but ``id`` (the manifest's ``package``),\n``ontology_prefix``, ``ontology_file`` and ``package`` (the pin ingest\nwrites), with the same names and types. A field left null is removed\nfrom the entry.",
+      "properties": {
+        "file_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "File Date"
+        },
+        "file_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "File Version"
+        },
+        "licence": {
+          "minLength": 1,
+          "title": "Licence",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "redistribution": {
+          "$ref": "#/$defs/Redistribution"
+        },
+        "retrieved_on": {
+          "format": "date",
+          "title": "Retrieved On",
+          "type": "string"
+        },
+        "url": {
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "retrieved_on",
+        "url",
+        "licence",
+        "redistribution"
+      ],
+      "title": "PackageSource",
+      "type": "object"
+    },
+    "PackageTable": {
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x1f\\x7f-\\x9f]+$",
+          "title": "File",
+          "type": "string"
+        },
+        "format_version": {
+          "minimum": 1,
+          "title": "Format Version",
+          "type": "integer"
+        },
+        "genes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Genes"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "rows": {
+          "minimum": 0,
+          "title": "Rows",
+          "type": "integer"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "shard": {
+          "anyOf": [
+            {
+              "pattern": "^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shard"
+        }
+      },
+      "required": [
+        "name",
+        "format_version",
+        "file",
+        "sha256",
+        "rows"
+      ],
+      "title": "PackageTable",
+      "type": "object"
+    },
+    "Redistribution": {
+      "description": "What the source's licence permits the atlas to republish.\n\nRead by `validate_source_references`, so a source marked `prohibited` is\nreported rather than silently mirrored.",
+      "enum": [
+        "permitted",
+        "permitted_with_attribution",
+        "non_commercial_only",
+        "prohibited"
+      ],
+      "title": "Redistribution",
+      "type": "string"
+    },
+    "RegistrySlice": {
+      "additionalProperties": false,
+      "properties": {
+        "atlas_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Atlas Commit",
+          "type": "string"
+        },
+        "genes": {
+          "minimum": 0,
+          "title": "Genes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "atlas_commit",
+        "genes"
+      ],
+      "title": "RegistrySlice",
+      "type": "object"
+    },
+    "SliceCoverage": {
+      "additionalProperties": false,
+      "description": "A package cut to the atlas's gene registry at one atlas commit.\n\nWritten ``{\"registry_slice\": {\"atlas_commit\": ..., \"genes\": ...}}``; the\nalternative is the string ``\"every_gene\"``.",
+      "properties": {
+        "registry_slice": {
+          "$ref": "#/$defs/RegistrySlice"
+        }
+      },
+      "required": [
+        "registry_slice"
+      ],
+      "title": "SliceCoverage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "built_by": {
+      "$ref": "#/$defs/BuiltBy"
+    },
+    "coverage": {
+      "anyOf": [
+        {
+          "const": "every_gene",
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/SliceCoverage"
+        }
+      ],
+      "title": "Coverage"
+    },
+    "dropped": {
+      "items": {
+        "$ref": "#/$defs/DroppedRows"
+      },
+      "title": "Dropped",
+      "type": "array"
+    },
+    "ids": {
+      "$ref": "#/$defs/GeneIdKind"
+    },
+    "input_counts": {
+      "$ref": "#/$defs/InputCounts"
+    },
+    "inputs": {
+      "items": {
+        "$ref": "#/$defs/PackageInput"
+      },
+      "minItems": 1,
+      "title": "Inputs",
+      "type": "array"
+    },
+    "licence_evidence": {
+      "minLength": 1,
+      "title": "Licence Evidence",
+      "type": "string"
+    },
+    "package": {
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Package",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/PackageSource"
+    },
+    "tables": {
+      "items": {
+        "$ref": "#/$defs/PackageTable"
+      },
+      "minItems": 1,
+      "title": "Tables",
+      "type": "array"
+    },
+    "version": {
+      "pattern": "^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.[A-Za-z0-9_-][A-Za-z0-9._-]*|\\.\\.[A-Za-z0-9._-]+)$",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "package",
+    "version",
+    "ids",
+    "coverage",
+    "tables",
+    "inputs",
+    "input_counts",
+    "dropped",
+    "built_by",
+    "source",
+    "licence_evidence"
+  ],
+  "title": "PackageManifest",
+  "type": "object"
+}

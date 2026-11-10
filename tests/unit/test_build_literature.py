@@ -7,13 +7,14 @@ from pathlib import Path
 import pytest
 
 from chd_atlas.build.emit import Emitter
-from chd_atlas.build.literature import build_literature, withheld_publications
+from chd_atlas.build.literature import build_literature, build_sources, withheld_publications
 from chd_atlas.corpus import Corpus
 from chd_atlas.models.assertion import Evidence, LesionAssertion, SupplementaryLocator
 from chd_atlas.models.dataset import Dataset
 from chd_atlas.models.functional import FunctionalEvidence
 from chd_atlas.models.gene_literature import GeneLiteratureFile
 from chd_atlas.models.literature import FeaturedManuscript, PhenotypeTerm, Publication
+from chd_atlas.validate.sources import PackagePin, Source, SourceRegistry
 from tests.unit._stamp import stamped
 
 
@@ -590,3 +591,33 @@ def test_a_publication_no_literature_finding_cites_publishes_as_before(tmp_path:
     corpus = _corpus(publications=(_publication("PMID:1"),), featured=(), literature=())
 
     assert _published(tmp_path, corpus) == ["PMID:1"]
+
+
+def test_every_published_source_carries_a_package_pin_or_null(tmp_path: Path) -> None:
+    """Spec F11: `package` is always present in `sources.json`, null until ingested."""
+    common = {
+        "version": "v1",
+        "retrieved_on": date(2026, 7, 15),
+        "url": "https://example.org/",
+        "licence": "CC0-1.0",
+        "redistribution": "permitted",
+    }
+    registry = SourceRegistry(
+        sources=[
+            Source(
+                id="pinned",
+                name="Pinned",
+                package=PackagePin(version="2026.1", manifest_sha256="a" * 64),
+                **common,  # type: ignore[arg-type]
+            ),
+            Source(id="unpinned", name="Unpinned", **common),  # type: ignore[arg-type]
+        ]
+    )
+    emitter = Emitter(root=tmp_path)
+
+    build_sources(registry, emitter)
+
+    published = {s["id"]: s for s in _payload(tmp_path, "sources.json", "sources")}
+    assert published["pinned"]["package"] == {"manifest_sha256": "a" * 64, "version": "2026.1"}
+    assert "package" in published["unpinned"]
+    assert published["unpinned"]["package"] is None

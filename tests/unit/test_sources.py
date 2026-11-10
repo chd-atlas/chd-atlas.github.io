@@ -1,8 +1,12 @@
+import hashlib
+import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
-from chd_atlas.validate.sources import load_sources
+from chd_atlas.validate.sources import load_sources, validate_package_pins
+from tests.unit.package_fixtures import manifest_dict
 
 SOURCES_YAML = """\
 sources:
@@ -240,3 +244,113 @@ def test_a_files_own_version_and_date_are_declared_together(
     _, issues = load_sources(tmp_path)
 
     assert [i.code for i in issues] == ([] if accepted else ["SRC002"])
+
+
+@pytest.mark.parametrize(
+    ("digest", "accepted"),
+    [
+        pytest.param("a" * 64, True, id="64 hex"),
+        pytest.param("a" * 63, False, id="63 hex"),
+        pytest.param("A" * 64, False, id="uppercase"),
+    ],
+)
+def test_a_malformed_pin_is_refused(tmp_path: Path, digest: str, accepted: bool) -> None:
+    """A package pin names a manifest by its sha256; anything else is SRC002."""
+    pin = f'    package:\n      version: "2026.1"\n      manifest_sha256: "{digest}"\n'
+    _write_sources(
+        tmp_path,
+        SOURCES_YAML.replace("    licence: public-domain\n", pin + "    licence: public-domain\n"),
+    )
+
+    registry, issues = load_sources(tmp_path)
+
+    assert [i.code for i in issues] == ([] if accepted else ["SRC002"])
+    if accepted:
+        assert registry.by_id["clinvar"].package is not None
+        assert registry.by_id["clinvar"].package.manifest_sha256 == digest
+
+
+# --- package pins agree with their committed manifests (feeds phase 1, task 4) ---
+
+
+def _pinned_repo(
+    root: Path, *, manifest: dict[str, object] | None = None, raw: bytes | None = None
+) -> Path:
+    """A repo whose `clinvar` source pins package `toy_burden`; returns the manifest path.
+
+    The pin is computed from the bytes written, so a test changes exactly one thing.
+    """
+    data = raw if raw is not None else json.dumps(manifest or manifest_dict()).encode()
+    pin = (
+        "    package:\n"
+        f'      version: "{manifest_dict()["version"]}"\n'
+        f'      manifest_sha256: "{hashlib.sha256(data).hexdigest()}"\n'
+    )
+    text = SOURCES_YAML.replace("  - id: clinvar\n", "  - id: toy_burden\n", 1).replace(
+        "    redistribution: permitted\n", "    redistribution: permitted\n" + pin, 1
+    )
+    _write_sources(root, text)
+    path = root / "mirrors" / "packages" / "toy_burden.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return path
+
+
+def _pin_issues(root: Path) -> list[tuple[str, str]]:
+    registry, load_issues = load_sources(root)
+    assert load_issues == []
+    return [(i.code, i.location) for i in validate_package_pins(root, registry)]
+
+
+@pytest.mark.parametrize(
+    ("damage", "fragment"),
+    [
+        ({"missing": True}, "manifest cannot be read"),
+        ({"manifest": manifest_dict(package="other_package")}, "'other_package'"),
+        ({"manifest": manifest_dict(version="2026-11-11.1")}, "'2026-11-11.1'"),
+        ({"raw": b"{not json"}, "cannot read manifest"),
+    ],
+    ids=["missing", "another-package", "another-version", "not-a-manifest-is-not-a-raise"],
+)
+def test_a_pin_its_committed_manifest_does_not_honour_is_src005(
+    tmp_path: Path, damage: dict[str, Any], fragment: str
+) -> None:
+    path = _pinned_repo(tmp_path, **{k: v for k, v in damage.items() if k != "missing"})
+    if damage.get("missing"):
+        path.unlink()
+
+    registry, _ = load_sources(tmp_path)
+    issues = validate_package_pins(tmp_path, registry)
+
+    assert [(i.code, i.location) for i in issues] == [("SRC005", str(path))]
+    assert fragment in issues[0].message
+
+
+def test_a_pin_whose_manifest_bytes_changed_is_src005(tmp_path: Path) -> None:
+    """The same manifest re-indented: it still parses and still agrees with the pin's
+    package and version, so only the sha256 over the bytes on disk can refuse it."""
+    path = _pinned_repo(tmp_path)
+    assert _pin_issues(tmp_path) == []
+    pinned = hashlib.sha256(path.read_bytes()).hexdigest()
+    path.write_text(json.dumps(manifest_dict(), indent=2))
+    on_disk = hashlib.sha256(path.read_bytes()).hexdigest()
+    assert on_disk != pinned
+
+    registry, _ = load_sources(tmp_path)
+    issues = validate_package_pins(tmp_path, registry)
+
+    assert [(i.code, i.location) for i in issues] == [("SRC005", str(path))]
+    assert issues[0].message == (
+        f"manifest sha256 is {on_disk}, but the pin for 'toy_burden' says {pinned}"
+    )
+
+
+def test_a_manifest_no_pin_claims_is_src006(tmp_path: Path) -> None:
+    _write_sources(tmp_path)
+    assert _pin_issues(tmp_path) == [], "no pins and no packages directory"
+    stray = tmp_path / "mirrors" / "packages" / "orphan_pkg.json"
+    stray.parent.mkdir(parents=True)
+    stray.write_text("{}")
+    (stray.parent / "notes.txt").write_text("ignored here; TBL009 owns it")
+
+    assert _pin_issues(tmp_path) == [("SRC006", str(stray))]

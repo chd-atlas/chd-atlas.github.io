@@ -1,0 +1,141 @@
+{
+  "$comment": "Exported by `chd-atlas schemas export` from src/chd_atlas/tables.py; do not edit.",
+  "fields": [
+    {
+      "constraints": {
+        "pattern": "^PMID:\\d+$",
+        "required": true
+      },
+      "name": "study",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^HGNC:\\d+$",
+        "required": true
+      },
+      "description": "In a source package this column holds the ids the manifest's `ids` names. When that is not `hgnc_id`, the cells are the source's own ids (symbols or Ensembl gene ids) and this field's `pattern` does not apply to them: `chd-atlas ingest` rewrites each to the HGNC id it resolves to, and names every id that does not resolve and writes none of its rows.",
+      "name": "gene",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "all",
+          "nonsyndromic",
+          "syndromic"
+        ],
+        "required": true
+      },
+      "name": "cohort_stratum",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "anomalous_venous_return",
+          "avsd",
+          "complex",
+          "conotruncal",
+          "heterotaxy",
+          "lvoto",
+          "other",
+          "rvoto",
+          "septal"
+        ],
+        "required": false
+      },
+      "name": "lesion_group",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "all_coding",
+          "damaging",
+          "lof",
+          "missense_all",
+          "missense_damaging",
+          "synonymous"
+        ],
+        "required": true
+      },
+      "name": "consequence_class",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^[a-z0-9]+(_[a-z0-9]+)*(;[a-z0-9]+(_[a-z0-9]+)*)*$",
+        "required": true
+      },
+      "name": "combines",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "joint_local_fdr"
+        ],
+        "required": true
+      },
+      "name": "method",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "maximum": 1,
+        "minimum": 0,
+        "required": true
+      },
+      "name": "pvalue",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "maximum": 1,
+        "minimum": 0,
+        "required": true
+      },
+      "name": "local_fdr",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "method_note",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "source",
+      "type": "string"
+    }
+  ],
+  "geneColumn": "gene",
+  "layout": {
+    "flat": "burden_combined.tsv"
+  },
+  "missingValues": [
+    ""
+  ],
+  "name": "burden_combined",
+  "primaryKey": [
+    "gene",
+    "study",
+    "cohort_stratum",
+    "lesion_group",
+    "consequence_class"
+  ],
+  "sortKey": [
+    "gene",
+    "study",
+    "cohort_stratum",
+    "lesion_group",
+    "consequence_class"
+  ],
+  "sourceColumn": "source",
+  "version": 1
+}

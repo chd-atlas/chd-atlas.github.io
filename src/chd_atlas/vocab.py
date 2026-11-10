@@ -246,6 +246,14 @@ class Redistribution(StrEnum):
     PROHIBITED = "prohibited"
 
 
+class GeneIdKind(StrEnum):
+    """Which identifier a package's gene column holds; `ingest` rewrites it to HGNC ids."""
+
+    HGNC_ID = "hgnc_id"
+    SYMBOL = "symbol"
+    ENSEMBL_GENE_ID = "ensembl_gene_id"
+
+
 class StudyType(StrEnum):
     TRIO_WES = "trio_wes"
     TRIO_WGS = "trio_wgs"

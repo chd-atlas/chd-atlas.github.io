@@ -1,0 +1,115 @@
+{
+  "$comment": "Exported by `chd-atlas schemas export` from src/chd_atlas/tables.py; do not edit.",
+  "fields": [
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "dataset",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "contrast",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})(-\\d+)?$",
+        "required": true
+      },
+      "name": "protein",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^HGNC:\\d+$",
+        "required": false
+      },
+      "description": "In a source package this column holds the ids the manifest's `ids` names. When that is not `hgnc_id`, the cells are the source's own ids (symbols or Ensembl gene ids) and this field's `pattern` does not apply to them: `chd-atlas ingest` rewrites each to the HGNC id it resolves to, and names every id that does not resolve and writes none of its rows.",
+      "name": "gene",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "log2fc",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "maximum": 1,
+        "minimum": 0,
+        "required": true
+      },
+      "name": "pvalue",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "maximum": 1,
+        "minimum": 0,
+        "required": true
+      },
+      "name": "fdr",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "down",
+          "unchanged",
+          "up"
+        ],
+        "required": true
+      },
+      "name": "direction",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "minimum": 1,
+        "required": false
+      },
+      "name": "n_peptides",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "maximum": 100,
+        "minimum": 0,
+        "required": false
+      },
+      "name": "sequence_coverage",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "quant_method",
+      "type": "string"
+    }
+  ],
+  "geneColumn": "gene",
+  "layout": {
+    "sharded": "proteomics"
+  },
+  "missingValues": [
+    ""
+  ],
+  "name": "proteomics",
+  "primaryKey": [
+    "contrast",
+    "protein"
+  ],
+  "sortKey": [
+    "contrast",
+    "protein"
+  ],
+  "sourceColumn": null,
+  "version": 1
+}

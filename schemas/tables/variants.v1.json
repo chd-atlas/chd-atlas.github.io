@@ -1,0 +1,271 @@
+{
+  "$comment": "Exported by `chd-atlas schemas export` from src/chd_atlas/tables.py; do not edit.",
+  "fields": [
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "vrs_id",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "GRCh38"
+        ],
+        "required": true
+      },
+      "name": "assembly",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "1",
+          "10",
+          "11",
+          "12",
+          "13",
+          "14",
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "2",
+          "20",
+          "21",
+          "22",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "MT",
+          "X",
+          "Y"
+        ],
+        "required": true
+      },
+      "name": "chrom",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "minimum": 1,
+        "required": true
+      },
+      "name": "pos",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "ref",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "alt",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "hgvs_g",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "hgvs_c",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "hgvs_p",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "mane_transcript",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^HGNC:\\d+$",
+        "required": true
+      },
+      "description": "In a source package this column holds the ids the manifest's `ids` names. When that is not `hgnc_id`, the cells are the source's own ids (symbols or Ensembl gene ids) and this field's `pattern` does not apply to them: `chd-atlas ingest` rewrites each to the HGNC id it resolves to, and names every id that does not resolve and writes none of its rows.",
+      "name": "gene",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^SO:\\d{7}$",
+        "required": true
+      },
+      "name": "consequence",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "clinvar_vcv",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "clinvar_significance",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "clinvar_review_status",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "gnomad_af_popmax",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "gnomad_version",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "acmg_criteria",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "inheritance",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "de_novo",
+      "type": "boolean"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "zygosity",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "phenotypes",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "publication",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "locator",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "database_mirror",
+          "own_curation",
+          "third_party_literature"
+        ],
+        "required": true
+      },
+      "name": "source_tier",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "source",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "regulatory_element",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "target_gene",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "assay_evidence",
+      "type": "string"
+    }
+  ],
+  "geneColumn": "gene",
+  "layout": {
+    "sharded": "variants"
+  },
+  "missingValues": [
+    ""
+  ],
+  "name": "variants",
+  "primaryKey": [
+    "chrom",
+    "pos",
+    "ref",
+    "alt",
+    "vrs_id"
+  ],
+  "sortKey": [
+    "chrom",
+    "pos",
+    "ref",
+    "alt",
+    "vrs_id"
+  ],
+  "sourceColumn": "source",
+  "version": 1
+}
