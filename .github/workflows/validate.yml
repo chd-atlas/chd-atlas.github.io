@@ -62,14 +62,16 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    env:
-      GH_TOKEN: ${{ github.token }}
     steps:
       # Full history, because the base commit must exist locally for
       # `git worktree add` below; the default shallow clone has only the merge ref.
+      # No persisted credentials: by default checkout writes the job's token
+      # into .git/config, where the build steps below (the pull request's own
+      # code) could read it. Nothing after checkout needs git to authenticate.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -93,6 +95,11 @@ jobs:
       # credit the PR with the base branch's newer changes.
       - name: Check out the base commit
         run: |
+          # HEAD^1 is the base only when HEAD is the merge commit checkout makes
+          # for a pull_request event. A HEAD with no second parent is not a
+          # merge, so stop here rather than report against whatever commit
+          # HEAD^1 happens to be (the PR's own previous commit, silently).
+          git rev-parse --verify HEAD^2 >/dev/null
           base=$(git rev-parse HEAD^1)
           echo "comparing against base $base (payload base.sha: ${{ github.event.pull_request.base.sha }})"
           git worktree add "$RUNNER_TEMP/base" "$base"
@@ -116,9 +123,14 @@ jobs:
 
       # One comment per pull request, found by the marker the report opens with
       # and updated in place on every push, so the thread does not fill with
-      # stale reports. A missing or empty report fails the step: a silent
-      # no-op comment would read as "nothing changed".
+      # stale reports. Only this workflow's own comments are candidates, so a
+      # person quoting the marker is never overwritten. A missing or empty
+      # report fails the step: a silent no-op comment would read as "nothing
+      # changed". The token is this step's alone: every step above runs the
+      # pull request's code, which must not hold a token that can write.
       - name: Post or update the comment
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [ ! -s "$RUNNER_TEMP/report.md" ]; then
@@ -127,7 +139,7 @@ jobs:
           fi
           api="repos/${{ github.repository }}"
           ids=$(gh api --paginate "$api/issues/${{ github.event.pull_request.number }}/comments" \
-            --jq '.[] | select(.body | startswith("<!-- chd-atlas:site-change-report -->")) | .id')
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- chd-atlas:site-change-report -->"))) | .id')
           # First match only; `head` in the pipe would SIGPIPE gh under pipefail.
           id=${ids%%$'\n'*}
           if [ -n "$id" ]; then
