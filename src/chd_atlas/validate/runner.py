@@ -56,7 +56,11 @@ from chd_atlas.validate.scope import (
     validate_scope_terms,
 )
 from chd_atlas.validate.sort_order import validate_sort_order
-from chd_atlas.validate.sources import load_sources, validate_source_references
+from chd_atlas.validate.sources import (
+    load_sources,
+    validate_package_pins,
+    validate_source_references,
+)
 
 
 @dataclass
@@ -930,6 +934,7 @@ def validate_repository(root: Path) -> ValidationReport:
         )
     else:
         issues.extend(validate_source_references(_used_sources(root), registry))
+        issues.extend(validate_package_pins(root, registry))
 
     # The ontology pins live in sources.yaml, so a registry that failed to load
     # pins nothing and every term reports ONT003 "no pinned ontology" — one per

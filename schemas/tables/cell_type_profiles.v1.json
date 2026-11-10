@@ -1,0 +1,131 @@
+{
+  "$comment": "Exported by `chd-atlas schemas export` from src/chd_atlas/tables.py; do not edit.",
+  "fields": [
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "dataset",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^HGNC:\\d+$",
+        "required": true
+      },
+      "description": "In a source package this column holds the ids the manifest's `ids` names. When that is not `hgnc_id`, the cells are the source's own ids (symbols or Ensembl gene ids) and this field's `pattern` does not apply to them: `chd-atlas ingest` rewrites each to the HGNC id it resolves to, and names every id that does not resolve and writes none of its rows.",
+      "name": "gene",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "cell_type",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "IVS",
+          "LA",
+          "LV",
+          "RA",
+          "RV",
+          "all"
+        ],
+        "required": true
+      },
+      "name": "region",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "minimum": 0,
+        "required": true
+      },
+      "name": "median_abundance",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "cpm"
+        ],
+        "required": true
+      },
+      "name": "unit",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "minimum": 0,
+        "required": false
+      },
+      "name": "q25",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "minimum": 0,
+        "required": false
+      },
+      "name": "q75",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "minimum": 1,
+        "required": true
+      },
+      "name": "n_donors",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "minimum": 1,
+        "required": true
+      },
+      "name": "n_cells",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "maximum": 1,
+        "minimum": 0,
+        "required": true
+      },
+      "name": "fraction_expressing",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "source",
+      "type": "string"
+    }
+  ],
+  "geneColumn": "gene",
+  "layout": {
+    "sharded": "cell_type_profiles"
+  },
+  "missingValues": [
+    ""
+  ],
+  "name": "cell_type_profiles",
+  "primaryKey": [
+    "dataset",
+    "gene",
+    "cell_type",
+    "region"
+  ],
+  "sortKey": [
+    "dataset",
+    "gene",
+    "cell_type",
+    "region"
+  ],
+  "sourceColumn": "source",
+  "version": 1
+}

@@ -1,0 +1,137 @@
+{
+  "$comment": "Exported by `chd-atlas schemas export` from src/chd_atlas/tables.py; do not edit.",
+  "fields": [
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "dataset",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "contrast",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "site_id",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})(-\\d+)?$",
+        "required": true
+      },
+      "name": "protein",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "S",
+          "T",
+          "Y"
+        ],
+        "required": true
+      },
+      "name": "residue",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "minimum": 1,
+        "required": true
+      },
+      "name": "position",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "pattern": "^MOD:\\d{5}$",
+        "required": true
+      },
+      "name": "mod_type",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "flanking_sequence",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "log2fc",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "maximum": 1,
+        "minimum": 0,
+        "required": true
+      },
+      "name": "pvalue",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "maximum": 1,
+        "minimum": 0,
+        "required": true
+      },
+      "name": "fdr",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "protein_normalized",
+      "type": "boolean"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "occupancy",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "known_kinases",
+      "type": "string"
+    }
+  ],
+  "geneColumn": null,
+  "layout": {
+    "sharded": "phospho"
+  },
+  "missingValues": [
+    ""
+  ],
+  "name": "phospho",
+  "primaryKey": [
+    "contrast",
+    "protein",
+    "position",
+    "mod_type"
+  ],
+  "sortKey": [
+    "contrast",
+    "protein",
+    "position",
+    "mod_type"
+  ],
+  "sourceColumn": null,
+  "version": 1
+}

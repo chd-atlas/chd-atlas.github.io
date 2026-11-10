@@ -7,8 +7,10 @@ REPO_ROOT = Path(__file__).parent.parent
 
 
 def test_the_committed_repository_validates_cleanly() -> None:
+    """0 errors and the baseline 3 warnings (two SCP003, one SCP007), measured 2026-11-10."""
     report = validate_repository(REPO_ROOT)
     assert report.ok, report.render()
+    assert report.warning_count == 3, report.render()
 
 
 def test_the_seed_corpus_is_not_empty() -> None:
@@ -27,6 +29,11 @@ def test_the_exported_schemas_are_committed() -> None:
 
     committed = {path.name for path in (REPO_ROOT / "schemas").glob("*.schema.json")}
     assert committed == {f"{name}.schema.json" for name in EXPORTED_MODELS}
+
+    from chd_atlas.tables import TABLE_SCHEMAS
+
+    tables = {path.name for path in (REPO_ROOT / "schemas" / "tables").glob("*.json")}
+    assert tables == {f"{name}.v1.json" for name in TABLE_SCHEMAS}
 
 
 def test_a_misnamed_assertion_in_the_real_corpus_fails_validation(tmp_path: Path) -> None:

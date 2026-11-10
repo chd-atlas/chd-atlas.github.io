@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Final, Literal
 
 import polars as pl
 
@@ -69,6 +69,22 @@ class TableSchema:
     name: str
     columns: tuple[Column, ...]
     sort_key: tuple[str, ...]
+    # Bumped when a column is added, removed or retyped; the exported schema is
+    # named `<name>.v<version>.json`.
+    version: int = 1
+
+    @property
+    def gene_column(self) -> str | None:
+        """The column holding the gene: `gene` if present, else `hgnc_id`, else None."""
+        for candidate in ("gene", "hgnc_id"):
+            if candidate in self.column_names:
+                return candidate
+        return None
+
+    @property
+    def source_column(self) -> str | None:
+        """`source` if the table has that column."""
+        return "source" if "source" in self.column_names else None
 
     @property
     def column_names(self) -> tuple[str, ...]:
@@ -1004,6 +1020,22 @@ FLAT_TABLES: Final[dict[str, str]] = {
 }
 
 
+# Beside the table directories, not among them: it holds one committed package
+# manifest (`<source_id>.json`) per pinned source, never table rows, so
+# `mirror_paths` does not glob it. `validate_package_pins` checks the manifests;
+# `unexpected_mirror_entries` checks that nothing else lives here.
+PACKAGES_DIR: Final = "packages"
+
+
+def table_layout(name: str) -> tuple[Literal["flat", "sharded"], str]:
+    """How a table lives under ``mirrors/``: ``("flat", file)`` or ``("sharded", dir)``."""
+    if name in FLAT_TABLES:
+        return "flat", FLAT_TABLES[name]
+    if name in SHARDED_TABLES:
+        return "sharded", SHARDED_TABLES[name]
+    raise KeyError(f"{name!r} is neither a flat nor a sharded table")
+
+
 def unexpected_mirror_entries(root: Path) -> list[ValidationIssue]:
     """Anything under ``mirrors/`` that no schema claims.
 
@@ -1017,7 +1049,7 @@ def unexpected_mirror_entries(root: Path) -> list[ValidationIssue]:
     if not mirrors.is_dir():
         return []
 
-    expected_dirs = set(SHARDED_TABLES.values())
+    expected_dirs = set(SHARDED_TABLES.values()) | {PACKAGES_DIR}
     expected_files = set(FLAT_TABLES.values()) | {"sources.yaml"}
     issues: list[ValidationIssue] = []
 
@@ -1042,7 +1074,28 @@ def unexpected_mirror_entries(root: Path) -> list[ValidationIssue]:
             shards, shard_listing_issues = list_dir(entry, "TBL009")
             issues.extend(shard_listing_issues)
             for shard in shards:
-                if not shard.is_file():
+                if entry.name == PACKAGES_DIR:
+                    if not shard.is_file():
+                        issues.append(
+                            ValidationIssue(
+                                "TBL009",
+                                Severity.ERROR,
+                                str(shard),
+                                f"'{shard.name}' should be a .json package manifest, "
+                                f"not a directory",
+                            )
+                        )
+                    elif shard.suffix != ".json":
+                        issues.append(
+                            ValidationIssue(
+                                "TBL009",
+                                Severity.ERROR,
+                                str(shard),
+                                f"only .json package manifests belong under mirrors/"
+                                f"{PACKAGES_DIR}/; '{shard.name}' is not one",
+                            )
+                        )
+                elif not shard.is_file():
                     issues.append(
                         ValidationIssue(
                             "TBL009",

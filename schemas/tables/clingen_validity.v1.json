@@ -1,0 +1,115 @@
+{
+  "$comment": "Exported by `chd-atlas schemas export` from src/chd_atlas/tables.py; do not edit.",
+  "fields": [
+    {
+      "constraints": {
+        "pattern": "^HGNC:\\d+$",
+        "required": true
+      },
+      "description": "In a source package this column holds the ids the manifest's `ids` names. When that is not `hgnc_id`, the cells are the source's own ids (symbols or Ensembl gene ids) and this field's `pattern` does not apply to them: `chd-atlas ingest` rewrites each to the HGNC id it resolves to, and names every id that does not resolve and writes none of its rows.",
+      "name": "gene",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "gene_symbol",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^MONDO:\\d{7}$",
+        "required": true
+      },
+      "name": "disease",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "disease_label",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "AD",
+          "AR",
+          "MT",
+          "SD",
+          "UD",
+          "XL"
+        ],
+        "required": true
+      },
+      "name": "moi",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "sop",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "Definitive",
+          "Disputed",
+          "Limited",
+          "Moderate",
+          "No Known Disease Relationship",
+          "Refuted",
+          "Strong"
+        ],
+        "required": true
+      },
+      "name": "classification",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "classification_date",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "gcep",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "report_url",
+      "type": "string"
+    }
+  ],
+  "geneColumn": "gene",
+  "layout": {
+    "flat": "clingen_gene_validity.tsv"
+  },
+  "missingValues": [
+    ""
+  ],
+  "name": "clingen_validity",
+  "primaryKey": [
+    "gene",
+    "disease",
+    "moi"
+  ],
+  "sortKey": [
+    "gene",
+    "disease",
+    "moi"
+  ],
+  "sourceColumn": null,
+  "version": 1
+}

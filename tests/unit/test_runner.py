@@ -1562,3 +1562,21 @@ def test_a_header_only_gene_registry_skips_lit009_and_still_names_its_cause(
     assert "LIT009" not in errors
     assert errors & {"REF001", "GEN004"}
     assert report.ok is False
+
+
+def test_a_stray_package_manifest_reaches_the_report_on_the_loaded_registry_branch(
+    tmp_path: Path,
+) -> None:
+    """The pin check runs in the branch where the registry loaded (CLAUDE.md 4.34)."""
+    (tmp_path / "mirrors" / "packages").mkdir(parents=True)
+    (tmp_path / "mirrors" / "packages" / "orphan_pkg.json").write_text("{}")
+    (tmp_path / "mirrors" / "sources.yaml").write_text(
+        "sources:\n"
+        "  - id: clinvar\n    name: ClinVar\n    version: '1'\n    retrieved_on: 2026-07-15\n"
+        "    url: https://x.org/\n    licence: public-domain\n    redistribution: permitted\n"
+    )
+
+    report = validate_repository(tmp_path)
+
+    assert [i.code for i in report.issues if i.code == "SRC006"] == ["SRC006"]
+    assert not any(i.code in {"SRC000", "SRC001"} for i in report.issues)

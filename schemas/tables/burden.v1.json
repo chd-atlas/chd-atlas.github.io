@@ -1,0 +1,324 @@
+{
+  "$comment": "Exported by `chd-atlas schemas export` from src/chd_atlas/tables.py; do not edit.",
+  "fields": [
+    {
+      "constraints": {
+        "pattern": "^PMID:\\d+$",
+        "required": true
+      },
+      "name": "study",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^HGNC:\\d+$",
+        "required": true
+      },
+      "description": "In a source package this column holds the ids the manifest's `ids` names. When that is not `hgnc_id`, the cells are the source's own ids (symbols or Ensembl gene ids) and this field's `pattern` does not apply to them: `chd-atlas ingest` rewrites each to the HGNC id it resolves to, and names every id that does not resolve and writes none of its rows.",
+      "name": "gene",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "all",
+          "nonsyndromic",
+          "syndromic"
+        ],
+        "required": true
+      },
+      "name": "cohort_stratum",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "anomalous_venous_return",
+          "avsd",
+          "complex",
+          "conotruncal",
+          "heterotaxy",
+          "lvoto",
+          "other",
+          "rvoto",
+          "septal"
+        ],
+        "required": false
+      },
+      "name": "lesion_group",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "cnv_deletion",
+          "cnv_duplication",
+          "snv_indel",
+          "sv_other"
+        ],
+        "required": true
+      },
+      "name": "variant_class",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "all_coding",
+          "damaging",
+          "lof",
+          "missense_all",
+          "missense_damaging",
+          "synonymous"
+        ],
+        "required": true
+      },
+      "name": "consequence_class",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "any",
+          "de_novo",
+          "inherited",
+          "transmitted_or_unphased"
+        ],
+        "required": true
+      },
+      "name": "origin",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "maximum": 1,
+        "minimum": 0,
+        "required": false
+      },
+      "name": "maf_max",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "alleles",
+          "de_novo_mutations",
+          "individuals"
+        ],
+        "required": true
+      },
+      "name": "count_unit",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "minimum": 0,
+        "required": true
+      },
+      "name": "n_case_carriers",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "minimum": 1,
+        "required": true
+      },
+      "name": "n_cases",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "minimum": 0,
+        "required": false
+      },
+      "name": "n_chd_case_carriers",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "control_cohort",
+          "mutation_model",
+          "none"
+        ],
+        "required": true
+      },
+      "name": "comparator",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "minimum": 0,
+        "required": false
+      },
+      "name": "n_control_carriers",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "minimum": 1,
+        "required": false
+      },
+      "name": "n_controls",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "minimum": 0,
+        "required": false
+      },
+      "name": "expected_count",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "minimum": 0,
+        "required": false
+      },
+      "name": "effect",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "enrichment_ratio",
+          "odds_ratio",
+          "rate_ratio"
+        ],
+        "required": false
+      },
+      "name": "effect_measure",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "unbounded_above"
+        ],
+        "required": false
+      },
+      "name": "effect_bound",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "minimum": 0,
+        "required": false
+      },
+      "name": "ci_low",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "minimum": 0,
+        "required": false
+      },
+      "name": "ci_high",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "maximum": 1,
+        "minimum": 0,
+        "required": false
+      },
+      "name": "pvalue",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "binomial",
+          "fisher_exact",
+          "mutation_rate",
+          "permutation",
+          "poisson"
+        ],
+        "required": false
+      },
+      "name": "pvalue_test",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "maximum": 1,
+        "minimum": 0,
+        "required": false
+      },
+      "name": "pvalue_adjusted",
+      "type": "number"
+    },
+    {
+      "constraints": {
+        "enum": [
+          "benjamini_hochberg",
+          "bonferroni",
+          "familywise_permutation"
+        ],
+        "required": false
+      },
+      "name": "pvalue_adjustment",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^[a-z0-9]+(_[a-z0-9]+)*(;[a-z0-9]+(_[a-z0-9]+)*)*$",
+        "required": true
+      },
+      "name": "case_cohorts",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^[a-z0-9]+(_[a-z0-9]+)*(;[a-z0-9]+(_[a-z0-9]+)*)*$",
+        "required": false
+      },
+      "name": "control_cohorts",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": false
+      },
+      "name": "method_note",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "source",
+      "type": "string"
+    }
+  ],
+  "geneColumn": "gene",
+  "layout": {
+    "flat": "burden.tsv"
+  },
+  "missingValues": [
+    ""
+  ],
+  "name": "burden",
+  "primaryKey": [
+    "gene",
+    "study",
+    "cohort_stratum",
+    "lesion_group",
+    "variant_class",
+    "consequence_class",
+    "origin",
+    "maf_max"
+  ],
+  "sortKey": [
+    "gene",
+    "study",
+    "cohort_stratum",
+    "lesion_group",
+    "variant_class",
+    "consequence_class",
+    "origin",
+    "maf_max"
+  ],
+  "sourceColumn": "source",
+  "version": 1
+}

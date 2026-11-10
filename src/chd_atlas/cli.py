@@ -14,6 +14,7 @@ import typer
 from chd_atlas import pubmed
 from chd_atlas.build.runner import BuildRefused, build_site
 from chd_atlas.build.validity import gene_validity
+from chd_atlas.changes import render_markdown, site_changes
 from chd_atlas.corpus import load_curation
 from chd_atlas.fs import write_bytes_atomically
 from chd_atlas.gene_literature_diff import diff_findings
@@ -26,12 +27,14 @@ from chd_atlas.gene_literature_io import (
     with_publication,
     with_search,
 )
+from chd_atlas.ingest.apply import IngestResult, ingest_package
+from chd_atlas.ingest.package import IngestRefused
 from chd_atlas.models.assertion import InTextLocator, Locator
 from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile, finding_digest
 from chd_atlas.models.literature import Publication
 from chd_atlas.models.review import ReviewStatus
 from chd_atlas.pubmed import Fetch, PubMedError, urllib_fetch
-from chd_atlas.schema_export import export_schemas
+from chd_atlas.schema_export import TABLE_SCHEMA_DIR, export_schemas, export_table_schemas
 from chd_atlas.tables import TABLE_SCHEMAS, read_table
 from chd_atlas.validate.runner import _gate_published_genes, _symbol_registry, validate_repository
 from chd_atlas.vocab import StudyType, TriageDecision
@@ -142,6 +145,105 @@ def build(
     typer.echo(f"wrote {len(written)} file(s) to {out}")
 
 
+@app.command()
+def ingest(
+    source_id: str = typer.Argument(..., help="The source's id in mirrors/sources.yaml."),
+    package: Path = typer.Option(
+        ..., "--package", help="The package directory: manifest.json and the tables it lists."
+    ),
+    root: Path = typer.Option(Path("."), help="Repository root to ingest into."),
+) -> None:
+    """Merge a verified source package into mirrors/ and pin it in sources.yaml."""
+    # Exit 2 for an argument that cannot work or a filesystem error, 1 for a
+    # package or repository the ingest refuses (every file restored): the same
+    # split `validate` and `build` make.
+    for flag, path in (("--root", root), ("--package", package)):
+        if not path.is_dir():
+            raise _fail(f"{flag} {path} is not a directory", 2)
+    try:
+        result = ingest_package(root, source_id, package)
+    except IngestRefused as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
+    except OSError as exc:
+        # A write that failed, its files restored, or a restore that failed,
+        # whose message names every path it left changed (`apply._restore`).
+        raise _fail(str(exc), 2) from exc
+    for line in _ingest_lines(result):
+        typer.echo(line)
+
+
+@app.command("report-changes")
+def report_changes(
+    base_root: Path = typer.Option(..., "--base-root", help="The base checkout."),
+    base_site: Path = typer.Option(..., "--base-site", help="The site built from the base."),
+    head_root: Path = typer.Option(..., "--head-root", help="The head checkout."),
+    head_site: Path = typer.Option(..., "--head-site", help="The site built from the head."),
+    out: Path | None = typer.Option(None, "--out", help="Write the report here, not to stdout."),
+) -> None:
+    """Report what a change does to the published site, as one Markdown comment."""
+    for flag, path in (("--base-root", base_root), ("--head-root", head_root)):
+        if not path.is_dir():
+            raise _fail(f"{flag} {path} is not a directory", 2)
+    for flag, path in (("--base-site", base_site), ("--head-site", head_site)):
+        if not (path / "manifest.json").is_file():
+            raise _fail(f"{flag} {path} has no manifest.json", 2)
+    report = render_markdown(site_changes(base_root, base_site, head_root, head_site))
+    if out is None:
+        typer.echo(report, nl=False)
+        return
+    try:
+        write_bytes_atomically(out, report.encode("utf-8"))
+    except OSError as exc:
+        # As `build` reports an unwritable --out.
+        raise _fail(f"could not write the report to {out}: {exc}", 2) from exc
+
+
+def _ingest_lines(result: IngestResult) -> list[str]:
+    """What an ingest wrote and, by name, everything it did not."""
+    lines = [
+        f"ingested {result.source_id} {result.version}: {result.rows_in} row(s) in the "
+        f"package, {result.rows_written} written",
+        f"{result.rows_outside_registry} row(s) name a gene outside the registry and were "
+        f"not written",
+        f"{result.rows_unresolved} row(s) name a gene id that did not resolve and were not written",
+    ]
+    if result.unresolved:
+        names = "; ".join(
+            f"{item.symbol} ({item.resolution.value}"
+            + (f": {', '.join(item.candidates)}" if item.candidates else "")
+            + ")"
+            for item in result.unresolved
+        )
+        lines.append(
+            f"{len(result.unresolved)} gene id(s) did not resolve and their rows were not "
+            f"written: {names}"
+        )
+    absent = result.registry_genes_absent
+    if absent:
+        genes = ", ".join(absent)
+        # Facts only: why a gene has no row (the source has none, its id did
+        # not resolve, the registry changed after a slice was cut) is not
+        # something the ingest measures.
+        if result.coverage == "every_gene":
+            lines.append(
+                f"{len(absent)} registry gene(s) have no resolved row in the package: {genes}"
+            )
+        else:
+            lines.append(
+                f"{len(absent)} registry gene(s) have no resolved row in this registry slice "
+                f"(cut at {result.coverage.atlas_commit} over {result.coverage.genes} genes; "
+                f"the registry now lists {result.registry_genes}): {genes}"
+            )
+    for entry in result.dropped:
+        examples = f" (e.g. {', '.join(entry.examples)})" if entry.examples else ""
+        lines.append(f"dropped before packaging: {entry.reason}: {entry.count}{examples}")
+    # An error refuses the ingest, so the count is 0 whenever this prints.
+    lines.append(f"validate: 0 error(s), {len(result.warnings)} warning(s)")
+    lines += [issue.format() for issue in result.warnings]
+    return lines
+
+
 @schemas_app.command("export")
 def schemas_export(
     target: Path = typer.Option(Path("schemas"), help="Directory to write schemas into."),
@@ -153,11 +255,13 @@ def schemas_export(
     # are both OSError.
     try:
         written = export_schemas(target)
+        tables = export_table_schemas(target / TABLE_SCHEMA_DIR)
     except OSError as exc:
         typer.echo(f"error: could not write schemas to {target}: {exc}")
         raise typer.Exit(code=2) from exc
 
     typer.echo(f"wrote {len(written)} schema(s) to {target}")
+    typer.echo(f"wrote {len(tables)} table schema(s) to {target / TABLE_SCHEMA_DIR}")
 
 
 def _fail(message: str, code: int) -> typer.Exit:

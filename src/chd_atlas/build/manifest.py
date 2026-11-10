@@ -506,7 +506,12 @@ from chd_atlas.corpus import Corpus
 #   `curation/literature` file exists.
 # * `publications.json` records may now carry `study_type` `case_report`,
 #   `cohort_sequencing`, `gwas` or `candidate_variant` (vocab.StudyType).
-SCHEMA_VERSION: Final = "2.21"
+#
+# 2.22 (atlas feeds, spec F11). MINOR, additive: every `sources.json` entry
+# gains `package`: `null` when the source's rows were not ingested from a
+# package, which is every source in 2.22 and, for good, a source no mirror
+# table holds rows from, such as `hpo`.
+SCHEMA_VERSION: Final = "2.22"
 
 # What `status` publishes today. A literal rather than something derived from
 # the corpus, unlike every field in `counts`: there is no measurement of "is
