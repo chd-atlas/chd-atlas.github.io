@@ -1,9 +1,9 @@
 # src/chd_atlas/pubmed.py
 """A small PubMed (NCBI E-utilities) client for the literature curator tooling.
 
-Standard library only. Three jobs: build the fixed search query, page through
-esearch without ever truncating, and read esummary/efetch into the fields a
-curator and a `Publication` record need.
+Standard library only. Two jobs: page through esearch without ever truncating,
+and read esummary/efetch into the fields a curator and a `Publication` record
+need. The search query itself is built in `literature_query.build_query`.
 
 **Every function takes its transport as an argument** (`Fetch`: URL in, bytes
 out), so tests inject recorded or fake responses and nothing here reaches the
@@ -50,33 +50,6 @@ TIMEOUT_SECONDS: Final = 30.0
 # the history server, so `esearch_all` refuses instead of returning a prefix.
 MAX_PAGEABLE_HITS: Final = 9999
 
-# The spec's term list (docs/superpowers/specs/2026-11-02-literature-timeline-
-# design.md, section 4, item 1) with every "(s)" expanded into the singular and
-# then the plural as two terms -- "(s)" is not PubMed syntax (ruling R6). The
-# spec lets the owner edit this list before the pilot; a test pins the tuple so
-# a change to it is a visible diff.
-CHD_TERMS: Final[tuple[str, ...]] = (
-    "congenital heart",
-    "heart defect",
-    "heart defects",
-    "cardiac defect",
-    "cardiac defects",
-    "heart malformation",
-    "heart malformations",
-    "cardiac malformation",
-    "cardiac malformations",
-    "septal defect",
-    "septal defects",
-    "tetralogy of Fallot",
-    "transposition of the great arteries",
-    "hypoplastic left heart",
-    "heterotaxy",
-    "conotruncal",
-    "outflow tract",
-    "atrioventricular septal defect",
-    "coarctation",
-)
-
 
 class PubMedError(Exception):
     """PubMed gave an answer the curator tooling cannot safely use."""
@@ -93,27 +66,6 @@ class PaperMeta:
     authors: tuple[str, ...]
     doi: str | None
     pmcid: str | None
-
-
-def _phrase(text: str) -> str:
-    """One quoted `[tiab]` phrase. PubMed has no escape for `"`, so it is dropped."""
-    return '"' + " ".join(text.replace('"', " ").split()) + '"[tiab]'
-
-
-def build_query(symbol: str, previous: Sequence[str], diseases: Sequence[str]) -> str:
-    """The recorded search for one gene.
-
-    The symbol comes first, then the previous symbols and the disease labels in
-    sorted order; the CHD terms keep `CHD_TERMS` order. Nothing is filtered: the
-    caller decides which previous symbols and diseases belong.
-    """
-    gene_block = " OR ".join([_phrase(symbol), *(_phrase(p) for p in sorted(previous))])
-    chd_block = " OR ".join(
-        ['"Heart Defects, Congenital"[mh]']
-        + [_phrase(t) for t in CHD_TERMS]
-        + [_phrase(d) for d in sorted(diseases)]
-    )
-    return f"({gene_block}) AND ({chd_block}) NOT preprint[pt] NOT review[pt]"
 
 
 def _url(endpoint: str, params: dict[str, str], api_key: str | None) -> str:

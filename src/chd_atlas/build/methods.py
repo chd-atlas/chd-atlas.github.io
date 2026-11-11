@@ -492,7 +492,7 @@ _RARE_VARIANTS: Final = (
 
 # Written new (2026-11-02, plan Task 6); reworded after the final review
 # (S1, S12, R30). Each clause is held to the code it describes: the query off
-# `pubmed.build_query` (the gene's symbol and unambiguous previous symbols; the
+# `literature_query.build_query` (the gene's symbol and unambiguous previous symbols; the
 # CHD terms and the gene's in-scope disease names, which the CLI passes in;
 # preprints and reviews excluded), the decisions off `vocab.TriageDecision`
 # (`pending` is what the page's line calls "not yet triaged"), the two axes off

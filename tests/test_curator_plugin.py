@@ -174,7 +174,9 @@ def test_every_command_and_option_the_files_name_exists_in_the_cli() -> None:
         for option in re.findall(r"(?<![\w-])(--[a-z][a-z-]+)", text):
             assert option in every_option | NON_LITERATURE_OPTIONS, f"{path.name}: {option}"
     # Each command a curator runs is taught somewhere, so a removed one is noticed.
-    assert named_commands == set(commands)
+    # `target` is run by the curator program and never typed by a person, so no
+    # skill teaches it.
+    assert named_commands == set(commands) - {"target"}
 
 
 def test_every_code_the_files_name_is_raised_by_the_code() -> None:
