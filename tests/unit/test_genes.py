@@ -248,7 +248,11 @@ def test_gen003_reports_a_mirror_symbol_the_registry_cannot_resolve() -> None:
     assert issues[0].severity is Severity.WARNING
     assert "HGNC:4173" in issues[0].message
     assert "'GATA4-OLD'" in issues[0].message
-    assert "convert_hgnc.py" in issues[0].message
+    assert (
+        "pin a newer HGNC package from chd-atlas/feeds "
+        "(`chd-atlas ingest hgnc --package <its directory>`)"
+    ) in issues[0].message
+    assert "re-ingesting the pinned version changes nothing" in issues[0].message
 
 
 def test_losing_the_prev_symbols_column_brings_gen003_back_rather_than_going_quiet() -> None:

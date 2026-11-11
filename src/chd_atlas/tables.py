@@ -634,11 +634,11 @@ POOLED_REGION: Final = "all"
 # The two rules the cell-type block prints of every value, defined once. A
 # heart counts towards a (cell type, region) only with at least this many cells
 # of it there: hvantk drops a smaller group (`--min-cells`, 10 in the cluster
-# job), `convert_farah2024.py` refuses one that arrives anyway, and CTP010
+# job), the feeds recipe `sources/farah2024_hoc` refuses one that arrives anyway, and CTP010
 # checks what the mirror can show of it.
 MIN_CELLS_PER_HEART: Final = 10
 # Quartiles are published from this many hearts; below it they are null
-# (`convert_farah2024.py` writes them so, and CTP009 holds the mirror to it).
+# (the feeds recipe `sources/farah2024_hoc` writes them so, and CTP009 holds the mirror to it).
 MIN_HEARTS_FOR_QUARTILES: Final = 3
 
 CELL_TYPE_PROFILES = TableSchema(
@@ -879,7 +879,7 @@ CHD_CASE_SPLITS: Final[dict[str, CaseSplit]] = {
 }
 
 # One study's own combination of two of its burden arms. Added 2026-10-24 for
-# PMID:40127276's JL-FDR meta-analysis, which `convert_sierant2025.py` declined to
+# PMID:40127276's JL-FDR meta-analysis, which the old Sierant converter declined to
 # put in `pvalue_adjusted` -- correctly, because it is not a corrected p.
 BURDEN_COMBINED = TableSchema(
     name="burden_combined",

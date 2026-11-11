@@ -6,14 +6,13 @@ or `mirrors/gencc_submissions.tsv` names against a disease listed in
 the genes the site publishes: a lookup table, so that widening the publication
 gate does not require re-mirroring.
 
-`scripts/convert_hgnc.py::_in_scope_genes` holds the same rule and still uses
-it when a curator runs that converter; stage E of feeds phase 2 deletes the
-converter. It reads the scope ids with a regular expression over the YAML
-text; here they are `ChdScopeFile.diseases[].id`. Measured 2026-11-10, the
-file's 105 ``- id:`` lines are all MONDO ids under ``diseases``, so the two
-readings agree on the committed file. `tests/unit/test_registry.py` pins one
-thing about the committed corpus: this module derives exactly the 185 genes of
-`mirrors/genes.tsv`. Nothing compares the two implementations directly.
+The deleted `scripts/convert_hgnc.py::_in_scope_genes` held the same rule. It
+read the scope ids with a regular expression over the YAML text; here they are
+`ChdScopeFile.diseases[].id`. Measured 2026-11-10, the file's 105 ``- id:``
+lines are all MONDO ids under ``diseases``, so the two readings agreed on the
+committed file. `tests/unit/test_registry.py` pins one thing about the
+committed corpus: this module derives exactly the 185 genes of
+`mirrors/genes.tsv`.
 
 A validity mirror that is ABSENT counts as a mirror with no rows: its genes
 are not in the registry, and a registry derived from the other mirror alone is

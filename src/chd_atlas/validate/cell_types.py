@@ -31,8 +31,8 @@ them, or with the rules the cell-type block prints of every value:
   heart counted had at least 10 cells there, so the pool has at least ten per
   heart. Necessary, not sufficient: a pool can clear it with one heart under
   10 cells (hearts of 25 and 5 cells pool 30, over 20), and only the per-heart
-  groups the converter reads can show that (`convert_farah2024.py` refuses
-  them).
+  groups the feeds recipe `sources/farah2024_hoc` reads can show that, and it
+  refuses them.
 - **CTP011** one (dataset, gene, cell_type, region) in more than one shard. The
   build would keep one row and drop the other in silence. TBL007 already
   refuses a repeat within one shard on the same key, so this covers repeats
