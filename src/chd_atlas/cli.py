@@ -4,7 +4,8 @@ import json
 import os
 import re
 import urllib.error
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -27,8 +28,16 @@ from chd_atlas.gene_literature_io import (
     with_publication,
     with_search,
 )
-from chd_atlas.ingest.apply import IngestResult, ingest_package
+from chd_atlas.ingest.apply import (
+    IngestAllResult,
+    IngestResult,
+    ingest_all,
+    ingest_package,
+    package_pins,
+    pinned_package_dir,
+)
 from chd_atlas.ingest.package import IngestRefused
+from chd_atlas.issues import ValidationIssue
 from chd_atlas.models.assertion import InTextLocator, Locator
 from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile, finding_digest
 from chd_atlas.models.literature import Publication
@@ -147,21 +156,66 @@ def build(
 
 @app.command()
 def ingest(
-    source_id: str = typer.Argument(..., help="The source's id in mirrors/sources.yaml."),
-    package: Path = typer.Option(
-        ..., "--package", help="The package directory: manifest.json and the tables it lists."
+    source_id: str | None = typer.Argument(
+        None, help="The source's id in mirrors/sources.yaml (none with --all)."
+    ),
+    package: Path | None = typer.Option(
+        None,
+        "--package",
+        help="The package directory: manifest.json and the tables it lists. "
+        "Default: the pinned version's cache, local/packages/SOURCE_ID/VERSION.",
+    ),
+    every: bool = typer.Option(
+        False,
+        "--all",
+        help="Re-ingest every pinned package from its cache, remove the rows of genes that "
+        "left the registry, and validate once at the end.",
     ),
     root: Path = typer.Option(Path("."), help="Repository root to ingest into."),
 ) -> None:
-    """Merge a verified source package into mirrors/ and pin it in sources.yaml."""
+    """Merge a verified source package into mirrors/ and pin it in sources.yaml.
+
+    With --all, also removes from every registry-filtered mirror the rows of genes that
+    left the registry (the hgnc step), printing each file, gene and row count.
+    """
     # Exit 2 for an argument that cannot work or a filesystem error, 1 for a
     # package or repository the ingest refuses (every file restored): the same
     # split `validate` and `build` make.
-    for flag, path in (("--root", root), ("--package", package)):
-        if not path.is_dir():
-            raise _fail(f"{flag} {path} is not a directory", 2)
-    try:
+    one_of = "give a SOURCE_ID, or --all with no SOURCE_ID or --package"
+    if not root.is_dir():
+        raise _fail(f"--root {root} is not a directory", 2)
+    if every:
+        if source_id is not None or package is not None:
+            raise _fail(one_of, 2)
+        with _ingest_errors():
+            every_result = ingest_all(root)
+        for line in _ingest_all_lines(every_result):
+            typer.echo(line)
+        return
+    if source_id is None:
+        raise _fail(one_of, 2)
+    if package is not None and not package.is_dir():
+        raise _fail(f"--package {package} is not a directory", 2)
+    with _ingest_errors():
+        if package is None:
+            pin = package_pins(root).get(source_id)
+            if pin is None:
+                raise _fail(
+                    f"source '{source_id}' has no package pin in mirrors/sources.yaml; "
+                    "give the package directory with --package",
+                    2,
+                )
+            package = pinned_package_dir(root, source_id, pin)
         result = ingest_package(root, source_id, package)
+    for line in _ingest_lines(result):
+        typer.echo(line)
+
+
+@contextmanager
+def _ingest_errors() -> Iterator[None]:
+    """Exit 1 printing a refusal (every file restored), 2 on a filesystem error."""
+    try:
+        yield
     except IngestRefused as exc:
         typer.echo(str(exc))
         raise typer.Exit(code=1) from exc
@@ -169,8 +223,6 @@ def ingest(
         # A write that failed, its files restored, or a restore that failed,
         # whose message names every path it left changed (`apply._restore`).
         raise _fail(str(exc), 2) from exc
-    for line in _ingest_lines(result):
-        typer.echo(line)
 
 
 @app.command("report-changes")
@@ -200,6 +252,32 @@ def report_changes(
 
 
 def _ingest_lines(result: IngestResult) -> list[str]:
+    """What an ingest wrote and, by name, everything it did not; then its validation."""
+    return _summary_lines(result) + _validation_lines(result.warnings)
+
+
+def _ingest_all_lines(every: IngestAllResult) -> list[str]:
+    """Each source's summary, every pruned row by file and gene, then the one validation."""
+    lines = [line for result in every.results for line in _summary_lines(result)]
+    if not every.results:
+        lines.append(
+            "no source in mirrors/sources.yaml is pinned to a package; nothing was ingested"
+        )
+    if every.pruned:
+        genes = sorted({item.gene for item in every.pruned})
+        total = sum(item.rows for item in every.pruned)
+        lines.append(
+            f"removed {total} row(s) naming {len(genes)} gene(s) that left the registry: "
+            + ", ".join(genes)
+        )
+        by_path: dict[str, list[str]] = {}
+        for item in every.pruned:
+            by_path.setdefault(item.path, []).append(f"{item.gene} ({item.rows})")
+        lines += [f"removed from {path}: {', '.join(found)}" for path, found in by_path.items()]
+    return lines + _validation_lines(every.warnings)
+
+
+def _summary_lines(result: IngestResult) -> list[str]:
     """What an ingest wrote and, by name, everything it did not."""
     lines = [
         f"ingested {result.source_id} {result.version}: {result.rows_in} row(s) in the "
@@ -238,10 +316,15 @@ def _ingest_lines(result: IngestResult) -> list[str]:
     for entry in result.dropped:
         examples = f" (e.g. {', '.join(entry.examples)})" if entry.examples else ""
         lines.append(f"dropped before packaging: {entry.reason}: {entry.count}{examples}")
-    # An error refuses the ingest, so the count is 0 whenever this prints.
-    lines.append(f"validate: 0 error(s), {len(result.warnings)} warning(s)")
-    lines += [issue.format() for issue in result.warnings]
     return lines
+
+
+def _validation_lines(warnings: Sequence[ValidationIssue]) -> list[str]:
+    # An error refuses the ingest, so the count is 0 whenever this prints.
+    return [
+        f"validate: 0 error(s), {len(warnings)} warning(s)",
+        *(issue.format() for issue in warnings),
+    ]
 
 
 @schemas_app.command("export")

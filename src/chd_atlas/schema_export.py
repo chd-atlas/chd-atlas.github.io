@@ -73,8 +73,17 @@ _GENE_COLUMN_NOTE: Final = (
     "every id that does not resolve and writes none of its rows."
 )
 
+# The `genes` table is the registry itself, so the generic note would mislead:
+# it ships only in the `hgnc` package and its gene column is already `hgnc_id`.
+_GENES_TABLE_NOTE: Final = (
+    "The `genes` table ships only in the `hgnc` package, whose manifest `ids` is "
+    "`hgnc_id`, so this column holds HGNC ids as they stand. `chd-atlas ingest` "
+    "writes only the rows of genes in the registry the atlas derives from its scope "
+    "and the validity mirrors, not the whole package."
+)
 
-def _field(column: Column, *, gene: bool = False) -> dict[str, Any]:
+
+def _field(column: Column, *, gene: bool = False, table: str = "") -> dict[str, Any]:
     field_type = _FIELD_TYPES.get(column.dtype)
     if field_type is None:
         raise ValueError(f"column {column.name!r} has unexportable dtype {column.dtype!r}")
@@ -89,7 +98,7 @@ def _field(column: Column, *, gene: bool = False) -> dict[str, Any]:
         constraints["maximum"] = column.maximum
     field: dict[str, Any] = {"name": column.name, "type": field_type, "constraints": constraints}
     if gene:
-        field["description"] = _GENE_COLUMN_NOTE
+        field["description"] = _GENES_TABLE_NOTE if table == "genes" else _GENE_COLUMN_NOTE
     return field
 
 
@@ -101,7 +110,8 @@ def _table_document(schema: TableSchema) -> dict[str, Any]:
         "version": schema.version,
         "layout": {kind: location},
         "fields": [
-            _field(column, gene=column.name == schema.gene_column) for column in schema.columns
+            _field(column, gene=column.name == schema.gene_column, table=schema.name)
+            for column in schema.columns
         ],
         "missingValues": [""],
         # TBL007 refuses a duplicate sort key, so the sort key is a primary key.

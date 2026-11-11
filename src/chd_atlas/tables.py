@@ -31,6 +31,7 @@ from chd_atlas.identifiers import (
     ORPHA_PATTERN,
     PMID_PATTERN,
     SEQUENCE_ONTOLOGY_PATTERN,
+    UNIPROT_LIST_PATTERN,
     UNIPROT_PATTERN,
     XREF_TARGET_PATTERN,
 )
@@ -391,10 +392,13 @@ GENES = TableSchema(
         Column("ensembl_gene", pl.String, nullable=True),
         Column("ncbi_gene", pl.Int64, nullable=True),
         Column("locus", pl.String, nullable=True),
-        Column("uniprot", pl.String, nullable=True, pattern=UNIPROT_PATTERN),
+        Column("uniprot", pl.String, nullable=True, pattern=UNIPROT_LIST_PATTERN),
         Column("mane_select", pl.String, nullable=True),
     ),
     sort_key=("hgnc_id",),
+    # v2: `uniprot` takes HGNC's `|`-separated accession list so an every-gene
+    # HGNC package conforms. GEN005 still refuses a list on a registry row.
+    version=2,
 )
 
 PTM_SITES = TableSchema(
@@ -1155,6 +1159,27 @@ def unexpected_mirror_entries(root: Path) -> list[ValidationIssue]:
                 )
             )
     return issues
+
+
+def leading_quote_fields(text: str) -> list[tuple[int, int]]:
+    """The (line, field) of every tab-separated field that begins with ``"``.
+
+    Both are 1-based and the header is line 1. Pure and over raw text on purpose:
+    polars' default CSV quoting reads a cell opening with ``"`` as the start of a
+    quoted field that may swallow following rows (measured in feeds phase 1 on a
+    ``burden.tsv`` copy: ``"open`` at line 900 and ``close"`` at line 910 gave
+    1,795 rows from read_table, 0 validation issues, 10 rows vanished), so the
+    parsed frame cannot be what reports it.
+    """
+    lines = text.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    return [
+        (number, index)
+        for number, line in enumerate(lines, start=1)
+        for index, field in enumerate(line.split("\t"), start=1)
+        if field.startswith('"')
+    ]
 
 
 def mirror_paths(root: Path) -> list[tuple[Path, str]]:

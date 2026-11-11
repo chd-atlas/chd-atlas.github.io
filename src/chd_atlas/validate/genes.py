@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
+import polars as pl
+
 from chd_atlas.build.identity import EMPTY_IDENTITY, GeneIdentity, identity_id_problems
 from chd_atlas.genes import GeneRegistry, Resolution
 from chd_atlas.issues import Severity, ValidationIssue
@@ -252,3 +254,86 @@ def _registry_ids(registry: GeneRegistry) -> set[str]:
         for found in (registry.resolve(symbol) for symbol in registry.approved_symbols())
         if found.gene is not None
     }
+
+
+def validate_one_uniprot_per_gene(genes: pl.DataFrame) -> list[ValidationIssue]:
+    """GEN005: a row of `mirrors/genes.tsv` names at most one UniProt accession.
+
+    The `genes` table is format version 2, whose `uniprot` column accepts
+    HGNC's `|`-separated list (HGNC lists several for 57 genes), so that an
+    every-gene HGNC package conforms. Every row of `mirrors/genes.tsv` is a
+    registry gene, though, and a registry gene must name exactly one protein --
+    RBM10 (HGNC:9896) lists `P0DW28|P98175` and is pinned to `P98175`.
+
+    An ERROR, not a warning, because consumers of `genes.uniprot` assume one
+    accession (measured by reading the call sites): `build/identity.py` builds a
+    UniProt link from the cell, `build/omics.py` maps accession to gene, and
+    `validate/referential.py` reads it too. A list reaching the build would
+    publish a broken link. A null or blank cell yields nothing.
+    """
+    if "uniprot" not in genes.columns or "hgnc_id" not in genes.columns:
+        return []
+    issues: list[ValidationIssue] = []
+    for gene, cell in zip(genes["hgnc_id"].to_list(), genes["uniprot"].to_list(), strict=True):
+        if cell is None or "|" not in str(cell):
+            continue
+        accessions = [part for part in str(cell).split("|") if part]
+        issues.append(
+            ValidationIssue(
+                code="GEN005",
+                severity=Severity.ERROR,
+                location="mirrors/genes.tsv",
+                message=(
+                    f"{gene} lists {len(accessions)} UniProt accessions "
+                    f"({', '.join(accessions)}); a registry gene names exactly one "
+                    "protein, so pin the gene's own protein in the HGNC recipe"
+                ),
+            )
+        )
+    return sorted(issues, key=lambda issue: issue.message)
+
+
+# How many missing ids GEN006 names before it gives the total instead.
+_GEN006_SHOWN = 10
+
+
+def validate_registry_is_current(
+    derived: frozenset[str], genes: pl.DataFrame
+) -> list[ValidationIssue]:
+    """GEN006: every gene of the derived registry has a row in `mirrors/genes.tsv`.
+
+    `derived` is `registry.derive_registry` over the scope and the two validity
+    mirrors: the genes `chd-atlas ingest hgnc` writes. A gene it holds that the
+    file lacks has no symbol, identity ids or UniProt accession in the atlas,
+    and an ingest filtered to the file drops its rows as outside the registry.
+    A scope or validity-mirror change after the last HGNC ingest leaves the
+    file in that state, as does a hand edit. One ERROR naming
+    the missing ids (sorted, the first ten and then the total), never one per
+    gene. A gene the file holds and the registry does not is not reported here.
+
+    A frame without an ``hgnc_id`` column yields nothing: `validate_table`
+    reports that as TBL001.
+    """
+    if "hgnc_id" not in genes.columns:
+        return []
+    present = {str(gene) for gene in genes["hgnc_id"].to_list() if gene is not None}
+    missing = sorted(derived - present)
+    if not missing:
+        return []
+    shown = ", ".join(missing[:_GEN006_SHOWN])
+    more = f" (first {_GEN006_SHOWN} of {len(missing)})" if len(missing) > _GEN006_SHOWN else ""
+    noun = "gene" if len(missing) == 1 else "genes"
+    return [
+        ValidationIssue(
+            code="GEN006",
+            severity=Severity.ERROR,
+            location="mirrors/genes.tsv",
+            message=(
+                f"mirrors/genes.tsv lacks {len(missing)} {noun} the registry derives from "
+                f"curation/chd_scope.yaml and the validity mirrors{more}: {shown}; "
+                "re-ingest hgnc or run `chd-atlas ingest --all` (before hgnc is pinned, "
+                "regenerate mirrors/genes.tsv with scripts/convert_hgnc.py); if the pinned "
+                "HGNC package lacks the gene, pin a newer HGNC release"
+            ),
+        )
+    ]

@@ -23,6 +23,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -31,15 +32,24 @@ import pytest
 from chd_atlas.fs import write_bytes_atomically
 from chd_atlas.genes import Resolution, Resolved
 from chd_atlas.ingest import apply
-from chd_atlas.ingest.apply import ingest_package, with_source_entry
+from chd_atlas.ingest.apply import (
+    IngestAllResult,
+    IngestResult,
+    PrunedRows,
+    ingest_all,
+    ingest_package,
+    with_source_entry,
+)
 from chd_atlas.ingest.package import IngestRefused
-from chd_atlas.issues import Severity
+from chd_atlas.ingest.resolve import package_cache
+from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.models.package import PackageSource, RegistrySlice
+from chd_atlas.registry import RegistryUnavailable, derive_registry_from_root
 from chd_atlas.tables import TABLE_SCHEMAS, mirror_paths, table_layout
-from chd_atlas.validate.runner import ValidationReport
+from chd_atlas.validate.runner import ValidationReport, validate_repository
 from chd_atlas.validate.sort_order import validate_sort_order
 from chd_atlas.validate.sources import PackagePin, load_sources
-from tests.unit.package_fixtures import manifest_dict, tsv_bytes, write_package
+from tests.unit.package_fixtures import manifest_dict, tsv_bytes, write_hgnc_root, write_package
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 SOURCE = "toy_burden"
@@ -286,7 +296,14 @@ def test_a_package_failing_validation_restores_every_file(
         ingest_package(repo, SOURCE, package)
 
     assert excinfo.value.code == "ING010"
-    assert "BUR019" in excinfo.value.message
+    # Exact, so the `--all` hint (an hgnc ingest's alone) is shown absent. Row 5
+    # is where the edited row sorts in the committed burden.tsv.
+    assert excinfo.value.message == (
+        "the repository fails validation with this package applied (1 error(s)):\n"
+        "ERROR [BUR019] mirrors/burden.tsv:row 5: 'count_unit' is 'de_novo_mutations' but "
+        "'origin' is 'transmitted_or_unphased'; de novo mutations cannot be counted in a "
+        "variant set that was not restricted to them"
+    )
     # The refusal came after the writes, so the restore had work to undo.
     mirrors = repo / "mirrors"
     cache = repo / "local" / "packages" / SOURCE / VERSION
@@ -679,7 +696,7 @@ def write_tables(
         specs.append(
             {
                 "name": name,
-                "format_version": 1,
+                "format_version": schema.version,
                 "file": file,
                 "sha256": hashlib.sha256(data).hexdigest(),
                 "rows": len(rows),
@@ -822,3 +839,901 @@ def test_a_row_dropped_without_being_named_stops_the_ingest_before_any_write(
         "0 outside the registry, 0 unresolved"
     )
     assert tree(repo) == before
+
+
+def test_a_repin_that_keeps_its_version_must_keep_its_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = small_repo(tmp_path, monkeypatch)
+    rows = toy_rows()[:6]
+    v1 = write_tables(tmp_path / "v1", [("burden", None, rows)], version="v1")
+    ingest_package(repo, SOURCE, v1)
+    pinned = load_sources(repo)[0]
+    pin = next(s.package for s in pinned.sources if s.id == SOURCE)
+    assert pin is not None
+    before = tree(repo)
+
+    # Same version, different bytes: one row fewer, hashes and counts honest.
+    edited = write_tables(tmp_path / "edited", [("burden", None, rows[:5])], version="v1")
+    digest = hashlib.sha256((edited / "manifest.json").read_bytes()).hexdigest()
+    assert digest != pin.manifest_sha256
+    with pytest.raises(IngestRefused) as excinfo:
+        ingest_package(repo, SOURCE, edited)
+
+    assert excinfo.value.code == "ING016"
+    assert excinfo.value.message == (
+        f"toy_burden v1 is pinned at sha256:{pin.manifest_sha256[:12]}\u2026; "
+        f"this package's manifest is sha256:{digest[:12]}\u2026; "
+        f"a package that changes its bytes must change its version"
+    )
+    assert tree(repo) == before
+
+    # The identical package is allowed and changes no byte.
+    ingest_package(repo, SOURCE, v1)
+    assert tree(repo) == before
+
+
+def test_a_new_version_with_different_bytes_is_accepted_and_moves_the_pin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ING016's permissive half: only the SAME version with other bytes is refused.
+
+    Every monthly HGNC release and every `-r2` is a new version with new bytes.
+    Mutant `if pin is None or pin.version != ...` -> `if pin is None` refuses
+    them all; the test above cannot see it (it re-pins the same version).
+    """
+    repo = small_repo(tmp_path, monkeypatch)
+    rows = toy_rows()[:6]
+    ingest_package(
+        repo, SOURCE, write_tables(tmp_path / "v1", [("burden", None, rows)], version="v1")
+    )
+    v2 = write_tables(tmp_path / "v2", [("burden", None, rows[:5])], version="v2")
+    digest = hashlib.sha256((v2 / "manifest.json").read_bytes()).hexdigest()
+
+    result = ingest_package(repo, SOURCE, v2)
+
+    assert result.version == "v2"
+    pin = next(s.package for s in load_sources(repo)[0].sources if s.id == SOURCE)
+    assert pin is not None
+    assert (pin.version, pin.manifest_sha256) == ("v2", digest)
+    assert result.rows_written == 5
+    assert len(mirror_lines_of(repo, "mirrors/burden.tsv")) == 5
+
+
+def mirror_lines_of(repo: Path, relative: str) -> list[str]:
+    return (repo / relative).read_text(encoding="utf-8").splitlines()[1:]
+
+
+# --- the hgnc package: `genes.tsv` is the registry the atlas derives ----------
+
+HGNC_VERSION = "2026-10-16"
+TBX5, TBX1, RGS9 = "HGNC:11604", "HGNC:11592", "HGNC:10004"
+A1BG = {
+    "hgnc_id": "HGNC:5",
+    "symbol": "A1BG",
+    "name": "alpha-1-B glycoprotein",
+    "ensembl_gene": "ENSG00000121410",
+    "ncbi_gene": "1",
+    "locus": "19q13.43",
+    "uniprot": "P04217",
+    "mane_select": "NM_130786.4",
+}
+
+
+def committed_lines(relative: str, *starts: str) -> list[str]:
+    """The header and, in order, the first committed line starting with each prefix."""
+    header, *lines = (REPO_ROOT / relative).read_text(encoding="utf-8").splitlines()
+    return [header, *(next(line for line in lines if line.startswith(s)) for s in starts)]
+
+
+def hgnc_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, genes: str | None) -> Path:
+    """The committed scope, and validity mirrors that derive {TBX5, TBX1}.
+
+    ClinGen names TBX5 for Holt-Oram syndrome (in scope) and RGS9 for
+    bradyopsia (not); GenCC names TBX1 for conotruncal heart malformations
+    (SGC-102133, in scope) and RGS9 for bradyopsia (SGC-101840). Every line is
+    copied from the committed mirrors. ``genes.tsv`` lists ``genes`` alone, or
+    is absent when it is None. Validation is stubbed, as in `small_repo`.
+    """
+    repo = tmp_path / "repo"
+    (repo / "curation").mkdir(parents=True)
+    (repo / "mirrors").mkdir()
+    shutil.copy(REPO_ROOT / "curation" / "chd_scope.yaml", repo / "curation")
+    shutil.copy(REPO_ROOT / "mirrors" / "sources.yaml", repo / "mirrors")
+    mirrors = {
+        "clingen_gene_validity.tsv": (f"{RGS9}\t", f"{TBX5}\tTBX5\tMONDO:0007732\t"),
+        "gencc_submissions.tsv": ("SGC-101840\t", "SGC-102133\t"),
+    }
+    for name, starts in mirrors.items():
+        lines = committed_lines(f"mirrors/{name}", *starts)
+        (repo / "mirrors" / name).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if genes is not None:
+        lines = committed_lines("mirrors/genes.tsv", f"{genes}\t")
+        (repo / "mirrors" / "genes.tsv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    monkeypatch.setattr(apply, "validate_repository", lambda _: ValidationReport())
+    return repo
+
+
+def hgnc_package(tmp_path: Path) -> Path:
+    """TBX5's and TBX1's committed registry rows, and A1BG, which the registry lacks."""
+    header, *lines = committed_lines("mirrors/genes.tsv", f"{TBX5}\t", f"{TBX1}\t")
+    columns = header.split("\t")
+    rows = [dict(zip(columns, line.split("\t"), strict=True)) for line in lines] + [A1BG]
+    return write_tables(
+        tmp_path / "pkg", [("genes", None, rows)], package="hgnc", version=HGNC_VERSION
+    )
+
+
+@pytest.mark.parametrize("current", [TBX5, None], ids=["genes-lists-tbx5-only", "no-genes-tsv"])
+def test_hgnc_ingest_writes_the_derived_registry_not_the_current_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, current: str | None
+) -> None:
+    """The filter is the registry derived from the scope, not the `genes.tsv` it replaces.
+
+    TBX1 is in the derived registry and not in the current file, so a filter
+    on the current file would drop it (or, with no file, refuse as ING010).
+    """
+    repo = hgnc_repo(tmp_path, monkeypatch, current)
+    package = hgnc_package(tmp_path)
+
+    result = ingest_package(repo, "hgnc", package)
+
+    expected = committed_lines("mirrors/genes.tsv", f"{TBX1}\t", f"{TBX5}\t")
+    assert (repo / "mirrors" / "genes.tsv").read_text(encoding="utf-8") == "\n".join(
+        expected
+    ) + "\n"
+    counts = (result.rows_in, result.rows_written, result.rows_outside_registry)
+    assert counts == (3, 2, 1)
+    assert (result.registry_genes, result.registry_genes_absent) == (2, ())
+    cache = repo / "local" / "packages" / "hgnc" / HGNC_VERSION
+    assert (cache / "manifest.json").read_bytes() == (package / "manifest.json").read_bytes()
+    assert (cache / "genes.tsv").read_bytes() == (package / "genes.tsv").read_bytes()
+
+
+def _keep_only_rgs9(repo: Path) -> None:
+    for name, start in (
+        ("clingen_gene_validity.tsv", f"{RGS9}\t"),
+        ("gencc_submissions.tsv", "SGC-101840\t"),
+    ):
+        lines = committed_lines(f"mirrors/{name}", start)
+        (repo / "mirrors" / name).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _symbol_for_an_id(repo: Path) -> None:
+    path = repo / "mirrors" / "clingen_gene_validity.tsv"
+    text = path.read_text(encoding="utf-8")
+    path.write_text(text.replace(f"{TBX5}\t", "TBX5\t", 1), encoding="utf-8")
+
+
+def _no_validity_mirrors(repo: Path) -> None:
+    for name in ("clingen_gene_validity.tsv", "gencc_submissions.tsv"):
+        (repo / "mirrors" / name).unlink()
+
+
+def _scope_fails_its_model(repo: Path) -> None:
+    """An authority outside `ScopeAuthority`: the file parses as YAML, not as `ChdScopeFile`."""
+    path = repo / "curation" / "chd_scope.yaml"
+    text = path.read_text(encoding="utf-8")
+    old = "    admitted_by: clingen_chd_panel\n"
+    assert old in text
+    path.write_text(text.replace(old, "    admitted_by: the_atlas_itself\n", 1), encoding="utf-8")
+
+
+def every_file(repo: Path) -> dict[str, bytes | None]:
+    """Every file (bytes) and directory (None) under the repository, curation included."""
+    return {
+        path.relative_to(repo).as_posix(): path.read_bytes() if path.is_file() else None
+        for path in sorted(repo.rglob("*"))
+    }
+
+
+_UNDERIVABLE = "the gene registry cannot be derived: "
+_EMPTY = (
+    "the derived registry is empty: no validity mirror row names a gene against a "
+    "disease in curation/chd_scope.yaml, so the filter would drop every row"
+)
+
+
+@pytest.mark.parametrize(
+    ("damage", "fragment"),
+    [
+        (_keep_only_rgs9, _EMPTY),
+        # An absent mirror has no rows, so both absent derive nothing.
+        (_no_validity_mirrors, _EMPTY),
+        (
+            lambda repo: (repo / "curation" / "chd_scope.yaml").unlink(),
+            _UNDERIVABLE + "curation/chd_scope.yaml is missing",
+        ),
+        (
+            _scope_fails_its_model,
+            _UNDERIVABLE + "curation/chd_scope.yaml cannot be read: SCHEMA001 ",
+        ),
+        (
+            _symbol_for_an_id,
+            _UNDERIVABLE + "mirrors/clingen_gene_validity.tsv fails its schema",
+        ),
+    ],
+    ids=[
+        "derives-nothing",
+        "no-validity-mirrors",
+        "no-scope",
+        "scope-fails-its-model",
+        "clingen-fails-its-schema",
+    ],
+)
+def test_an_hgnc_ingest_refuses_a_registry_it_cannot_derive_before_any_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    damage: Callable[[Path], None],
+    fragment: str,
+) -> None:
+    """ING010, with every file of the repository byte-unchanged.
+
+    Where the registry cannot be derived, `derive_registry_from_root` itself
+    raises `RegistryUnavailable` with the reason the refusal quotes.
+    """
+    repo = hgnc_repo(tmp_path, monkeypatch, TBX5)
+    damage(repo)
+    package = hgnc_package(tmp_path)
+    before = every_file(repo)
+
+    if fragment.startswith(_UNDERIVABLE):
+        with pytest.raises(RegistryUnavailable) as unavailable:
+            derive_registry_from_root(repo)
+        assert str(unavailable.value).startswith(fragment.removeprefix(_UNDERIVABLE))
+    with pytest.raises(IngestRefused) as excinfo:
+        ingest_package(repo, "hgnc", package)
+
+    assert excinfo.value.code == "ING010"
+    assert excinfo.value.message.startswith(fragment)
+    assert every_file(repo) == before
+
+
+@pytest.mark.parametrize(
+    ("absent", "kept"),
+    [("gencc_submissions.tsv", TBX5), ("clingen_gene_validity.tsv", TBX1)],
+    ids=["gencc-absent", "clingen-absent"],
+)
+def test_an_hgnc_ingest_with_one_validity_mirror_absent_derives_from_the_other(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, absent: str, kept: str
+) -> None:
+    """The rule GEN006 applies: an absent mirror has no rows (controller ruling, 2026-11-11).
+
+    So the registry written is the one validation will then check against, and
+    a later ingest of the absent mirror that widens it is reported as GEN006.
+    """
+    repo = hgnc_repo(tmp_path, monkeypatch, TBX5)
+    (repo / "mirrors" / absent).unlink()
+
+    result = ingest_package(repo, "hgnc", hgnc_package(tmp_path))
+
+    written = (repo / "mirrors" / "genes.tsv").read_text(encoding="utf-8")
+    assert written == "\n".join(committed_lines("mirrors/genes.tsv", f"{kept}\t")) + "\n"
+    assert (result.rows_written, result.rows_outside_registry, result.registry_genes) == (1, 2, 1)
+
+
+# --- ingest --all: every pinned package from its cache, validated once --------
+
+SCOPE = "curation/chd_scope.yaml"
+ENO1 = "HGNC:3350"
+# The scope term these tests add, then remove. ENO1's one validity row is
+# GenCC's PanelApp Australia submission for polymicrogyria (SGC-178789); no
+# other row of either validity mirror names MONDO:0000087, and no other
+# committed mirror names ENO1 (measured 2026-11-11 with polars over both
+# validity mirrors and grep over mirrors/). So this term brings ENO1 alone into
+# the registry, and removing it drops ENO1 alone. Not congenital heart
+# disease: a fixture.
+POLYMICROGYRIA = (
+    "  - id: MONDO:0000087\n"
+    "    label: polymicrogyria\n"
+    "    reason: >-\n"
+    "      A test fixture's term, not congenital heart disease.\n"
+    "    admitted_by: gencc_submitter\n"
+    "    attributed_to: PanelApp Australia\n"
+    "    admitted_on: 2026-11-11\n"
+)
+# The growth term: GenCC's PanelApp Australia names SLC11A1 (HGNC:10907) for
+# Mycobacterium tuberculosis susceptibility (SGC-121060), the one row of either
+# validity mirror naming MONDO:0000070 (measured as above).
+SLC11A1 = "HGNC:10907"
+TUBERCULOSIS = (
+    "  - id: MONDO:0000070\n"
+    "    label: Mycobacterium tuberculosis, susceptibility\n"
+    "    reason: >-\n"
+    "      A test fixture's term, not congenital heart disease.\n"
+    "    admitted_by: gencc_submitter\n"
+    "    attributed_to: PanelApp Australia\n"
+    "    admitted_on: 2026-11-11\n"
+)
+# Only `hgnc_id` and `symbol` matter here; the other cells have HGNC's shapes
+# and were not checked against HGNC.
+ENO1_ROW = {
+    "hgnc_id": ENO1,
+    "symbol": "ENO1",
+    "name": "enolase 1",
+    "ensembl_gene": "ENSG00000074800",
+    "ncbi_gene": "2023",
+    "locus": "1p36.23",
+    "uniprot": "P06733",
+    "mane_select": "NM_001428.5",
+}
+SLC11A1_ROW = {
+    "hgnc_id": SLC11A1,
+    "symbol": "SLC11A1",
+    "name": "solute carrier family 11 member 1",
+    "ensembl_gene": "ENSG00000018280",
+    "ncbi_gene": "6556",
+    "locus": "2q35",
+    "uniprot": "P49279",
+    "mane_select": "NM_000578.4",
+}
+# The committed `hgnc` entry's fields, so the ingest rewrites it as itself.
+HGNC_FIELDS = {
+    "name": "HUGO Gene Nomenclature Committee",
+    "version": HGNC_VERSION,
+    "retrieved_on": "2026-10-25",
+    "url": "https://www.genenames.org/",
+    "licence": "CC0-1.0",
+    "redistribution": "permitted",
+    "file_version": None,
+    "file_date": None,
+}
+# Rows no package owns, as a converter wrote them: HGNC:10023's committed rows
+# in each registry-filtered mirror, copied with the gene set to ENO1 (and in
+# burden.tsv only the unpinned `sierant2025_ds6` source's six).
+CONVERTER_ROWS = {
+    "mirrors/burden.tsv": ("burden", "sierant2025_ds6"),
+    "mirrors/burden_combined.tsv": ("burden_combined", None),
+    "mirrors/cell_type_profiles/hoc.tsv": ("cell_type_profiles", None),
+    "mirrors/profiles/E-MTAB-6814.tsv": ("profiles", None),
+}
+
+
+def committed_rows(relative: str) -> list[dict[str, str]]:
+    header, *lines = (REPO_ROOT / relative).read_text(encoding="utf-8").splitlines()
+    columns = header.split("\t")
+    return [dict(zip(columns, line.split("\t"), strict=True)) for line in lines]
+
+
+def plant(repo: Path, relative: str, table: str, source: str | None) -> int:
+    """Copy HGNC:10023's rows of one mirror to ENO1, in sort order; return how many."""
+    schema = TABLE_SCHEMAS[table]
+    path = repo / relative
+    rows = apply._read_mirror(path, schema)
+    gene = schema.column_names.index("gene")
+    owner = None if source is None else schema.column_names.index("source")
+    copies = [
+        tuple(ENO1 if index == gene else cell for index, cell in enumerate(row))
+        for row in rows
+        if row[gene] == "HGNC:10023" and (owner is None or row[owner] == source)
+    ]
+    path.write_bytes(apply._render(schema, rows + copies))
+    return len(copies)
+
+
+def names(line: str, gene: str) -> bool:
+    return gene in line.split("\t")
+
+
+class Pinned:
+    """The repository with ENO1 in scope, `hgnc` and `toy_burden` pinned and cached.
+
+    The hgnc package is every committed `genes.tsv` row plus ENO1's and
+    SLC11A1's (outside the scope until the growth test adds it); the burden
+    package is `toy_rows()`'s six HGNC:10023 rows and the same six for ENO1.
+    ENO1 also has rows no package owns (`CONVERTER_ROWS`), counted in
+    `planted`. Both ingests run with validation stubbed, to save two runs: this
+    state validates with 0 errors and the corpus's 3 warnings (SCP003 twice,
+    SCP007; measured 2026-11-11, about 7 s per run). Each test copies `repo`.
+    """
+
+    def __init__(self, base: Path) -> None:
+        self.repo = copy_repo(base / "repo")
+        scope = self.repo / SCOPE
+        text = scope.read_text(encoding="utf-8")
+        assert text.endswith("\n") and POLYMICROGYRIA not in text
+        scope.write_text(text + POLYMICROGYRIA, encoding="utf-8")
+        genes = [*committed_rows("mirrors/genes.tsv"), ENO1_ROW, SLC11A1_ROW]
+        hgnc = write_tables(
+            base / "hgnc",
+            [("genes", None, genes)],
+            package="hgnc",
+            version=HGNC_VERSION,
+            source=HGNC_FIELDS,
+        )
+        burden = toy_rows()[:6]
+        toy = write_tables(
+            base / "toy", [("burden", None, burden + [{**row, "gene": ENO1} for row in burden])]
+        )
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(apply, "validate_repository", lambda _: ValidationReport())
+            ingest_package(self.repo, "hgnc", hgnc)
+            ingest_package(self.repo, SOURCE, toy)
+        self.planted = {
+            relative: plant(self.repo, relative, table, source)
+            for relative, (table, source) in CONVERTER_ROWS.items()
+        }
+        assert self.planted == {
+            "mirrors/burden.tsv": 6,
+            "mirrors/burden_combined.tsv": 3,
+            "mirrors/cell_type_profiles/hoc.tsv": 68,
+            "mirrors/profiles/E-MTAB-6814.tsv": 119,
+        }
+        assert ENO1 in registry(self.repo) and SLC11A1 not in registry(self.repo)
+
+    def copy(self, tmp_path: Path) -> Path:
+        return Path(shutil.copytree(self.repo, tmp_path / "repo"))
+
+
+@pytest.fixture(scope="module")
+def pinned(tmp_path_factory: pytest.TempPathFactory) -> Pinned:
+    return Pinned(tmp_path_factory.mktemp("pinned"))
+
+
+def shrink(repo: Path) -> None:
+    """Remove ENO1's disease from the scope, leaving the committed file."""
+    path = repo / SCOPE
+    text = path.read_text(encoding="utf-8")
+    assert text.count(POLYMICROGYRIA) == 1
+    path.write_text(text.replace(POLYMICROGYRIA, ""), encoding="utf-8")
+    assert path.read_bytes() == (REPO_ROOT / SCOPE).read_bytes()
+
+
+def digests(repo: Path, top: str = "mirrors") -> dict[str, str | None]:
+    """The sha256 of every file under ``top`` (None for a directory), by relative path."""
+    return {
+        path.relative_to(repo).as_posix(): (
+            hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+        )
+        for path in sorted((repo / top).rglob("*"))
+    }
+
+
+def mirror_lines(repo: Path) -> dict[str, list[str]]:
+    return {
+        path.relative_to(repo).as_posix(): path.read_text(encoding="utf-8").splitlines()
+        for path in sorted((repo / "mirrors").rglob("*"))
+        if path.is_file()
+    }
+
+
+VALIDITY = ("mirrors/clingen_gene_validity.tsv", "mirrors/gencc_submissions.tsv")
+
+
+def test_ingest_all_survives_a_scope_shrink(pinned: Pinned, tmp_path: Path) -> None:
+    """The rule: a gene the hgnc step drops loses every row in every registry-filtered mirror.
+
+    hgnc drops ENO1 (in `genes.tsv` before the call, not after it), the burden
+    package's own ENO1 rows are filtered out by its re-ingest, and every other
+    row naming ENO1 in a table with a gene column but `genes` and the two
+    validity tables is pruned, whoever wrote it: here the rows a converter
+    wrote (`CONVERTER_ROWS`). Every pruned row is reported by file and gene.
+    Every other line of every mirror keeps its bytes, the validity mirrors keep
+    ENO1's GenCC row, `genes.tsv` comes back as committed, and one validation
+    passes with its warnings returned.
+    """
+    repo = pinned.copy(tmp_path)
+    shrink(repo)
+    before = mirror_lines(repo)
+
+    result = ingest_all(repo)
+
+    counts = [(r.source_id, r.rows_written, r.rows_outside_registry) for r in result.results]
+    assert counts == [("hgnc", 185, 2), (SOURCE, 6, 6)]
+    assert result.pruned == tuple(
+        PrunedRows(table, relative, ENO1, pinned.planted[relative])
+        for relative, (table, _) in sorted(CONVERTER_ROWS.items())
+    )
+    after = mirror_lines(repo)
+    assert after == {
+        path: lines if path in VALIDITY else [line for line in lines if not names(line, ENO1)]
+        for path, lines in before.items()
+    }
+    assert sum(names(line, ENO1) for path in VALIDITY for line in after[path]) == 1
+    genes = repo / "mirrors" / "genes.tsv"
+    assert genes.read_bytes() == (REPO_ROOT / "mirrors" / "genes.tsv").read_bytes()
+    report = validate_repository(repo)
+    assert [issue.format() for issue in report.issues if issue.severity is Severity.ERROR] == []
+    warnings = tuple(issue for issue in report.issues if issue.severity is Severity.WARNING)
+    assert warnings and result.warnings == warnings
+    assert all(r.warnings == () for r in result.results)
+
+
+def test_ingest_all_after_a_scope_growth_prunes_nothing(
+    pinned: Pinned, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """hgnc adds SLC11A1 and removes no gene, so no row is pruned and no other byte moves.
+
+    Validation is stubbed so that a prune of genes still in the registry fails
+    here on the bytes rather than on validation (this state validates with 0
+    errors anyway; measured 2026-11-11 with the stub removed).
+    """
+    repo = pinned.copy(tmp_path)
+    monkeypatch.setattr(apply, "validate_repository", lambda _: ValidationReport())
+    path = repo / SCOPE
+    path.write_text(path.read_text(encoding="utf-8") + TUBERCULOSIS, encoding="utf-8")
+    before = mirror_lines(repo)
+
+    result = ingest_all(repo)
+
+    assert result.pruned == ()
+    after = mirror_lines(repo)
+    gained = [
+        line for line in after["mirrors/genes.tsv"] if line not in before["mirrors/genes.tsv"]
+    ]
+    assert [line.split("\t")[0] for line in gained] == [SLC11A1]
+    del after["mirrors/genes.tsv"], before["mirrors/genes.tsv"]
+    assert after == before
+
+
+def test_a_shrink_without_an_hgnc_step_prunes_nothing(
+    pinned: Pinned, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only the hgnc step's removals are pruned; the scope alone removes nothing.
+
+    With hgnc left out of the pins, `genes.tsv` still lists ENO1 after the
+    call, so every ENO1 row stays. Validation is stubbed: what is asserted is
+    that no byte under `mirrors/` moved.
+    """
+    repo = pinned.copy(tmp_path)
+    shrink(repo)
+    pins = apply.package_pins
+
+    def without_hgnc(root: Path) -> dict[str, PackagePin]:
+        return {key: pin for key, pin in pins(root).items() if key != "hgnc"}
+
+    monkeypatch.setattr(apply, "package_pins", without_hgnc)
+    monkeypatch.setattr(apply, "validate_repository", lambda _: ValidationReport())
+    before = digests(repo)
+
+    result = ingest_all(repo)
+
+    assert [r.source_id for r in result.results] == [SOURCE]
+    assert result.pruned == ()
+    assert digests(repo) == before
+
+
+def test_ingest_all_never_prunes_a_gene_the_hgnc_step_did_not_remove(
+    pinned: Pinned, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A gene missing from a hand-truncated `genes.tsv` is refused, never pruned.
+
+    hgnc is left out of the pins and ENO1's row is deleted from `genes.tsv` by
+    hand, so the converter rows naming ENO1 sit under a registry that lacks it.
+    Only a gene the hgnc step removed in this call may be pruned; pruning every
+    gene absent after the call would delete those rows and validate clean.
+    Real validation runs: the call must refuse with ING010 and leave every
+    byte under `mirrors/` as it was. Measured 2026-11-11: with the prune made
+    unconditional (mutant M22 of the stage-A matrix) the full suite of 2192
+    tests still passed; this test is the one that kills it.
+    """
+    repo = pinned.copy(tmp_path)
+    genes = repo / "mirrors" / "genes.tsv"
+    lines = genes.read_text(encoding="utf-8").splitlines(keepends=True)
+    kept = [line for line in lines if not names(line, ENO1)]
+    assert len(kept) == len(lines) - 1
+    genes.write_text("".join(kept), encoding="utf-8")
+    pins = apply.package_pins
+
+    def without_hgnc(root: Path) -> dict[str, PackagePin]:
+        return {key: pin for key, pin in pins(root).items() if key != "hgnc"}
+
+    monkeypatch.setattr(apply, "package_pins", without_hgnc)
+    before = digests(repo)
+
+    with pytest.raises(IngestRefused) as excinfo:
+        ingest_all(repo)
+
+    assert excinfo.value.code == "ING010"
+    assert f"gene {ENO1} is not in mirrors/genes.tsv" in excinfo.value.message
+    assert digests(repo) == before
+
+
+ALL_HINT = (
+    "If curation/chd_scope.yaml dropped a gene that other mirror rows still name, "
+    "`chd-atlas ingest --all` re-ingests every pinned package, removes the rows of genes "
+    "that left the registry, and validates once."
+)
+
+
+def test_a_single_hgnc_ingest_after_a_shrink_refuses_and_names_the_all_flag(
+    pinned: Pinned, tmp_path: Path
+) -> None:
+    """The deadlock `ingest --all` exists for: hgnc alone drops ENO1 under rows that name it.
+
+    A single ingest never prunes, so every mirror holding an ENO1 row fails.
+    """
+    repo = pinned.copy(tmp_path)
+    shrink(repo)
+    before = digests(repo)
+
+    with pytest.raises(IngestRefused) as excinfo:
+        ingest_package(repo, "hgnc", package_cache(repo, "hgnc", HGNC_VERSION))
+
+    assert excinfo.value.code == "ING010"
+    assert excinfo.value.message == (
+        "the repository fails validation with this package applied (4 error(s)):\n"
+        f"ERROR [BUR011] mirrors/burden.tsv: gene {ENO1} is not in mirrors/genes.tsv\n"
+        f"ERROR [BUR022] mirrors/burden_combined.tsv: gene {ENO1} is not in mirrors/genes.tsv\n"
+        f"ERROR [CTP007] mirrors/cell_type_profiles/hoc.tsv: gene '{ENO1}' is not in the gene "
+        "registry\n"
+        f"ERROR [PRF007] mirrors/profiles/E-MTAB-6814.tsv: gene {ENO1} is not in "
+        "mirrors/genes.tsv\n" + ALL_HINT
+    )
+    assert digests(repo) == before
+
+
+def _corrupt_the_burden_cache(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = package_cache(repo, SOURCE, VERSION) / "burden.tsv"
+    data = bytearray(path.read_bytes())
+    data[-2] ^= 1  # one byte of the last row's `source` cell
+    path.write_bytes(bytes(data))
+
+
+ERROR = ValidationIssue("BUR011", Severity.ERROR, "mirrors/burden.tsv", "injected")
+
+
+def _fail_the_final_validation(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(apply, "validate_repository", lambda _: ValidationReport([ERROR]))
+
+
+def _fail_it_with_the_manifests_directory_missing(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """hgnc's step then creates `mirrors/packages/`, which the restore must remove."""
+    shutil.rmtree(repo / "mirrors" / "packages")
+    _fail_the_final_validation(repo, monkeypatch)
+
+
+def _interrupt_the_final_validation(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def interrupt(_: Path) -> ValidationReport:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(apply, "validate_repository", interrupt)
+
+
+@pytest.mark.parametrize(
+    ("fail", "raised", "code"),
+    [
+        (_corrupt_the_burden_cache, IngestRefused, "ING001"),
+        (_fail_the_final_validation, IngestRefused, "ING010"),
+        (_fail_it_with_the_manifests_directory_missing, IngestRefused, "ING010"),
+        (_interrupt_the_final_validation, KeyboardInterrupt, None),
+    ],
+    ids=["second-cache-corrupted", "final-validation-fails", "a-created-directory", "interrupted"],
+)
+def test_ingest_all_restores_mirrors_when_any_step_fails(
+    pinned: Pinned,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fail: Callable[[Path, pytest.MonkeyPatch], None],
+    raised: type[BaseException],
+    code: str | None,
+) -> None:
+    """After a shrink, hgnc has already rewritten `genes.tsv` when the failure lands.
+
+    So every byte of `mirrors/` the restore puts back is one an earlier step
+    changed, which `_apply`'s per-step restore cannot see. A failure at the
+    final validation comes after the pruning too (it rewrote the profiles
+    shard, which nothing else writes), so the pruned rows come back; with the
+    manifests directory missing, the steps also create a directory and two
+    files there.
+    """
+    repo = pinned.copy(tmp_path)
+    shrink(repo)
+    fail(repo, monkeypatch)
+    before = digests(repo)
+    cache = digests(repo, "local")
+    written = recording_writes(monkeypatch)
+
+    with pytest.raises(raised) as excinfo:
+        ingest_all(repo)
+
+    if code is not None:
+        assert isinstance(excinfo.value, IngestRefused)
+        assert excinfo.value.code == code
+    if code == "ING010":
+        assert excinfo.value.message == (
+            "the repository fails validation with every pinned package re-ingested "
+            "(1 error(s)):\n" + ERROR.format()
+        )
+    assert written[0] == repo / "mirrors" / "genes.tsv"
+    profiles = repo / "mirrors" / "profiles" / "E-MTAB-6814.tsv"
+    assert (profiles in written) is (code != "ING001")
+    assert digests(repo) == before
+    assert digests(repo, "local") == cache
+
+
+@pytest.mark.parametrize("source_id", ["hgnc", SOURCE])
+def test_reingesting_from_the_cache_directory_changes_nothing(
+    pinned: Pinned, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, source_id: str
+) -> None:
+    """`--package local/packages/<id>/<version>` is the directory ingest also writes to.
+
+    Validation is stubbed: it writes nothing, and what is asserted is that no
+    byte under `mirrors/` or `local/` moved.
+    """
+    repo = pinned.copy(tmp_path)
+    before = tree(repo)
+    monkeypatch.setattr(apply, "validate_repository", lambda _: ValidationReport())
+    version = HGNC_VERSION if source_id == "hgnc" else VERSION
+
+    ingest_package(repo, source_id, package_cache(repo, source_id, version))
+
+    assert tree(repo) == before
+
+
+def add_pin(
+    repo: Path,
+    source_id: str,
+    *,
+    version: str = "v1",
+    manifest: bytes | None = b"{}",
+    sha256: str | None = None,
+) -> None:
+    """Append ``source_id`` pinned at ``version`` to `sources.yaml`.
+
+    ``manifest`` is cached as the package's `manifest.json` unless None; the
+    pin is its sha256 unless ``sha256`` is given.
+    """
+    if manifest is not None:
+        cache = package_cache(repo, source_id, version)
+        cache.mkdir(parents=True)
+        (cache / "manifest.json").write_bytes(manifest)
+    digest = sha256 or hashlib.sha256(manifest or b"").hexdigest()
+    with (repo / "mirrors" / "sources.yaml").open("a", encoding="utf-8") as handle:
+        handle.write(
+            f"  - id: {source_id}\n"
+            f"    name: {source_id}\n"
+            f'    version: "{version}"\n'
+            "    retrieved_on: 2026-11-01\n"
+            "    url: https://example.org/\n"
+            "    licence: CC-BY-4.0\n"
+            "    redistribution: permitted\n"
+            f'    package: {{version: "{version}", manifest_sha256: "{digest}"}}\n'
+        )
+
+
+def _step_result(source_id: str) -> IngestResult:
+    return IngestResult(
+        source_id=source_id,
+        version="v1",
+        rows_in=0,
+        rows_written=0,
+        rows_outside_registry=0,
+        rows_unresolved=0,
+        unresolved=(),
+        registry_genes_absent=(),
+        registry_genes=0,
+        coverage="every_gene",
+        dropped=(),
+        warnings=(),
+    )
+
+
+def test_ingest_all_takes_the_registry_inputs_then_hgnc_then_the_rest_validating_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ClinGen and GenCC first (hgnc's filter is derived from them), then hgnc, then by id.
+
+    `aaa_source` sorts before `hgnc` and `clingen`, so neither "sorted" nor
+    "hgnc first" passes. Every step runs unvalidated, from its pinned cache.
+    """
+    repo = write_hgnc_root(tmp_path, [A1BG], version=HGNC_VERSION)
+    for source_id in (SOURCE, "gencc", "aaa_source", "clingen"):
+        add_pin(repo, source_id)
+    calls: list[tuple[str, Path, bool]] = []
+
+    def step(root: Path, source_id: str, package_dir: Path, *, validate: bool = True) -> Any:
+        calls.append((source_id, package_dir, validate))
+        return _step_result(source_id)
+
+    validated: list[Path] = []
+    warning = ValidationIssue("SCP003", Severity.WARNING, SCOPE, "msg")
+
+    def validate(root: Path) -> ValidationReport:
+        validated.append(root)
+        return ValidationReport([warning])
+
+    monkeypatch.setattr(apply, "ingest_package", step)
+    monkeypatch.setattr(apply, "validate_repository", validate)
+
+    result = ingest_all(repo)
+
+    order = [
+        ("clingen", "v1"),
+        ("gencc", "v1"),
+        ("hgnc", HGNC_VERSION),
+        ("aaa_source", "v1"),
+        (SOURCE, "v1"),
+    ]
+    assert calls == [(s, package_cache(repo, s, v), False) for s, v in order]
+    assert validated == [repo]
+    assert result == IngestAllResult(tuple(_step_result(s) for s, _ in order), (), (warning,))
+
+
+def _never_stepped(*_: object, **__: object) -> Any:
+    raise AssertionError("no package may be ingested while a pinned cache is unusable")
+
+
+_DOWNLOAD = "gh release download toy_burden/v1 -R chd-atlas/feeds -D local/packages/toy_burden/v1"
+_OTHER_VERSION = json.dumps(manifest_dict(version="v2")).encode()
+
+
+@pytest.mark.parametrize(
+    ("cache", "message"),
+    [
+        (
+            {"manifest": None},
+            "toy_burden v1 is pinned in mirrors/sources.yaml but not cached at "
+            f"local/packages/toy_burden/v1; download it: {_DOWNLOAD}",
+        ),
+        (
+            {"sha256": "f" * 64},
+            "local/packages/toy_burden/v1/manifest.json is not the manifest toy_burden v1 "
+            "is pinned at (sha256:ffffffffffff…); remove the directory and download it "
+            f"again: {_DOWNLOAD}",
+        ),
+        (
+            {"manifest": _OTHER_VERSION},
+            "local/packages/toy_burden/v1/manifest.json has the pinned bytes but is "
+            "toy_burden v2, so the pin disagrees with its own manifest (validate reports it "
+            "as SRC005); ingesting it would move the pin",
+        ),
+    ],
+    ids=["missing", "not-the-pinned-manifest", "names-another-version"],
+)
+def test_a_missing_cache_names_the_download_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cache: dict[str, Any], message: str
+) -> None:
+    """ING017, checked for every pin before any package is ingested.
+
+    hgnc's cache is present and sorts first, so a check made step by step
+    would ingest it before reaching `toy_burden`. A cache whose pinned bytes
+    name another version would make the step write that version's cache
+    directory and move the pin, so it is refused too.
+    """
+    repo = write_hgnc_root(tmp_path, [A1BG], version=HGNC_VERSION)
+    add_pin(repo, SOURCE, **cache)
+    monkeypatch.setattr(apply, "ingest_package", _never_stepped)
+    before = every_file(repo)
+
+    with pytest.raises(IngestRefused) as excinfo:
+        ingest_all(repo)
+
+    assert excinfo.value.code == "ING017"
+    assert excinfo.value.message == message
+    assert every_file(repo) == before
+
+
+@pytest.mark.parametrize(
+    ("issues", "code"), [([], None), ([ERROR], "ING010")], ids=["validates", "fails"]
+)
+def test_ingest_all_with_nothing_pinned_still_validates_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    issues: list[ValidationIssue],
+    code: str | None,
+) -> None:
+    """Exit 0 from `--all` means the repository validates, also when nothing was ingested."""
+    repo = write_hgnc_root(tmp_path, [A1BG], pinned=False)
+    warning = ValidationIssue("SCP003", Severity.WARNING, SCOPE, "msg")
+    validated: list[Path] = []
+
+    def validate(root: Path) -> ValidationReport:
+        validated.append(root)
+        return ValidationReport([warning, *issues])
+
+    monkeypatch.setattr(apply, "ingest_package", _never_stepped)
+    monkeypatch.setattr(apply, "validate_repository", validate)
+
+    if code is None:
+        assert ingest_all(repo) == IngestAllResult((), (), (warning,))
+    else:
+        with pytest.raises(IngestRefused) as excinfo:
+            ingest_all(repo)
+        assert excinfo.value.message == (
+            "the repository fails validation with no package pinned (1 error(s)):\n"
+            + ERROR.format()
+        )
+    assert validated == [repo]
