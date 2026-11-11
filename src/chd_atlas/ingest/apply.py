@@ -396,7 +396,8 @@ def ingest_all(root: Path) -> IngestAllResult:
     and rewritten as text (`_read_mirror`, `_render`), so every other row keeps
     its bytes provided the header is in schema order (as `_merge` documents).
     Each removal is returned in `IngestAllResult.pruned`, never silent. Then
-    `validate_repository` runs once, also when nothing is pinned; an error refuses the call (ING010). On any exception everything under
+    `validate_repository` runs once, also when nothing is pinned; an error
+    refuses the call (ING010). On any exception everything under
     `mirrors/` is restored, pruned rows included. `curation/` is never edited: a
     curated record naming a removed gene is left for validation to report. A
     single `ingest_package` never prunes.
