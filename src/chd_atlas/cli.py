@@ -168,11 +168,16 @@ def ingest(
     every: bool = typer.Option(
         False,
         "--all",
-        help="Re-ingest every pinned package from its cache, validating once at the end.",
+        help="Re-ingest every pinned package from its cache, remove the rows of genes that "
+        "left the registry, and validate once at the end.",
     ),
     root: Path = typer.Option(Path("."), help="Repository root to ingest into."),
 ) -> None:
-    """Merge a verified source package into mirrors/ and pin it in sources.yaml."""
+    """Merge a verified source package into mirrors/ and pin it in sources.yaml.
+
+    With --all, also removes from every registry-filtered mirror the rows of genes that
+    left the registry (the hgnc step), printing each file, gene and row count.
+    """
     # Exit 2 for an argument that cannot work or a filesystem error, 1 for a
     # package or repository the ingest refuses (every file restored): the same
     # split `validate` and `build` make.

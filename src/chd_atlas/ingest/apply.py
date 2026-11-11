@@ -1,6 +1,7 @@
 """Apply a verified package to the repository: `mirrors/`, its pin, and the cache.
 
-`ingest_package` is the one writer. It verifies the package (`load_package`),
+`ingest_package` is the one writer of a single package (`ingest_all` also rewrites
+mirrors to prune, below). It verifies the package (`load_package`),
 resolves each gene column to HGNC ids, filters to the registry, merges the
 package's rows into the current mirrors, commits the manifest and its pin, and
 runs `validate_repository`. **If anything fails from the first write onwards,
@@ -390,10 +391,11 @@ def ingest_all(root: Path) -> IngestAllResult:
     mirror file (each flat file, each shard) of every table with a gene column
     except ``genes`` and `UNFILTERED_TABLES`, whichever package or converter
     wrote the row. That is the atlas applying its own registry (spec F4), and
-    what re-running each converter against the shrunk registry would do. The
-    files are read and rewritten as text (`_read_mirror`, `_render`), so every
-    other row keeps its bytes. Each removal is returned in `IngestAllResult.pruned`,
-    never silent. Then `validate_repository` runs once, also when nothing is
+    what re-running each converter against the shrunk registry would do
+    (reasoned by reading the five converters, not measured). The files are read
+    and rewritten as text (`_read_mirror`, `_render`), so every other row keeps
+    its bytes provided the header is in schema order (as `_merge` documents). Each removal is returned in
+    `IngestAllResult.pruned`, never silent. Then `validate_repository` runs once, also when nothing is
     pinned; an error refuses the call (ING010). On any exception everything under
     `mirrors/` is restored, pruned rows included. `curation/` is never edited: a
     curated record naming a removed gene is left for validation to report. A
@@ -679,10 +681,12 @@ def _cache_writes(root: Path, package: LoadedPackage) -> dict[Path, bytes]:
 
     Nothing else in the package directory is cached. The manifest is the bytes
     `load_package` verified; the tables are read once more and not re-hashed.
-    The one reader of a cache today, `resolve._hgnc_rows`, verifies what it
-    reads again: the manifest against the pin, and the one table it reads,
-    ``genes``, against the manifest. A package directory that *is* the cache
-    rewrites its own bytes, which changes nothing.
+    A cache is read by `resolve._hgnc_rows`, `pinned_package_dir` and every
+    re-ingest from it. That is safe by reasoning from the code, not by a
+    measurement of this function: `load_package` re-hashes every table against
+    the manifest, and ING017 and ING016 check the manifest against the pin. A
+    package directory that *is* the cache rewrites its own bytes, which changes
+    nothing.
     """
     cache = package_cache(root, package.manifest.package, package.manifest.version)
     writes = {cache / "manifest.json": package.manifest_bytes}

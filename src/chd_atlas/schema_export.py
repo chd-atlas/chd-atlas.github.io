@@ -78,8 +78,8 @@ _GENE_COLUMN_NOTE: Final = (
 _GENES_TABLE_NOTE: Final = (
     "The `genes` table ships only in the `hgnc` package, whose manifest `ids` is "
     "`hgnc_id`, so this column holds HGNC ids as they stand. `chd-atlas ingest` "
-    "writes the rows of the genes the atlas's registry derives, not the whole "
-    "package."
+    "writes only the rows of genes in the registry the atlas derives from its scope "
+    "and the validity mirrors, not the whole package."
 )
 
 

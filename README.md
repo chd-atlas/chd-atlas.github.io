@@ -76,18 +76,23 @@ After a scope shrink (an edit to `curation/chd_scope.yaml` that removes a term),
 included, then removes every row naming a gene that left `mirrors/genes.tsv` from every
 mirror filtered to the registry, whichever package or converter wrote it, and prints each
 file, gene and row count. It validates once at the end and restores all of `mirrors/` if
-anything fails. Ingesting `hgnc` alone fails validation whenever other rows still name a
-dropped gene. After a scope growth, run `chd-atlas ingest --all` too, then re-run the
+anything fails. Ingesting `hgnc` alone fails validation whenever a registry-filtered mirror still names a
+dropped gene (validity rows keep naming it and do not fail). After a scope growth, run `chd-atlas ingest --all` too, then re-run the
 converters in `scripts/` that read the registry, so they add the new genes' rows
 (`convert_audain2021.py`, `convert_burden.py`, `convert_cardoso_moreira.py`,
-`convert_farah2024.py`, `convert_sierant2025.py`). Until `hgnc` is pinned, `--all` sees no
-scope change, shrink or growth: run `convert_hgnc.py` first, then those converters, then
-`--all`.
+`convert_sierant2025.py`). `convert_farah2024.py` cannot add them on its own: it reads
+the `pseudobulk.tsv` the cluster job cut to the registry's approved symbols
+(`scripts/hpc/farah_extract.py` `read_wanted`, `REGISTRY` in
+`scripts/hpc/farah_celltypes.sbatch`), so re-run `scripts/hpc/submit_farah_celltypes.sh`
+with the new `genes.tsv` first. Until `hgnc` is pinned, `--all` sees no scope change,
+shrink or growth: run `convert_hgnc.py` first, then those converters (Farah's job
+included), then `--all`.
 
-The package is refused with `ING015` if any table cell begins with a double quote; `validate` reports
+The package is refused with `ING015` if any table cell's parsed value begins with a double quote; `validate` reports
 the same in a committed mirror as `TBL013` (the CSV reader would otherwise merge rows silently).
 It is refused with `ING016` if its version equals the pinned one but its manifest bytes differ: a version names one set of bytes.
 Only the `hgnc` package ships the `genes` table, always keyed by `hgnc_id` (`ING009`); its ingest writes
 `mirrors/genes.tsv` filtered to the registry the atlas derives from `curation/chd_scope.yaml` and the two validity mirrors.
-`validate` reports a gene that registry holds and `mirrors/genes.tsv` lacks as `GEN006`; re-ingest `hgnc` (or run
-`chd-atlas ingest --all`) to clear it.
+`validate` reports a gene that registry holds and `mirrors/genes.tsv` lacks as `GEN006`; re-ingest `hgnc` or run
+`chd-atlas ingest --all` to clear it (before `hgnc` is pinned, regenerate `mirrors/genes.tsv` with
+`scripts/convert_hgnc.py`; if the pinned HGNC package lacks the gene, pin a newer HGNC release).
