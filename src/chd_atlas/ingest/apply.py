@@ -37,8 +37,28 @@ that cannot see. Both are checked before anything is written.
 - ``ING016``: a package carries the version the source is already pinned at but
   a manifest whose sha256 differs from the pin's. A version names exactly one
   set of bytes (spec F13), so changed bytes must change the version. The same
-  version with the same bytes is allowed: that is how a scope change re-filters
-  a source.
+  version with the same bytes is allowed, because re-ingesting a pinned package
+  from its cache is how a scope change re-filters it: `chd-atlas ingest <id>`
+  without ``--package`` does that for one source, `ingest_all` for every one.
+
+`ingest_all` re-ingests every pinned package from its cache as ONE transaction,
+in `ingest_order`: the pinned owners of the registry's input tables (ClinGen,
+GenCC), then ``hgnc``, whose filter they derive, then every other source by id.
+No step validates; `validate_repository` runs once at the end. Validating each
+step would deadlock a scope shrink: ``hgnc`` alone drops a gene that another
+package's rows still name (BUR011), and any other package alone keeps those
+rows, because its filter is the `genes.tsv` only ``hgnc`` rewrites. On any
+failure, every file under `mirrors/` is put back to its bytes before the call
+and everything the call created there is removed.
+
+``ING017``: a pinned package is not in its cache, ``local/packages/<id>/<version>/``
+(the directory is missing, or its ``manifest.json`` is not the bytes the pin's
+sha256 names). The message names the `gh release download` command that fetches
+it; the atlas never downloads (plan Decision 1). `ingest_all` checks every pin
+before ingesting anything. A cache that holds the pinned manifest names the
+pinned version wherever SRC005 passes (it checks the committed manifest's bytes
+and version against the pin), so each step's cache write rewrites the directory
+it read with its own bytes and `local/` needs no snapshot.
 
 Cells are written as polars parsed them, which Decision 8 calls verbatim: a
 package table is read as quoted TSV and a mirror is written unquoted, so a cell
@@ -55,7 +75,8 @@ with an empty cell smallest: the order `validate.sort_order._precedes` checks.
 `ING010` is every refusal about the repository rather than the package: a
 current mirror, ``sources.yaml`` or committed package manifest the ingest
 cannot read before writing, a registry the filter cannot use, and any
-validation error once the package is applied.
+validation error once the package is applied. An ``hgnc`` ingest's validation
+failure ends with one sentence pointing to ``chd-atlas ingest --all``.
 
 The registry filter is ``mirrors/genes.tsv``'s genes for every package but
 ``hgnc``. The ``hgnc`` package writes ``genes.tsv`` itself, so filtering it to
@@ -66,14 +87,16 @@ the registry cannot be derived (`RegistryUnavailable`, its reason quoted) or
 derives empty; any other package refuses when ``genes.tsv`` is absent or lists
 no gene. Either empty registry would drop every row.
 Validation warnings never refuse an ingest (`ValidationReport.ok`); they are
-returned for the caller to print.
+returned for the caller to print: on `IngestResult.warnings`, which is empty for
+an ingest run with ``validate=False`` and, from `ingest_all`, carries the one
+validation's warnings on the last result only.
 """
 
 from __future__ import annotations
 
 import hashlib
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from io import StringIO
 from pathlib import Path
@@ -129,6 +152,16 @@ FLAT_TABLE_OWNERS: Final[dict[str, str]] = {
     "gencc_submissions": "gencc",
 }
 
+# Where `chd-atlas/feeds` publishes packages, as GitHub releases tagged
+# ``<id>/<version>`` (spec F14). Only ever named in a message (ING017).
+FEEDS_REPOSITORY: Final = "chd-atlas/feeds"
+
+# Appended to an hgnc ingest's validation failure (see the module docstring).
+ALL_HINT: Final = (
+    "If curation/chd_scope.yaml dropped a gene that another pinned package still has rows "
+    "for, `chd-atlas ingest --all` re-filters every pinned package and validates once."
+)
+
 
 @dataclass(frozen=True)
 class IngestResult:
@@ -151,15 +184,22 @@ class IngestResult:
     coverage: Literal["every_gene"] | RegistrySlice
     dropped: tuple[DroppedRows, ...]
     # The warnings `validate_repository` reported with the package applied; an
-    # error would have refused the ingest.
+    # error would have refused the ingest. Empty when the ingest did not
+    # validate, which in `ingest_all` is every result but the last.
     warnings: tuple[ValidationIssue, ...]
 
 
 Row = tuple[str, ...]
 
 
-def ingest_package(root: Path, source_id: str, package_dir: Path) -> IngestResult:
-    """Merge ``package_dir`` into ``root`` as source ``source_id``, or refuse and restore."""
+def ingest_package(
+    root: Path, source_id: str, package_dir: Path, *, validate: bool = True
+) -> IngestResult:
+    """Merge ``package_dir`` into ``root`` as source ``source_id``, or refuse and restore.
+
+    With ``validate=False`` the repository is not validated and the result has
+    no warnings: `ingest_all` validates once, after every step.
+    """
     package = load_package(package_dir, source_id)
     _refuse_omitted_or_owned_tables(root, source_id, package)
     resolver = GeneIdResolver.from_root(root, package.manifest.ids)
@@ -219,7 +259,7 @@ def ingest_package(root: Path, source_id: str, package_dir: Path) -> IngestResul
     writes[sources_path] = with_source_entry(sources, source_id, manifest.source, pin)
     writes.update(_cache_writes(root, package))
 
-    report = _apply(root, writes)
+    warnings = _apply(root, writes, source_id, validate=validate)
 
     coverage = manifest.coverage
     return IngestResult(
@@ -234,7 +274,131 @@ def ingest_package(root: Path, source_id: str, package_dir: Path) -> IngestResul
         registry_genes=len(registry),
         coverage=coverage if coverage == "every_gene" else coverage.registry_slice,
         dropped=tuple(manifest.dropped),
-        warnings=tuple(issue for issue in report.issues if issue.severity is Severity.WARNING),
+        warnings=warnings,
+    )
+
+
+def ingest_order(pinned: Iterable[str]) -> tuple[str, ...]:
+    """The order `ingest_all` applies pinned sources in (see the module docstring).
+
+    ``hgnc``'s filter is derived from the ClinGen and GenCC mirrors, so a
+    re-pinned one must land before it; every other package's filter is the
+    `genes.tsv` that ``hgnc`` writes.
+    """
+    sources = set(pinned)
+    inputs = sorted(sources & set(FLAT_TABLE_OWNERS.values()))
+    hgnc = [HGNC_SOURCE] if HGNC_SOURCE in sources else []
+    rest = sorted(sources - set(inputs) - {HGNC_SOURCE})
+    return (*inputs, *hgnc, *rest)
+
+
+def package_pins(root: Path) -> dict[str, PackagePin]:
+    """Each pinned source's pin in ``mirrors/sources.yaml``; ING010 if the file cannot be read."""
+    registry, issues = load_sources(root)
+    if any(issue.severity is Severity.ERROR for issue in issues):
+        raise IngestRefused(
+            "ING010",
+            "mirrors/sources.yaml cannot be read: " + "; ".join(i.message for i in issues),
+        )
+    return {source.id: source.package for source in registry.sources if source.package}
+
+
+def pinned_package_dir(root: Path, source_id: str, pin: PackagePin) -> Path:
+    """The cache directory holding the pinned package; ING017 when it does not."""
+    cache = package_cache(root, source_id, pin.version)
+    where = cache.relative_to(root).as_posix()
+    download = f"gh release download {source_id}/{pin.version} -R {FEEDS_REPOSITORY} -D {where}"
+    if not cache.is_dir():
+        raise IngestRefused(
+            "ING017",
+            f"{source_id} {pin.version} is pinned in mirrors/sources.yaml but not cached at "
+            f"{where}; download it: {download}",
+        )
+    try:
+        digest: str | None = hashlib.sha256((cache / "manifest.json").read_bytes()).hexdigest()
+    except OSError:
+        digest = None
+    if digest != pin.manifest_sha256:
+        raise IngestRefused(
+            "ING017",
+            f"{where}/manifest.json is not the manifest {source_id} {pin.version} is pinned at "
+            f"(sha256:{pin.manifest_sha256[:12]}\u2026); remove the directory and download it "
+            f"again: {download}",
+        )
+    return cache
+
+
+def ingest_all(root: Path) -> tuple[IngestResult, ...]:
+    """Re-ingest every pinned package from its cache as one transaction (module docstring).
+
+    Returns one result per source in `ingest_order`, the last carrying the one
+    validation's warnings; none, without validating, when nothing is pinned.
+    """
+    pins = package_pins(root)
+    # Every cache before any step, so a missing one refuses with nothing written.
+    packages = {
+        source_id: pinned_package_dir(root, source_id, pins[source_id])
+        for source_id in ingest_order(pins)
+    }
+    if not packages:
+        return ()
+    mirrors = root / "mirrors"
+    files, directories = _snapshot(mirrors)
+    try:
+        results = [
+            ingest_package(root, source_id, directory, validate=False)
+            for source_id, directory in packages.items()
+        ]
+        report = validate_repository(root)
+        _refuse_invalid(report, "with every pinned package re-ingested")
+    # BaseException, and always re-raised, as in `_apply`.
+    except BaseException:
+        _restore_tree(mirrors, files, directories)
+        raise
+    return (*results[:-1], replace(results[-1], warnings=_warnings(report)))
+
+
+def _snapshot(directory: Path) -> tuple[dict[Path, bytes], frozenset[Path]]:
+    """Every file's bytes and every directory under ``directory``."""
+    files: dict[Path, bytes] = {}
+    directories: set[Path] = set()
+    for path in directory.rglob("*"):
+        if path.is_file():
+            files[path] = path.read_bytes()
+        elif path.is_dir():
+            directories.add(path)
+    return files, frozenset(directories)
+
+
+def _restore_tree(directory: Path, files: dict[Path, bytes], directories: frozenset[Path]) -> None:
+    """Put ``directory`` back to a `_snapshot`: its files' bytes, nothing created since."""
+    now = list(directory.rglob("*"))
+    before: dict[Path, bytes | None] = {
+        path: None for path in now if path.is_file() and path not in files
+    }
+    before.update(files)
+    created = sorted(
+        (path for path in now if path.is_dir() and path not in directories),
+        key=lambda path: len(path.parts),
+        reverse=True,
+    )
+    _restore(before, created)
+
+
+def _warnings(report: ValidationReport) -> tuple[ValidationIssue, ...]:
+    return tuple(issue for issue in report.issues if issue.severity is Severity.WARNING)
+
+
+def _refuse_invalid(report: ValidationReport, applied: str, hint: str | None = None) -> None:
+    """ING010 naming every validation error, and ``hint`` on its own line after them."""
+    if report.ok:
+        return
+    errors = [issue.format() for issue in report.issues if issue.severity is Severity.ERROR]
+    raise IngestRefused(
+        "ING010",
+        f"the repository fails validation {applied} ({len(errors)} error(s)):\n"
+        + "\n".join(errors)
+        + ("" if hint is None else f"\n{hint}"),
     )
 
 
@@ -291,13 +455,7 @@ def _refuse_changed_bytes_under_a_pinned_version(
     root: Path, source_id: str, package: LoadedPackage
 ) -> None:
     """ING016 (see the module docstring); reads, never writes."""
-    registry, issues = load_sources(root)
-    if any(issue.severity is Severity.ERROR for issue in issues):
-        raise IngestRefused(
-            "ING010",
-            "mirrors/sources.yaml cannot be read: " + "; ".join(i.message for i in issues),
-        )
-    pin = next((s.package for s in registry.sources if s.id == source_id), None)
+    pin = package_pins(root).get(source_id)
     if pin is None or pin.version != package.manifest.version:
         return
     digest = hashlib.sha256(package.manifest_bytes).hexdigest()
@@ -354,8 +512,13 @@ def _refuse_omitted_or_owned_tables(root: Path, source_id: str, package: LoadedP
             )
 
 
-def _apply(root: Path, writes: dict[Path, bytes]) -> ValidationReport:
-    """Write every payload, then validate; on any exception restore all of it and re-raise."""
+def _apply(
+    root: Path, writes: dict[Path, bytes], source_id: str, *, validate: bool
+) -> tuple[ValidationIssue, ...]:
+    """Write every payload, then validate; on any exception restore all of it and re-raise.
+
+    Returns the validation's warnings, none when ``validate`` is false.
+    """
     before = {path: path.read_bytes() if path.is_file() else None for path in writes}
     created = sorted(
         {parent for path in writes for parent in path.parents if not parent.exists()},
@@ -366,19 +529,16 @@ def _apply(root: Path, writes: dict[Path, bytes]) -> ValidationReport:
         for path, payload in writes.items():
             path.parent.mkdir(parents=True, exist_ok=True)
             write_bytes_atomically(path, payload)
+        if not validate:
+            return ()
         report = validate_repository(root)
-        if not report.ok:
-            errors = [issue.format() for issue in report.issues if issue.severity is Severity.ERROR]
-            raise IngestRefused(
-                "ING010",
-                f"the repository fails validation with this package applied "
-                f"({len(errors)} error(s)):\n" + "\n".join(errors),
-            )
+        hint = ALL_HINT if source_id == HGNC_SOURCE else None
+        _refuse_invalid(report, "with this package applied", hint)
     # BaseException, and always re-raised: a Ctrl-C mid-write must restore too.
     except BaseException:
         _restore(before, created)
         raise
-    return report
+    return _warnings(report)
 
 
 def _restore(before: dict[Path, bytes | None], created: list[Path]) -> None:

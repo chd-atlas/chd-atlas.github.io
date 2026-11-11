@@ -46,19 +46,38 @@ any error, 2 if `--root` is not a directory.
 ## Ingesting a source package
 
 ```bash
-uv run chd-atlas ingest SOURCE_ID --package DIR
+gh release download SOURCE_ID/VERSION -R chd-atlas/feeds -D local/packages/SOURCE_ID/VERSION
+uv run chd-atlas ingest SOURCE_ID --package local/packages/SOURCE_ID/VERSION
+uv run chd-atlas ingest SOURCE_ID   # re-ingest the pinned version from local/packages/
+uv run chd-atlas ingest --all       # after any edit to curation/chd_scope.yaml
 ```
 
-A curator runs this, never CI. It verifies the package, merges its rows into `mirrors/`,
-pins it in `mirrors/sources.yaml` with its manifest at `mirrors/packages/SOURCE_ID.json`,
-then validates. If anything fails, every file it touched is restored. Exit 0 applied,
-1 refused (every file restored), 2 when `--root` or `--package` is not a directory or on
-a filesystem error; if the restore itself fails, the "could not restore" message names
-every path left changed.
+A curator runs this, never CI. The atlas never downloads: fetch a release from
+`chd-atlas/feeds` with `gh release download` (`local/` is gitignored). Ingest verifies
+the package, merges its rows into `mirrors/`, pins it in `mirrors/sources.yaml` with its
+manifest at `mirrors/packages/SOURCE_ID.json`, then validates. Ingest `hgnc` before the
+others: it writes the `mirrors/genes.tsv` their rows are filtered to, and their gene
+symbols resolve against the pinned HGNC package. If anything fails, every file it touched
+is restored. Exit 0 applied, 1 refused (every file restored), 2 for a bad argument
+(`--root` or `--package` not a directory, a source with no pin and no `--package`, `--all`
+with a source) or a filesystem error; if the restore itself fails, the "could not restore"
+message names every path left changed.
+
+Without `--package`, the pinned version's cache is used; `ING017` refuses when that cache
+is missing or does not hold the pinned manifest, and names the `gh release download`
+command. After any edit to `curation/chd_scope.yaml`, run `chd-atlas ingest --all`: it
+re-ingests every pinned package from its cache (ClinGen and GenCC first when pinned, then
+`hgnc`, then the rest by id), validates once at the end, and restores all of `mirrors/`
+if anything fails. Ingesting `hgnc` alone after a scope shrink fails validation whenever
+another package still has rows for a gene the shrink dropped. Then re-run the converters
+in `scripts/` that read the registry and whose mirror is not yet pinned to a package
+(`convert_audain2021.py`, `convert_burden.py`, `convert_cardoso_moreira.py`,
+`convert_farah2024.py`, `convert_hgnc.py`, `convert_sierant2025.py`).
 
 The package is refused with `ING015` if any table cell begins with a double quote; `validate` reports
 the same in a committed mirror as `TBL013` (the CSV reader would otherwise merge rows silently).
 It is refused with `ING016` if its version equals the pinned one but its manifest bytes differ: a version names one set of bytes.
 Only the `hgnc` package ships the `genes` table, always keyed by `hgnc_id` (`ING009`); its ingest writes
 `mirrors/genes.tsv` filtered to the registry the atlas derives from `curation/chd_scope.yaml` and the two validity mirrors.
-`validate` reports a gene that registry holds and `mirrors/genes.tsv` lacks as `GEN006`; re-ingest `hgnc` to clear it.
+`validate` reports a gene that registry holds and `mirrors/genes.tsv` lacks as `GEN006`; re-ingest `hgnc` (or run
+`chd-atlas ingest --all`) to clear it.
