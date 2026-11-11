@@ -96,3 +96,11 @@ Only the `hgnc` package ships the `genes` table, always keyed by `hgnc_id` (`ING
 `validate` reports a gene that registry holds and `mirrors/genes.tsv` lacks as `GEN006`; re-ingest `hgnc` or run
 `chd-atlas ingest --all` to clear it (before `hgnc` is pinned, regenerate `mirrors/genes.tsv` with
 `scripts/convert_hgnc.py`; if the pinned HGNC package lacks the gene, pin a newer HGNC release).
+
+## Curating literature
+
+Searching PubMed, triaging hits, extracting findings and the blind second pass
+live in [chd-atlas/curator](https://github.com/chd-atlas/curator) (`chd-curator`
+and its Claude plugin). Nothing it writes is published until a named person
+approves it here with `chd-atlas literature review`. The rules it follows are in
+`curator/curator-rules.md`.

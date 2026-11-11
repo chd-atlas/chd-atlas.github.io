@@ -44,6 +44,14 @@ def _pair(first: dict[str, Any], second: dict[str, Any]) -> FindingDiff:
 
 
 def test_the_compared_set_is_pinned() -> None:
+    """The 17 fields a second pass is compared on.
+
+    chd-atlas/curator keeps a twin of this pin, `test_the_compared_set_is_pinned`
+    in its `tests/test_diff.py`, because `chd-curator diff` compares the same set
+    from its own copy. The two change together: editing one without the other
+    makes `literature review --against` and `chd-curator diff` disagree about
+    what "agreed" means.
+    """
     assert COMPARED_FIELDS == (
         "publication",
         "design",
