@@ -1232,7 +1232,7 @@ def test_the_key_follows_the_rule_its_dispute_sentence_points_back_to(page: str)
 def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> None:
     """`#literature` (plan Task 6, 2026-11-02): pinned whole, against a literal.
 
-    Each clause is true of the code: the query template is `pubmed.build_query`
+    Each clause is true of the code: the query template is `literature_query.build_query`
     (symbol and previous symbols, CHD terms and the gene's in-scope disease
     names, `NOT preprint[pt] NOT review[pt]`), the triage has the three
     decisions `vocab.TriageDecision` names, the two axes are `FindingDesign`

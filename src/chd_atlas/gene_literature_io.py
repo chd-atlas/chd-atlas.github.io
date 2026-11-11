@@ -2,30 +2,26 @@
 """Reading and writing the curator-edited literature files without losing a value
 or a comment of what the curator wrote.
 
-Two files, two strategies, chosen by what each needs to preserve:
+``curation/literature/<SYMBOL>.yaml`` is rewritten through ruamel's
+round-trip loader with ONE canonical indent (mappings 2, sequences 4, dashes
+at offset 2; ruling R20, no indent detection). Values and comments are kept.
+A file already in that style changes only in the lines a command adds
+(measured 2026-11-03: marking a finding verified on such a file changed one line, the
+added ``verified_by``). A wrapped plain scalar is reflowed onto one line, and
+a file in another indent style is re-indented, both once, on its first write
+(measured: a summary hand-wrapped over two lines became one, and a file at
+mapping indent 4 changed in 19 lines for one added line).
 
-- ``curation/literature/<SYMBOL>.yaml`` is rewritten through ruamel's
-  round-trip loader with ONE canonical indent (mappings 2, sequences 4, dashes
-  at offset 2; ruling R20, no indent detection). Values and comments are kept.
-  A file already in that style changes only in the lines a command adds
-  (measured 2026-11-03: ``--mark-verified`` on such a file changed one line, the
-  added ``verified_by``). A wrapped plain scalar is reflowed onto one line, and
-  a file in another indent style is re-indented, both once, on its first write
-  (measured: a summary hand-wrapped over two lines became one, and a file at
-  mapping indent 4 changed in 19 lines for one added line). New entries are
-  appended; nothing is reordered.
-- ``curation/publications.yaml`` is *appended to as text*: its comments sit
-  between records, folded titles are wrapped by hand, and a round trip would
-  re-flow them. Every existing byte stays; one record is added at the end
-  (ruling R7 -- the file is in curation order, not sorted, and no validator
-  sorts it).
+Of the writers that once lived here, ``chd-atlas/curator`` now owns the ones
+that append searches and publications; this module keeps the reader and
+``with_findings_updated`` that ``literature review`` uses for approvals.
 
 `with_findings_updated` sets fields on named findings under the same rule: on a
 file in the canonical style the lines it adds are the only change, and a blank
 line or comment that followed the entry (even after a nested list or mapping)
 moves to the new last line with it.
 
-Both return **bytes** and write nothing: the caller serialises, validates and
+It returns **bytes** and writes nothing: the caller serialises, validates and
 only then writes (`fs.write_bytes_atomically`), so a failure anywhere leaves the
 file as it was.
 """
@@ -44,7 +40,6 @@ from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 from chd_atlas.duplicates import duplicates
 from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile
-from chd_atlas.models.literature import Publication, PublicationFile
 
 
 class LiteratureFileError(Exception):
@@ -202,118 +197,4 @@ def with_findings_updated(existing: bytes, updates: dict[str, dict[str, Any]]) -
                 _carry_trailing_comment(entry, name)
     content = dump_bytes(data)
     parse_literature(content)
-    return content
-
-
-def pmid_key(pmid: str) -> int:
-    """Numeric order of a `PMID:123` string (string order puts 9 after 10)."""
-    return int(pmid.removeprefix("PMID:"))
-
-
-def with_search(
-    existing: bytes | None,
-    *,
-    gene: str,
-    query: str,
-    run_on: date,
-    hits: int,
-    pmids: list[str],
-) -> tuple[bytes, int, int]:
-    """The file's new content after recording one search: `(bytes, search_id, new_hits)`.
-
-    `pmids` are the bare PMIDs esearch returned. Only those not already in the
-    file's triage become entries, `pending` and attributed to the new search,
-    appended in numeric PMID order (ruling R8). The search id is the largest
-    existing id plus one. The result is checked through `GeneLiteratureFile`
-    before it is returned.
-    """
-    if existing is None:
-        data: CommentedMap = CommentedMap()
-        data["gene"] = gene
-        data["searches"] = CommentedSeq()
-        data["triage"] = CommentedSeq()
-    else:
-        data = load_round_trip(existing)
-        if data.get("gene") != gene:
-            raise LiteratureFileError(f"the file's gene is {data.get('gene')!r}, not {gene}")
-    searches = data.setdefault("searches", CommentedSeq())
-    triage = data.setdefault("triage", CommentedSeq())
-    for seq in (searches, triage):
-        seq.fa.set_block_style()
-
-    search_id = max((int(s["id"]) for s in searches), default=0) + 1
-    known = {str(t["pmid"]) for t in triage}
-    fresh = sorted((f"PMID:{p}" for p in set(pmids)), key=pmid_key)
-    fresh = [p for p in fresh if p not in known]
-
-    searches.append(
-        {
-            "id": search_id,
-            "source": "pubmed",
-            "query": query,
-            "run_on": run_on,
-            "hits": hits,
-            "new_hits": len(fresh),
-        }
-    )
-    for pmid in fresh:
-        triage.append({"pmid": pmid, "search": search_id, "decision": "pending"})
-
-    content = dump_bytes(data)
-    parse_literature(content)
-    return content, search_id, len(fresh)
-
-
-def with_publication(existing: bytes, publication: Publication, reading: str) -> bytes:
-    """`publications.yaml` with one record appended; every existing byte kept.
-
-    `reading` is why the study_type was read that way. `publications.yaml`'s head
-    comment says the reading is recorded alongside the value, so it is written as
-    comment lines directly above `study_type:` in the appended record (a blank
-    reading is refused). The comment does not parse, so the record is unchanged.
-    """
-    lines_of_reading = [line.strip() for line in reading.splitlines() if line.strip()]
-    if not lines_of_reading:
-        raise LiteratureFileError("the reading of the study design must not be blank")
-    try:
-        before = PublicationFile.model_validate(YAML(typ="safe").load(existing))
-    except Exception as exc:
-        raise LiteratureFileError(f"publications.yaml does not validate: {exc}") from exc
-    if any(p.id == publication.id for p in before.publications):
-        raise LiteratureFileError(f"{publication.id} is already in publications.yaml")
-
-    record: dict[str, Any] = {
-        "id": publication.id,
-        "title": publication.title,
-        "journal": publication.journal,
-        "year": publication.year,
-        "authors": list(publication.authors),
-        "study_type": publication.study_type.value,
-    }
-    for field in ("doi", "pmcid"):
-        value = getattr(publication, field)
-        if value is not None:
-            record[field] = value
-    text = dump_bytes({"publications": [record]}).decode("utf-8")
-    snippet = text.split("\n", 1)[1]  # drop the "publications:" line, keep the item's indent
-    commented: list[str] = []
-    for line in snippet.split("\n"):
-        if line.strip().startswith("study_type:"):
-            indent = line[: len(line) - len(line.lstrip())]
-            commented.extend(f"{indent}# {text_line}" for text_line in lines_of_reading)
-        commented.append(line)
-    snippet = "\n".join(commented)
-
-    separator = b"" if existing.endswith(b"\n") else b"\n"
-    content = existing + separator + snippet.encode("utf-8")
-
-    try:
-        after = PublicationFile.model_validate(YAML(typ="safe").load(content))
-    except Exception as exc:
-        raise LiteratureFileError(f"the appended record does not parse: {exc}") from exc
-    if (
-        len(after.publications) != len(before.publications) + 1
-        or after.publications[-1] != publication
-    ):
-        raise LiteratureFileError("the appended record did not land as the last publication")
     return content

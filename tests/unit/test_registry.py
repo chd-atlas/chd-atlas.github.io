@@ -16,7 +16,7 @@ def test_the_derived_registry_is_the_committed_one() -> None:
     """The derivation reproduces `mirrors/genes.tsv`'s 185 genes exactly.
 
     Measured 2026-11-10 on the committed corpus (105 scope terms): 185 genes,
-    equal to the registry `scripts/convert_hgnc.py` wrote. The ClinGen mirror
+    equal to the registry the former `scripts/convert_hgnc.py` wrote. The ClinGen mirror
     names 134 of them against an in-scope disease and the GenCC mirror all 185,
     so 51 come from GenCC alone and none from ClinGen alone: on this corpus a
     derivation that ignored ClinGen would still pass here, which is why the

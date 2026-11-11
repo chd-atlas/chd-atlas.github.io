@@ -139,8 +139,9 @@ def read_sheet(path: Path, name: str) -> list[dict[str, str]]:
     Only correct for a sheet whose first row *is* the header. PNAS supplements
     put a title, a caption and a three-level header above the data, which keys
     every column on `""`; those callers use `read_sheet_rows` and index by
-    position. See `convert_sierant2025.py`, which checks the header row it
-    indexes against rather than trusting it.
+    position. The deleted Sierant converter (now the feeds recipe
+    `sources/sierant2025_ds6`) checked the header row it indexed against rather
+    than trusting it.
     """
     rows = read_sheet_rows(path, name)
     header = rows[0]

@@ -556,7 +556,18 @@ def test_the_burden_census_in_the_doc_is_the_census_the_build_publishes(site: Pa
     assert f"zero of its {rows_42230622:,} mirror rows have no case carrier" in section
     with (REPO / "mirrors" / "genes.tsv").open() as handle:
         symbols = {g["hgnc_id"]: g["symbol"] for g in csv.DictReader(handle, delimiter="\t")}
-    assert len(empty) == 1, f"{len(empty)} rows are empty on both sides; the doc names one"
+    published_genes = {path.stem.replace("_", ":") for path in (site / "genes").glob("HGNC_*.json")}
+    reaching = [r for r in empty if r["gene"] in published_genes]
+    assert len(reaching) == 1, f"{len(reaching)} published rows are empty on both sides"
+    others = [r for r in empty if r["gene"] not in published_genes]
+    assert len(others) == 1, "the doc names the one unpublished both-sides-empty row"
+    other_class = {"missense_damaging": "missense-damaging"}[others[0]["consequence_class"]]
+    other_design = {"control_cohort": "case-control"}[others[0]["comparator"]]
+    assert (
+        f"The mirror holds one more, {symbols[others[0]['gene']]}'s {other_class} {other_design} "
+        "row, for a gene the site does not publish, so it reaches no bundle." in section
+    )
+    empty = reaching
     assert f"`{empty[0]['study']}` does publish a row with zeros on both sides" in section
     # The row named whole: its gene, class and design (review, 2026-10-26).
     named = {"lof": "loss-of-function"}[empty[0]["consequence_class"]]

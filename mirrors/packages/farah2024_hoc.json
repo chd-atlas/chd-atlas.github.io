@@ -1,0 +1,58 @@
+{
+  "built_by": {
+    "host": "mpcs042",
+    "hvantk_release": "a7ce83029d0ca29750aec4e4819f4a69fe64bfdf",
+    "job": "21476247",
+    "recipe_commit": "2d38294339f581dcdb43bbd3a0abb74ed26ed0b5"
+  },
+  "coverage": {
+    "registry_slice": {
+      "atlas_commit": "f094c282f9e8e26250df96b3e427a977a0a8a4a2",
+      "genes": 185
+    }
+  },
+  "dropped": [],
+  "ids": "symbol",
+  "input_counts": {
+    "genes": 181,
+    "rows": 81993
+  },
+  "inputs": [
+    {
+      "name": "farah_2024.h5ad",
+      "retrieved_on": "2026-04-18",
+      "sha256": "19a1d4961c2f38194b7589e86dc53cae45c272fc0f9d8a7e907edeefe3215c2c",
+      "upstream_release": null,
+      "url": "https://cells.ucsc.edu/?ds=hoc+all-heart"
+    },
+    {
+      "name": "pseudobulk.tsv",
+      "retrieved_on": "2026-11-11",
+      "sha256": "3414fe0cf47b5f2ce4c46460fed151131dce365b14ca2d2eae06671be9dd59d9",
+      "upstream_release": null,
+      "url": "https://github.com/chd-atlas/feeds/tree/2d38294339f581dcdb43bbd3a0abb74ed26ed0b5/sources/farah2024_hoc/hpc"
+    }
+  ],
+  "licence_evidence": "UCSC's hoc/desc.json and hoc/dataset.json (fetched 2026-11-02) state no licence. Owner decision 2026-11-02: treat the data as attributable to Farah et al. 2024, whose article (PMID:38480880) is CC BY 4.0.",
+  "package": "farah2024_hoc",
+  "source": {
+    "licence": "Not stated by the UCSC Cell Browser; data accompany a CC BY 4.0 article (PMID:38480880) and are attributed to Farah et al. 2024",
+    "name": "Farah et al. 2024 developing human heart scRNA-seq, UCSC Cell Browser dataset hoc/all-heart (142,946 cells), aggregated to per-heart pseudobulks",
+    "redistribution": "permitted_with_attribution",
+    "retrieved_on": "2026-04-18",
+    "url": "https://cells.ucsc.edu/?ds=hoc+all-heart",
+    "version": "sha256:19a1d4961c2f38194b7589e86dc53cae45c272fc0f9d8a7e907edeefe3215c2c"
+  },
+  "tables": [
+    {
+      "file": "cell_type_profiles.hoc.tsv.gz",
+      "format_version": 1,
+      "genes": 181,
+      "name": "cell_type_profiles",
+      "rows": 12308,
+      "sha256": "e1ed8d9f61f4280b3e6f10d909d5209d4fafcd851dd068d304d3a5290c6eab22",
+      "shard": "hoc"
+    }
+  ],
+  "version": "19a1d496"
+}

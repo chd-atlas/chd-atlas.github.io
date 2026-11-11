@@ -23,7 +23,7 @@ from pathlib import Path
 # The order `TABLE_SCHEMAS["burden"]` declares, and the only copy of it in
 # `scripts/`: every burden converter writes through `merge_study`. Written out
 # rather than imported so the converters stay runnable without the package
-# installed, matching `convert_hgnc.py`, and pinned to `BURDEN.column_names` by
+# installed, as the other converters do, and pinned to `BURDEN.column_names` by
 # `test_convert_burden.py`.
 ORDER: tuple[str, ...] = (
     "study",

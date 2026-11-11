@@ -153,8 +153,9 @@ def validate_mirror_symbols(
                 location=where,
                 message=(
                     f"{gene} is labelled {symbol!r} here, but that symbol {detail} "
-                    "in mirrors/genes.tsv; regenerate the registry with "
-                    "scripts/convert_hgnc.py so a symbol-keyed source can resolve it"
+                    "in mirrors/genes.tsv; pin a newer HGNC package from chd-atlas/feeds "
+                    "(`chd-atlas ingest hgnc --package <its directory>`) so a symbol-keyed "
+                    "source can resolve it; re-ingesting the pinned version changes nothing"
                 ),
             )
         )
@@ -331,8 +332,7 @@ def validate_registry_is_current(
             message=(
                 f"mirrors/genes.tsv lacks {len(missing)} {noun} the registry derives from "
                 f"curation/chd_scope.yaml and the validity mirrors{more}: {shown}; "
-                "re-ingest hgnc or run `chd-atlas ingest --all` (before hgnc is pinned, "
-                "regenerate mirrors/genes.tsv with scripts/convert_hgnc.py); if the pinned "
+                "re-ingest hgnc or run `chd-atlas ingest --all`; if the pinned "
                 "HGNC package lacks the gene, pin a newer HGNC release"
             ),
         )
