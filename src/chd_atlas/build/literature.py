@@ -133,7 +133,7 @@ def withheld_publications(corpus: Corpus, mirror_citations: Collection[str]) -> 
     publications, so `publications.json`, the search index and the manifest's
     `counts.publications` agree.
 
-    The point is that `add-publication` records the extracting agent's reading
+    The point is that `chd-curator add-publication` records the extracting agent's reading
     of `study_type`, and that reading must reach no byte until a named person
     has approved a finding from the paper.
     """

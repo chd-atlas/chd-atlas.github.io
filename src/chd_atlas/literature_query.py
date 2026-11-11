@@ -4,7 +4,8 @@
 `literature_target` resolves a typed symbol, says whether the gene is inside the
 publication gate, and builds the recorded PubMed query. `chd-atlas literature
 target` prints it as one JSON line so a separate program can ask the atlas
-without importing it. The query code lives here, moved verbatim from `pubmed.py`.
+without importing it. The query code lives here, moved verbatim from the former
+`pubmed.py`; the PubMed client now lives in chd-atlas/curator.
 """
 
 from __future__ import annotations
