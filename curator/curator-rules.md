@@ -23,7 +23,7 @@ convention only a person can check.
 
 ## Sources
 
-- PMIDs come only from `chd-atlas literature search` and `abstracts`, never from memory.
+- PMIDs come only from `chd-curator search` and `chd-curator abstracts`, never from memory.
   A finding citing a PMID not included in the file's triage is refused (`LIT004`).
 - Preprints and reviews are excluded by the query. One that slips through is excluded by
   hand with `not_peer_reviewed` or `review_article`.
@@ -32,7 +32,7 @@ convention only a person can check.
 ## Files and ids
 
 - The file is `curation/literature/<SYMBOL>.yaml`, named by the gene's approved symbol
-  (`LIT009`). `search` accepts an old name but writes the approved one.
+  (`LIT009`). `chd-curator search` accepts an old name but writes the approved one.
 - A finding id is `CHDA:LIT:<7-digit ordinal>`, taken from the `LIT` counter in
   `curation/.id_registry.yaml`, which you bump in the same edit. An id beyond the counter
   is refused (`ID002`); an id repeated within one file is refused (`SCHEMA001`), and one
@@ -41,7 +41,7 @@ convention only a person can check.
   (`&a`), alias (`*a`) or merge key (`<<`) is refused whole (`YAML002`), because `<<: *a`
   would copy one finding's approval onto a finding nobody approved.
 - Every cited PMID needs a record in `curation/publications.yaml`, added with
-  `add-publication` (`LIT011`). A cohort must be in `curation/cohorts.yaml` (`LIT012`).
+  `chd-curator add-publication` (`LIT011`). A cohort must be in `curation/cohorts.yaml` (`LIT012`).
 - A literature file for a gene outside the publication gate reaches no page (`LIT013`,
   a warning).
 
@@ -127,7 +127,7 @@ convention only a person can check.
   `unknown`. Leaving the field out is refused (`SCHEMA001`); not guessing is a convention
   nothing enforces. A named id must exist and must not be the finding's own (`LIT007`);
   it may name a finding not yet approved. The curator checks independence by
-  reading this field in the `chd-atlas literature review` listing; `diff` does not
+  reading this field in the `chd-atlas literature review` listing; `chd-curator diff` does not
   compare it. The blind verifier is the one exception to naming ids: it always writes
   `unknown`, because its ids are local to its own file.
 

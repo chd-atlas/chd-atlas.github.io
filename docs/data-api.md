@@ -1630,7 +1630,7 @@ TBX5's, abridged:
 - `pending_approval` counts findings no named person has approved. Their content
   is not published; the count is what stops their absence being silent. The same
   rule applies to a finding's paper: a record in `curation/publications.yaml`
-  (added by `chd-atlas literature add-publication`, with the `study_type` the
+  (added by `chd-curator add-publication`, with the `study_type` the
   extracting agent read) stays out of [`publications.json`](#publicationsjson)
   while literature findings cite it and none of them is approved, unless an
   assertion, functional record, featured entry, dataset or burden row also cites

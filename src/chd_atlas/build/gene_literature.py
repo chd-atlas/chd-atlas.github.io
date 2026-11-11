@@ -14,7 +14,7 @@ an agent's unreviewed extraction in front of a reader as curated evidence. The
 count is what keeps that omission from being silent.
 
 A ``Publication`` that a curator added for a finding's paper
-(``literature add-publication``) carries the ``study_type`` the extracting agent
+(``chd-curator add-publication``) carries the ``study_type`` the extracting agent
 read, so ``publications.json`` withholds it while literature findings cite it
 and none of them is approved, unless something else the build publishes cites
 it; a record no finding cites publishes as before
