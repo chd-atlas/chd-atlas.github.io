@@ -1393,6 +1393,42 @@ def test_a_shrink_without_an_hgnc_step_prunes_nothing(
     assert digests(repo) == before
 
 
+def test_ingest_all_never_prunes_a_gene_the_hgnc_step_did_not_remove(
+    pinned: Pinned, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A gene missing from a hand-truncated `genes.tsv` is refused, never pruned.
+
+    hgnc is left out of the pins and ENO1's row is deleted from `genes.tsv` by
+    hand, so the converter rows naming ENO1 sit under a registry that lacks it.
+    Only a gene the hgnc step removed in this call may be pruned; pruning every
+    gene absent after the call would delete those rows and validate clean.
+    Real validation runs: the call must refuse with ING010 and leave every
+    byte under `mirrors/` as it was. Measured 2026-11-11: with the prune made
+    unconditional (mutant M22 of the stage-A matrix) the full suite of 2192
+    tests still passed; this test is the one that kills it.
+    """
+    repo = pinned.copy(tmp_path)
+    genes = repo / "mirrors" / "genes.tsv"
+    lines = genes.read_text(encoding="utf-8").splitlines(keepends=True)
+    kept = [line for line in lines if not names(line, ENO1)]
+    assert len(kept) == len(lines) - 1
+    genes.write_text("".join(kept), encoding="utf-8")
+    pins = apply.package_pins
+
+    def without_hgnc(root: Path) -> dict[str, PackagePin]:
+        return {key: pin for key, pin in pins(root).items() if key != "hgnc"}
+
+    monkeypatch.setattr(apply, "package_pins", without_hgnc)
+    before = digests(repo)
+
+    with pytest.raises(IngestRefused) as excinfo:
+        ingest_all(repo)
+
+    assert excinfo.value.code == "ING010"
+    assert f"gene {ENO1} is not in mirrors/genes.tsv" in excinfo.value.message
+    assert digests(repo) == before
+
+
 ALL_HINT = (
     "If curation/chd_scope.yaml dropped a gene that other mirror rows still name, "
     "`chd-atlas ingest --all` re-ingests every pinned package, removes the rows of genes "
