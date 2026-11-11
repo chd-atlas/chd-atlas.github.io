@@ -873,6 +873,37 @@ def test_a_repin_that_keeps_its_version_must_keep_its_bytes(
     assert tree(repo) == before
 
 
+def test_a_new_version_with_different_bytes_is_accepted_and_moves_the_pin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ING016's permissive half: only the SAME version with other bytes is refused.
+
+    Every monthly HGNC release and every `-r2` is a new version with new bytes.
+    Mutant `if pin is None or pin.version != ...` -> `if pin is None` refuses
+    them all; the test above cannot see it (it re-pins the same version).
+    """
+    repo = small_repo(tmp_path, monkeypatch)
+    rows = toy_rows()[:6]
+    ingest_package(
+        repo, SOURCE, write_tables(tmp_path / "v1", [("burden", None, rows)], version="v1")
+    )
+    v2 = write_tables(tmp_path / "v2", [("burden", None, rows[:5])], version="v2")
+    digest = hashlib.sha256((v2 / "manifest.json").read_bytes()).hexdigest()
+
+    result = ingest_package(repo, SOURCE, v2)
+
+    assert result.version == "v2"
+    pin = next(s.package for s in load_sources(repo)[0].sources if s.id == SOURCE)
+    assert pin is not None
+    assert (pin.version, pin.manifest_sha256) == ("v2", digest)
+    assert result.rows_written == 5
+    assert len(mirror_lines_of(repo, "mirrors/burden.tsv")) == 5
+
+
+def mirror_lines_of(repo: Path, relative: str) -> list[str]:
+    return (repo / relative).read_text(encoding="utf-8").splitlines()[1:]
+
+
 # --- the hgnc package: `genes.tsv` is the registry the atlas derives ----------
 
 HGNC_VERSION = "2026-10-16"
