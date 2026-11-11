@@ -1710,8 +1710,8 @@ _PTPN11_ROW = (
 @pytest.mark.parametrize(
     ("state", "expected_errors"),
     [
-        pytest.param("gencc-absent", ["GEN006"], id="gencc-absent"),
-        pytest.param("clingen-absent", ["GEN006"], id="clingen-absent"),
+        pytest.param("gencc-absent", ["TBL014", "GEN006"], id="gencc-absent"),
+        pytest.param("clingen-absent", ["TBL014", "GEN006"], id="clingen-absent"),
         pytest.param("gencc-unreadable", ["TBL000"], id="gencc-present-but-unreadable"),
     ],
 )
@@ -1724,8 +1724,8 @@ def test_one_absent_validity_mirror_still_derives_the_registry_gen006_checks(
     lists only PTPN11. GEN006 required both mirrors until then, and each
     absent case validated with zero issues and `ok` True: TBL012 needs both
     mirrors gone, and an absent file raises no TBL000. Now an absent mirror is
-    one with no rows, and GEN006 is the one issue. The ClinGen record is
-    `Disputed` and GenCC has one submitter, so TBX5 is not published and no
+    one with no rows, and the issues are GEN006 and TBL014 (one mirror absent).
+    The ClinGen record is `Disputed` and GenCC has one submitter, so TBX5 is not published and no
     GEN004 joins it. A mirror that is present but unreadable (here a
     zero-length file) still skips GEN006, because TBL000 already reports it
     (the controller's ruling); read as empty instead, it would add a GEN006.
@@ -1765,7 +1765,38 @@ def test_one_absent_validity_mirror_still_derives_the_registry_gen006_checks(
 
     errors = [i for i in report.issues if i.severity is Severity.ERROR]
     assert [i.code for i in errors] == expected_errors
-    if expected_errors == ["GEN006"]:
-        assert report.issues == errors, "GEN006 must be the only issue"
-        assert "lacks 1 gene" in errors[0].message and "HGNC:11604" in errors[0].message
+    if "GEN006" in expected_errors:
+        assert report.issues == errors, "TBL014 and GEN006 must be the only issues"
+        assert "lacks 1 gene" in errors[1].message and "HGNC:11604" in errors[1].message
     assert report.ok is False
+
+
+@pytest.mark.parametrize("corpus_loads", [True, False])
+@pytest.mark.parametrize("absent", ["clingen_gene_validity.tsv", "gencc_submissions.tsv"])
+def test_exactly_one_absent_validity_mirror_is_an_error_naming_the_file(
+    tmp_path: Path, absent: str, corpus_loads: bool
+) -> None:
+    """TBL014 (owner decision 2026-11-11), reached whether or not the corpus loads (§4.34).
+
+    With one validity mirror deleted the checks ran on the other authority's
+    records alone and nothing said so (measured on the real corpus before the
+    fix: 72 SCP001 with GenCC deleted and 24 SCP005 with ClinGen deleted, each
+    burying the cause, and GEN004 silent for a gene graded Definitive). The
+    call sits before the corpus-loaded branch, so a corpus that fails to load
+    (here a malformed `publications.yaml`) must not hide it. Both absent stays
+    TBL012's, which `test_missing_validity_mirrors_fails_validation` pins.
+    """
+    root = _real_repo(tmp_path)
+    (root / "mirrors" / absent).unlink()
+    if not corpus_loads:
+        (root / "curation" / "publications.yaml").write_text("- [unclosed\n", encoding="utf-8")
+
+    report = validate_repository(root)
+
+    found = [issue for issue in report.issues if issue.code == "TBL014"]
+    assert len(found) == 1
+    assert found[0].severity is Severity.ERROR
+    assert found[0].location == f"mirrors/{absent}"
+    assert absent in found[0].message
+    assert report.ok is False
+    assert "TBL012" not in {issue.code for issue in report.issues}

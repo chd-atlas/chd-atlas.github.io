@@ -78,9 +78,9 @@ def derive_registry_from_root(root: Path) -> frozenset[str]:
 
     An absent mirror is `ABSENT_MIRROR`, as GEN006 treats it, so an ``hgnc``
     ingest with one mirror absent writes the registry the other derives, and
-    validation agrees with it; both absent derive nothing, which the ingest
-    refuses. Raises `RegistryUnavailable` when the scope file is missing,
-    unreadable or fails `ChdScopeFile`, or when a mirror that is present
+    validation agrees with it (and reports the absence as TBL014); both absent
+    derive nothing, which the ingest refuses. Raises `RegistryUnavailable` when
+    the scope file is missing, unreadable or fails `ChdScopeFile`, or when a mirror that is present
     reports any error against its table schema (`validate_table`, which also
     covers a file polars cannot read). That is stricter than GEN006, which
     skips only a mirror it cannot read and leaves other schema errors to

@@ -476,7 +476,8 @@ def _gate_published_genes(root: Path, corpus: Corpus) -> set[str]:
     than by a paired warning. Measured 2026-08-15:
 
     - an unreadable mirror is TBL000, and `_mirrored_validity` pairs TBL012
-      with it;
+      with it when both are unreadable or absent; exactly one absent mirror is
+      TBL014;
     - a dropped column is TBL001;
     - an unmapped classification term — the one case where the mirrors are
       readable *and* schema-valid — cannot reach `gene_validity` at all,
@@ -650,6 +651,26 @@ def validate_repository(root: Path) -> ValidationReport:
     genes_frame = (
         read_table(genes_path, TABLE_SCHEMAS["genes"])[0] if genes_path.is_file() else None
     )
+
+    # TBL014: exactly one validity mirror is absent. One call site, before the
+    # `if corpus_issues` / `else`, so it is reached on every path (CLAUDE.md
+    # section 4.34) and does not depend on the corpus loading. Both absent is
+    # TBL012's (the scope branch below); present-but-unreadable is TBL000/TBL001.
+    absent_validity = [
+        root / "mirrors" / filename
+        for _, filename in _VALIDITY_MIRRORS
+        if not (root / "mirrors" / filename).is_file()
+    ]
+    if len(absent_validity) == 1:
+        issues.append(
+            ValidationIssue(
+                "TBL014",
+                Severity.ERROR,
+                str(absent_validity[0]),
+                f"{absent_validity[0].name} is missing; the scope, publication-gate "
+                "and registry checks are running on the other authority's records alone",
+            )
+        )
 
     # Referential checks over a corpus that failed to load would compare against a
     # knowingly incomplete set. The file wrappers validate their whole record list
@@ -1004,7 +1025,8 @@ def validate_repository(root: Path) -> ValidationReport:
         # but unreadable (TBL000), when one lacks a `gene` or `disease` column
         # (TBL001; the except below), and when `genes.tsv` is absent or
         # unreadable (TBL008, above). With both mirrors absent it runs on an
-        # empty registry and reports nothing; TBL012 is the error there.
+        # empty registry and reports nothing; TBL012 is the error there, and
+        # with exactly one absent TBL014 is.
         registry_frames = _registry_frames(root, validity_frames)
         if registry_frames is not None and genes_frame is not None:
             try:
