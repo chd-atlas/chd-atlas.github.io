@@ -29,6 +29,7 @@ from chd_atlas.gene_literature_io import (
     with_search,
 )
 from chd_atlas.ingest.apply import (
+    IngestAllResult,
     IngestResult,
     ingest_all,
     ingest_package,
@@ -182,17 +183,8 @@ def ingest(
         if source_id is not None or package is not None:
             raise _fail(one_of, 2)
         with _ingest_errors():
-            results = ingest_all(root)
-        if not results:
-            typer.echo(
-                "no source in mirrors/sources.yaml is pinned to a package; nothing was ingested"
-            )
-            return
-        for result in results:
-            for line in _summary_lines(result):
-                typer.echo(line)
-        # `ingest_all` validates once and returns its warnings on the last result.
-        for line in _validation_lines(results[-1].warnings):
+            every_result = ingest_all(root)
+        for line in _ingest_all_lines(every_result):
             typer.echo(line)
         return
     if source_id is None:
@@ -257,6 +249,27 @@ def report_changes(
 def _ingest_lines(result: IngestResult) -> list[str]:
     """What an ingest wrote and, by name, everything it did not; then its validation."""
     return _summary_lines(result) + _validation_lines(result.warnings)
+
+
+def _ingest_all_lines(every: IngestAllResult) -> list[str]:
+    """Each source's summary, every pruned row by file and gene, then the one validation."""
+    lines = [line for result in every.results for line in _summary_lines(result)]
+    if not every.results:
+        lines.append(
+            "no source in mirrors/sources.yaml is pinned to a package; nothing was ingested"
+        )
+    if every.pruned:
+        genes = sorted({item.gene for item in every.pruned})
+        total = sum(item.rows for item in every.pruned)
+        lines.append(
+            f"removed {total} row(s) naming {len(genes)} gene(s) that left the registry: "
+            + ", ".join(genes)
+        )
+        by_path: dict[str, list[str]] = {}
+        for item in every.pruned:
+            by_path.setdefault(item.path, []).append(f"{item.gene} ({item.rows})")
+        lines += [f"removed from {path}: {', '.join(found)}" for path, found in by_path.items()]
+    return lines + _validation_lines(every.warnings)
 
 
 def _summary_lines(result: IngestResult) -> list[str]:

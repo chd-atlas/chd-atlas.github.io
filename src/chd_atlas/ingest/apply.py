@@ -44,21 +44,26 @@ that cannot see. Both are checked before anything is written.
 `ingest_all` re-ingests every pinned package from its cache as ONE transaction,
 in `ingest_order`: the pinned owners of the registry's input tables (ClinGen,
 GenCC), then ``hgnc``, whose filter they derive, then every other source by id.
-No step validates; `validate_repository` runs once at the end. Validating each
-step would deadlock a scope shrink: ``hgnc`` alone drops a gene that another
-package's rows still name (BUR011), and any other package alone keeps those
-rows, because its filter is the `genes.tsv` only ``hgnc`` rewrites. On any
-failure, every file under `mirrors/` is put back to its bytes before the call
-and everything the call created there is removed.
+No step validates. Validating each step would deadlock a scope shrink: ``hgnc``
+alone drops a gene that other rows still name (BUR011), and any other package
+alone keeps its rows, because its filter is the `genes.tsv` only ``hgnc``
+rewrites. After the steps it prunes (the rule is `ingest_all`'s docstring),
+then `validate_repository` runs once. On any failure, every file under
+`mirrors/` is put back to its bytes before the call and everything the call
+created there is removed.
 
-``ING017``: a pinned package is not in its cache, ``local/packages/<id>/<version>/``
-(the directory is missing, or its ``manifest.json`` is not the bytes the pin's
-sha256 names). The message names the `gh release download` command that fetches
-it; the atlas never downloads (plan Decision 1). `ingest_all` checks every pin
-before ingesting anything. A cache that holds the pinned manifest names the
-pinned version wherever SRC005 passes (it checks the committed manifest's bytes
-and version against the pin), so each step's cache write rewrites the directory
-it read with its own bytes and `local/` needs no snapshot.
+``ING017``: a pinned package is not in its cache, ``local/packages/<id>/<version>/``:
+the directory is missing, its ``manifest.json`` cannot be read or is not the
+bytes the pin's sha256 names, or those bytes name another package or version
+than the pin (a pin SRC005 reports). The message names the `gh release download`
+command that fetches it; the atlas never downloads (plan Decision 1).
+`ingest_all` checks every pin before ingesting anything. So every step reads a
+cache directory that holds the pinned manifest and names the pinned package and
+version, and its cache write (`_cache_writes`) rewrites that same directory with
+the bytes it read: no step of `ingest_all` creates or changes anything under
+`local/`, which is why `local/` needs no snapshot. That holds only because of
+the ING017 checks; `ingest_package` called directly with another directory
+writes a new cache directory, as it should.
 
 Cells are written as polars parsed them, which Decision 8 calls verbatim: a
 package table is read as quoted TSV and a mirror is written unquoted, so a cell
@@ -88,15 +93,16 @@ derives empty; any other package refuses when ``genes.tsv`` is absent or lists
 no gene. Either empty registry would drop every row.
 Validation warnings never refuse an ingest (`ValidationReport.ok`); they are
 returned for the caller to print: on `IngestResult.warnings`, which is empty for
-an ingest run with ``validate=False`` and, from `ingest_all`, carries the one
-validation's warnings on the last result only.
+an ingest run with ``validate=False``; `ingest_all` returns its one
+validation's warnings on `IngestAllResult.warnings`.
 """
 
 from __future__ import annotations
 
 import hashlib
+from collections import Counter
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from enum import Enum
 from io import StringIO
 from pathlib import Path
@@ -130,7 +136,15 @@ from chd_atlas.models.package import (
     load_manifest,
 )
 from chd_atlas.registry import SCOPE_FILE, RegistryUnavailable, derive_registry_from_root
-from chd_atlas.tables import GENES, PACKAGES_DIR, TableSchema, cell_text, table_layout
+from chd_atlas.tables import (
+    GENES,
+    PACKAGES_DIR,
+    TABLE_SCHEMAS,
+    TableSchema,
+    cell_text,
+    mirror_paths,
+    table_layout,
+)
 from chd_atlas.validate.runner import ValidationReport, validate_repository
 from chd_atlas.validate.sources import PackagePin, load_sources
 
@@ -158,8 +172,9 @@ FEEDS_REPOSITORY: Final = "chd-atlas/feeds"
 
 # Appended to an hgnc ingest's validation failure (see the module docstring).
 ALL_HINT: Final = (
-    "If curation/chd_scope.yaml dropped a gene that another pinned package still has rows "
-    "for, `chd-atlas ingest --all` re-filters every pinned package and validates once."
+    "If curation/chd_scope.yaml dropped a gene that other mirror rows still name, "
+    "`chd-atlas ingest --all` re-ingests every pinned package, removes the rows of genes "
+    "that left the registry, and validates once."
 )
 
 
@@ -185,7 +200,27 @@ class IngestResult:
     dropped: tuple[DroppedRows, ...]
     # The warnings `validate_repository` reported with the package applied; an
     # error would have refused the ingest. Empty when the ingest did not
-    # validate, which in `ingest_all` is every result but the last.
+    # validate (``validate=False``), as no step of `ingest_all` does.
+    warnings: tuple[ValidationIssue, ...]
+
+
+@dataclass(frozen=True)
+class PrunedRows:
+    """Rows `ingest_all` removed from one mirror file because their gene left the registry."""
+
+    table: str
+    path: str  # relative to the repository root, forward-slashed
+    gene: str
+    rows: int
+
+
+@dataclass(frozen=True)
+class IngestAllResult:
+    # One per pinned source, in `ingest_order`; each step's `warnings` is empty.
+    results: tuple[IngestResult, ...]
+    # Sorted by (path, gene); empty unless the hgnc step removed genes.
+    pruned: tuple[PrunedRows, ...]
+    # The one validation's warnings; an error would have refused the call.
     warnings: tuple[ValidationIssue, ...]
 
 
@@ -315,24 +350,54 @@ def pinned_package_dir(root: Path, source_id: str, pin: PackagePin) -> Path:
             f"{where}; download it: {download}",
         )
     try:
-        digest: str | None = hashlib.sha256((cache / "manifest.json").read_bytes()).hexdigest()
-    except OSError:
-        digest = None
-    if digest != pin.manifest_sha256:
+        data = (cache / "manifest.json").read_bytes()
+    except OSError as exc:
+        raise IngestRefused(
+            "ING017",
+            f"{where}/manifest.json cannot be read ({exc.strerror or exc}); remove the "
+            f"directory and download it again: {download}",
+        ) from exc
+    if hashlib.sha256(data).hexdigest() != pin.manifest_sha256:
         raise IngestRefused(
             "ING017",
             f"{where}/manifest.json is not the manifest {source_id} {pin.version} is pinned at "
             f"(sha256:{pin.manifest_sha256[:12]}\u2026); remove the directory and download it "
             f"again: {download}",
         )
+    try:
+        manifest = load_manifest(cache / "manifest.json")
+    except ManifestError:
+        # The pinned bytes are not a manifest: `load_package` refuses them
+        # (ING004) before that step writes anything.
+        return cache
+    if (manifest.package, manifest.version) != (source_id, pin.version):
+        raise IngestRefused(
+            "ING017",
+            f"{where}/manifest.json has the pinned bytes but is {manifest.package} "
+            f"{manifest.version}, so the pin disagrees with its own manifest (validate reports "
+            f"it as SRC005); ingesting it would move the pin",
+        )
     return cache
 
 
-def ingest_all(root: Path) -> tuple[IngestResult, ...]:
-    """Re-ingest every pinned package from its cache as one transaction (module docstring).
+def ingest_all(root: Path) -> IngestAllResult:
+    """Re-ingest every pinned package from its cache as one transaction, then validate once.
 
-    Returns one result per source in `ingest_order`, the last carrying the one
-    validation's warnings; none, without validating, when nothing is pinned.
+    The steps run in `ingest_order`, each with ``validate=False``. Then, **only
+    when the ``hgnc`` step ran in this call**, the call prunes: the genes it
+    removed are the HGNC ids `mirrors/genes.tsv` held before the call and does
+    not hold after it, and every row naming one of them is removed from every
+    mirror file (each flat file, each shard) of every table with a gene column
+    except ``genes`` and `UNFILTERED_TABLES`, whichever package or converter
+    wrote the row. That is the atlas applying its own registry (spec F4), and
+    what re-running each converter against the shrunk registry would do. The
+    files are read and rewritten as text (`_read_mirror`, `_render`), so every
+    other row keeps its bytes. Each removal is returned in `IngestAllResult.pruned`,
+    never silent. Then `validate_repository` runs once, also when nothing is
+    pinned; an error refuses the call (ING010). On any exception everything under
+    `mirrors/` is restored, pruned rows included. `curation/` is never edited: a
+    curated record naming a removed gene is left for validation to report. A
+    single `ingest_package` never prunes.
     """
     pins = package_pins(root)
     # Every cache before any step, so a missing one refuses with nothing written.
@@ -340,22 +405,53 @@ def ingest_all(root: Path) -> tuple[IngestResult, ...]:
         source_id: pinned_package_dir(root, source_id, pins[source_id])
         for source_id in ingest_order(pins)
     }
-    if not packages:
-        return ()
+    hgnc_runs = HGNC_SOURCE in packages
+    genes_before = _registry_ids(root) if hgnc_runs else frozenset()
     mirrors = root / "mirrors"
     files, directories = _snapshot(mirrors)
     try:
-        results = [
+        results = tuple(
             ingest_package(root, source_id, directory, validate=False)
             for source_id, directory in packages.items()
-        ]
+        )
+        pruned = _prune(root, genes_before - _registry_ids(root)) if hgnc_runs else ()
         report = validate_repository(root)
-        _refuse_invalid(report, "with every pinned package re-ingested")
+        _refuse_invalid(
+            report,
+            "with every pinned package re-ingested" if packages else "with no package pinned",
+        )
     # BaseException, and always re-raised, as in `_apply`.
     except BaseException:
         _restore_tree(mirrors, files, directories)
         raise
-    return (*results[:-1], replace(results[-1], warnings=_warnings(report)))
+    return IngestAllResult(results, pruned, _warnings(report))
+
+
+def _registry_ids(root: Path) -> frozenset[str]:
+    """The HGNC ids `mirrors/genes.tsv` lists (none when it is absent)."""
+    return frozenset(_column(_read_mirror(root / "mirrors" / "genes.tsv", GENES), GENES, "hgnc_id"))
+
+
+def _prune(root: Path, genes: frozenset[str]) -> tuple[PrunedRows, ...]:
+    """Remove every row naming one of ``genes`` from the registry-filtered mirrors."""
+    if not genes:
+        return ()
+    pruned: list[PrunedRows] = []
+    for path, name in mirror_paths(root):
+        schema = TABLE_SCHEMAS[name]
+        column = schema.gene_column
+        if column is None or name == GENES.name or name in UNFILTERED_TABLES:
+            continue
+        rows = _read_mirror(path, schema)
+        index = schema.column_names.index(column)
+        removed = Counter(row[index] for row in rows if row[index] in genes)
+        if not removed:
+            continue
+        kept = [row for row in rows if row[index] not in genes]
+        write_bytes_atomically(path, _render(schema, kept))
+        relative = path.relative_to(root).as_posix()
+        pruned += [PrunedRows(name, relative, gene, count) for gene, count in removed.items()]
+    return tuple(sorted(pruned, key=lambda item: (item.path, item.gene)))
 
 
 def _snapshot(directory: Path) -> tuple[dict[Path, bytes], frozenset[Path]]:

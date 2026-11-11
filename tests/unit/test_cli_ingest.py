@@ -11,7 +11,7 @@ from typer.testing import CliRunner
 
 from chd_atlas.cli import app
 from chd_atlas.genes import Resolution, Resolved
-from chd_atlas.ingest.apply import IngestResult
+from chd_atlas.ingest.apply import IngestAllResult, IngestResult, PrunedRows
 from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.models.package import DroppedRows, RegistrySlice
 from tests.unit.package_fixtures import write_package
@@ -175,16 +175,21 @@ def _result(source_id: str, warnings: tuple[ValidationIssue, ...] = ()) -> Inges
     )
 
 
-def test_ingest_all_prints_one_summary_per_source_and_the_validation_once(
+def test_ingest_all_prints_each_summary_every_pruned_row_and_the_validation_once(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """`ingest_all` returns the one validation's warnings on its last result."""
+    """One summary per source, the pruned rows by file with their total, one validation."""
     warning = ValidationIssue("SCP003", Severity.WARNING, "curation/chd_scope.yaml", "msg")
     calls: list[Path] = []
+    pruned = (
+        PrunedRows("burden", "mirrors/burden.tsv", "HGNC:1", 6),
+        PrunedRows("burden", "mirrors/burden.tsv", "HGNC:2", 2),
+        PrunedRows("profiles", "mirrors/profiles/E-MTAB-6814.tsv", "HGNC:1", 119),
+    )
 
-    def fake(root: Path) -> tuple[IngestResult, ...]:
+    def fake(root: Path) -> IngestAllResult:
         calls.append(root)
-        return (_result("hgnc"), _result("toy_burden", (warning,)))
+        return IngestAllResult((_result("hgnc"), _result("toy_burden")), pruned, (warning,))
 
     monkeypatch.setattr("chd_atlas.cli.ingest_all", fake)
 
@@ -199,22 +204,28 @@ def test_ingest_all_prints_one_summary_per_source_and_the_validation_once(
         "ingested toy_burden v1: 2 row(s) in the package, 2 written",
         "0 row(s) name a gene outside the registry and were not written",
         "0 row(s) name a gene id that did not resolve and were not written",
+        "removed 127 row(s) naming 2 gene(s) that left the registry: HGNC:1, HGNC:2",
+        "removed from mirrors/burden.tsv: HGNC:1 (6), HGNC:2 (2)",
+        "removed from mirrors/profiles/E-MTAB-6814.tsv: HGNC:1 (119)",
         "validate: 0 error(s), 1 warning(s)",
         "WARNING [SCP003] curation/chd_scope.yaml: msg",
     ]
 
 
-def test_ingest_all_with_nothing_pinned_says_so(
+def test_ingest_all_with_nothing_pinned_says_so_and_prints_the_validation(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr("chd_atlas.cli.ingest_all", lambda _: ())
+    warning = ValidationIssue("SCP003", Severity.WARNING, "curation/chd_scope.yaml", "msg")
+    monkeypatch.setattr("chd_atlas.cli.ingest_all", lambda _: IngestAllResult((), (), (warning,)))
 
     result = runner.invoke(app, ["ingest", "--all", "--root", str(tmp_path)])
 
     assert result.exit_code == 0
-    assert result.stdout == (
-        "no source in mirrors/sources.yaml is pinned to a package; nothing was ingested\n"
-    )
+    assert result.stdout.splitlines() == [
+        "no source in mirrors/sources.yaml is pinned to a package; nothing was ingested",
+        "validate: 0 error(s), 1 warning(s)",
+        "WARNING [SCP003] curation/chd_scope.yaml: msg",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -246,8 +257,27 @@ TOY_PIN = (
 )
 
 
+DOWNLOAD = "gh release download toy_burden/v1 -R chd-atlas/feeds -D local/packages/toy_burden/v1"
+
+
+@pytest.mark.parametrize(
+    ("directory", "message"),
+    [
+        (
+            False,
+            "toy_burden v1 is pinned in mirrors/sources.yaml but not cached at "
+            f"local/packages/toy_burden/v1; download it: {DOWNLOAD}",
+        ),
+        (
+            True,
+            "local/packages/toy_burden/v1/manifest.json cannot be read (No such file or "
+            f"directory); remove the directory and download it again: {DOWNLOAD}",
+        ),
+    ],
+    ids=["no-directory", "directory-without-manifest"],
+)
 def test_a_pinned_source_with_no_cache_exits_1_with_ing017(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, directory: bool, message: str
 ) -> None:
     monkeypatch.setattr("chd_atlas.cli.ingest_package", _never_called)
     (tmp_path / "mirrors").mkdir()
@@ -255,15 +285,13 @@ def test_a_pinned_source_with_no_cache_exits_1_with_ing017(
         TOY_PIN + f'    package: {{version: "v1", manifest_sha256: "{"0" * 64}"}}\n',
         encoding="utf-8",
     )
+    if directory:
+        (tmp_path / "local" / "packages" / "toy_burden" / "v1").mkdir(parents=True)
 
     result = runner.invoke(app, ["ingest", "toy_burden", "--root", str(tmp_path)])
 
     assert result.exit_code == 1
-    assert result.stdout.startswith("ING017: ")
-    assert (
-        "gh release download toy_burden/v1 -R chd-atlas/feeds -D local/packages/toy_burden/v1"
-        in result.stdout
-    )
+    assert result.stdout == f"ING017: {message}\n"
 
 
 def test_a_source_with_no_pin_and_no_package_exits_2_naming_the_flag(

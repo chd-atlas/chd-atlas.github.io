@@ -32,7 +32,14 @@ import pytest
 from chd_atlas.fs import write_bytes_atomically
 from chd_atlas.genes import Resolution, Resolved
 from chd_atlas.ingest import apply
-from chd_atlas.ingest.apply import IngestResult, ingest_all, ingest_package, with_source_entry
+from chd_atlas.ingest.apply import (
+    IngestAllResult,
+    IngestResult,
+    PrunedRows,
+    ingest_all,
+    ingest_package,
+    with_source_entry,
+)
 from chd_atlas.ingest.package import IngestRefused
 from chd_atlas.ingest.resolve import package_cache
 from chd_atlas.issues import Severity, ValidationIssue
@@ -289,7 +296,14 @@ def test_a_package_failing_validation_restores_every_file(
         ingest_package(repo, SOURCE, package)
 
     assert excinfo.value.code == "ING010"
-    assert "BUR019" in excinfo.value.message
+    # Exact, so the `--all` hint (an hgnc ingest's alone) is shown absent. Row 5
+    # is where the edited row sorts in the committed burden.tsv.
+    assert excinfo.value.message == (
+        "the repository fails validation with this package applied (1 error(s)):\n"
+        "ERROR [BUR019] mirrors/burden.tsv:row 5: 'count_unit' is 'de_novo_mutations' but "
+        "'origin' is 'transmitted_or_unphased'; de novo mutations cannot be counted in a "
+        "variant set that was not restricted to them"
+    )
     # The refusal came after the writes, so the restore had work to undo.
     mirrors = repo / "mirrors"
     cache = repo / "local" / "packages" / SOURCE / VERSION
@@ -1071,16 +1085,29 @@ def test_an_hgnc_ingest_with_one_validity_mirror_absent_derives_from_the_other(
 
 SCOPE = "curation/chd_scope.yaml"
 ENO1 = "HGNC:3350"
-# The scope term these tests add, then remove. ENO1's one validity row is GenCC's
-# PanelApp Australia submission for polymicrogyria (SGC-178789); no other row
-# of either validity mirror names MONDO:0000087, and no other committed mirror
-# names ENO1 (measured 2026-11-11 with polars over both validity mirrors and
-# grep over mirrors/). So this term brings ENO1 alone into the registry, and
-# removing it drops ENO1 alone, leaving it with rows only where the two
-# ingests below wrote them. Not congenital heart disease: a fixture.
+# The scope term these tests add, then remove. ENO1's one validity row is
+# GenCC's PanelApp Australia submission for polymicrogyria (SGC-178789); no
+# other row of either validity mirror names MONDO:0000087, and no other
+# committed mirror names ENO1 (measured 2026-11-11 with polars over both
+# validity mirrors and grep over mirrors/). So this term brings ENO1 alone into
+# the registry, and removing it drops ENO1 alone. Not congenital heart
+# disease: a fixture.
 POLYMICROGYRIA = (
     "  - id: MONDO:0000087\n"
     "    label: polymicrogyria\n"
+    "    reason: >-\n"
+    "      A test fixture's term, not congenital heart disease.\n"
+    "    admitted_by: gencc_submitter\n"
+    "    attributed_to: PanelApp Australia\n"
+    "    admitted_on: 2026-11-11\n"
+)
+# The growth term: GenCC's PanelApp Australia names SLC11A1 (HGNC:10907) for
+# Mycobacterium tuberculosis susceptibility (SGC-121060), the one row of either
+# validity mirror naming MONDO:0000070 (measured as above).
+SLC11A1 = "HGNC:10907"
+TUBERCULOSIS = (
+    "  - id: MONDO:0000070\n"
+    "    label: Mycobacterium tuberculosis, susceptibility\n"
     "    reason: >-\n"
     "      A test fixture's term, not congenital heart disease.\n"
     "    admitted_by: gencc_submitter\n"
@@ -1099,6 +1126,16 @@ ENO1_ROW = {
     "uniprot": "P06733",
     "mane_select": "NM_001428.5",
 }
+SLC11A1_ROW = {
+    "hgnc_id": SLC11A1,
+    "symbol": "SLC11A1",
+    "name": "solute carrier family 11 member 1",
+    "ensembl_gene": "ENSG00000018280",
+    "ncbi_gene": "6556",
+    "locus": "2q35",
+    "uniprot": "P49279",
+    "mane_select": "NM_000578.4",
+}
 # The committed `hgnc` entry's fields, so the ingest rewrites it as itself.
 HGNC_FIELDS = {
     "name": "HUGO Gene Nomenclature Committee",
@@ -1110,6 +1147,15 @@ HGNC_FIELDS = {
     "file_version": None,
     "file_date": None,
 }
+# Rows no package owns, as a converter wrote them: HGNC:10023's committed rows
+# in each registry-filtered mirror, copied with the gene set to ENO1 (and in
+# burden.tsv only the unpinned `sierant2025_ds6` source's six).
+CONVERTER_ROWS = {
+    "mirrors/burden.tsv": ("burden", "sierant2025_ds6"),
+    "mirrors/burden_combined.tsv": ("burden_combined", None),
+    "mirrors/cell_type_profiles/hoc.tsv": ("cell_type_profiles", None),
+    "mirrors/profiles/E-MTAB-6814.tsv": ("profiles", None),
+}
 
 
 def committed_rows(relative: str) -> list[dict[str, str]]:
@@ -1118,14 +1164,36 @@ def committed_rows(relative: str) -> list[dict[str, str]]:
     return [dict(zip(columns, line.split("\t"), strict=True)) for line in lines]
 
 
-class Pinned:
-    """The repository with ENO1's disease in scope and `hgnc` and `toy_burden` pinned and cached.
+def plant(repo: Path, relative: str, table: str, source: str | None) -> int:
+    """Copy HGNC:10023's rows of one mirror to ENO1, in sort order; return how many."""
+    schema = TABLE_SCHEMAS[table]
+    path = repo / relative
+    rows = apply._read_mirror(path, schema)
+    gene = schema.column_names.index("gene")
+    owner = None if source is None else schema.column_names.index("source")
+    copies = [
+        tuple(ENO1 if index == gene else cell for index, cell in enumerate(row))
+        for row in rows
+        if row[gene] == "HGNC:10023" and (owner is None or row[owner] == source)
+    ]
+    path.write_bytes(apply._render(schema, rows + copies))
+    return len(copies)
 
-    The hgnc package is every committed `genes.tsv` row plus ENO1's; the burden
+
+def names(line: str, gene: str) -> bool:
+    return gene in line.split("\t")
+
+
+class Pinned:
+    """The repository with ENO1 in scope, `hgnc` and `toy_burden` pinned and cached.
+
+    The hgnc package is every committed `genes.tsv` row plus ENO1's and
+    SLC11A1's (outside the scope until the growth test adds it); the burden
     package is `toy_rows()`'s six HGNC:10023 rows and the same six for ENO1.
-    Both are ingested with validation stubbed, to save two runs: this state
-    validates with 0 errors and the corpus's 3 warnings (SCP003 twice, SCP007;
-    measured 2026-11-11, 7.3 s per run under load). Each test copies `repo`.
+    ENO1 also has rows no package owns (`CONVERTER_ROWS`), counted in
+    `planted`. Both ingests run with validation stubbed, to save two runs: this
+    state validates with 0 errors and the corpus's 3 warnings (SCP003 twice,
+    SCP007; measured 2026-11-11, about 7 s per run). Each test copies `repo`.
     """
 
     def __init__(self, base: Path) -> None:
@@ -1134,7 +1202,7 @@ class Pinned:
         text = scope.read_text(encoding="utf-8")
         assert text.endswith("\n") and POLYMICROGYRIA not in text
         scope.write_text(text + POLYMICROGYRIA, encoding="utf-8")
-        genes = [*committed_rows("mirrors/genes.tsv"), ENO1_ROW]
+        genes = [*committed_rows("mirrors/genes.tsv"), ENO1_ROW, SLC11A1_ROW]
         hgnc = write_tables(
             base / "hgnc",
             [("genes", None, genes)],
@@ -1150,8 +1218,17 @@ class Pinned:
             patch.setattr(apply, "validate_repository", lambda _: ValidationReport())
             ingest_package(self.repo, "hgnc", hgnc)
             ingest_package(self.repo, SOURCE, toy)
-        assert ENO1 in registry(self.repo)
-        assert sum(f"\t{ENO1}\t" in line for line in burden_lines(self.repo)) == 6
+        self.planted = {
+            relative: plant(self.repo, relative, table, source)
+            for relative, (table, source) in CONVERTER_ROWS.items()
+        }
+        assert self.planted == {
+            "mirrors/burden.tsv": 6,
+            "mirrors/burden_combined.tsv": 3,
+            "mirrors/cell_type_profiles/hoc.tsv": 68,
+            "mirrors/profiles/E-MTAB-6814.tsv": 119,
+        }
+        assert ENO1 in registry(self.repo) and SLC11A1 not in registry(self.repo)
 
     def copy(self, tmp_path: Path) -> Path:
         return Path(shutil.copytree(self.repo, tmp_path / "repo"))
@@ -1181,46 +1258,124 @@ def digests(repo: Path, top: str = "mirrors") -> dict[str, str | None]:
     }
 
 
-def test_ingest_all_survives_a_scope_shrink(pinned: Pinned, tmp_path: Path) -> None:
-    """hgnc drops ENO1, the burden package is re-filtered to match, and one validation passes.
+def mirror_lines(repo: Path) -> dict[str, list[str]]:
+    return {
+        path.relative_to(repo).as_posix(): path.read_text(encoding="utf-8").splitlines()
+        for path in sorted((repo / "mirrors").rglob("*"))
+        if path.is_file()
+    }
 
-    `genes.tsv` comes back byte for byte as committed: the package holds every
-    committed row and the shrunk scope derives exactly the committed registry.
-    The final validation's warnings are returned once, on the last result.
+
+VALIDITY = ("mirrors/clingen_gene_validity.tsv", "mirrors/gencc_submissions.tsv")
+
+
+def test_ingest_all_survives_a_scope_shrink(pinned: Pinned, tmp_path: Path) -> None:
+    """The rule: a gene the hgnc step drops loses every row in every registry-filtered mirror.
+
+    hgnc drops ENO1 (in `genes.tsv` before the call, not after it), the burden
+    package's own ENO1 rows are filtered out by its re-ingest, and every other
+    row naming ENO1 in a table with a gene column but `genes` and the two
+    validity tables is pruned, whoever wrote it: here the rows a converter
+    wrote (`CONVERTER_ROWS`). Every pruned row is reported by file and gene.
+    Every other line of every mirror keeps its bytes, the validity mirrors keep
+    ENO1's GenCC row, `genes.tsv` comes back as committed, and one validation
+    passes with its warnings returned.
     """
     repo = pinned.copy(tmp_path)
     shrink(repo)
+    before = mirror_lines(repo)
 
-    results = ingest_all(repo)
+    result = ingest_all(repo)
 
-    assert [(r.source_id, r.rows_written, r.rows_outside_registry) for r in results] == [
-        ("hgnc", 185, 1),
-        (SOURCE, 6, 6),
-    ]
+    counts = [(r.source_id, r.rows_written, r.rows_outside_registry) for r in result.results]
+    assert counts == [("hgnc", 185, 2), (SOURCE, 6, 6)]
+    assert result.pruned == tuple(
+        PrunedRows(table, relative, ENO1, pinned.planted[relative])
+        for relative, (table, _) in sorted(CONVERTER_ROWS.items())
+    )
+    after = mirror_lines(repo)
+    assert after == {
+        path: lines if path in VALIDITY else [line for line in lines if not names(line, ENO1)]
+        for path, lines in before.items()
+    }
+    assert sum(names(line, ENO1) for path in VALIDITY for line in after[path]) == 1
     genes = repo / "mirrors" / "genes.tsv"
     assert genes.read_bytes() == (REPO_ROOT / "mirrors" / "genes.tsv").read_bytes()
-    assert ENO1 not in registry(repo)
-    lines = burden_lines(repo)
-    assert not [line for line in lines if f"\t{ENO1}\t" in line]
-    toy = [line for line in lines if line.endswith(f"\t{SOURCE}")]
-    assert len(toy) == 6 and all("\tHGNC:10023\t" in line for line in toy)
     report = validate_repository(repo)
     assert [issue.format() for issue in report.issues if issue.severity is Severity.ERROR] == []
     warnings = tuple(issue for issue in report.issues if issue.severity is Severity.WARNING)
-    assert warnings
-    assert [r.warnings for r in results] == [(), warnings]
+    assert warnings and result.warnings == warnings
+    assert all(r.warnings == () for r in result.results)
+
+
+def test_ingest_all_after_a_scope_growth_prunes_nothing(
+    pinned: Pinned, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """hgnc adds SLC11A1 and removes no gene, so no row is pruned and no other byte moves.
+
+    Validation is stubbed so that a prune of genes still in the registry fails
+    here on the bytes rather than on validation (this state validates with 0
+    errors anyway; measured 2026-11-11 with the stub removed).
+    """
+    repo = pinned.copy(tmp_path)
+    monkeypatch.setattr(apply, "validate_repository", lambda _: ValidationReport())
+    path = repo / SCOPE
+    path.write_text(path.read_text(encoding="utf-8") + TUBERCULOSIS, encoding="utf-8")
+    before = mirror_lines(repo)
+
+    result = ingest_all(repo)
+
+    assert result.pruned == ()
+    after = mirror_lines(repo)
+    gained = [
+        line for line in after["mirrors/genes.tsv"] if line not in before["mirrors/genes.tsv"]
+    ]
+    assert [line.split("\t")[0] for line in gained] == [SLC11A1]
+    del after["mirrors/genes.tsv"], before["mirrors/genes.tsv"]
+    assert after == before
+
+
+def test_a_shrink_without_an_hgnc_step_prunes_nothing(
+    pinned: Pinned, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only the hgnc step's removals are pruned; the scope alone removes nothing.
+
+    With hgnc left out of the pins, `genes.tsv` still lists ENO1 after the
+    call, so every ENO1 row stays. Validation is stubbed: what is asserted is
+    that no byte under `mirrors/` moved.
+    """
+    repo = pinned.copy(tmp_path)
+    shrink(repo)
+    pins = apply.package_pins
+
+    def without_hgnc(root: Path) -> dict[str, PackagePin]:
+        return {key: pin for key, pin in pins(root).items() if key != "hgnc"}
+
+    monkeypatch.setattr(apply, "package_pins", without_hgnc)
+    monkeypatch.setattr(apply, "validate_repository", lambda _: ValidationReport())
+    before = digests(repo)
+
+    result = ingest_all(repo)
+
+    assert [r.source_id for r in result.results] == [SOURCE]
+    assert result.pruned == ()
+    assert digests(repo) == before
 
 
 ALL_HINT = (
-    "If curation/chd_scope.yaml dropped a gene that another pinned package still has rows "
-    "for, `chd-atlas ingest --all` re-filters every pinned package and validates once."
+    "If curation/chd_scope.yaml dropped a gene that other mirror rows still name, "
+    "`chd-atlas ingest --all` re-ingests every pinned package, removes the rows of genes "
+    "that left the registry, and validates once."
 )
 
 
 def test_a_single_hgnc_ingest_after_a_shrink_refuses_and_names_the_all_flag(
     pinned: Pinned, tmp_path: Path
 ) -> None:
-    """The deadlock `ingest --all` exists for: hgnc alone drops ENO1 under the burden rows."""
+    """The deadlock `ingest --all` exists for: hgnc alone drops ENO1 under rows that name it.
+
+    A single ingest never prunes, so every mirror holding an ENO1 row fails.
+    """
     repo = pinned.copy(tmp_path)
     shrink(repo)
     before = digests(repo)
@@ -1230,8 +1385,13 @@ def test_a_single_hgnc_ingest_after_a_shrink_refuses_and_names_the_all_flag(
 
     assert excinfo.value.code == "ING010"
     assert excinfo.value.message == (
-        "the repository fails validation with this package applied (1 error(s)):\n"
-        f"ERROR [BUR011] mirrors/burden.tsv: gene {ENO1} is not in mirrors/genes.tsv\n" + ALL_HINT
+        "the repository fails validation with this package applied (4 error(s)):\n"
+        f"ERROR [BUR011] mirrors/burden.tsv: gene {ENO1} is not in mirrors/genes.tsv\n"
+        f"ERROR [BUR022] mirrors/burden_combined.tsv: gene {ENO1} is not in mirrors/genes.tsv\n"
+        f"ERROR [CTP007] mirrors/cell_type_profiles/hoc.tsv: gene '{ENO1}' is not in the gene "
+        "registry\n"
+        f"ERROR [PRF007] mirrors/profiles/E-MTAB-6814.tsv: gene {ENO1} is not in "
+        "mirrors/genes.tsv\n" + ALL_HINT
     )
     assert digests(repo) == before
 
@@ -1286,8 +1446,11 @@ def test_ingest_all_restores_mirrors_when_any_step_fails(
     """After a shrink, hgnc has already rewritten `genes.tsv` when the failure lands.
 
     So every byte of `mirrors/` the restore puts back is one an earlier step
-    changed, which `_apply`'s per-step restore cannot see; with the manifests
-    directory missing, the steps also create a directory and two files there.
+    changed, which `_apply`'s per-step restore cannot see. A failure at the
+    final validation comes after the pruning too (it rewrote the profiles
+    shard, which nothing else writes), so the pruned rows come back; with the
+    manifests directory missing, the steps also create a directory and two
+    files there.
     """
     repo = pinned.copy(tmp_path)
     shrink(repo)
@@ -1308,6 +1471,8 @@ def test_ingest_all_restores_mirrors_when_any_step_fails(
             "(1 error(s)):\n" + ERROR.format()
         )
     assert written[0] == repo / "mirrors" / "genes.tsv"
+    profiles = repo / "mirrors" / "profiles" / "E-MTAB-6814.tsv"
+    assert (profiles in written) is (code != "ING001")
     assert digests(repo) == before
     assert digests(repo, "local") == cache
 
@@ -1406,7 +1571,7 @@ def test_ingest_all_takes_the_registry_inputs_then_hgnc_then_the_rest_validating
     monkeypatch.setattr(apply, "ingest_package", step)
     monkeypatch.setattr(apply, "validate_repository", validate)
 
-    results = ingest_all(repo)
+    result = ingest_all(repo)
 
     order = [
         ("clingen", "v1"),
@@ -1417,43 +1582,49 @@ def test_ingest_all_takes_the_registry_inputs_then_hgnc_then_the_rest_validating
     ]
     assert calls == [(s, package_cache(repo, s, v), False) for s, v in order]
     assert validated == [repo]
-    assert [(r.source_id, r.warnings) for r in results] == [
-        ("clingen", ()),
-        ("gencc", ()),
-        ("hgnc", ()),
-        ("aaa_source", ()),
-        (SOURCE, (warning,)),
-    ]
+    assert result == IngestAllResult(tuple(_step_result(s) for s, _ in order), (), (warning,))
 
 
 def _never_stepped(*_: object, **__: object) -> Any:
     raise AssertionError("no package may be ingested while a pinned cache is unusable")
 
 
+_DOWNLOAD = "gh release download toy_burden/v1 -R chd-atlas/feeds -D local/packages/toy_burden/v1"
+_OTHER_VERSION = json.dumps(manifest_dict(version="v2")).encode()
+
+
 @pytest.mark.parametrize(
-    ("cache", "detail"),
+    ("cache", "message"),
     [
         (
             {"manifest": None},
             "toy_burden v1 is pinned in mirrors/sources.yaml but not cached at "
-            "local/packages/toy_burden/v1; download it: ",
+            f"local/packages/toy_burden/v1; download it: {_DOWNLOAD}",
         ),
         (
             {"sha256": "f" * 64},
             "local/packages/toy_burden/v1/manifest.json is not the manifest toy_burden v1 "
             "is pinned at (sha256:ffffffffffff…); remove the directory and download it "
-            "again: ",
+            f"again: {_DOWNLOAD}",
+        ),
+        (
+            {"manifest": _OTHER_VERSION},
+            "local/packages/toy_burden/v1/manifest.json has the pinned bytes but is "
+            "toy_burden v2, so the pin disagrees with its own manifest (validate reports it "
+            "as SRC005); ingesting it would move the pin",
         ),
     ],
-    ids=["missing", "not-the-pinned-manifest"],
+    ids=["missing", "not-the-pinned-manifest", "names-another-version"],
 )
 def test_a_missing_cache_names_the_download_command(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cache: dict[str, Any], detail: str
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cache: dict[str, Any], message: str
 ) -> None:
     """ING017, checked for every pin before any package is ingested.
 
     hgnc's cache is present and sorts first, so a check made step by step
-    would ingest it before reaching `toy_burden`.
+    would ingest it before reaching `toy_burden`. A cache whose pinned bytes
+    name another version would make the step write that version's cache
+    directory and move the pin, so it is refused too.
     """
     repo = write_hgnc_root(tmp_path, [A1BG], version=HGNC_VERSION)
     add_pin(repo, SOURCE, **cache)
@@ -1464,17 +1635,38 @@ def test_a_missing_cache_names_the_download_command(
         ingest_all(repo)
 
     assert excinfo.value.code == "ING017"
-    assert excinfo.value.message == detail + (
-        "gh release download toy_burden/v1 -R chd-atlas/feeds -D local/packages/toy_burden/v1"
-    )
+    assert excinfo.value.message == message
     assert every_file(repo) == before
 
 
-def test_ingest_all_with_nothing_pinned_ingests_and_validates_nothing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("issues", "code"), [([], None), ([ERROR], "ING010")], ids=["validates", "fails"]
+)
+def test_ingest_all_with_nothing_pinned_still_validates_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    issues: list[ValidationIssue],
+    code: str | None,
 ) -> None:
+    """Exit 0 from `--all` means the repository validates, also when nothing was ingested."""
     repo = write_hgnc_root(tmp_path, [A1BG], pinned=False)
-    monkeypatch.setattr(apply, "ingest_package", _never_stepped)
-    monkeypatch.setattr(apply, "validate_repository", _never_validated)
+    warning = ValidationIssue("SCP003", Severity.WARNING, SCOPE, "msg")
+    validated: list[Path] = []
 
-    assert ingest_all(repo) == ()
+    def validate(root: Path) -> ValidationReport:
+        validated.append(root)
+        return ValidationReport([warning, *issues])
+
+    monkeypatch.setattr(apply, "ingest_package", _never_stepped)
+    monkeypatch.setattr(apply, "validate_repository", validate)
+
+    if code is None:
+        assert ingest_all(repo) == IngestAllResult((), (), (warning,))
+    else:
+        with pytest.raises(IngestRefused) as excinfo:
+            ingest_all(repo)
+        assert excinfo.value.message == (
+            "the repository fails validation with no package pinned (1 error(s)):\n"
+            + ERROR.format()
+        )
+    assert validated == [repo]
