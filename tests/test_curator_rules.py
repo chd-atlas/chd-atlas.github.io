@@ -187,4 +187,9 @@ def test_the_rules_state_the_verified_rulings_literally() -> None:
 def test_the_readme_points_at_curator() -> None:
     readme = _text(REPO / "README.md")
     assert "https://github.com/chd-atlas/curator" in readme
-    assert "chd-atlas literature review" in readme
+    flat = " ".join(readme.split())
+    assert (
+        "The searches it records are published as they are, but no finding is published "
+        "until a named person approves it here with `chd-atlas literature review`."
+    ) in flat
+    assert "Nothing it writes is published" not in flat

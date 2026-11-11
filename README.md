@@ -101,6 +101,7 @@ Only the `hgnc` package ships the `genes` table, always keyed by `hgnc_id` (`ING
 
 Searching PubMed, triaging hits, extracting findings and the blind second pass
 live in [chd-atlas/curator](https://github.com/chd-atlas/curator) (`chd-curator`
-and its Claude plugin). Nothing it writes is published until a named person
-approves it here with `chd-atlas literature review`. The rules it follows are in
+and its Claude plugin). The searches it records are published as they are, but no
+finding is published until a named person approves it here with
+`chd-atlas literature review`. The rules it follows are in
 `curator/curator-rules.md`.
