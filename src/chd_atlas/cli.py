@@ -14,7 +14,6 @@ import typer
 
 from chd_atlas import pubmed
 from chd_atlas.build.runner import BuildRefused, build_site
-from chd_atlas.build.validity import gene_validity
 from chd_atlas.changes import render_markdown, site_changes
 from chd_atlas.corpus import load_curation
 from chd_atlas.fs import write_bytes_atomically
@@ -38,14 +37,14 @@ from chd_atlas.ingest.apply import (
 )
 from chd_atlas.ingest.package import IngestRefused
 from chd_atlas.issues import ValidationIssue
+from chd_atlas.literature_query import TargetError, literature_target, resolve_symbol
 from chd_atlas.models.assertion import InTextLocator, Locator
 from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile, finding_digest
 from chd_atlas.models.literature import Publication
 from chd_atlas.models.review import ReviewStatus
 from chd_atlas.pubmed import Fetch, PubMedError, urllib_fetch
 from chd_atlas.schema_export import TABLE_SCHEMA_DIR, export_schemas, export_table_schemas
-from chd_atlas.tables import TABLE_SCHEMAS, read_table
-from chd_atlas.validate.runner import _gate_published_genes, _symbol_registry, validate_repository
+from chd_atlas.validate.runner import validate_repository
 from chd_atlas.vocab import StudyType, TriageDecision
 
 app = typer.Typer(help="CHD Atlas curation tooling.", no_args_is_help=True)
@@ -367,27 +366,25 @@ def _require_root(root: Path) -> None:
 
 
 def _resolve_gene(root: Path, symbol: str) -> tuple[str, str, Sequence[str]]:
-    """`(HGNC id, approved symbol, previous symbols)` for a typed symbol, or exit 2.
+    """`(HGNC id, approved symbol, previous symbols)` for a typed symbol, or exit 2."""
+    try:
+        return resolve_symbol(root, symbol)
+    except TargetError as exc:
+        raise _fail(str(exc), 2) from None
 
-    Any unambiguous resolution is accepted -- approved, alias or previous
-    (ruling R19) -- because curators type old names; the caller writes the
-    approved one.
-    """
-    registry = _symbol_registry(root)
-    if registry is None:
-        raise _fail("mirrors/genes.tsv is missing or unreadable", 2)
-    resolved = registry.resolve(symbol)
-    if resolved.gene is None:
-        detail = (
-            f"{symbol!r} is claimed by {', '.join(resolved.candidates)}"
-            if resolved.candidates
-            else f"{symbol!r} is not a known gene symbol"
-        )
-        raise _fail(detail, 2)
-    approved = registry.approved_symbol(resolved.gene)
-    if approved is None:
-        raise _fail(f"{resolved.gene} has no approved symbol in mirrors/genes.tsv", 2)
-    return resolved.gene, approved, registry.previous_symbols(resolved.gene)
+
+@literature_app.command("target")
+def literature_target_command(
+    symbol: str = typer.Argument(..., help="Gene symbol (approved, alias or previous)."),
+    root: Path = typer.Option(Path("."), help="Repository root."),
+) -> None:
+    """Print the atlas's answer about a gene as one JSON line."""
+    _require_root(root)
+    try:
+        target = literature_target(root, symbol)
+    except TargetError as exc:
+        raise _fail(str(exc), 2) from None
+    typer.echo(json.dumps(target.as_json(), sort_keys=True, ensure_ascii=False))
 
 
 @literature_app.command("search")
@@ -405,27 +402,17 @@ def literature_search(
     except ValueError:
         raise _fail(f"--run-on {run_on!r} is not a YYYY-MM-DD date", 2) from None
 
-    gene, approved, previous = _resolve_gene(root, symbol)
-    corpus, _ = load_curation(root)
-    if gene not in _gate_published_genes(root, corpus):
+    try:
+        target = literature_target(root, symbol)
+    except TargetError as exc:
+        raise _fail(str(exc), 2) from None
+    gene, approved, query = target.gene, target.symbol, target.query
+    if not target.published:
         raise _fail(
             f"{approved} ({gene}) is outside the publication gate; "
             f"its literature would reach no page",
             2,
         )
-
-    clingen, _ = read_table(
-        root / "mirrors" / "clingen_gene_validity.tsv", TABLE_SCHEMAS["clingen_validity"]
-    )
-    gencc, _ = read_table(
-        root / "mirrors" / "gencc_submissions.tsv", TABLE_SCHEMAS["gencc_submissions"]
-    )
-    if clingen is None or gencc is None:  # the gate above would have been empty
-        raise _fail("the validity mirrors are unreadable", 2)
-    scope = {str(entry.id) for entry in corpus.chd_scope}
-    records = gene_validity(clingen, gencc, in_scope=scope)[gene].records
-    diseases = sorted({record.disease_label for record in records})
-    query = pubmed.build_query(approved, previous, diseases)
 
     path = literature_path(root, approved)
     existing = path.read_bytes() if path.is_file() else None

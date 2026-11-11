@@ -22,10 +22,8 @@ import pytest
 from chd_atlas import pubmed
 from chd_atlas.models.literature import PublicationFile
 from chd_atlas.pubmed import (
-    CHD_TERMS,
     PaperMeta,
     PubMedError,
-    build_query,
     efetch_abstracts,
     esearch_all,
     esummary,
@@ -62,60 +60,6 @@ class _Pages:
         size = int(query["retmax"][0])
         count = self.counts[len(self.urls) - 1] if self.counts else len(self.ids)
         return _esearch_page(count, self.ids[start : start + size])
-
-
-def test_chd_terms_are_pinned() -> None:
-    """The spec's list with every "(s)" expanded singular-then-plural (ruling R6)."""
-    assert CHD_TERMS == (
-        "congenital heart",
-        "heart defect",
-        "heart defects",
-        "cardiac defect",
-        "cardiac defects",
-        "heart malformation",
-        "heart malformations",
-        "cardiac malformation",
-        "cardiac malformations",
-        "septal defect",
-        "septal defects",
-        "tetralogy of Fallot",
-        "transposition of the great arteries",
-        "hypoplastic left heart",
-        "heterotaxy",
-        "conotruncal",
-        "outflow tract",
-        "atrioventricular septal defect",
-        "coarctation",
-    )
-
-
-def test_build_query_is_the_template() -> None:
-    query = build_query("TBX5", ("HOS",), ("Holt-Oram syndrome",))
-    assert query == (
-        '("TBX5"[tiab] OR "HOS"[tiab])'
-        ' AND ("Heart Defects, Congenital"[mh] OR "congenital heart"[tiab]'
-        ' OR "heart defect"[tiab] OR "heart defects"[tiab] OR "cardiac defect"[tiab]'
-        ' OR "cardiac defects"[tiab] OR "heart malformation"[tiab]'
-        ' OR "heart malformations"[tiab] OR "cardiac malformation"[tiab]'
-        ' OR "cardiac malformations"[tiab] OR "septal defect"[tiab]'
-        ' OR "septal defects"[tiab] OR "tetralogy of Fallot"[tiab]'
-        ' OR "transposition of the great arteries"[tiab]'
-        ' OR "hypoplastic left heart"[tiab] OR "heterotaxy"[tiab]'
-        ' OR "conotruncal"[tiab] OR "outflow tract"[tiab]'
-        ' OR "atrioventricular septal defect"[tiab] OR "coarctation"[tiab]'
-        ' OR "Holt-Oram syndrome"[tiab])'
-        " NOT preprint[pt] NOT review[pt]"
-    )
-
-
-def test_build_query_sorts_previous_symbols_and_diseases_and_drops_quotes() -> None:
-    """Order of the arguments must not change the query; a quote cannot break it."""
-    query = build_query("GATA4", ("ZZ1", "AA1"), ('beta "x" disease', "alpha disease"))
-    assert query.startswith('("GATA4"[tiab] OR "AA1"[tiab] OR "ZZ1"[tiab]) AND (')
-    assert query.endswith(
-        ' OR "alpha disease"[tiab] OR "beta x disease"[tiab]) NOT preprint[pt] NOT review[pt]'
-    )
-    assert build_query("GATA4", (), ()).startswith('("GATA4"[tiab]) AND (')
 
 
 def test_esearch_parses_the_recorded_page() -> None:

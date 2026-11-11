@@ -25,9 +25,10 @@ from typer.testing import CliRunner
 
 from chd_atlas import cli
 from chd_atlas.cli import app
+from chd_atlas.literature_query import build_query
 from chd_atlas.models.gene_literature import Finding, finding_digest
 from chd_atlas.models.literature import PublicationFile
-from chd_atlas.pubmed import PubMedError, build_query
+from chd_atlas.pubmed import PubMedError
 from chd_atlas.validate.runner import validate_repository
 from tests.unit._stamp import stamped_yaml
 
@@ -1513,3 +1514,103 @@ def test_approving_a_finding_under_review_keeps_the_mark_and_the_note(
         f"    approved_digest: {_digest_in(before, 'CHDA:LIT:0000002')}\n"
         "    review_status: pending_review\n    review_note: Table 2 says 7; text says 8.\n"
     )
+
+
+TBX5_LITERAL = (
+    '("TBX5"[tiab] OR "HOS"[tiab]) AND ("Heart Defects, Congenital"[mh]'
+    ' OR "congenital heart"[tiab] OR "heart defect"[tiab]'
+    ' OR "heart defects"[tiab] OR "cardiac defect"[tiab]'
+    ' OR "cardiac defects"[tiab] OR "heart malformation"[tiab]'
+    ' OR "heart malformations"[tiab] OR "cardiac malformation"[tiab]'
+    ' OR "cardiac malformations"[tiab] OR "septal defect"[tiab]'
+    ' OR "septal defects"[tiab] OR "tetralogy of Fallot"[tiab]'
+    ' OR "transposition of the great arteries"[tiab]'
+    ' OR "hypoplastic left heart"[tiab] OR "heterotaxy"[tiab]'
+    ' OR "conotruncal"[tiab] OR "outflow tract"[tiab]'
+    ' OR "atrioventricular septal defect"[tiab] OR "coarctation"[tiab]'
+    ' OR "Holt-Oram syndrome"[tiab]) NOT preprint[pt] NOT review[pt]'
+)
+BRCA1_LITERAL = (
+    '("BRCA1"[tiab]) AND ("Heart Defects, Congenital"[mh]'
+    ' OR "congenital heart"[tiab] OR "heart defect"[tiab]'
+    ' OR "heart defects"[tiab] OR "cardiac defect"[tiab]'
+    ' OR "cardiac defects"[tiab] OR "heart malformation"[tiab]'
+    ' OR "heart malformations"[tiab] OR "cardiac malformation"[tiab]'
+    ' OR "cardiac malformations"[tiab] OR "septal defect"[tiab]'
+    ' OR "septal defects"[tiab] OR "tetralogy of Fallot"[tiab]'
+    ' OR "transposition of the great arteries"[tiab]'
+    ' OR "hypoplastic left heart"[tiab] OR "heterotaxy"[tiab]'
+    ' OR "conotruncal"[tiab] OR "outflow tract"[tiab]'
+    ' OR "atrioventricular septal defect"[tiab]'
+    ' OR "coarctation"[tiab]) NOT preprint[pt] NOT review[pt]'
+)
+
+
+def _target(root: Path, *args: str) -> Any:
+    return runner.invoke(app, ["literature", "target", *args, "--root", str(root)])
+
+
+def test_target_prints_the_gene_the_gate_and_the_query(root: Path) -> None:
+    """The query is a literal (4.38); a former symbol resolves to the approved one."""
+    result = _target(root, "HOS")
+    assert result.exit_code == 0
+    lines = result.output.splitlines()
+    assert len(lines) == 1
+    printed = json.loads(lines[0])
+    assert printed == {
+        "format": 1,
+        "gene": "HGNC:11604",
+        "symbol": "TBX5",
+        "published": True,
+        "query": TBX5_LITERAL,
+    }
+    assert printed["published"] is True
+    assert printed["format"] == 1 and printed["format"] is not True
+
+    unpublished = json.loads(_target(root, "BRCA1").output)
+    assert unpublished["published"] is False
+    assert unpublished["gene"] == "HGNC:1100"
+    assert unpublished["query"] == BRCA1_LITERAL
+
+
+def test_target_takes_only_in_scope_disease_names(root: Path) -> None:
+    scope = (root / "curation" / "chd_scope.yaml").read_text()
+    assert "MONDO:0005021" not in scope
+    with (root / "mirrors" / "clingen_gene_validity.tsv").open("a") as handle:
+        handle.write(
+            "HGNC:11604\tTBX5\tMONDO:0005021\tdilated cardiomyopathy\tAD\tSOP11\tDefinitive\t"
+            "2025-03-25T16:00:00.000Z\tSome Expert Panel\thttps://x/3\n"
+        )
+    result = _target(root, "TBX5")
+    assert result.exit_code == 0
+    assert "dilated cardiomyopathy" not in result.output
+    assert json.loads(result.output)["query"] == TBX5_LITERAL
+
+
+def _delete(name: str) -> Callable[[Path], None]:
+    return lambda root: (root / "mirrors" / name).unlink()
+
+
+def _header_only(root: Path) -> None:
+    (root / "mirrors" / "clingen_gene_validity.tsv").write_text(CLINGEN_HEADER)
+    (root / "mirrors" / "gencc_submissions.tsv").write_text(GENCC_HEADER)
+
+
+@pytest.mark.parametrize(
+    ("symbol", "damage", "message"),
+    [
+        ("NOPE", None, "is not a known gene symbol"),
+        ("MADH7", None, "HGNC:6772, HGNC:6773"),
+        ("TBX5", _delete("genes.tsv"), "mirrors/genes.tsv is missing or unreadable"),
+        ("TBX5", _delete("clingen_gene_validity.tsv"), "the validity mirrors are unreadable"),
+        ("TBX5", _header_only, "the publication gate is empty"),
+    ],
+)
+def test_target_refusals_exit_2_and_name_the_cause(
+    root: Path, symbol: str, damage: Callable[[Path], None] | None, message: str
+) -> None:
+    if damage is not None:
+        damage(root)
+    result = _target(root, symbol)
+    assert result.exit_code == 2
+    assert message in result.output
