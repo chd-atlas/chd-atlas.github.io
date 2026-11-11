@@ -2113,8 +2113,10 @@ gene's cytogenetic band, mirrored from HGNC rather than mapped by this atlas —
 with one exception the atlas resolves itself. HGNC lists two UniProt accessions
 for RBM10 (HGNC:9896), `P0DW28|P98175`, in alphabetical order, and the first is
 MINAS-60, a 130-residue microprotein read from an alternative frame inside
-RBM10. The converter pins RBM10's own protein, `P98175`, and refuses to run if
-any other gene gains a second accession, until a curator has chosen one. Until
+RBM10. The HGNC package's recipe (`sources/hgnc` in chd-atlas/feeds) pins RBM10's
+own protein, `P98175`, and writes every other list verbatim. A registry gene whose
+`genes.tsv` row lists a second accession fails validation (`GEN005`), so its
+ingest is refused until a curator has pinned one in the recipe. Until
 `2.17` the API carried none of these. No other identifier for the gene — an
 OMIM number, a transcript other than MANE Select — is published, and a consumer
 that needs one must resolve `hgnc_id` against HGNC itself. The atlas identifies
