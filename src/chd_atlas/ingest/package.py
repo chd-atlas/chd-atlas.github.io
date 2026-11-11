@@ -26,9 +26,13 @@ from chd_atlas.models.package import (
     load_manifest,
 )
 from chd_atlas.tables import TABLE_SCHEMAS, TableSchema, cell_text, table_layout
+from chd_atlas.vocab import GeneIdKind
 
 # How a blank or whitespace-only cell is named in a refusal or a report.
 BLANK: Final = "<blank>"
+
+# The one source whose package ships `genes`, the registry table (ING009).
+HGNC_SOURCE: Final = "hgnc"
 
 
 class IngestRefused(Exception):
@@ -67,8 +71,37 @@ def load_package(directory: Path, source_id: str) -> LoadedPackage:
         raise IngestRefused(
             "ING006", f"the package is '{manifest.package}', not source '{source_id}'"
         )
+    _refuse_a_misplaced_registry(manifest)
     tables = tuple(_load_table(directory, spec, source_id) for spec in manifest.tables)
     return LoadedPackage(directory, manifest, manifest_bytes, tables)
+
+
+def _refuse_a_misplaced_registry(manifest: PackageManifest) -> None:
+    """ING009: `genes` ships in the ``hgnc`` package alone, which always ships it by HGNC id.
+
+    `genes` has no ``source`` column, so the package that writes it replaces
+    the whole registry (`apply._merge`); only HGNC's may. Checked before any
+    table is read, so the message names the rule rather than a later symptom.
+    """
+    ships_genes = any(table.name == "genes" for table in manifest.tables)
+    if manifest.package != HGNC_SOURCE:
+        if ships_genes:
+            raise IngestRefused(
+                "ING009",
+                f"only the hgnc package may ship the genes table; "
+                f"package '{manifest.package}' does",
+            )
+        return
+    if not ships_genes:
+        raise IngestRefused(
+            "ING009", "the hgnc package must ship the genes table; this one does not"
+        )
+    if manifest.ids is not GeneIdKind.HGNC_ID:
+        raise IngestRefused(
+            "ING009",
+            f"the hgnc package's gene ids must be hgnc_id; this one declares "
+            f"'{manifest.ids.value}'",
+        )
 
 
 def _load_table(directory: Path, spec: PackageTable, source_id: str) -> LoadedTable:
@@ -91,6 +124,19 @@ def _load_table(directory: Path, spec: PackageTable, source_id: str) -> LoadedTa
             "ING012",
             f"table '{spec.name}' columns differ from the schema; "
             f"missing: {missing or 'none'}; extra: {extra or 'none'}",
+        )
+    opening = {
+        name: frame[name].str.starts_with('"').fill_null(False) for name in schema.column_names
+    }
+    total = sum(int(flags.sum()) for flags in opening.values())
+    if total:
+        first = next(name for name, flags in opening.items() if flags.any())
+        row = int(opening[first].arg_max() or 0) + 1
+        raise IngestRefused(
+            "ING015",
+            f"table '{spec.name}' has {total} {'cell' if total == 1 else 'cells'} opening "
+            f"with a double quote; first column '{first}', first at data row {row} "
+            "(1 = the first row after the header)",
         )
     if frame.height != spec.rows:
         raise IngestRefused(
@@ -142,10 +188,6 @@ def _schema_for(spec: PackageTable) -> TableSchema:
         raise IngestRefused(
             "ING005",
             f"table '{spec.name}' has no gene column but the manifest gives a gene count",
-        )
-    if spec.name == "genes":
-        raise IngestRefused(
-            "ING009", "the genes table ships in the HGNC package, which is not ingested yet"
         )
     return schema
 

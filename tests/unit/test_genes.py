@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import polars as pl
 import pytest
 
 from chd_atlas.build.identity import GeneIdentity
@@ -11,6 +12,7 @@ from chd_atlas.issues import Severity
 from chd_atlas.validate.genes import (
     validate_identity_ids,
     validate_mirror_symbols,
+    validate_one_uniprot_per_gene,
     validate_symbol_resolution,
 )
 
@@ -454,3 +456,24 @@ def test_approved_symbol_of_an_id() -> None:
     registry = GeneRegistry(_ROWS)
     assert registry.approved_symbol("HGNC:11604") == "TBX5"
     assert registry.approved_symbol("HGNC:0") is None
+
+
+def test_a_registry_gene_naming_two_proteins_is_refused() -> None:
+    """GEN005: RBM10 as HGNC lists it is an error; one accession or none is silent.
+
+    The fixture mixes a single accession, a null and a blank beside the list, so
+    "any non-null cell" and "contains a pipe" are distinguishable.
+    """
+    frame = pl.DataFrame(
+        {
+            "hgnc_id": ["HGNC:9896", "HGNC:11604", "HGNC:4173", "HGNC:1152"],
+            "uniprot": ["P0DW28|P98175", "Q99593", None, ""],
+        }
+    )
+    issues = validate_one_uniprot_per_gene(frame)
+    assert [(i.code, i.severity) for i in issues] == [("GEN005", Severity.ERROR)]
+    message = issues[0].message
+    assert "HGNC:9896" in message
+    assert "P0DW28" in message and "P98175" in message
+    assert "pin the gene's own protein in the HGNC recipe" in message
+    assert validate_one_uniprot_per_gene(frame.head(0)) == []

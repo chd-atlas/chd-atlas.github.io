@@ -48,6 +48,10 @@ ENSEMBL_GENE_PATTERN: Final = r"^ENSG\d{11}$"
 UNIPROT_PATTERN: Final = (
     r"^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})(-\d+)?$"
 )
+# HGNC lists several accessions for some genes (57 at the time of writing),
+# `|`-separated. Built from `UNIPROT_PATTERN` so the two cannot drift apart.
+_UNIPROT_BODY: Final = UNIPROT_PATTERN[1:-1]
+UNIPROT_LIST_PATTERN: Final = rf"^{_UNIPROT_BODY}(\|{_UNIPROT_BODY})*$"
 
 HgncId = NewType("HgncId", Annotated[str, StringConstraints(pattern=HGNC_PATTERN)])
 Pmid = NewType("Pmid", Annotated[str, StringConstraints(pattern=PMID_PATTERN)])

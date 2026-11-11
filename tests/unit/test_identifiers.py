@@ -96,3 +96,14 @@ def test_disease_id_accepts_mondo_and_rejects_hp() -> None:
     for rejected in ("HP:0001631", "MONDO:7732", "MONDO:00077321", "mondo:0007732"):
         with pytest.raises(ValidationError):
             adapter.validate_python(rejected)
+
+
+def test_the_uniprot_list_pattern_takes_a_pipe_separated_list_and_nothing_looser() -> None:
+    import re
+
+    from chd_atlas.identifiers import UNIPROT_LIST_PATTERN
+
+    for good in ("P98175", "P0DW28|P98175", "P98175-2|P0DW28"):
+        assert re.match(UNIPROT_LIST_PATTERN, good), good
+    for bad in ("P0DW28|", "|P98175", "P0DW28||P98175", "P0DW28|nope", ""):
+        assert not re.match(UNIPROT_LIST_PATTERN, bad), bad

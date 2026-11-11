@@ -7,6 +7,8 @@ import os
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
+import polars as pl
+
 from chd_atlas.build.identity import read_gene_identities
 from chd_atlas.build.validity import gene_validity, published_genes
 from chd_atlas.corpus import Corpus, load_curation, unexpected_curation_entries
@@ -14,12 +16,14 @@ from chd_atlas.genes import GeneRegistry
 from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.models.dataset import Dataset
 from chd_atlas.orphanet_scope import load_orphanet_tables, pinned_structural_phenotypes
+from chd_atlas.registry import ABSENT_MIRROR, RegistryUnavailable, derive_registry
 from chd_atlas.tables import (
     CHD_CASE_SPLITS,
     PROFILE_QUANTILES,
     PROFILES,
     TABLE_SCHEMAS,
     TableSchema,
+    leading_quote_fields,
     mirror_paths,
     read_table,
     unexpected_mirror_entries,
@@ -34,7 +38,12 @@ from chd_atlas.validate.burden import (
 )
 from chd_atlas.validate.cell_types import validate_cell_type_profiles
 from chd_atlas.validate.gene_literature import validate_gene_literature
-from chd_atlas.validate.genes import validate_identity_ids, validate_mirror_symbols
+from chd_atlas.validate.genes import (
+    validate_identity_ids,
+    validate_mirror_symbols,
+    validate_one_uniprot_per_gene,
+    validate_registry_is_current,
+)
 from chd_atlas.validate.ids import load_id_registry, validate_ids
 from chd_atlas.validate.ontology import (
     OntologyRegistry,
@@ -210,8 +219,48 @@ def _mirror_gene_labels(root: Path) -> list[tuple[str, str, str]]:
     return labelled
 
 
+# The two validity mirrors, by schema name, in `derive_registry`'s argument order.
+_VALIDITY_MIRRORS = (
+    ("clingen_validity", "clingen_gene_validity.tsv"),
+    ("gencc_submissions", "gencc_submissions.tsv"),
+)
+
+
+def _validity_frames(root: Path) -> dict[str, pl.DataFrame | None]:
+    """Both validity mirrors by schema name, as `read_table` returns them.
+
+    None for a mirror that is absent or unreadable; `validate_table` reports
+    the second as TBL000. Read once and shared by `_mirrored_validity` and
+    GEN006's registry derivation.
+    """
+    return {
+        schema_name: read_table(root / "mirrors" / filename, TABLE_SCHEMAS[schema_name])[0]
+        for schema_name, filename in _VALIDITY_MIRRORS
+    }
+
+
+def _registry_frames(
+    root: Path, frames: dict[str, pl.DataFrame | None]
+) -> tuple[pl.DataFrame, pl.DataFrame] | None:
+    """(clingen, gencc) for GEN006's derivation, or None when a mirror cannot be read.
+
+    An absent mirror is `ABSENT_MIRROR`; a present one that `read_table` could
+    not read returns None, so GEN006 is skipped and TBL000 says why.
+    """
+    chosen: list[pl.DataFrame] = []
+    for schema_name, filename in _VALIDITY_MIRRORS:
+        frame = frames[schema_name]
+        if frame is None:
+            if (root / "mirrors" / filename).is_file():
+                return None
+            frame = ABSENT_MIRROR
+        chosen.append(frame)
+    clingen, gencc = chosen
+    return clingen, gencc
+
+
 def _mirrored_validity(
-    root: Path,
+    frames: dict[str, pl.DataFrame | None],
 ) -> (
     tuple[
         dict[str, str],
@@ -260,12 +309,8 @@ def _mirrored_validity(
     # primary source for gene-disease validity and GenCC harmonises rather
     # than authors, so preferring GenCC's label would attribute it to the
     # resource that did not write it.
-    for schema_name, filename in (
-        ("gencc_submissions", "gencc_submissions.tsv"),
-        ("clingen_validity", "clingen_gene_validity.tsv"),
-    ):
-        path = root / "mirrors" / filename
-        frame, _ = read_table(path, TABLE_SCHEMAS[schema_name])
+    for schema_name in ("gencc_submissions", "clingen_validity"):
+        frame = frames[schema_name]
         # All three columns this loop selects, not only `disease`: an upstream
         # rename can drop `disease_label` or `gene` just as easily, and
         # `frame.select` raises `ColumnNotFoundError` on any one of them
@@ -495,6 +540,34 @@ def _relative_to_root(issues: list[ValidationIssue], root: Path) -> list[Validat
     return [replace(issue, location=issue.location.removeprefix(prefix)) for issue in issues]
 
 
+def _leading_quote_issues(root: Path) -> list[ValidationIssue]:
+    """TBL013: a mirror field beginning with ``"``, one issue per file.
+
+    Reads raw bytes, not the parsed frame, because the parse is what loses the
+    rows (see `tables.leading_quote_fields`). A file that cannot be decoded is
+    skipped here; `validate_table` reports it as TBL000.
+    """
+    issues: list[ValidationIssue] = []
+    for path, _ in mirror_paths(root):
+        try:
+            found = leading_quote_fields(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
+            continue
+        if found:
+            shown = ", ".join(f"line {line} field {field}" for line, field in found[:5])
+            more = f" (first 5 of {len(found)})" if len(found) > 5 else ""
+            issues.append(
+                ValidationIssue(
+                    "TBL013",
+                    Severity.ERROR,
+                    f"{path.relative_to(root)}:{found[0][0]}",
+                    f"{len(found)} field(s) begin with a double quote{more}: {shown}; "
+                    "polars would read them as quoted fields and can merge rows",
+                )
+            )
+    return issues
+
+
 def validate_repository(root: Path) -> ValidationReport:
     issues: list[ValidationIssue] = []
 
@@ -511,6 +584,8 @@ def validate_repository(root: Path) -> ValidationReport:
         schema = TABLE_SCHEMAS[schema_name]
         issues.extend(validate_table(path, schema))
         issues.extend(validate_sort_order(path, schema))
+    # Unconditional and over raw text: see `_leading_quote_issues`.
+    issues.extend(_leading_quote_issues(root))
     # Unconditional: the loop above iterates what the schemas expect, so an entry
     # nothing claims — a shard directory lost to a typo — is invisible to it.
     issues.extend(unexpected_mirror_entries(root))
@@ -568,6 +643,13 @@ def validate_repository(root: Path) -> ValidationReport:
     # Same reasoning for the interpretive tree, which holds the curator
     # judgement the atlas exists to record.
     issues.extend(unexpected_curation_entries(root))
+
+    # `mirrors/genes.tsv`, read once for GEN005 (below, unconditional) and
+    # GEN006 (in the scope branch). None when absent or unreadable.
+    genes_path = root / "mirrors" / "genes.tsv"
+    genes_frame = (
+        read_table(genes_path, TABLE_SCHEMAS["genes"])[0] if genes_path.is_file() else None
+    )
 
     # Referential checks over a corpus that failed to load would compare against a
     # knowingly incomplete set. The file wrappers validate their whole record list
@@ -852,7 +934,8 @@ def validate_repository(root: Path) -> ValidationReport:
                 corpus.chd_scope, orphanet_tables, structural, scope_location
             )
         )
-        mirrored = _mirrored_validity(root)
+        validity_frames = _validity_frames(root)
+        mirrored = _mirrored_validity(validity_frames)
         if mirrored is None:
             # SCP000 alone is a WARNING, and `ValidationReport.ok` ignores
             # warnings — so without an accompanying ERROR, a repository missing
@@ -905,6 +988,34 @@ def validate_repository(root: Path) -> ValidationReport:
             }
             issues.extend(validate_curation_is_in_scope(curated_genes, in_scope_genes))
 
+        # GEN006: the registry `chd-atlas ingest hgnc` would write, against the
+        # one committed. One call site, after the validity-mirror if/else and
+        # reached from both of its branches (CLAUDE.md section 4.34), in this
+        # branch because the scope is the corpus's and a failed corpus load is
+        # REF000's. The rule: it runs whenever the scope parsed and no validity
+        # mirror is present but unreadable. An ABSENT mirror counts as one with
+        # no rows (`registry.ABSENT_MIRROR`): the registry the other derives is
+        # a subset of the full one, so every gene GEN006 then names really is
+        # missing. Until review (2026-11-11) it required both mirrors, and a
+        # repository with one absent, an in-scope gene the other names and that
+        # gene missing from `genes.tsv` validated with zero issues.
+        #
+        # It is skipped, and an error already says why, when a mirror is present
+        # but unreadable (TBL000), when one lacks a `gene` or `disease` column
+        # (TBL001; the except below), and when `genes.tsv` is absent or
+        # unreadable (TBL008, above). With both mirrors absent it runs on an
+        # empty registry and reports nothing; TBL012 is the error there.
+        registry_frames = _registry_frames(root, validity_frames)
+        if registry_frames is not None and genes_frame is not None:
+            try:
+                derived = derive_registry(
+                    (str(entry.id) for entry in corpus.chd_scope), *registry_frames
+                )
+            except RegistryUnavailable:
+                derived = None
+            if derived is not None:
+                issues.extend(validate_registry_is_current(derived, genes_frame))
+
     # Issue #33: every cross-source join keys on HGNC id, and the registry that
     # makes that possible has to stay able to resolve the symbols the mirrors
     # actually print. Independent of scope -- a stale registry entry is a
@@ -919,6 +1030,12 @@ def validate_repository(root: Path) -> ValidationReport:
             str(root / "mirrors" / "genes.tsv"),
         )
     )
+
+    # GEN005: one protein per registry gene. The one call site, outside both
+    # scope branches. An unreadable or missing registry is already
+    # TBL000/TBL008's to report, so nothing extra is emitted.
+    if genes_frame is not None:
+        issues.extend(validate_one_uniprot_per_gene(genes_frame))
 
     # Same reasoning as the referential skip above: on a failed registry load
     # `registry` is empty, so every source every mirror table uses would report
