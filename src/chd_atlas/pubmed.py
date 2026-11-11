@@ -1,9 +1,9 @@
 # src/chd_atlas/pubmed.py
 """A small PubMed (NCBI E-utilities) client for the literature curator tooling.
 
-Standard library only. Three jobs: build the fixed search query, page through
-esearch without ever truncating, and read esummary/efetch into the fields a
-curator and a `Publication` record need.
+Standard library only. Two jobs: page through esearch without ever truncating,
+and read esummary/efetch into the fields a curator and a `Publication` record
+need. The search query itself is built in `literature_query.build_query`.
 
 **Every function takes its transport as an argument** (`Fetch`: URL in, bytes
 out), so tests inject recorded or fake responses and nothing here reaches the
