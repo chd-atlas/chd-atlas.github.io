@@ -331,7 +331,9 @@ def validate_registry_is_current(
             message=(
                 f"mirrors/genes.tsv lacks {len(missing)} {noun} the registry derives from "
                 f"curation/chd_scope.yaml and the validity mirrors{more}: {shown}; "
-                "re-ingest hgnc (or run `chd-atlas ingest --all`)"
+                "re-ingest hgnc or run `chd-atlas ingest --all` (before hgnc is pinned, "
+                "regenerate mirrors/genes.tsv with scripts/convert_hgnc.py); if the pinned "
+                "HGNC package lacks the gene, pin a newer HGNC release"
             ),
         )
     ]

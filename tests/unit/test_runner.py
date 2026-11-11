@@ -1628,7 +1628,11 @@ def test_a_registry_row_listing_two_uniprot_accessions_fails_the_repository(
     assert not report.ok
 
 
-_GEN006_TAIL = "; re-ingest hgnc (or run `chd-atlas ingest --all`)"
+_GEN006_TAIL = (
+    "; re-ingest hgnc or run `chd-atlas ingest --all` (before hgnc is pinned, regenerate "
+    "mirrors/genes.tsv with scripts/convert_hgnc.py); if the pinned HGNC package lacks the "
+    "gene, pin a newer HGNC release"
+)
 
 
 def test_a_registry_missing_an_in_scope_gene_is_an_error(tmp_path: Path) -> None:
