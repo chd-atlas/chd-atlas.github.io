@@ -1,0 +1,52 @@
+{
+  "built_by": {
+    "host": "mpcs011",
+    "hvantk_release": "a7ce83029d0ca29750aec4e4819f4a69fe64bfdf",
+    "job": "21476238",
+    "recipe_commit": "2d38294339f581dcdb43bbd3a0abb74ed26ed0b5"
+  },
+  "coverage": "every_gene",
+  "dropped": [],
+  "ids": "hgnc_id",
+  "input_counts": {
+    "genes": 45233,
+    "rows": 45233
+  },
+  "inputs": [
+    {
+      "name": "hgnc_complete_set_2026-10-06.txt",
+      "retrieved_on": "2026-11-11",
+      "sha256": "8bf6f686e640dbc864a346484626953621b0500d900d26cd085a35c2782d725d",
+      "upstream_release": "2026-10-06",
+      "url": "https://storage.googleapis.com/public-download-files/hgnc/archive/archive/monthly/tsv/hgnc_complete_set_2026-10-06.txt"
+    },
+    {
+      "name": "hgnc_lookup.tsv.gz",
+      "retrieved_on": "2026-11-11",
+      "sha256": "67bbbc5ae3d6d73680acd4f7a8a6d37b6e596b7da8807a4b9f4bebb4cc6f387f",
+      "upstream_release": null,
+      "url": "https://github.com/chd-atlas/feeds/tree/2d38294339f581dcdb43bbd3a0abb74ed26ed0b5/sources/hgnc/hpc"
+    }
+  ],
+  "licence_evidence": "\"all data is released under the Creative Commons Public Domain (CC0) License ... any form of reuse of the content is permitted\" (https://www.genenames.org/about/license/)",
+  "package": "hgnc",
+  "source": {
+    "licence": "CC0-1.0",
+    "name": "HUGO Gene Nomenclature Committee",
+    "redistribution": "permitted",
+    "retrieved_on": "2026-11-11",
+    "url": "https://www.genenames.org/",
+    "version": "2026-10-06"
+  },
+  "tables": [
+    {
+      "file": "genes.tsv.gz",
+      "format_version": 2,
+      "genes": 45233,
+      "name": "genes",
+      "rows": 45233,
+      "sha256": "40c03389916a154afa59198d3a6c3e0ee8febe026c1b1cb6a06d8eb070c2a334"
+    }
+  ],
+  "version": "2026-10-06"
+}

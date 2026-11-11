@@ -44,6 +44,9 @@ sources:
     # which returns `license="CC BY"` for PMC12002227.
     licence: CC-BY-4.0
     redistribution: permitted_with_attribution
+    package:
+      version: d8e9f777
+      manifest_sha256: 5f32438bd0e9f7b6889ca76b0a40ef50aab97b357b609252e6a9eafe7ecd6c87
   - id: audain2021_s6
     name: >-
       Audain et al. 2021, PLoS Genetics 17(7) e1009679, S6 Table Sheet A
@@ -105,7 +108,15 @@ sources:
     redistribution: permitted
   - id: hgnc
     name: HUGO Gene Nomenclature Committee
-    # `mirrors/genes.tsv` is now derived from the complete-set TSV rather than
+    # Since 2026-11-11 `mirrors/genes.tsv` is written by `chd-atlas ingest hgnc`
+    # from the chd-atlas/feeds package `hgnc` 2026-10-06 (recipe
+    # `sources/hgnc`), which is built from HGNC's monthly archive of that date;
+    # the pinned version and `retrieved_on` below are the package's. Measured
+    # at that ingest: the 185 mirrored rows are byte-identical to those the
+    # earlier 2026-10-16 complete set produced. The next two paragraphs record
+    # the earlier, converter-era provenance; the third still holds.
+    #
+    # `mirrors/genes.tsv` was derived from the complete-set TSV rather than
     # the REST service, and that file carries no release tag inside it. Both
     # metadata the authority does publish agree on the same day and are
     # recorded as the version: the download's own `last-modified` header reads
@@ -118,17 +129,20 @@ sources:
     # 154 rows already mirrored changed.
     #
     # One cell is the atlas's choice rather than HGNC's: RBM10's `uniprot`, which
-    # HGNC lists as P0DW28|P98175. `scripts/convert_hgnc.py` pins P98175, RBM10's
-    # own protein (P0DW28 is the MINAS-60 microprotein its transcripts also
-    # encode), 2026-10-25. Every other cell is HGNC's.
-    version: "2026-10-16"
-    retrieved_on: 2026-10-25
+    # HGNC lists as P0DW28|P98175. The HGNC recipe (feeds `sources/hgnc`) pins
+    # P98175, RBM10's own protein (P0DW28 is the MINAS-60 microprotein its
+    # transcripts also encode); the choice was made 2026-10-25. Every other cell is HGNC's.
+    version: "2026-10-06"
+    retrieved_on: 2026-11-11
     url: https://www.genenames.org/
     # "all data is released under the Creative Commons Public Domain (CC0)
     # License ... any form of reuse of the content is permitted"
     # — https://www.genenames.org/about/license/
     licence: CC0-1.0
     redistribution: permitted
+    package:
+      version: '2026-10-06'
+      manifest_sha256: 9525825439df3ccce50647960ba175406339bd78999fff3750ad0e86197cc99d
   - id: hpo
     name: Human Phenotype Ontology
     # `data-version` recorded in the header of the pinned release below.
@@ -226,12 +240,13 @@ sources:
       Farah et al. 2024 developing human heart scRNA-seq, UCSC Cell Browser
       dataset hoc/all-heart (142,946 cells), aggregated to per-heart pseudobulks
     # The version is the sha256 of the h5ad, which is NOT committed (3.3 GB).
-    # Reproduce with scripts/hpc/submit_farah_celltypes.sh (hvantk 96ceafb4,
-    # job 21367175, 2026-11-02; the two `hvantk expression summarize` commands
-    # are in scripts/hpc/farah_celltypes.sbatch). Its pseudobulk.tsv (sha256
-    # 3414fe0cf47b5f2ce4c46460fed151131dce365b14ca2d2eae06671be9dd59d9) is
-    # turned into mirrors/cell_type_profiles/hoc.tsv by
-    # scripts/convert_farah2024.py.
+    # `mirrors/cell_type_profiles/hoc.tsv` is written by `chd-atlas ingest
+    # farah2024_hoc` from the chd-atlas/feeds package `farah2024_hoc` 19a1d496
+    # (recipe `sources/farah2024_hoc`; the pin below). The cluster job and
+    # converter that produced it before 2026-11-11 (hvantk 96ceafb4, job
+    # 21367175, 2026-11-02; pseudobulk.tsv sha256
+    # 3414fe0cf47b5f2ce4c46460fed151131dce365b14ca2d2eae06671be9dd59d9) were
+    # deleted from this repository; the ingest rewrote the mirror byte-for-byte.
     version: "sha256:19a1d4961c2f38194b7589e86dc53cae45c272fc0f9d8a7e907edeefe3215c2c"
     # The h5ad's build date (its uns/hvantk_metadata/build_date, hvantk 0.1.0,
     # built from UCSC's exprMatrix.tsv.bgz); the raw download date is not
@@ -246,3 +261,6 @@ sources:
       Not stated by the UCSC Cell Browser; data accompany a CC BY 4.0 article
       (PMID:38480880) and are attributed to Farah et al. 2024
     redistribution: permitted_with_attribution
+    package:
+      version: 19a1d496
+      manifest_sha256: ad8f372cbde022101e860b8a85a45506f0073a952a9928e9e2a57eecb39862ce

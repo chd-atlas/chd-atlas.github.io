@@ -1,0 +1,51 @@
+{
+  "built_by": {
+    "host": "workstation",
+    "recipe_commit": "2d38294339f581dcdb43bbd3a0abb74ed26ed0b5"
+  },
+  "coverage": "every_gene",
+  "dropped": [],
+  "ids": "symbol",
+  "input_counts": {
+    "genes": 248,
+    "rows": 248
+  },
+  "inputs": [
+    {
+      "name": "pnas.2420343122.sd06.xlsx",
+      "retrieved_on": "2026-08-05",
+      "sha256": "d8e9f7777b329c810adde8b9f4a0f91a4d1a6211b760daeb9329ae6f36606daa",
+      "upstream_release": null,
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC12002227/supplementaryFiles"
+    }
+  ],
+  "licence_evidence": "\"Copyright (c) 2025 the Author(s). Published by PNAS. This open access article is distributed under Creative Commons Attribution License 4.0 (CC BY).\" -- the article's own permissions statement, which covers its supplementary material.",
+  "package": "sierant2025_ds6",
+  "source": {
+    "licence": "CC-BY-4.0",
+    "name": "Sierant et al. 2025, PNAS 122(13) e2420343122, Dataset S6 (gene-level meta-analysis over all 248 MIPseq panel genes: Poisson de novo enrichment in trios, Fisher case-control of ultra-rare TUVs against gnomAD, and the JL-FDR meta-analysis combining the two)",
+    "redistribution": "permitted_with_attribution",
+    "retrieved_on": "2026-08-05",
+    "url": "https://www.pnas.org/doi/suppl/10.1073/pnas.2420343122/suppl_file/pnas.2420343122.sd06.xlsx",
+    "version": "sha256:d8e9f7777b329c810adde8b9f4a0f91a4d1a6211b760daeb9329ae6f36606daa"
+  },
+  "tables": [
+    {
+      "file": "burden.tsv.gz",
+      "format_version": 1,
+      "genes": 248,
+      "name": "burden",
+      "rows": 1488,
+      "sha256": "0de109bcf0579fe7b78ed35e12f30401b853debbbf0e0ca1150b39d12ca6e77c"
+    },
+    {
+      "file": "burden_combined.tsv.gz",
+      "format_version": 1,
+      "genes": 248,
+      "name": "burden_combined",
+      "rows": 744,
+      "sha256": "478d5ba16073fd23fcd0ac437090f10812dfdf714d5e07c5ddeb5ead0699fc18"
+    }
+  ],
+  "version": "d8e9f777"
+}

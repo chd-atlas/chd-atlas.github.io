@@ -69,8 +69,16 @@ writes a new cache directory, as it should.
 Cells are written as polars parsed them, which Decision 8 calls verbatim: a
 package table is read as quoted TSV and a mirror is written unquoted, so a cell
 that opens with a quote loses its quoting (measured on polars 1.43.1: ``"x"``
-is written ``x``, ``"p""q"`` is written ``p"q``, while ``mid"dle`` is written
-as it came). Only the gene column is rewritten, to the HGNC id it resolved to.
+is written ``x``, ``"p""q"`` is written ``p"q``). A quote inside a cell is
+kept, never repaired, and what follows depends on the quote count of its row.
+Measured on 2026-11-11 (polars 1.43.1) by ingesting a six-row package into a
+copy of the corpus, one ``method_note`` cell changed per run: ``m"id"dle`` (an
+even count) on the first row, or on the last, is accepted and written
+verbatim; ``mid"dle`` (an odd count) on the first or a middle row is refused as
+ING011 (``ComputeError``, CSV malformed); ``mid"dle`` on the last row parses,
+is written, and `validate` then cannot read the mirror (TBL000), so the ingest
+is refused as ING010. Not measured over a large table. Only the gene column is
+rewritten, to the HGNC id it resolved to.
 A current mirror is read as text, never through `read_table`'s dtypes, so the
 rows another source owns are rewritten as the bytes they were (measured over
 every committed mirror; see

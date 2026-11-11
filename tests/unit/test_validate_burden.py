@@ -10,6 +10,7 @@ synonymous negative control) exist only because the real data has that shape.
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 
 import pytest
@@ -674,3 +675,79 @@ def test_a_combined_row_citing_nothing_a_registry_defines_is_reported(
     )
     assert [issue.code for issue in issues] == ["BUR022"]
     assert validate_burden_combined_references(root, known_genes=None, known_studies=None) == []
+
+
+# --- committed-mirror invariants the deleted Sierant converter suite carried ---
+
+
+def _mirror_rows(name: str) -> list[dict[str, str]]:
+    path = Path(__file__).parent.parent.parent / "mirrors" / f"{name}.tsv"
+    with path.open(encoding="utf-8") as handle:
+        return list(csv.DictReader(handle, delimiter="\t"))
+
+
+def _composite_gaps(rows: list[dict[str, str]]) -> list[tuple[str, str, int, int]]:
+    """(gene, comparator, damaging, lof + missense_damaging) wherever the sum fails."""
+    counts = {
+        (r["gene"], r["consequence_class"], r["comparator"]): int(r["n_case_carriers"])
+        for r in rows
+        if r["study"] == "PMID:40127276"
+    }
+    return [
+        (
+            gene,
+            comparator,
+            n,
+            counts[(gene, "lof", comparator)] + counts[(gene, "missense_damaging", comparator)],
+        )
+        for (gene, cls, comparator), n in sorted(counts.items())
+        if cls == "damaging"
+        and n != counts[(gene, "lof", comparator)] + counts[(gene, "missense_damaging", comparator)]
+    ]
+
+
+def _pair_gaps(arms: list[dict[str, str]], combined: list[dict[str, str]]) -> list[str]:
+    """Problems with "one combined row per arm pair" for PMID:40127276, in both directions."""
+    pairs = sorted(
+        {
+            (r["gene"], r["cohort_stratum"], r["lesion_group"], r["consequence_class"])
+            for r in arms
+            if r["study"] == "PMID:40127276"
+        }
+    )
+    mine = [
+        (r["gene"], r["cohort_stratum"], r["lesion_group"], r["consequence_class"])
+        for r in combined
+        if r["study"] == "PMID:40127276"
+    ]
+    problems = [f"no combined row for {p}" for p in pairs if p not in mine]
+    problems += [f"combined row over no arm pair {p}" for p in sorted(set(mine) - set(pairs))]
+    problems += [
+        f"{p} combined {mine.count(p)} times" for p in sorted(set(mine)) if mine.count(p) > 1
+    ]
+    return problems
+
+
+def test_the_committed_sierant_composite_is_the_sum_of_its_components() -> None:
+    """`damaging` is `lof` + `missense_damaging` on case carriers, for each gene and arm.
+
+    Catches a stale or mis-transcribed mirror; the arithmetic holds only if the
+    three blocks were read from the bands of the sheet they were meant to be.
+    Measured 2026-11-11: no gap at f094c28 (41 genes) and after the Sierant ingest (42).
+    """
+    rows = _mirror_rows("burden")
+    assert len({r["gene"] for r in rows if r["study"] == "PMID:40127276"}) > 1
+    assert _composite_gaps(rows) == []
+
+
+def test_the_committed_combined_mirror_has_one_row_per_arm_pair() -> None:
+    """Every Sierant arm pair has exactly one combined row and no combined row is orphaned.
+
+    BUR020 checks only that each combined row has its arms; this is the other
+    direction, plus no repeat. The arm pair is the arm rows' key without the
+    comparator, which the two arms of a pair do not share.
+    """
+    arms = _mirror_rows("burden")
+    combined = _mirror_rows("burden_combined")
+    assert [r for r in combined if r["study"] == "PMID:40127276"]
+    assert _pair_gaps(arms, combined) == []
