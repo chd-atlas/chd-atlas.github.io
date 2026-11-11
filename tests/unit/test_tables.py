@@ -1136,7 +1136,12 @@ def test_polars_pattern_engine_agrees_with_python_re(tmp_path: Path) -> None:
     # landed: `mirrors/cell_type_profiles/hoc.tsv` (Farah et al. 2024) is 12,308
     # rows over 181 registry genes, and its one pattern-checked column is `gene`
     # (measured per table and column, not inferred from the difference).
-    assert total_compared == 224_421
+    #
+    # **224,421 -> 224,451 on 2026-11-11**, when the Sierant package's first
+    # ingest added CIROZ (previous symbol C1orf127): 6 burden rows x 3
+    # pattern-checked columns + the 3 of them with a control cohort + 3 combined
+    # rows x 3 = 30 (measured as the difference; the 3 is read off the diff).
+    assert total_compared == 224_451
 
     for pattern in patterns:
         compiled = re.compile(pattern)

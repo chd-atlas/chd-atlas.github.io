@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -60,9 +61,29 @@ TOY_MAF = "0.0001"
 OUTSIDE_GENE = "HGNC:5"  # A1BG: a valid HGNC id, not in mirrors/genes.tsv
 
 
+_PIN_BLOCK = re.compile(
+    r"    package:\n      version: [^\n]+\n      manifest_sha256: [0-9a-f]{64}\n"
+)
+
+
+def unpinned(raw: bytes) -> bytes:
+    """`sources.yaml` with every `package:` pin removed.
+
+    The committed file pins hgnc, sierant2025_ds6 and farah2024_hoc (since the
+    2026-11-11 ingest); these tests need a repository with no pin, and a pin
+    with no cache is ING017. Measured: the pattern removes exactly the
+    three blocks `chd-atlas ingest` wrote.
+    """
+    return _PIN_BLOCK.sub("", raw.decode("utf-8")).encode("utf-8")
+
+
 def copy_repo(target: Path) -> Path:
+    """The committed corpus with every pin and package manifest removed."""
     for item in ("curation", "mirrors", "ontologies"):
         shutil.copytree(REPO_ROOT / item, target / item)
+    sources = target / "mirrors" / "sources.yaml"
+    sources.write_bytes(unpinned(sources.read_bytes()))
+    shutil.rmtree(target / "mirrors" / "packages", ignore_errors=True)
     return target
 
 
@@ -635,7 +656,7 @@ def test_the_committed_sources_yaml_round_trips_byte_for_byte() -> None:
     entry's fields come from the model, not a hand-written list (the drift test
     makes a new `Source` field a `PackageSource` field).
     """
-    raw = (REPO_ROOT / "mirrors" / "sources.yaml").read_bytes()
+    raw = unpinned((REPO_ROOT / "mirrors" / "sources.yaml").read_bytes())
     pin = PackagePin(version="v1", manifest_sha256="cd" * 32)
     tail = f"    package:\n      version: v1\n      manifest_sha256: {'cd' * 32}\n"
 
@@ -1167,7 +1188,9 @@ SLC11A1_ROW = {
     "uniprot": "P49279",
     "mane_select": "NM_000578.4",
 }
-# The committed `hgnc` entry's fields, so the ingest rewrites it as itself.
+# The `hgnc` entry's fields as they stood before the 2026-11-11 ingest
+# (the committed entry's version and retrieved_on are now 2026-10-06 and
+# 2026-11-11); nothing asserts on those two fields in this harness.
 HGNC_FIELDS = {
     "name": "HUGO Gene Nomenclature Committee",
     "version": HGNC_VERSION,

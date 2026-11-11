@@ -44,6 +44,9 @@ sources:
     # which returns `license="CC BY"` for PMC12002227.
     licence: CC-BY-4.0
     redistribution: permitted_with_attribution
+    package:
+      version: d8e9f777
+      manifest_sha256: 5f32438bd0e9f7b6889ca76b0a40ef50aab97b357b609252e6a9eafe7ecd6c87
   - id: audain2021_s6
     name: >-
       Audain et al. 2021, PLoS Genetics 17(7) e1009679, S6 Table Sheet A
@@ -121,14 +124,17 @@ sources:
     # HGNC lists as P0DW28|P98175. `scripts/convert_hgnc.py` pins P98175, RBM10's
     # own protein (P0DW28 is the MINAS-60 microprotein its transcripts also
     # encode), 2026-10-25. Every other cell is HGNC's.
-    version: "2026-10-16"
-    retrieved_on: 2026-10-25
+    version: "2026-10-06"
+    retrieved_on: 2026-11-11
     url: https://www.genenames.org/
     # "all data is released under the Creative Commons Public Domain (CC0)
     # License ... any form of reuse of the content is permitted"
     # — https://www.genenames.org/about/license/
     licence: CC0-1.0
     redistribution: permitted
+    package:
+      version: '2026-10-06'
+      manifest_sha256: 9525825439df3ccce50647960ba175406339bd78999fff3750ad0e86197cc99d
   - id: hpo
     name: Human Phenotype Ontology
     # `data-version` recorded in the header of the pinned release below.
@@ -246,3 +252,6 @@ sources:
       Not stated by the UCSC Cell Browser; data accompany a CC BY 4.0 article
       (PMID:38480880) and are attributed to Farah et al. 2024
     redistribution: permitted_with_attribution
+    package:
+      version: 19a1d496
+      manifest_sha256: ad8f372cbde022101e860b8a85a45506f0073a952a9928e9e2a57eecb39862ce

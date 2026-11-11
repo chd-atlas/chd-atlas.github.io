@@ -105,7 +105,7 @@ wrong by the next one.
   - `burden_rows` is the number of rare-variant statistics reaching a bundle, which is
     exactly the sum of every browse row's `burden_row_count`. It counts what a
     consumer can fetch, **not** what `mirrors/burden.tsv` holds: that file is
-    deliberately wider than the publication gate, and today 63 of its 181 genes
+    deliberately wider than the publication gate, and today 64 of its 182 genes
     publish no page.
   - `cohort_families` is the number of independent cohort families, the length
     of any bundle's `independent_datasets.families` array — the same for every
@@ -992,8 +992,8 @@ Published rare-variant statistics for the gene, one object per
 (study, cohort stratum, variant class, consequence class, frequency threshold).
 **1210 rows reach the API**, across 118 of the 119 published genes, from
 3 studies (PMID:34324492, PMID:40127276, PMID:42230622), contributing
-77, 216, 917 rows respectively. `mirrors/burden.tsv` holds 1,805 rows for 181 genes; the other 595,
-covering 63 genes, are for genes the site does not publish and reach no
+77, 216, 917 rows respectively. `mirrors/burden.tsv` holds 1,811 rows for 182 genes; the other 601,
+covering 64 genes, are for genes the site does not publish and reach no
 bundle and no page. They are held
 so that widening the publication gate later needs no re-mirroring — which is
 exactly what happened on 2026-08-06, when the gate widened from 23 genes to 92
@@ -1128,7 +1128,9 @@ Six obligations, each of which is a wrong claim if you get it wrong:
    classes. So an absent cell means "this study did not report one here", and
    only for `PMID:42230622` does it additionally mean "no carrier on either
    side". `PMID:40127276` does publish a row with zeros on both sides: WDR5's
-   loss-of-function case-control row.
+   loss-of-function case-control row. The mirror
+   holds one more, CIROZ's missense-damaging case-control row, for a gene the site
+   does not publish, so it reaches no bundle.
 4. **Do not filter out `consequence_class: "synonymous"`.** It is a study's own
    negative control — synonymous variants should show no enrichment — and where
    one is significant, that gene's comparison is poorly calibrated, which a
@@ -1213,7 +1215,7 @@ alleles against gnomAD), by the joint local false discovery rate method of
 Jiang & Yu 2017 (PMID:28011772).
 
 **108 combined results reach the API**, across 36 published genes.
-`mirrors/burden_combined.tsv` holds 123 rows for 41 genes: one per arm pair for
+`mirrors/burden_combined.tsv` holds 126 rows for 42 genes: one per arm pair for
 every panel gene in `mirrors/genes.tsv`, wider than the publication gate for the
 reason `burden.tsv` is. Every row's arms are `burden` rows (BUR020 refuses one
 that is not), matched on `study`, `gene`, `cohort_stratum`, `lesion_group` and
