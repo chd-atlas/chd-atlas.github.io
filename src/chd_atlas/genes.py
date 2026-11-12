@@ -27,8 +27,10 @@ cannot report either, and a gene that fails to map and simply vanishes is
 precisely the silent evidence loss this project treats as its characteristic
 failure -- the build stays green and the gene is not there.
 
-**Ambiguity is refused, never guessed.** `scripts/convert_burden.py` declines to
-match aliases at all, and its stated reason is exactly right: "an alias that is
+**Ambiguity is refused, never guessed.** The retired Audain 2026 converter (now the chd-atlas/feeds
+`audain2026_sd3` recipe, which resolves approved, then alias, then previous
+symbols) declined to
+match aliases at all, and its stated reason was exactly right: "an alias that is
 another gene's current symbol would silently attribute one gene's burden to
 another". Measured against the committed registry, that collision does not occur
 today -- 185 approved symbols, 382 alias symbols, **zero** overlap between the

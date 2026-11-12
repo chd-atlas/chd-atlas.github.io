@@ -8,10 +8,11 @@ sources:
       (per-gene rare variant burden, aCHD / sCHD / nsCHD versus controls)
     # A journal supplement carries no release tag, so the file's own sha256 is
     # the version -- and unlike a `retrieved_on` date it is checkable: a curator
-    # can prove they hold the identical workbook these 1,192 rows came from.
+    # can prove they hold the identical workbook the rows came from.
     # The file itself is NOT committed (`local/` is gitignored): it is 11 MB,
     # its redistribution terms are the article's, and the reviewable artifact is
-    # `mirrors/burden.tsv`. Reproduce with `scripts/convert_burden.py`.
+    # `mirrors/burden.tsv`. Reproduce with the
+    # chd-atlas/feeds `audain2026_sd3` recipe, then `chd-atlas ingest`.
     version: "sha256:8ebb6fdceb38b0099d6229a1ebf4d77db9f9492a62cfafb569d2865f9645ee2b"
     retrieved_on: 2026-08-04
     url: https://static-content.springer.com/esm/art%3A10.1038%2Fs41525-026-00582-z/MediaObjects/41525_2026_582_MOESM4_ESM.xlsx
@@ -238,8 +239,8 @@ sources:
     #
     # The files themselves are NOT committed: 86 MB and 24 KB respectively,
     # and the reviewable artifacts are mirrors/profiles/E-MTAB-6814.tsv and
-    # mirrors/profile_quantiles/E-MTAB-6814.tsv. Reproduce with
-    # scripts/convert_cardoso_moreira.py (run via scripts/hpc/).
+    # mirrors/profile_quantiles/E-MTAB-6814.tsv. Reproduce with the
+    # chd-atlas/feeds `expression_atlas_e_mtab_6814` recipe, then `chd-atlas ingest`.
     version: "sha256:92484a979fb8e262fe1f535b2b902ba8088310bbbec76969ba873b51d593f4be"
     retrieved_on: 2026-08-19
     url: https://www.ebi.ac.uk/gxa/experiments/E-MTAB-6814/Results

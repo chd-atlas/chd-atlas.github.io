@@ -406,7 +406,7 @@ def test_profiles_admits_rpkm_and_still_refuses_an_unknown_unit() -> None:
     actually carries is the EMBL-EBI Expression Atlas *reprocessing* of the
     same experiment, which requantified everything and publishes TPM and FPKM.
     `mirrors/profiles/E-MTAB-6814.tsv` is 100% `tpm` — measured, 18,326 of
-    18,326 rows — and `scripts/convert_cardoso_moreira.py` sets `UNIT = "tpm"`.
+    18,326 rows — and the chd-atlas/feeds `expression_atlas_e_mtab_6814` recipe writes `tpm`.
     An earlier revision of this docstring said "the source publishes RPKM",
     which was true of the paper and false of the mirror, on a test shipped in
     the same PR as the TPM converter. Raised by review on PR #39.

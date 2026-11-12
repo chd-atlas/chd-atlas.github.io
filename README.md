@@ -78,20 +78,19 @@ pin, and names the `gh release download` command for a missing or wrong cache.
 After a scope shrink (an edit to `curation/chd_scope.yaml` that removes a term), run
 `chd-atlas ingest --all`. It re-ingests every pinned package from its cache, `hgnc`
 included, then removes every row naming a gene that left `mirrors/genes.tsv` from every
-mirror filtered to the registry, whichever package or converter wrote it, and prints each
+mirror filtered to the registry, whichever package wrote it, and prints each
 file, gene and row count. It validates once at the end and restores all of `mirrors/` if
 anything fails. Ingesting `hgnc` alone fails validation whenever a registry-filtered
 mirror still names a dropped gene (validity rows keep naming it and do not fail).
 
 After a scope growth, run `chd-atlas ingest --all` too: `hgnc` and `sierant2025_ds6` are
-every-gene packages, so re-ingesting them from their caches adds the new genes' rows. Two
-things `--all` cannot do. The Farah package is a registry slice (cut at the registry its
+every-gene packages, so re-ingesting them from their caches adds the new genes' rows. The
+one thing `--all` cannot do: the Farah package is a registry slice (cut at the registry its
 manifest names), so a grown registry needs a new `farah2024_hoc` package from
 `chd-atlas/feeds`, pinned and ingested; until then `ingest` names the registry genes the
-slice lacks. And the converters still in `scripts/` that read the registry
-(`convert_audain2021.py`, `convert_burden.py`, `convert_cardoso_moreira.py`) are re-run by
-hand. `hgnc`, `sierant2025_ds6` and `farah2024_hoc` have no converter here any more: their
-recipes live in `chd-atlas/feeds` (`sources/<id>`).
+slice lacks. The Audain 2021 and 2026 burden packages and the E-MTAB-6814 package are every-gene
+packages too, so `ingest --all` re-filters them to the grown registry. No converter is left
+in this repository: every recipe lives in `chd-atlas/feeds` (`sources/<id>`).
 
 Two tables are kept only in part, because their packages carry the whole source.
 `orphanet_phenotypes` (Orphanet product 4) keeps an annotation whose `hpo` is under
