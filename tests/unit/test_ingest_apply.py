@@ -256,6 +256,8 @@ def test_reingesting_the_same_version_changes_no_byte(ingested: Ingested) -> Non
     assert ingested.again == ingested.after
     assert ingested.second == ingested.first
     cache = f"local/packages/{SOURCE}/{VERSION}"
+    assert cache in ingested.after, f"the package cache {cache} was not written"
+    assert f"{cache}/manifest.json" in ingested.after, f"{cache}/manifest.json was not written"
     for name in ("manifest.json", "burden.tsv"):
         assert ingested.after[f"{cache}/{name}"] == (ingested.package / name).read_bytes()
     # Only what the ingest wrote changed: the burden mirror, the committed
@@ -857,7 +859,7 @@ def test_a_row_dropped_without_being_named_stops_the_ingest_before_any_write(
 
     assert str(excinfo.value) == (
         "ingest row accounting does not add up: 6 in, 5 written, "
-        "0 outside the registry, 0 unresolved"
+        "0 outside the registry, 0 unresolved, 0 outside the filter, 0 naming an unknown term"
     )
     assert tree(repo) == before
 
@@ -1626,6 +1628,10 @@ def _step_result(source_id: str) -> IngestResult:
         rows_outside_registry=0,
         rows_unresolved=0,
         unresolved=(),
+        rows_outside_filter=0,
+        filter_reasons=(),
+        rows_unknown_term=0,
+        unknown_terms=(),
         registry_genes_absent=(),
         registry_genes=0,
         coverage="every_gene",
@@ -1760,3 +1766,375 @@ def test_ingest_all_with_nothing_pinned_still_validates_once(
             + ERROR.format()
         )
     assert validated == [repo]
+
+
+# --- ingest --all --repin: a validity package that moves the registry --------
+
+CLINGEN_MIRROR = "mirrors/clingen_gene_validity.tsv"
+MONDO_MIRROR = "mirrors/mondo_xrefs.tsv"
+CLINGEN_V1, CLINGEN_V2 = "2026-08-03", "2026-11-12"
+MONDO_VERSION = "2026-10-06"
+HOLT_ORAM = "MONDO:0007732"
+# Yellow nail syndrome: neither committed validity mirror names it (measured
+# 2026-11-12 with awk over both), it is not in the scope, and ORPHA:662 is its
+# exact match in Mondo v2026-10-06's mondo.sssom.tsv (read the same day). Not
+# congenital heart disease: a fixture.
+YELLOW_NAIL = "MONDO:0007921"
+YELLOW_NAIL_XREF = {"mondo": YELLOW_NAIL, "target": "ORPHA:662", "source": "mondo_sssom"}
+
+
+def _clingen_rows_v2() -> list[dict[str, str]]:
+    """The committed ClinGen rows plus two a ClinGen release could add (a fixture's, not ClinGen's).
+
+    TBX5's Holt-Oram row copied to SLC11A1 puts SLC11A1 in the registry; the
+    same row copied to A1BG against yellow nail syndrome, a term outside the
+    scope, first names that term and leaves A1BG outside the registry.
+    """
+    rows = committed_rows(CLINGEN_MIRROR)
+    tbx5 = next(row for row in rows if row["gene"] == TBX5 and row["disease"] == HOLT_ORAM)
+    return [
+        *rows,
+        {**tbx5, "gene": SLC11A1, "gene_symbol": "SLC11A1"},
+        {
+            **tbx5,
+            "gene": A1BG["hgnc_id"],
+            "gene_symbol": "A1BG",
+            "disease": YELLOW_NAIL,
+            "disease_label": "yellow nail syndrome",
+        },
+    ]
+
+
+def _entry(source_id: str, **changes: Any) -> dict[str, Any]:
+    """A committed `sources.yaml` entry's fields as a manifest's `source` block."""
+    return _source_as_package(source_id, **changes).model_dump(mode="json")
+
+
+class Repinned:
+    """ClinGen v1 (the committed rows), hgnc, toy_burden and Mondo pinned and cached; then v2.
+
+    The registry is the committed 185 genes (A). The hgnc package also carries
+    SLC11A1 (B) and A1BG (Z), the burden package six HGNC:10023 rows and the
+    same six for SLC11A1, and the Mondo package every committed row plus
+    yellow nail syndrome's, which its filter leaves out. Every mirror is then
+    the committed one but `burden.tsv`, which gains the six HGNC:10023 rows.
+    The setup ingests run with validation stubbed; `ingest_all(after, {"clingen":
+    v2})` runs once with real validation, its report kept in `reports`.
+    """
+
+    def __init__(self, base: Path) -> None:
+        self.repo = copy_repo(base / "repo")
+        genes = [*committed_rows("mirrors/genes.tsv"), SLC11A1_ROW, A1BG]
+        burden = toy_rows()[:6]
+        packages = [
+            (
+                "clingen",
+                write_tables(
+                    base / "clingen-v1",
+                    [("clingen_validity", None, committed_rows(CLINGEN_MIRROR))],
+                    package="clingen",
+                    version=CLINGEN_V1,
+                    source=_entry("clingen"),
+                ),
+            ),
+            (
+                "hgnc",
+                write_tables(
+                    base / "hgnc",
+                    [("genes", None, genes)],
+                    package="hgnc",
+                    version=HGNC_VERSION,
+                    source=HGNC_FIELDS,
+                ),
+            ),
+            (
+                SOURCE,
+                write_tables(
+                    base / "toy",
+                    [("burden", None, burden + [{**row, "gene": SLC11A1} for row in burden])],
+                ),
+            ),
+            (
+                "mondo_sssom",
+                write_tables(
+                    base / "mondo",
+                    [("mondo_xrefs", None, [*committed_rows(MONDO_MIRROR), YELLOW_NAIL_XREF])],
+                    package="mondo_sssom",
+                    version=MONDO_VERSION,
+                    source=_entry("mondo_sssom"),
+                ),
+            ),
+        ]
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(apply, "validate_repository", lambda _: ValidationReport())
+            self.base = {source: ingest_package(self.repo, source, d) for source, d in packages}
+        for relative in ("mirrors/genes.tsv", CLINGEN_MIRROR, MONDO_MIRROR):
+            assert (self.repo / relative).read_bytes() == (REPO_ROOT / relative).read_bytes()
+        self.v2 = write_tables(
+            base / "clingen-v2",
+            [("clingen_validity", None, _clingen_rows_v2())],
+            package="clingen",
+            version=CLINGEN_V2,
+            source=_entry("clingen", version="FILE CREATED: 2026-11-12"),
+        )
+        self.after = Path(shutil.copytree(self.repo, base / "after"))
+        self.reports: list[ValidationReport] = []
+
+        def recorded(root: Path) -> ValidationReport:
+            report = validate_repository(root)
+            self.reports.append(report)
+            return report
+
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(apply, "validate_repository", recorded)
+            self.result = ingest_all(self.after, {"clingen": self.v2})
+
+    def copy(self, tmp_path: Path) -> Path:
+        return Path(shutil.copytree(self.repo, tmp_path / "repo"))
+
+
+@pytest.fixture(scope="module")
+def repinned(tmp_path_factory: pytest.TempPathFactory) -> Repinned:
+    return Repinned(tmp_path_factory.mktemp("repinned"))
+
+
+def test_ingest_all_repins_a_validity_package_that_grows_the_registry(
+    repinned: Repinned,
+) -> None:
+    """ClinGen v2 lands, hgnc re-derives {A, B} from it, and the burden package gains B's rows.
+
+    One transaction, validated once with 0 errors. The new pin is v2's
+    manifest, its cache is written beside v1's, and nothing is pruned.
+    """
+    base, after = repinned.repo, repinned.after
+    steps = [(r.source_id, r.version) for r in repinned.result.results]
+    assert steps == [
+        ("clingen", CLINGEN_V2),
+        ("hgnc", HGNC_VERSION),
+        ("mondo_sssom", MONDO_VERSION),
+        (SOURCE, VERSION),
+    ]
+    assert registry(after) == registry(base) | {SLC11A1}
+    assert SLC11A1 not in registry(base) and A1BG["hgnc_id"] not in registry(after)
+    burden_b = [line for line in burden_lines(after) if names(line, SLC11A1)]
+    assert len(burden_b) == 6 and all(line.endswith(f"\t{SOURCE}") for line in burden_b)
+    assert not any(names(line, SLC11A1) for line in burden_lines(base))
+    manifest = (repinned.v2 / "manifest.json").read_bytes()
+    pin = apply.package_pins(after)["clingen"]
+    assert (pin.version, pin.manifest_sha256) == (
+        CLINGEN_V2,
+        hashlib.sha256(manifest).hexdigest(),
+    )
+    assert (after / "mirrors" / "packages" / "clingen.json").read_bytes() == manifest
+    cached = package_cache(after, "clingen", CLINGEN_V2) / "manifest.json"
+    assert cached.is_file() and cached.read_bytes() == manifest
+    v1 = f"local/packages/clingen/{CLINGEN_V1}"
+    assert digests(after, v1) == digests(base, v1)
+    assert repinned.result.pruned == ()
+    (report,) = repinned.reports
+    assert [issue.format() for issue in report.issues if issue.severity is Severity.ERROR] == []
+    assert repinned.result.warnings == tuple(
+        issue for issue in report.issues if issue.severity is Severity.WARNING
+    )
+
+
+def test_ingest_all_refilters_mondo_after_a_validity_repin(repinned: Repinned) -> None:
+    """The Mondo filter reads the validity mirrors the repinned ClinGen step just wrote.
+
+    Pinned while no validity row named yellow nail syndrome, its row was left
+    out; ClinGen v2 names it, and the same transaction re-ingests Mondo from
+    its cache after ClinGen, so the row is written.
+    """
+    line = "\t".join(YELLOW_NAIL_XREF[column] for column in ("mondo", "target", "source"))
+    assert line not in mirror_lines_of(repinned.repo, MONDO_MIRROR)
+    assert repinned.base["mondo_sssom"].rows_outside_filter == 1
+    assert line in mirror_lines_of(repinned.after, MONDO_MIRROR)
+    (mondo,) = [r for r in repinned.result.results if r.source_id == "mondo_sssom"]
+    assert (mondo.rows_outside_filter, mondo.rows_written) == (0, mondo.rows_in)
+
+
+def test_a_single_validity_ingest_that_grows_the_registry_refuses_and_names_repin(
+    repinned: Repinned, tmp_path: Path
+) -> None:
+    """GEN006 fires before hgnc can re-derive the registry, so the refusal names `--repin`.
+
+    GEN004 fires too: SLC11A1's copied row grades it Definitive for an in-scope
+    disease, so it is published with no `genes.tsv` row to give its page ids.
+    """
+    repo = repinned.copy(tmp_path)
+    before = digests(repo)
+    cache = digests(repo, "local")
+
+    with pytest.raises(IngestRefused) as excinfo:
+        ingest_package(repo, "clingen", repinned.v2)
+
+    assert excinfo.value.code == "ING010"
+    header, gen004, *rest = excinfo.value.message.splitlines()
+    assert header == "the repository fails validation with this package applied (2 error(s)):"
+    assert gen004.startswith(f"ERROR [GEN004] mirrors/genes.tsv: {SLC11A1} is published")
+    assert rest == [
+        "ERROR [GEN006] mirrors/genes.tsv: mirrors/genes.tsv lacks 1 gene the registry derives "
+        f"from {SCOPE} and the validity mirrors: {SLC11A1}; re-ingest hgnc or run "
+        "`chd-atlas ingest --all`, or, when a ClinGen or GenCC package moved it, "
+        "`chd-atlas ingest --all --repin <id>=<dir>`; if the pinned HGNC package lacks the "
+        "gene, pin a newer HGNC release",
+        f"If this package moved the gene registry, `chd-atlas ingest --all --repin "
+        f"clingen={repinned.v2}` ingests it with every other pinned package, hgnc after it, "
+        "and validates once.",
+    ]
+    assert digests(repo) == before
+    assert digests(repo, "local") == cache
+
+
+def _corrupt_the_v2_table(repo: Path, v2: Path, tmp_path: Path, mp: pytest.MonkeyPatch) -> Path:
+    """One byte of v2's table: its first step refuses before anything is written."""
+    copy = Path(shutil.copytree(v2, tmp_path / "v2"))
+    path = copy / "clingen_validity.tsv"
+    data = bytearray(path.read_bytes())
+    data[-2] ^= 1
+    path.write_bytes(bytes(data))
+    return copy
+
+
+def _fail_a_later_step(repo: Path, v2: Path, tmp_path: Path, mp: pytest.MonkeyPatch) -> Path:
+    """The burden step refuses after ClinGen v2 wrote its mirror, pin and cache."""
+    _corrupt_the_burden_cache(repo, mp)
+    return v2
+
+
+def _from_its_cache_fail_a_later_step(
+    repo: Path, v2: Path, tmp_path: Path, mp: pytest.MonkeyPatch
+) -> Path:
+    """v2 downloaded where `gh release download` puts it: the restore must keep it."""
+    cache = package_cache(repo, "clingen", CLINGEN_V2)
+    shutil.copytree(v2, cache)
+    _corrupt_the_burden_cache(repo, mp)
+    return cache
+
+
+@pytest.mark.parametrize(
+    ("fail", "wrote"),
+    [
+        (_corrupt_the_v2_table, False),
+        (_fail_a_later_step, True),
+        (_from_its_cache_fail_a_later_step, True),
+    ],
+    ids=["v2-table-corrupted", "a-later-step-fails", "v2-in-its-cache-a-later-step-fails"],
+)
+def test_a_failed_repin_restores_everything(
+    repinned: Repinned,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fail: Callable[[Path, Path, Path, pytest.MonkeyPatch], Path],
+    wrote: bool,
+) -> None:
+    """`mirrors/` (`sources.yaml` and its pin included) and `local/` come back as they were.
+
+    A repinned step writes a cache directory no pin named before the call, so
+    restoring `mirrors/` alone would leave it behind; where that directory is
+    the one the curator downloaded v2 into, it stays, with its bytes.
+    """
+    repo = repinned.copy(tmp_path)
+    directory = fail(repo, repinned.v2, tmp_path, monkeypatch)
+    before = digests(repo)
+    cache = digests(repo, "local")
+    written = recording_writes(monkeypatch)
+
+    with pytest.raises((IngestRefused, OSError)) as caught:
+        ingest_all(repo, {"clingen": directory})
+
+    assert caught.type is IngestRefused, caught.value
+    assert isinstance(caught.value, IngestRefused)
+    assert caught.value.code == "ING001"
+    v2_cache = package_cache(repo, "clingen", CLINGEN_V2)
+    assert (v2_cache / "manifest.json" in written) is wrote
+    assert (repo / "mirrors" / "sources.yaml" in written) is wrote
+    assert digests(repo) == before
+    assert digests(repo, "local") == cache
+    assert v2_cache.exists() is (directory == v2_cache)
+
+
+def test_a_repinned_source_is_read_from_its_directory_in_ingest_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A repinned source takes its pinned cache's place, or joins, in `ingest_order`.
+
+    clingen is pinned with no cache, which is ING017 if it were read; gencc has
+    no `sources.yaml` entry at all, and its step is the single ingest's (which
+    appends the entry). Both run before hgnc, whose filter they derive.
+    """
+    repo = write_hgnc_root(tmp_path, [A1BG], version=HGNC_VERSION)
+    add_pin(repo, "clingen", manifest=None)
+    add_pin(repo, SOURCE)
+    repin = {"gencc": tmp_path / "gencc-new", "clingen": tmp_path / "clingen-new"}
+    calls: list[tuple[str, Path, bool]] = []
+
+    def step(root: Path, source_id: str, package_dir: Path, *, validate: bool = True) -> Any:
+        calls.append((source_id, package_dir, validate))
+        return _step_result(source_id)
+
+    monkeypatch.setattr(apply, "ingest_package", step)
+    monkeypatch.setattr(apply, "validate_repository", lambda _: ValidationReport())
+
+    result = ingest_all(repo, repin)
+
+    assert calls == [
+        ("clingen", repin["clingen"], False),
+        ("gencc", repin["gencc"], False),
+        ("hgnc", package_cache(repo, "hgnc", HGNC_VERSION), False),
+        (SOURCE, package_cache(repo, SOURCE, "v1"), False),
+    ]
+    assert [r.source_id for r in result.results] == ["clingen", "gencc", "hgnc", SOURCE]
+
+
+# --- two package symbols for one gene (phase 3 review focus 4) ------------------
+
+
+def test_two_package_symbols_resolving_to_one_gene_are_refused(tmp_path: Path) -> None:
+    """TDGF1 (CRIPTO's previous symbol) and CRIPTO both resolve to HGNC:11701.
+
+    The same stratum and consequence under both names are one burden key twice.
+    The ingest must not merge them, nor keep one and drop the other: validation
+    reports the duplicate key (TBL007) and the ingest refuses with ING010,
+    restoring every file.
+    """
+    repo = copy_repo(tmp_path / "repo")
+    synthetic = write_hgnc_root(
+        tmp_path / "scratch",
+        [
+            {"hgnc_id": "HGNC:11701", "symbol": "CRIPTO", "prev_symbols": "TDGF1"},
+            {"hgnc_id": "HGNC:11604", "symbol": "TBX5"},
+        ],
+    )
+    shutil.copytree(synthetic / "local", repo / "local")
+    pin = next(
+        line
+        for line in (synthetic / "mirrors" / "sources.yaml").read_text().splitlines(keepends=True)
+        if "package:" in line
+    )
+    sources = repo / "mirrors" / "sources.yaml"
+    text = sources.read_text(encoding="utf-8")
+    assert text.count("  - id: hgnc\n") == 1
+    sources.write_text(text.replace("  - id: hgnc\n", "  - id: hgnc\n" + pin), encoding="utf-8")
+    base = toy_rows()[0]
+    rows = [{**base, "gene": "TDGF1"}, {**base, "gene": "CRIPTO"}]
+    (tmp_path / "pkg").mkdir()
+    package = write_package(tmp_path / "pkg", rows, ids="symbol")
+    before = tree(repo)
+
+    with pytest.raises(IngestRefused) as excinfo:
+        ingest_package(repo, SOURCE, package)
+
+    assert excinfo.value.code == "ING010"
+    # Measured 2026-11-12: two errors, this one and an SRC005 for the fixture's
+    # hgnc pin, which has no committed mirrors/packages/hgnc.json in a temp repo.
+    # No row number: rows that sort before this gene's change it (a later
+    # package adds HGNC:1152 rows), and the test is about the duplicate.
+    assert re.search(
+        r"ERROR \[TBL007\] mirrors/burden\.tsv:row \d+: duplicate \['gene', 'study', "
+        r"'cohort_stratum', 'lesion_group', 'variant_class', 'consequence_class', 'origin', "
+        r"'maf_max'\] key: \('HGNC:11701', 'PMID:40127276', 'all', None, 'snv_indel', "
+        r"'damaging', 'de_novo', 0\.0001\)",
+        excinfo.value.message,
+    )
+    assert tree(repo) == before

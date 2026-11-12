@@ -5,7 +5,7 @@ from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 import typer
 
@@ -22,6 +22,7 @@ from chd_atlas.gene_literature_io import (
     with_findings_updated,
 )
 from chd_atlas.ingest.apply import (
+    REGISTRY_INPUTS,
     IngestAllResult,
     IngestResult,
     ingest_all,
@@ -158,6 +159,15 @@ def ingest(
         help="Re-ingest every pinned package from its cache, remove the rows of genes that "
         "left the registry, and validate once at the end.",
     ),
+    repin: list[str] | None = typer.Option(
+        None,
+        "--repin",
+        metavar="SOURCE=DIR",
+        help="With --all: ingest SOURCE from the package directory DIR instead of its pinned "
+        "cache, and pin DIR's version, in the same transaction. Repeatable. The route for a "
+        "ClinGen or GenCC package, whatever it does to the gene registry; ingested alone "
+        "it is refused when it brings a gene into the registry.",
+    ),
     root: Path = typer.Option(Path("."), help="Repository root to ingest into."),
 ) -> None:
     """Merge a verified source package into mirrors/ and pin it in sources.yaml.
@@ -171,12 +181,15 @@ def ingest(
     one_of = "give a SOURCE_ID, or --all with no SOURCE_ID or --package"
     if not root.is_dir():
         raise _fail(f"--root {root} is not a directory", 2)
+    if repin and not every:
+        raise _fail("--repin needs --all (a single ingest takes its package with --package)", 2)
     if every:
         if source_id is not None or package is not None:
             raise _fail(one_of, 2)
+        repins = _repins(repin or [])
         with _ingest_errors():
-            every_result = ingest_all(root)
-        for line in _ingest_all_lines(every_result):
+            every_result = ingest_all(root, repins)
+        for line in _ingest_all_lines(root, every_result):
             typer.echo(line)
         return
     if source_id is None:
@@ -194,8 +207,24 @@ def ingest(
                 )
             package = pinned_package_dir(root, source_id, pin)
         result = ingest_package(root, source_id, package)
-    for line in _ingest_lines(result):
+    for line in _ingest_lines(root, result):
         typer.echo(line)
+
+
+def _repins(values: Sequence[str]) -> dict[str, Path]:
+    """Each ``--repin SOURCE=DIR`` by source; exit 2 for one that cannot work."""
+    found: dict[str, Path] = {}
+    for value in values:
+        source_id, equals, directory = value.partition("=")
+        if not (source_id and equals and directory):
+            raise _fail(f"--repin {value} is not SOURCE=DIR", 2)
+        if source_id in found:
+            raise _fail(f"--repin names {source_id} more than once", 2)
+        path = Path(directory)
+        if not path.is_dir():
+            raise _fail(f"--repin {value}: {directory} is not a directory", 2)
+        found[source_id] = path
+    return found
 
 
 @contextmanager
@@ -238,14 +267,17 @@ def report_changes(
         raise _fail(f"could not write the report to {out}: {exc}", 2) from exc
 
 
-def _ingest_lines(result: IngestResult) -> list[str]:
+def _ingest_lines(root: Path, result: IngestResult) -> list[str]:
     """What an ingest wrote and, by name, everything it did not; then its validation."""
-    return _summary_lines(result) + _validation_lines(result.warnings)
+    lines = _summary_lines(root, result)
+    if result.source_id in REGISTRY_INPUTS:
+        lines.append(ALL_NOTE)
+    return lines + _validation_lines(result.warnings)
 
 
-def _ingest_all_lines(every: IngestAllResult) -> list[str]:
+def _ingest_all_lines(root: Path, every: IngestAllResult) -> list[str]:
     """Each source's summary, every pruned row by file and gene, then the one validation."""
-    lines = [line for result in every.results for line in _summary_lines(result)]
+    lines = [line for result in every.results for line in _summary_lines(root, result)]
     if not every.results:
         lines.append(
             "no source in mirrors/sources.yaml is pinned to a package; nothing was ingested"
@@ -264,7 +296,39 @@ def _ingest_all_lines(every: IngestAllResult) -> list[str]:
     return lines + _validation_lines(every.warnings)
 
 
-def _summary_lines(result: IngestResult) -> list[str]:
+# How many unknown ids the summary names. An every-gene package can leave
+# thousands unresolved (E-MTAB-6814: 16,868 of 58,735 Ensembl ids, measured by
+# the phase 3 plan), which as one line buries everything else; the full list
+# goes to a file outside the package cache instead.
+UNRESOLVED_SHOWN: Final = 25
+
+# Printed after a successful single ClinGen or GenCC ingest, which writes only
+# its own mirror (`ingest.apply` module docstring).
+ALL_NOTE: Final = (
+    "note: a single ingest writes only this mirror; `chd-atlas ingest --all` (with "
+    "`--repin <id>=<dir>` for a new version) re-filters the registry, the "
+    "registry-filtered mirrors and mondo_xrefs"
+)
+
+
+def _write_unresolved(root: Path, result: IngestResult) -> str:
+    """Write every unresolved id to local/ingest/; return its path under ``root``.
+
+    Raises OSError; `_summary_lines` turns that into a line.
+
+    Outside ``local/packages/`` so the cache's bytes (ING017) are untouched.
+    """
+    relative = f"local/ingest/{result.source_id}-{result.version}.unresolved.tsv"
+    rows = ["id\tresolution\tcandidates"] + [
+        f"{item.symbol}\t{item.resolution.value}\t{'|'.join(item.candidates)}"
+        for item in sorted(result.unresolved, key=lambda item: item.symbol)
+    ]
+    (root / relative).parent.mkdir(parents=True, exist_ok=True)
+    write_bytes_atomically(root / relative, ("\n".join(rows) + "\n").encode("utf-8"))
+    return relative
+
+
+def _summary_lines(root: Path, result: IngestResult) -> list[str]:
     """What an ingest wrote and, by name, everything it did not."""
     lines = [
         f"ingested {result.source_id} {result.version}: {result.rows_in} row(s) in the "
@@ -274,15 +338,48 @@ def _summary_lines(result: IngestResult) -> list[str]:
         f"{result.rows_unresolved} row(s) name a gene id that did not resolve and were not written",
     ]
     if result.unresolved:
+        path = f"local/ingest/{result.source_id}-{result.version}.unresolved.tsv"
+        # The ingest has committed by now, so a file that cannot be written is
+        # a line of its own: raising here would hide the summary of a change
+        # already made (and, for --all, every source's).
+        write_failure: str | None = None
+        try:
+            _write_unresolved(root, result)
+        except OSError as exc:
+            write_failure = f"could not write the complete list of unresolved ids to {path}: {exc}"
+        ordered = sorted(result.unresolved, key=lambda item: item.symbol)
+        # An ambiguous id is a collision a curator must read, so all are named;
+        # only the plain unknowns are capped.
+        ambiguous = [item for item in ordered if item.candidates]
+        unknown = [item for item in ordered if not item.candidates]
+        shown = ambiguous + unknown[:UNRESOLVED_SHOWN]
         names = "; ".join(
             f"{item.symbol} ({item.resolution.value}"
             + (f": {', '.join(item.candidates)}" if item.candidates else "")
             + ")"
-            for item in result.unresolved
+            for item in shown
         )
+        more = len(unknown) - UNRESOLVED_SHOWN
+        if more > 0:
+            where = f" in {path}" if write_failure is None else ""
+            names += f"; … and {more} more (all {len(ordered)}{where})"
         lines.append(
             f"{len(result.unresolved)} gene id(s) did not resolve and their rows were not "
             f"written: {names}"
+        )
+        if write_failure is not None:
+            lines.append(write_failure)
+    # Only for a package a table filter applied to; an unknown term is its own
+    # line, because it is not a row the filter judged (`ingest.filters`).
+    if result.filter_reasons:
+        lines.append(
+            f"{result.rows_outside_filter} row(s) are outside the filter "
+            f"({'; '.join(result.filter_reasons)})"
+        )
+    if result.unknown_terms:
+        lines.append(
+            f"{result.rows_unknown_term} row(s) name a term the pinned release does not know: "
+            + ", ".join(result.unknown_terms)
         )
     absent = result.registry_genes_absent
     if absent:

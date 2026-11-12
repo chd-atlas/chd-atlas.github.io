@@ -45,6 +45,16 @@ that cannot see. Both are checked before anything is written.
 `ingest_all` re-ingests every pinned package from its cache as ONE transaction,
 in `ingest_order`: the pinned owners of the registry's input tables (ClinGen,
 GenCC), then ``hgnc``, whose filter they derive, then every other source by id.
+Given ``repin`` (``ingest --all --repin SOURCE=DIR``), it ingests each named
+source from that directory instead, in the same order. That is the one route
+for a ClinGen or GenCC package, whatever it does to the registry. Ingested
+alone it is refused only when it brings a gene into the registry (validation
+reports the registry gene `genes.tsv` lacks, GEN006, before ``hgnc`` has
+re-derived it), which is why a single ingest's validation failure ends with
+`REPIN_HINT`. A package that removes a gene, or adds a disease the pinned Mondo
+package carries, is accepted alone and leaves the pruning and `mondo_xrefs`
+re-filtering undone (reviewer's measurement on copies of the committed corpus:
+GenCC v2 without HGNC:10727's in-scope rows, 185 -> 184 genes, 0 errors).
 No step validates. Validating each step would deadlock a scope shrink: ``hgnc``
 alone drops a gene that other rows still name (BUR011), and any other package
 alone keeps its rows, because its filter is the `genes.tsv` only ``hgnc``
@@ -58,13 +68,18 @@ the directory is missing, its ``manifest.json`` cannot be read or is not the
 bytes the pin's sha256 names, or those bytes name another package or version
 than the pin (a pin SRC005 reports). The message names the `gh release download`
 command that fetches it; the atlas never downloads (plan Decision 1).
-`ingest_all` checks every pin before ingesting anything. So every step reads a
-cache directory that holds the pinned manifest and names the pinned package and
-version, and its cache write (`_cache_writes`) rewrites that same directory with
-the bytes it read: no step of `ingest_all` creates or changes anything under
-`local/`, which is why `local/` needs no snapshot. That holds only because of
-the ING017 checks; `ingest_package` called directly with another directory
-writes a new cache directory, as it should.
+`ingest_all` checks every pin but a repinned source's before ingesting anything.
+So every other step reads a cache directory that holds the pinned manifest and
+names the pinned package and version, and its cache write (`_cache_writes`)
+rewrites that same directory with the bytes it read, changing nothing under
+`local/`. That holds only because of the ING017 checks; `ingest_package` called
+directly with another directory writes a new cache directory, as it should, and
+so does a repinned step. So before any step `ingest_all` records each file a
+repinned step's cache write will touch (`_cache_paths` of the manifest in the
+repinned directory), and a failure puts those back with `mirrors/`: a cache
+directory the call created is removed, and one that already held the package
+(where ``gh release download`` put it) keeps its bytes. Nothing else under
+`local/` is snapshotted.
 
 Cells are written as polars parsed them, which Decision 8 calls verbatim: a
 package table is read as quoted TSV and a mirror is written unquoted, so a cell
@@ -88,9 +103,11 @@ with an empty cell smallest: the order `validate.sort_order._precedes` checks.
 
 `ING010` is every refusal about the repository rather than the package: a
 current mirror, ``sources.yaml`` or committed package manifest the ingest
-cannot read before writing, a registry the filter cannot use, and any
-validation error once the package is applied. An ``hgnc`` ingest's validation
-failure ends with one sentence pointing to ``chd-atlas ingest --all``.
+cannot read before writing, a registry or table filter the ingest cannot use,
+and any validation error once the package is applied. An ``hgnc`` ingest's validation
+failure ends with one sentence pointing to ``chd-atlas ingest --all`` (`ALL_HINT`),
+and a ClinGen or GenCC ingest's with one naming ``chd-atlas ingest --all --repin``
+and the package's directory (`REPIN_HINT`).
 
 The registry filter is ``mirrors/genes.tsv``'s genes for every package but
 ``hgnc``. The ``hgnc`` package writes ``genes.tsv`` itself, so filtering it to
@@ -100,6 +117,17 @@ mirrors. So an ``hgnc`` ingest needs no ``genes.tsv`` at all, and refuses when
 the registry cannot be derived (`RegistryUnavailable`, its reason quoted) or
 derives empty; any other package refuses when ``genes.tsv`` is absent or lists
 no gene. Either empty registry would drop every row.
+Two tables are also filtered to the atlas's scope (spec F23), after resolution
+and the registry filter; neither has a gene column, so this is their only
+filter. ``orphanet_phenotypes`` keeps the rows under HP:0001626 in the pinned
+HPO release and ``mondo_xrefs`` the rows whose term a validity mirror names
+(the rules, and when a filter cannot be built, are `ingest.filters`'s
+docstring). A row the filter does not keep is counted in
+`IngestResult.rows_outside_filter`; a row whose term the release does not
+define is counted in `IngestResult.rows_unknown_term` instead and its term
+named in `IngestResult.unknown_terms`, never counted as outside. A filter that
+cannot be built (`FilterUnavailable`) is ING010, before anything is written.
+
 Validation warnings never refuse an ingest (`ValidationReport.ok`); they are
 returned for the caller to print: on `IngestResult.warnings`, which is empty for
 an ingest run with ``validate=False``; `ingest_all` returns its one
@@ -109,8 +137,9 @@ validation's warnings on `IngestAllResult.warnings`.
 from __future__ import annotations
 
 import hashlib
+import shlex
 from collections import Counter
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from enum import Enum
 from io import StringIO
@@ -126,6 +155,7 @@ from ruamel.yaml.tokens import CommentToken
 
 from chd_atlas.fs import write_bytes_atomically
 from chd_atlas.genes import Resolved
+from chd_atlas.ingest.filters import FilterUnavailable, table_filter
 from chd_atlas.ingest.package import (
     BLANK,
     HGNC_SOURCE,
@@ -175,6 +205,11 @@ FLAT_TABLE_OWNERS: Final[dict[str, str]] = {
     "gencc_submissions": "gencc",
 }
 
+# The sources whose tables the registry is derived from (`chd_atlas.registry`):
+# `ingest_order` puts them before hgnc, and their single ingest's validation
+# failure ends with `REPIN_HINT`.
+REGISTRY_INPUTS: Final[frozenset[str]] = frozenset(FLAT_TABLE_OWNERS.values())
+
 # Where `chd-atlas/feeds` publishes packages, as GitHub releases tagged
 # ``<id>/<version>`` (spec F14). Only ever named in a message (ING017).
 FEEDS_REPOSITORY: Final = "chd-atlas/feeds"
@@ -186,19 +221,38 @@ ALL_HINT: Final = (
     "that left the registry, and validates once."
 )
 
+# Appended to a ClinGen or GenCC ingest's validation failure, formatted with the
+# source id and the package directory as given (shell-quoted).
+REPIN_HINT: Final = (
+    "If this package moved the gene registry, `chd-atlas ingest --all --repin "
+    "{source}={directory}` ingests it with every other pinned package, hgnc after it, "
+    "and validates once."
+)
+
 
 @dataclass(frozen=True)
 class IngestResult:
     source_id: str
     version: str
-    # rows_in == rows_written + rows_outside_registry + rows_unresolved, which
-    # `ingest_package` checks before writing.
+    # rows_in == rows_written + rows_outside_registry + rows_unresolved
+    #   + rows_outside_filter + rows_unknown_term,
+    # which `ingest_package` checks before writing.
     rows_in: int
     rows_written: int
     rows_outside_registry: int
     # Rows whose gene id is one of `unresolved`'s, and so were not written.
     rows_unresolved: int
     unresolved: tuple[Resolved, ...]
+    # Rows a table filter (`ingest.filters`) did not keep although the
+    # filter's release defines their term, and the reason of each filter the
+    # package's tables went through, once each in table order (empty when none
+    # did, as for every table but orphanet_phenotypes and mondo_xrefs).
+    rows_outside_filter: int
+    filter_reasons: tuple[str, ...]
+    # Rows whose term the filter's release does not define, not written and
+    # never counted as outside the filter; those terms, sorted.
+    rows_unknown_term: int
+    unknown_terms: tuple[str, ...]
     # Registry genes with no resolved row in any gene-keyed table of the
     # package, sorted; empty for a package with no gene-keyed table.
     registry_genes_absent: tuple[str, ...]
@@ -225,7 +279,8 @@ class PrunedRows:
 
 @dataclass(frozen=True)
 class IngestAllResult:
-    # One per pinned source, in `ingest_order`; each step's `warnings` is empty.
+    # One per pinned or repinned source, in `ingest_order`; each step's
+    # `warnings` is empty.
     results: tuple[IngestResult, ...]
     # Sorted by (path, gene); empty unless the hgnc step removed genes.
     pruned: tuple[PrunedRows, ...]
@@ -256,6 +311,9 @@ def ingest_package(
     present: set[str] = set()
     gene_keyed = False
     rows_in = rows_written = rows_outside = rows_unresolved = 0
+    rows_outside_filter = rows_unknown_term = 0
+    filter_reasons: list[str] = []
+    unknown_terms: set[str] = set()
     for table in package.tables:
         schema = table.schema
         frame = table.frame
@@ -276,6 +334,20 @@ def ingest_package(
                 kept = frame.filter(pl.col(gene_column).is_in(sorted(registry)))
                 rows_outside += frame.height - kept.height
                 frame = kept
+        try:
+            row_filter = table_filter(root, schema.name)
+        except FilterUnavailable as exc:
+            raise IngestRefused(
+                "ING010", f"the {schema.name} filter cannot be built: {exc}"
+            ) from exc
+        if row_filter is not None:
+            filtered = row_filter.apply(frame)
+            frame = filtered.frame
+            rows_outside_filter += filtered.outside
+            rows_unknown_term += filtered.unknown_rows
+            unknown_terms.update(filtered.unknown_terms)
+            if row_filter.reason not in filter_reasons:
+                filter_reasons.append(row_filter.reason)
         rows = [
             tuple("" if cell is None else str(cell) for cell in row)
             for row in frame.select(schema.column_names).iter_rows()
@@ -283,12 +355,16 @@ def ingest_package(
         rows_written += len(rows)
         path = _mirror_path(root, table)
         writes[path] = _render(schema, _merge(_read_mirror(path, schema), rows, schema, source_id))
-    if rows_in != rows_written + rows_outside + rows_unresolved:
+    not_written = rows_outside + rows_unresolved + rows_outside_filter + rows_unknown_term
+    if rows_in != rows_written + not_written:
         # Never reached through data: every row is written, counted outside the
-        # registry or named as unresolved. A raise, not an assert (`-O`).
+        # registry or a table filter, or named as unresolved or as an unknown
+        # term. A raise, not an assert (`-O`).
         raise RuntimeError(
             f"ingest row accounting does not add up: {rows_in} in, {rows_written} written, "
-            f"{rows_outside} outside the registry, {rows_unresolved} unresolved"
+            f"{rows_outside} outside the registry, {rows_unresolved} unresolved, "
+            f"{rows_outside_filter} outside the filter, {rows_unknown_term} naming an "
+            "unknown term"
         )
 
     manifest = package.manifest
@@ -303,7 +379,7 @@ def ingest_package(
     writes[sources_path] = with_source_entry(sources, source_id, manifest.source, pin)
     writes.update(_cache_writes(root, package))
 
-    warnings = _apply(root, writes, source_id, validate=validate)
+    warnings = _apply(root, writes, _hint(source_id, package_dir), validate=validate)
 
     coverage = manifest.coverage
     return IngestResult(
@@ -314,6 +390,10 @@ def ingest_package(
         rows_outside_registry=rows_outside,
         rows_unresolved=rows_unresolved,
         unresolved=tuple(unresolved[symbol] for symbol in sorted(unresolved)),
+        rows_outside_filter=rows_outside_filter,
+        filter_reasons=tuple(filter_reasons),
+        rows_unknown_term=rows_unknown_term,
+        unknown_terms=tuple(sorted(unknown_terms)),
         registry_genes_absent=tuple(sorted(registry - present)) if gene_keyed else (),
         registry_genes=len(registry),
         coverage=coverage if coverage == "every_gene" else coverage.registry_slice,
@@ -323,14 +403,16 @@ def ingest_package(
 
 
 def ingest_order(pinned: Iterable[str]) -> tuple[str, ...]:
-    """The order `ingest_all` applies pinned sources in (see the module docstring).
+    """The order `ingest_all` applies pinned and repinned sources in (see the module docstring).
 
     ``hgnc``'s filter is derived from the ClinGen and GenCC mirrors, so a
-    re-pinned one must land before it; every other package's filter is the
-    `genes.tsv` that ``hgnc`` writes.
+    re-pinned one must land before it; a gene-keyed package's filter is the
+    `genes.tsv` that ``hgnc`` writes. Two others filter on something else:
+    ``orphanet_product4`` on the pinned HPO release's cardiovascular branch and
+    ``mondo_sssom`` on the terms the validity mirrors name.
     """
     sources = set(pinned)
-    inputs = sorted(sources & set(FLAT_TABLE_OWNERS.values()))
+    inputs = sorted(sources & REGISTRY_INPUTS)
     hgnc = [HGNC_SOURCE] if HGNC_SOURCE in sources else []
     rest = sorted(sources - set(inputs) - {HGNC_SOURCE})
     return (*inputs, *hgnc, *rest)
@@ -389,8 +471,16 @@ def pinned_package_dir(root: Path, source_id: str, pin: PackagePin) -> Path:
     return cache
 
 
-def ingest_all(root: Path) -> IngestAllResult:
+def ingest_all(root: Path, repin: Mapping[str, Path] | None = None) -> IngestAllResult:
     """Re-ingest every pinned package from its cache as one transaction, then validate once.
+
+    ``repin`` maps a source id to a package directory. That source's step
+    reads the directory instead of the pinned cache, which is therefore not
+    checked (ING017); its cache and pin are written as a single ingest writes
+    them, and ING016 applies to it as to every step, since every step is
+    `ingest_package`. A repinned source need not be pinned or even listed in
+    ``mirrors/sources.yaml``: its step then appends the entry, as a single
+    ingest with ``--package`` does.
 
     The steps run in `ingest_order`, each with ``validate=False``. Then, **only
     when the ``hgnc`` step ran in this call**, the call prunes: the genes it
@@ -406,16 +496,26 @@ def ingest_all(root: Path) -> IngestAllResult:
     Each removal is returned in `IngestAllResult.pruned`, never silent. Then
     `validate_repository` runs once, also when nothing is pinned; an error
     refuses the call (ING010). On any exception everything under
-    `mirrors/` is restored, pruned rows included. `curation/` is never edited: a
-    curated record naming a removed gene is left for validation to report. A
-    single `ingest_package` never prunes.
+    `mirrors/` is restored, pruned rows included, and so is every file a
+    repinned step's cache write touched (see the module docstring).
+    `curation/` is never edited: a curated record naming a removed gene is left
+    for validation to report. A single `ingest_package` never prunes.
     """
+    repinned = dict(repin or {})
     pins = package_pins(root)
-    # Every cache before any step, so a missing one refuses with nothing written.
+    # Every pinned cache a step will read, before any step, so a missing one
+    # refuses with nothing written.
     packages = {
-        source_id: pinned_package_dir(root, source_id, pins[source_id])
-        for source_id in ingest_order(pins)
+        source_id: (
+            repinned[source_id]
+            if source_id in repinned
+            else pinned_package_dir(root, source_id, pins[source_id])
+        )
+        for source_id in ingest_order({*pins, *repinned})
     }
+    cache_before, cache_created = _journal(
+        path for directory in repinned.values() for path in _repinned_cache_paths(root, directory)
+    )
     hgnc_runs = HGNC_SOURCE in packages
     genes_before = _registry_ids(root) if hgnc_runs else frozenset()
     mirrors = root / "mirrors"
@@ -433,9 +533,24 @@ def ingest_all(root: Path) -> IngestAllResult:
         )
     # BaseException, and always re-raised, as in `_apply`.
     except BaseException:
-        _restore_tree(mirrors, files, directories)
+        before, created = _tree_journal(mirrors, files, directories)
+        _restore(
+            {**before, **cache_before},
+            sorted([*created, *cache_created], key=lambda path: len(path.parts), reverse=True),
+        )
         raise
     return IngestAllResult(results, pruned, _warnings(report))
+
+
+def _repinned_cache_paths(root: Path, directory: Path) -> list[Path]:
+    """`_cache_paths` of the package in ``directory``; none if its manifest cannot be read.
+
+    A manifest that cannot be read is refused (ING004) before its step writes.
+    """
+    try:
+        return _cache_paths(root, load_manifest(directory / "manifest.json"))
+    except ManifestError:
+        return []
 
 
 def _registry_ids(root: Path) -> frozenset[str]:
@@ -477,8 +592,14 @@ def _snapshot(directory: Path) -> tuple[dict[Path, bytes], frozenset[Path]]:
     return files, frozenset(directories)
 
 
-def _restore_tree(directory: Path, files: dict[Path, bytes], directories: frozenset[Path]) -> None:
-    """Put ``directory`` back to a `_snapshot`: its files' bytes, nothing created since."""
+def _tree_journal(
+    directory: Path, files: dict[Path, bytes], directories: frozenset[Path]
+) -> tuple[dict[Path, bytes | None], list[Path]]:
+    """What `_restore` needs to put ``directory`` back to a `_snapshot`.
+
+    Every file's bytes in the snapshot (None for a file created since), and
+    every directory created since, deepest first.
+    """
     now = list(directory.rglob("*"))
     before: dict[Path, bytes | None] = {
         path: None for path in now if path.is_file() and path not in files
@@ -489,7 +610,21 @@ def _restore_tree(directory: Path, files: dict[Path, bytes], directories: frozen
         key=lambda path: len(path.parts),
         reverse=True,
     )
-    _restore(before, created)
+    return before, created
+
+
+def _journal(paths: Iterable[Path]) -> tuple[dict[Path, bytes | None], list[Path]]:
+    """Each path's bytes now (None when absent) and the directories writing it would create.
+
+    The directories are deepest first, the order `_restore` removes them in.
+    """
+    before = {path: path.read_bytes() if path.is_file() else None for path in paths}
+    created = sorted(
+        {parent for path in before for parent in path.parents if not parent.exists()},
+        key=lambda directory: len(directory.parts),
+        reverse=True,
+    )
+    return before, created
 
 
 def _warnings(report: ValidationReport) -> tuple[ValidationIssue, ...]:
@@ -619,19 +754,24 @@ def _refuse_omitted_or_owned_tables(root: Path, source_id: str, package: LoadedP
             )
 
 
+def _hint(source_id: str, package_dir: Path) -> str | None:
+    """The sentence a single ingest's validation failure ends with (see the module docstring)."""
+    if source_id == HGNC_SOURCE:
+        return ALL_HINT
+    if source_id in REGISTRY_INPUTS:
+        return REPIN_HINT.format(source=source_id, directory=shlex.quote(str(package_dir)))
+    return None
+
+
 def _apply(
-    root: Path, writes: dict[Path, bytes], source_id: str, *, validate: bool
+    root: Path, writes: dict[Path, bytes], hint: str | None, *, validate: bool
 ) -> tuple[ValidationIssue, ...]:
     """Write every payload, then validate; on any exception restore all of it and re-raise.
 
-    Returns the validation's warnings, none when ``validate`` is false.
+    A validation failure ends with ``hint``. Returns the validation's warnings,
+    none when ``validate`` is false.
     """
-    before = {path: path.read_bytes() if path.is_file() else None for path in writes}
-    created = sorted(
-        {parent for path in writes for parent in path.parents if not parent.exists()},
-        key=lambda directory: len(directory.parts),
-        reverse=True,
-    )
+    before, created = _journal(writes)
     try:
         for path, payload in writes.items():
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -639,7 +779,6 @@ def _apply(
         if not validate:
             return ()
         report = validate_repository(root)
-        hint = ALL_HINT if source_id == HGNC_SOURCE else None
         _refuse_invalid(report, "with this package applied", hint)
     # BaseException, and always re-raised: a Ctrl-C mid-write must restore too.
     except BaseException:
@@ -697,14 +836,20 @@ def _cache_writes(root: Path, package: LoadedPackage) -> dict[Path, bytes]:
     package directory that *is* the cache rewrites its own bytes, which changes
     nothing.
     """
-    cache = package_cache(root, package.manifest.package, package.manifest.version)
-    writes = {cache / "manifest.json": package.manifest_bytes}
+    manifest_path, *table_paths = _cache_paths(root, package.manifest)
+    writes = {manifest_path: package.manifest_bytes}
     try:
-        for table in package.tables:
-            writes[cache / table.spec.file] = (package.directory / table.spec.file).read_bytes()
+        for path, table in zip(table_paths, package.tables, strict=True):
+            writes[path] = (package.directory / table.spec.file).read_bytes()
     except OSError as exc:
         raise IngestRefused("ING001", f"a package table cannot be read again: {exc}") from exc
     return writes
+
+
+def _cache_paths(root: Path, manifest: PackageManifest) -> list[Path]:
+    """Where `_cache_writes` puts a package: its manifest, then each table it lists, in order."""
+    cache = package_cache(root, manifest.package, manifest.version)
+    return [cache / "manifest.json", *(cache / table.file for table in manifest.tables)]
 
 
 def _read_mirror(path: Path, schema: TableSchema) -> list[Row]:

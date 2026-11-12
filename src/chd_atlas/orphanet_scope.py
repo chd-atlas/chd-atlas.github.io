@@ -10,7 +10,9 @@ one qualifies, through a check that can refuse.
 
 Shared by `validate/scope.py` (SCP006/SCP007) and `build/scope.py` (`scope.json`
 and the gene-page note), so the check that admits a term and the sentence that
-explains it are one reading of one rule, not two.
+explains it are one reading of one rule, not two. `chd-atlas ingest` reads the
+same pinned release through the same line reader (`pinned_hpo_release`) for the
+wider branch it keeps of Orphanet product 4 (`ingest/filters.py`).
 
 **Why the restriction to structural phenotypes is the load-bearing part.**
 Measured 2026-10-24 over the 8,086 out-of-scope disease terms in the validity
@@ -40,6 +42,12 @@ from chd_atlas.tables import (
     ORPHANET_PHENOTYPES,
     read_table,
 )
+
+# The branch `chd-atlas ingest` keeps of Orphanet product 4 (spec F23): wider
+# than the rule, so that a change to the structural subset needs a
+# re-ingest rather than a new package. The rule never reads it;
+# `ingest.filters` does.
+CARDIOVASCULAR_ROOT: Final = "HP:0001626"
 
 # HP:0001627's EXACT synonyms include "Congenital heart defect", so Orphanet
 # annotating the root itself (it does, for Rubinstein-Taybi) is HPO's own
@@ -102,17 +110,41 @@ SUBTYPE_RELATIONS: Final = frozenset({"E", "BTNT"})
 VALIDATED: Final = "Validated"
 
 
-def structural_phenotypes(obo: Path) -> frozenset[str]:
-    """`STRUCTURAL_ROOT`'s closure minus `EXCLUDED_BRANCHES`, plus `ADDED_BRANCHES`, with alt ids.
+@dataclass(frozen=True)
+class _Obo:
+    """What `_read_obo` takes from an OBO file: each term's children and alt ids, every id."""
+
+    children: dict[str, set[str]]
+    alternates: dict[str, set[str]]
+    known: frozenset[str]
+
+    def closure(self, *roots: str) -> set[str]:
+        """``roots`` and every term under one of them by `is_a`; alt ids not included."""
+        seen, stack = set(roots), list(roots)
+        while stack:
+            for child in self.children.get(stack.pop(), ()):
+                if child not in seen:
+                    seen.add(child)
+                    stack.append(child)
+        return seen
+
+    def with_alternates(self, terms: set[str]) -> frozenset[str]:
+        return frozenset(terms | {alt for term in terms for alt in self.alternates.get(term, ())})
+
+
+def _read_obo(obo: Path) -> _Obo:
+    """The one line reader of an OBO file, shared by `structural_phenotypes` and `hpo_release`.
 
     A line reader of the pinned OBO rather than pronto. The build does not load
     pronto, which costs 1.6 s per load, and pronto resolves no alt ids
     (measured: `KeyError` on 2 of 3 sampled), while an Orphanet annotation may
     carry one. Only `[Term]` stanzas are read: a `[Typedef]`'s `is_a` would
-    otherwise attach a relation to whichever term preceded it.
+    otherwise attach a relation to whichever term preceded it, and its `id`
+    would be counted as a term the release knows.
     """
     children: dict[str, set[str]] = defaultdict(set)
     alternates: dict[str, set[str]] = defaultdict(set)
+    known: set[str] = set()
     current: str | None = None
     in_term = False
     with obo.open(encoding="utf-8") as handle:
@@ -125,22 +157,46 @@ def structural_phenotypes(obo: Path) -> frozenset[str]:
                 continue
             elif line.startswith("id: "):
                 current = line[4:].strip()
+                known.add(current)
             elif current is not None and line.startswith("is_a: "):
                 children[line[6:].split(" ", 1)[0]].add(current)
             elif current is not None and line.startswith("alt_id: "):
-                alternates[current].add(line[8:].strip())
+                alternate = line[8:].strip()
+                alternates[current].add(alternate)
+                known.add(alternate)
+    return _Obo(dict(children), dict(alternates), frozenset(known))
 
-    def closure(*roots: str) -> set[str]:
-        seen, stack = set(roots), list(roots)
-        while stack:
-            for child in children[stack.pop()]:
-                if child not in seen:
-                    seen.add(child)
-                    stack.append(child)
-        return seen
 
-    terms = (closure(STRUCTURAL_ROOT) - closure(*EXCLUDED_BRANCHES)) | closure(*ADDED_BRANCHES)
-    return frozenset(terms | {alt for term in terms for alt in alternates[term]})
+def structural_phenotypes(obo: Path) -> frozenset[str]:
+    """`STRUCTURAL_ROOT`'s closure minus `EXCLUDED_BRANCHES`, plus `ADDED_BRANCHES`, with alt ids.
+
+    Read by `_read_obo` (why a line reader, and why only `[Term]` stanzas).
+    """
+    release = _read_obo(obo)
+    terms = (release.closure(STRUCTURAL_ROOT) - release.closure(*EXCLUDED_BRANCHES)) | (
+        release.closure(*ADDED_BRANCHES)
+    )
+    return release.with_alternates(terms)
+
+
+@dataclass(frozen=True)
+class HpoRelease:
+    """What `chd-atlas ingest` reads of an HPO release to filter Orphanet product 4."""
+
+    # `CARDIOVASCULAR_ROOT`'s `is_a` closure plus every alt id of a term in it.
+    cardiovascular: frozenset[str]
+    # Every `id` and `alt_id` of a `[Term]`: an id outside it is one the
+    # release cannot place, which is not the same as one outside the branch.
+    known: frozenset[str]
+
+
+def hpo_release(obo: Path) -> HpoRelease:
+    """`HpoRelease` over one OBO file, read by `_read_obo`."""
+    release = _read_obo(obo)
+    return HpoRelease(
+        cardiovascular=release.with_alternates(release.closure(CARDIOVASCULAR_ROOT)),
+        known=release.known,
+    )
 
 
 def pinned_structural_phenotypes(root: Path, pinned: Mapping[str, str]) -> frozenset[str] | None:
@@ -157,6 +213,22 @@ def pinned_structural_phenotypes(root: Path, pinned: Mapping[str, str]) -> froze
         return None
     try:
         return structural_phenotypes(root / relative)
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+def pinned_hpo_release(root: Path, pinned: Mapping[str, str]) -> HpoRelease | None:
+    """`hpo_release` over the HPO release `sources.yaml` pins, or None if unreadable.
+
+    None, never an empty release, as `pinned_structural_phenotypes` returns:
+    an empty one would make every annotation's term unknown. Its caller
+    (`ingest.filters`) names the release and refuses.
+    """
+    relative = pinned.get("HP")
+    if relative is None or not (root / relative).is_file():
+        return None
+    try:
+        return hpo_release(root / relative)
     except (OSError, UnicodeDecodeError):
         return None
 
