@@ -2081,3 +2081,53 @@ def test_a_repinned_source_is_read_from_its_directory_in_ingest_order(
         (SOURCE, package_cache(repo, SOURCE, "v1"), False),
     ]
     assert [r.source_id for r in result.results] == ["clingen", "gencc", "hgnc", SOURCE]
+
+
+# --- two package symbols for one gene (phase 3 review focus 4) ------------------
+
+
+def test_two_package_symbols_resolving_to_one_gene_are_refused(tmp_path: Path) -> None:
+    """TDGF1 (CRIPTO's previous symbol) and CRIPTO both resolve to HGNC:11701.
+
+    The same stratum and consequence under both names are one burden key twice.
+    The ingest must not merge them, nor keep one and drop the other: validation
+    reports the duplicate key (TBL007) and the ingest refuses with ING010,
+    restoring every file.
+    """
+    repo = copy_repo(tmp_path / "repo")
+    synthetic = write_hgnc_root(
+        tmp_path / "scratch",
+        [
+            {"hgnc_id": "HGNC:11701", "symbol": "CRIPTO", "prev_symbols": "TDGF1"},
+            {"hgnc_id": "HGNC:11604", "symbol": "TBX5"},
+        ],
+    )
+    shutil.copytree(synthetic / "local", repo / "local")
+    pin = next(
+        line
+        for line in (synthetic / "mirrors" / "sources.yaml").read_text().splitlines(keepends=True)
+        if "package:" in line
+    )
+    sources = repo / "mirrors" / "sources.yaml"
+    text = sources.read_text(encoding="utf-8")
+    assert text.count("  - id: hgnc\n") == 1
+    sources.write_text(text.replace("  - id: hgnc\n", "  - id: hgnc\n" + pin), encoding="utf-8")
+    base = toy_rows()[0]
+    rows = [{**base, "gene": "TDGF1"}, {**base, "gene": "CRIPTO"}]
+    (tmp_path / "pkg").mkdir()
+    package = write_package(tmp_path / "pkg", rows, ids="symbol")
+    before = tree(repo)
+
+    with pytest.raises(IngestRefused) as excinfo:
+        ingest_package(repo, SOURCE, package)
+
+    assert excinfo.value.code == "ING010"
+    # Measured 2026-11-12: two errors, this one and an SRC005 for the fixture's
+    # hgnc pin, which has no committed mirrors/packages/hgnc.json in a temp repo.
+    assert (
+        "ERROR [TBL007] mirrors/burden.tsv:row 201: duplicate ['gene', 'study', "
+        "'cohort_stratum', 'lesion_group', 'variant_class', 'consequence_class', 'origin', "
+        "'maf_max'] key: ('HGNC:11701', 'PMID:40127276', 'all', None, 'snv_indel', "
+        "'damaging', 'de_novo', 0.0001)"
+    ) in excinfo.value.message
+    assert tree(repo) == before

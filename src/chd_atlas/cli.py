@@ -5,7 +5,7 @@ from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 import typer
 
@@ -188,7 +188,7 @@ def ingest(
         repins = _repins(repin or [])
         with _ingest_errors():
             every_result = ingest_all(root, repins)
-        for line in _ingest_all_lines(every_result):
+        for line in _ingest_all_lines(root, every_result):
             typer.echo(line)
         return
     if source_id is None:
@@ -206,7 +206,7 @@ def ingest(
                 )
             package = pinned_package_dir(root, source_id, pin)
         result = ingest_package(root, source_id, package)
-    for line in _ingest_lines(result):
+    for line in _ingest_lines(root, result):
         typer.echo(line)
 
 
@@ -266,14 +266,14 @@ def report_changes(
         raise _fail(f"could not write the report to {out}: {exc}", 2) from exc
 
 
-def _ingest_lines(result: IngestResult) -> list[str]:
+def _ingest_lines(root: Path, result: IngestResult) -> list[str]:
     """What an ingest wrote and, by name, everything it did not; then its validation."""
-    return _summary_lines(result) + _validation_lines(result.warnings)
+    return _summary_lines(root, result) + _validation_lines(result.warnings)
 
 
-def _ingest_all_lines(every: IngestAllResult) -> list[str]:
+def _ingest_all_lines(root: Path, every: IngestAllResult) -> list[str]:
     """Each source's summary, every pruned row by file and gene, then the one validation."""
-    lines = [line for result in every.results for line in _summary_lines(result)]
+    lines = [line for result in every.results for line in _summary_lines(root, result)]
     if not every.results:
         lines.append(
             "no source in mirrors/sources.yaml is pinned to a package; nothing was ingested"
@@ -292,7 +292,29 @@ def _ingest_all_lines(every: IngestAllResult) -> list[str]:
     return lines + _validation_lines(every.warnings)
 
 
-def _summary_lines(result: IngestResult) -> list[str]:
+# How many unknown ids the summary names. An every-gene package can leave
+# thousands unresolved (E-MTAB-6814: 16,868 of 58,735 Ensembl ids, measured by
+# the phase 3 plan), which as one line buries everything else; the full list
+# goes to a file outside the package cache instead.
+UNRESOLVED_SHOWN: Final = 25
+
+
+def _write_unresolved(root: Path, result: IngestResult) -> str:
+    """Write every unresolved id to local/ingest/; return its path under ``root``.
+
+    Outside ``local/packages/`` so the cache's bytes (ING017) are untouched.
+    """
+    relative = f"local/ingest/{result.source_id}-{result.version}.unresolved.tsv"
+    rows = ["id\tresolution\tcandidates"] + [
+        f"{item.symbol}\t{item.resolution.value}\t{'|'.join(item.candidates)}"
+        for item in sorted(result.unresolved, key=lambda item: item.symbol)
+    ]
+    (root / relative).parent.mkdir(parents=True, exist_ok=True)
+    write_bytes_atomically(root / relative, ("\n".join(rows) + "\n").encode("utf-8"))
+    return relative
+
+
+def _summary_lines(root: Path, result: IngestResult) -> list[str]:
     """What an ingest wrote and, by name, everything it did not."""
     lines = [
         f"ingested {result.source_id} {result.version}: {result.rows_in} row(s) in the "
@@ -302,12 +324,22 @@ def _summary_lines(result: IngestResult) -> list[str]:
         f"{result.rows_unresolved} row(s) name a gene id that did not resolve and were not written",
     ]
     if result.unresolved:
+        path = _write_unresolved(root, result)
+        ordered = sorted(result.unresolved, key=lambda item: item.symbol)
+        # An ambiguous id is a collision a curator must read, so all are named;
+        # only the plain unknowns are capped.
+        ambiguous = [item for item in ordered if item.candidates]
+        unknown = [item for item in ordered if not item.candidates]
+        shown = ambiguous + unknown[:UNRESOLVED_SHOWN]
         names = "; ".join(
             f"{item.symbol} ({item.resolution.value}"
             + (f": {', '.join(item.candidates)}" if item.candidates else "")
             + ")"
-            for item in result.unresolved
+            for item in shown
         )
+        more = len(unknown) - UNRESOLVED_SHOWN
+        if more > 0:
+            names += f"; … and {more} more (all {len(ordered)} in {path})"
         lines.append(
             f"{len(result.unresolved)} gene id(s) did not resolve and their rows were not "
             f"written: {names}"

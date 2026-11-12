@@ -460,3 +460,43 @@ def test_ingest_all_repins_a_source_from_its_directory_and_prints_the_new_versio
     assert result.stdout.splitlines()[0] == (
         "ingested clingen 2026-11-12: 2 row(s) in the package, 2 written"
     )
+
+
+def test_the_summary_shows_25_unknown_ids_and_writes_every_one(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """30 unknown ids and 1 ambiguous: the ambiguous in full, 25 unknowns, all 31 in a file."""
+    unknown = [Resolved(f"ENSG{n:03d}", Resolution.UNKNOWN) for n in range(30)]
+    ambiguous = Resolved("ENSGAMB", Resolution.AMBIGUOUS, None, ("HGNC:6772", "HGNC:6773"))
+    # Out of order on purpose: the summary and the file sort them.
+    unresolved = (ambiguous, *reversed(unknown))
+    result_ = replace(
+        _result("e_mtab_6814"),
+        version="v9",
+        rows_in=33,
+        rows_written=2,
+        rows_unresolved=31,
+        unresolved=unresolved,
+    )
+    monkeypatch.setattr("chd_atlas.cli.ingest_package", lambda *_: result_)
+
+    result = runner.invoke(
+        app, ["ingest", "e_mtab_6814", "--root", str(tmp_path), "--package", str(tmp_path)]
+    )
+
+    path = "local/ingest/e_mtab_6814-v9.unresolved.tsv"
+    shown = "; ".join(f"ENSG{n:03d} (unknown)" for n in range(25))
+    assert result.exit_code == 0
+    assert (
+        "31 gene id(s) did not resolve and their rows were not written: "
+        f"ENSGAMB (ambiguous: HGNC:6772, HGNC:6773); {shown}; "
+        f"… and 5 more (all 31 in {path})"
+    ) in result.stdout.splitlines()
+    assert "ENSG025" not in result.stdout
+    lines = (tmp_path / path).read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "id\tresolution\tcandidates"
+    assert lines[1:] == [
+        "ENSG000\tunknown\t",
+        *[f"ENSG{n:03d}\tunknown\t" for n in range(1, 30)],
+        "ENSGAMB\tambiguous\tHGNC:6772|HGNC:6773",
+    ]
