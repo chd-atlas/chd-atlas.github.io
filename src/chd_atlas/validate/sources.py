@@ -60,9 +60,11 @@ class Source(BaseModel):
     # (owner decision 2026-10-26, R11). Orphadata's XML opens on
     # `<JDBOR date="..." version="...">`, and its citation asks for that data
     # version; a sha256 proves which file was mirrored but tells a reader
-    # nothing they can cite. Transcribed verbatim from the header by
-    # `scripts/convert_orphanet.py`, which writes both beside the sha256 on
-    # every run so the three cannot describe different files. Both or neither.
+    # nothing they can cite. Transcribed verbatim from the header by the
+    # chd-atlas/feeds `orphanet_product4` / `orphanet_product1` recipes
+    # (`feeds.orphadata.jdbor_release`) into each package's manifest, and
+    # recorded here beside the sha256 so the three describe one file.
+    # Both or neither.
     file_version: str | None = None
     file_date: str | None = None
     # `None` when the source's rows were not ingested from a package (spec F11):

@@ -32,7 +32,7 @@ PMID_PATTERN: Final = r"^PMID:\d+$"
 COHORT_ID_PATTERN: Final = r"^[a-z0-9]+(_[a-z0-9]+)*$"
 COHORT_LIST_PATTERN: Final = r"^[a-z0-9]+(_[a-z0-9]+)*(;[a-z0-9]+(_[a-z0-9]+)*)*$"
 # Orphanet's own spelling of its codes (`ORPHA:648`). MONDO's SSSOM writes
-# `Orphanet:648`; `convert_orphanet.py` normalises to this one form, so every
+# `Orphanet:648`; the chd-atlas/feeds `mondo_sssom` recipe normalises to this one form, so every
 # mirror and curated file spells an Orphanet code the same way.
 ORPHA_PATTERN: Final = r"^ORPHA:\d+$"
 OMIM_PATTERN: Final = r"^OMIM:\d+$"
