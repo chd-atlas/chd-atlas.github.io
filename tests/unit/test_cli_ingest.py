@@ -500,3 +500,44 @@ def test_the_summary_shows_25_unknown_ids_and_writes_every_one(
         *[f"ENSG{n:03d}\tunknown\t" for n in range(1, 30)],
         "ENSGAMB\tambiguous\tHGNC:6772|HGNC:6773",
     ]
+
+
+@pytest.mark.parametrize("every", [False, True], ids=["single", "all"])
+def test_an_unwritable_unresolved_list_is_named_and_the_summary_still_prints(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, every: bool
+) -> None:
+    """The ingest has committed by the time the list is written, so a failed write is a line.
+
+    `local/ingest` is a file here, so the mkdir raises OSError. The exit code stays 0, every
+    summary line of every source is printed, and one line names the path and the error.
+    """
+    (tmp_path / "local").mkdir()
+    (tmp_path / "local" / "ingest").write_text("in the way", encoding="utf-8")
+    first = replace(
+        _result("alpha"),
+        rows_unresolved=1,
+        unresolved=(Resolved("NOSUCH", Resolution.UNKNOWN),),
+    )
+    second = replace(_result("beta"), rows_unresolved=1, unresolved=first.unresolved)
+    if every:
+        monkeypatch.setattr(
+            "chd_atlas.cli.ingest_all", lambda *_: IngestAllResult((first, second), (), ())
+        )
+        args = ["ingest", "--all", "--root", str(tmp_path)]
+    else:
+        monkeypatch.setattr("chd_atlas.cli.ingest_package", lambda *_: first)
+        args = ["ingest", "alpha", "--root", str(tmp_path), "--package", str(tmp_path)]
+
+    result = runner.invoke(app, args)
+
+    assert result.exit_code == 0
+    lines = result.stdout.splitlines()
+    for source in ("alpha", "beta") if every else ("alpha",):
+        assert f"ingested {source} v1: 2 row(s) in the package, 2 written" in lines
+        assert (
+            "1 gene id(s) did not resolve and their rows were not written: NOSUCH (unknown)"
+        ) in lines
+        path = f"local/ingest/{source}-v1.unresolved.tsv"
+        failed = [line for line in lines if line.startswith("could not write") and path in line]
+        assert len(failed) == 1
+        assert "Errno" in failed[0] or "exist" in failed[0].lower()

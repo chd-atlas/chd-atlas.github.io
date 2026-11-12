@@ -302,6 +302,8 @@ UNRESOLVED_SHOWN: Final = 25
 def _write_unresolved(root: Path, result: IngestResult) -> str:
     """Write every unresolved id to local/ingest/; return its path under ``root``.
 
+    Raises OSError; `_summary_lines` turns that into a line.
+
     Outside ``local/packages/`` so the cache's bytes (ING017) are untouched.
     """
     relative = f"local/ingest/{result.source_id}-{result.version}.unresolved.tsv"
@@ -324,7 +326,15 @@ def _summary_lines(root: Path, result: IngestResult) -> list[str]:
         f"{result.rows_unresolved} row(s) name a gene id that did not resolve and were not written",
     ]
     if result.unresolved:
-        path = _write_unresolved(root, result)
+        path = f"local/ingest/{result.source_id}-{result.version}.unresolved.tsv"
+        # The ingest has committed by now, so a file that cannot be written is
+        # a line of its own: raising here would hide the summary of a change
+        # already made (and, for --all, every source's).
+        write_failure: str | None = None
+        try:
+            _write_unresolved(root, result)
+        except OSError as exc:
+            write_failure = f"could not write the complete list of unresolved ids to {path}: {exc}"
         ordered = sorted(result.unresolved, key=lambda item: item.symbol)
         # An ambiguous id is a collision a curator must read, so all are named;
         # only the plain unknowns are capped.
@@ -339,11 +349,14 @@ def _summary_lines(root: Path, result: IngestResult) -> list[str]:
         )
         more = len(unknown) - UNRESOLVED_SHOWN
         if more > 0:
-            names += f"; … and {more} more (all {len(ordered)} in {path})"
+            where = f" in {path}" if write_failure is None else ""
+            names += f"; … and {more} more (all {len(ordered)}{where})"
         lines.append(
             f"{len(result.unresolved)} gene id(s) did not resolve and their rows were not "
             f"written: {names}"
         )
+        if write_failure is not None:
+            lines.append(write_failure)
     # Only for a package a table filter applied to; an unknown term is its own
     # line, because it is not a row the filter judged (`ingest.filters`).
     if result.filter_reasons:
