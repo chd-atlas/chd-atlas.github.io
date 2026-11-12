@@ -163,16 +163,18 @@ sources:
     ontology_prefix: HP
     ontology_file: ontologies/hp-2026-06-23.obo
   # The three sources the Orphanet scope rule reads (issue #8 part 1). The raw
-  # files live in gitignored local/data/ and are reproduced by
-  # scripts/convert_orphanet.py; the sha256 is what lets a curator prove a
-  # re-download is the same file.
+  # files are no longer kept in the atlas: since 2026-11-12 the mirrors are
+  # written by `chd-atlas ingest` from chd-atlas/feeds packages (recipes
+  # sources/orphanet_product4, orphanet_product1 and mondo_sssom); the sha256
+  # is what lets a curator prove a re-download is the same file.
   - id: orphanet_product4
     name: >-
       Orphadata Science, product 4 ("Phenotypes associated with rare
       disorders", en_product4.xml): HPO phenotype annotations with frequency
       bands, cardiovascular branch (HP:0001626) only
     # `file_version` and `file_date` are the file's own `<JDBOR>` header,
-    # verbatim, written beside the sha256 by scripts/convert_orphanet.py.
+    # verbatim, read by the feeds orphanet_product4 / orphanet_product1 recipe
+    # and kept here beside the sha256.
     version: "sha256:4f44e8a61201399911aa1ba44a293c0ccaa5ce11272c47d40862255cb72f6b32"
     file_version: "1.3.42 / 4.1.8 [2025-03-03]"
     file_date: "2026-06-23 07:57:18"
