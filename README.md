@@ -50,6 +50,7 @@ gh release download SOURCE_ID/VERSION -R chd-atlas/feeds -D local/packages/SOURC
 uv run chd-atlas ingest SOURCE_ID --package local/packages/SOURCE_ID/VERSION
 uv run chd-atlas ingest SOURCE_ID   # re-ingest the pinned version from local/packages/
 uv run chd-atlas ingest --all       # after any edit to curation/chd_scope.yaml
+uv run chd-atlas ingest --all --repin clingen=local/packages/clingen/VERSION   # see below
 ```
 
 A curator runs this, never CI. The atlas never downloads: fetch a release from
@@ -59,8 +60,9 @@ manifest at `mirrors/packages/SOURCE_ID.json`, then validates. If anything fails
 file it touched is restored. Exit 0: applied, and the repository validates (for `--all`,
 also when nothing is pinned). Exit 1: refused, every file restored. Exit 2: a bad
 argument (`--root` or `--package` not a directory; a SOURCE_ID with no pin and no
-`--package`; `--all` with a SOURCE_ID or `--package`; neither a SOURCE_ID nor `--all`) or
-a filesystem error; if the restore itself fails, the "could not restore" message names
+`--package`; `--all` with a SOURCE_ID or `--package`; neither a SOURCE_ID nor `--all`;
+`--repin` without `--all`, not of the form SOURCE=DIR, naming a source twice, or whose DIR
+is not a directory) or a filesystem error; if the restore itself fails, the "could not restore" message names
 every path left changed.
 
 Ingest in this order, which `--all` follows: ClinGen and GenCC (written whole, never
@@ -106,7 +108,31 @@ It is refused with `ING016` if its version equals the pinned one but its manifes
 Only the `hgnc` package ships the `genes` table, always keyed by `hgnc_id` (`ING009`); its ingest writes
 `mirrors/genes.tsv` filtered to the registry the atlas derives from `curation/chd_scope.yaml` and the two validity mirrors.
 `validate` reports a gene that registry holds and `mirrors/genes.tsv` lacks as `GEN006`; re-ingest `hgnc` or run
-`chd-atlas ingest --all` to clear it (if the pinned HGNC package lacks the gene, pin a newer HGNC release).
+`chd-atlas ingest --all` to clear it, or, when a ClinGen or GenCC package moved the registry,
+`chd-atlas ingest --all --repin <id>=<dir>` (below); if the pinned HGNC package lacks the gene, pin a newer
+HGNC release.
+
+### Refreshing ClinGen or GenCC
+
+The registry is derived from the ClinGen and GenCC mirrors, so a new ClinGen or GenCC
+package can move it, and then it cannot be ingested alone: `mirrors/genes.tsv` lacks the
+gene the new release brings in until `hgnc` re-derives the registry, so validation reports
+`GEN006` and the ingest is refused, naming this command:
+
+```bash
+gh release download clingen/VERSION -R chd-atlas/feeds -D local/packages/clingen/VERSION
+uv run chd-atlas ingest --all --repin clingen=local/packages/clingen/VERSION
+```
+
+`--repin SOURCE=DIR` (only with `--all`; repeat it to refresh both) ingests SOURCE from DIR
+instead of its pinned cache and pins DIR's version, inside the one `--all` transaction:
+ClinGen and GenCC first, then `hgnc` re-deriving the registry from them, then every other
+pinned package (an every-gene package adds the new genes' rows, and `mondo_xrefs` is
+re-filtered against the new validity mirrors), then the prune above for any gene the
+registry lost, then one validation. The registry-slice and converter caveats of a scope
+growth apply here too. If anything fails, `mirrors/` is restored and the new version's
+cache directory removed, unless DIR is that directory (where `gh release download` put
+it), which is kept as it was.
 
 ## Curating literature
 

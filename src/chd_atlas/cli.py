@@ -158,6 +158,15 @@ def ingest(
         help="Re-ingest every pinned package from its cache, remove the rows of genes that "
         "left the registry, and validate once at the end.",
     ),
+    repin: list[str] | None = typer.Option(
+        None,
+        "--repin",
+        metavar="SOURCE=DIR",
+        help="With --all: ingest SOURCE from the package directory DIR instead of its pinned "
+        "cache, and pin DIR's version, in the same transaction. Repeatable. The route for a "
+        "ClinGen or GenCC package that moves the gene registry, which ingested alone is "
+        "refused.",
+    ),
     root: Path = typer.Option(Path("."), help="Repository root to ingest into."),
 ) -> None:
     """Merge a verified source package into mirrors/ and pin it in sources.yaml.
@@ -171,11 +180,14 @@ def ingest(
     one_of = "give a SOURCE_ID, or --all with no SOURCE_ID or --package"
     if not root.is_dir():
         raise _fail(f"--root {root} is not a directory", 2)
+    if repin and not every:
+        raise _fail("--repin needs --all (a single ingest takes its package with --package)", 2)
     if every:
         if source_id is not None or package is not None:
             raise _fail(one_of, 2)
+        repins = _repins(repin or [])
         with _ingest_errors():
-            every_result = ingest_all(root)
+            every_result = ingest_all(root, repins)
         for line in _ingest_all_lines(every_result):
             typer.echo(line)
         return
@@ -196,6 +208,22 @@ def ingest(
         result = ingest_package(root, source_id, package)
     for line in _ingest_lines(result):
         typer.echo(line)
+
+
+def _repins(values: Sequence[str]) -> dict[str, Path]:
+    """Each ``--repin SOURCE=DIR`` by source; exit 2 for one that cannot work."""
+    found: dict[str, Path] = {}
+    for value in values:
+        source_id, equals, directory = value.partition("=")
+        if not (source_id and equals and directory):
+            raise _fail(f"--repin {value} is not SOURCE=DIR", 2)
+        if source_id in found:
+            raise _fail(f"--repin names {source_id} more than once", 2)
+        path = Path(directory)
+        if not path.is_dir():
+            raise _fail(f"--repin {value}: {directory} is not a directory", 2)
+        found[source_id] = path
+    return found
 
 
 @contextmanager

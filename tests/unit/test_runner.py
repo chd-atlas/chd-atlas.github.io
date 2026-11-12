@@ -1629,8 +1629,9 @@ def test_a_registry_row_listing_two_uniprot_accessions_fails_the_repository(
 
 
 _GEN006_TAIL = (
-    "; re-ingest hgnc or run `chd-atlas ingest --all`; if the pinned HGNC package lacks the "
-    "gene, pin a newer HGNC release"
+    "; re-ingest hgnc or run `chd-atlas ingest --all`, or, when a ClinGen or GenCC package "
+    "moved it, `chd-atlas ingest --all --repin <id>=<dir>`; if the pinned HGNC package lacks "
+    "the gene, pin a newer HGNC release"
 )
 
 

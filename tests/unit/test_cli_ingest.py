@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from pathlib import Path
 from typing import Never
 
@@ -233,15 +234,15 @@ def test_ingest_all_prints_each_summary_every_pruned_row_and_the_validation_once
 ) -> None:
     """One summary per source, the pruned rows by file with their total, one validation."""
     warning = ValidationIssue("SCP003", Severity.WARNING, "curation/chd_scope.yaml", "msg")
-    calls: list[Path] = []
+    calls: list[tuple[Path, dict[str, Path]]] = []
     pruned = (
         PrunedRows("burden", "mirrors/burden.tsv", "HGNC:1", 6),
         PrunedRows("burden", "mirrors/burden.tsv", "HGNC:2", 2),
         PrunedRows("profiles", "mirrors/profiles/E-MTAB-6814.tsv", "HGNC:1", 119),
     )
 
-    def fake(root: Path) -> IngestAllResult:
-        calls.append(root)
+    def fake(root: Path, repin: dict[str, Path]) -> IngestAllResult:
+        calls.append((root, repin))
         return IngestAllResult((_result("hgnc"), _result("toy_burden")), pruned, (warning,))
 
     monkeypatch.setattr("chd_atlas.cli.ingest_all", fake)
@@ -249,7 +250,7 @@ def test_ingest_all_prints_each_summary_every_pruned_row_and_the_validation_once
     result = runner.invoke(app, ["ingest", "--all", "--root", str(tmp_path)])
 
     assert result.exit_code == 0
-    assert calls == [tmp_path]
+    assert calls == [(tmp_path, {})]
     assert result.stdout.splitlines() == [
         "ingested hgnc v1: 2 row(s) in the package, 2 written",
         "0 row(s) name a gene outside the registry and were not written",
@@ -269,7 +270,7 @@ def test_ingest_all_with_nothing_pinned_says_so_and_prints_the_validation(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     warning = ValidationIssue("SCP003", Severity.WARNING, "curation/chd_scope.yaml", "msg")
-    monkeypatch.setattr("chd_atlas.cli.ingest_all", lambda _: IngestAllResult((), (), (warning,)))
+    monkeypatch.setattr("chd_atlas.cli.ingest_all", lambda *_: IngestAllResult((), (), (warning,)))
 
     result = runner.invoke(app, ["ingest", "--all", "--root", str(tmp_path)])
 
@@ -388,3 +389,74 @@ def test_a_pinned_and_cached_source_ingests_from_its_cache(
 
     assert result.exit_code == 0
     assert calls == [(tmp_path, "toy_burden", cache)]
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (
+            ["toy_burden", "--repin", "clingen={dir}"],
+            "--repin needs --all (a single ingest takes its package with --package)",
+        ),
+        (["--all", "--repin", "clingen"], "--repin clingen is not SOURCE=DIR"),
+        (["--all", "--repin", "=x"], "--repin =x is not SOURCE=DIR"),
+        (
+            ["--all", "--repin", "clingen={dir}", "--repin", "clingen={dir}"],
+            "--repin names clingen more than once",
+        ),
+        (
+            ["--all", "--repin", "clingen={dir}/nope"],
+            "--repin clingen={dir}/nope: {dir}/nope is not a directory",
+        ),
+    ],
+    ids=["without-all", "no-equals", "no-source", "twice", "not-a-directory"],
+)
+def test_an_unusable_repin_exits_2(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, args: list[str], message: str
+) -> None:
+    monkeypatch.setattr("chd_atlas.cli.ingest_all", _never_called)
+    monkeypatch.setattr("chd_atlas.cli.ingest_package", _never_called)
+
+    result = runner.invoke(
+        app, ["ingest", *(arg.format(dir=tmp_path) for arg in args), "--root", str(tmp_path)]
+    )
+
+    assert result.exit_code == 2
+    assert result.stdout == f"error: {message.format(dir=tmp_path)}\n"
+
+
+def test_ingest_all_repins_a_source_from_its_directory_and_prints_the_new_version(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Each `--repin SOURCE=DIR` reaches `ingest_all`; the summary names the version it pinned."""
+    clingen, gencc = tmp_path / "clingen", tmp_path / "gencc"
+    clingen.mkdir()
+    gencc.mkdir()
+    calls: list[tuple[Path, dict[str, Path]]] = []
+
+    def fake(root: Path, repin: dict[str, Path]) -> IngestAllResult:
+        calls.append((root, repin))
+        repinned = replace(_result("clingen"), version="2026-11-12")
+        return IngestAllResult((repinned, _result("hgnc")), (), ())
+
+    monkeypatch.setattr("chd_atlas.cli.ingest_all", fake)
+
+    result = runner.invoke(
+        app,
+        [
+            "ingest",
+            "--all",
+            "--repin",
+            f"clingen={clingen}",
+            "--repin",
+            f"gencc={gencc}",
+            "--root",
+            str(tmp_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert calls == [(tmp_path, {"clingen": clingen, "gencc": gencc})]
+    assert result.stdout.splitlines()[0] == (
+        "ingested clingen 2026-11-12: 2 row(s) in the package, 2 written"
+    )
