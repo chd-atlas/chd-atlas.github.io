@@ -22,6 +22,9 @@ sources:
     # statement, which covers its supplementary material.
     licence: CC-BY-4.0
     redistribution: permitted_with_attribution
+    package:
+      version: 8ebb6fdc
+      manifest_sha256: 268360d9cd9bb06478c476a2c3768432a7f3118cdfdc1033ed344ae350d4f542
   - id: sierant2025_ds6
     name: >-
       Sierant et al. 2025, PNAS 122(13) e2420343122, Dataset S6
@@ -63,6 +66,9 @@ sources:
     # CC BY that PLOS uses for some titles: read off this article, not assumed.
     licence: CC0-1.0
     redistribution: permitted
+    package:
+      version: e8bd50c0
+      manifest_sha256: 477e96fd5196a841f0b3835666ce720e49f1da930a990527e1ec37ec9421c4b9
   # One column of the burden mirror, `n_chd_case_carriers`, on PMID:34324492's
   # rows for the genes this table lists (owner decision R2, 2026-10-26); every
   # other number on those rows is S6's, above. Same article, same licence
@@ -253,6 +259,9 @@ sources:
     # mandated across resources, and this experiment's IDF declares none.
     licence: EMBL-EBI Terms of Use
     redistribution: permitted_with_attribution
+    package:
+      version: 92484a97
+      manifest_sha256: 3abb6d214cf4ae829dd9ef79e4751042a7bf846651e9c3c9b43a0152661ffae6
   - id: farah2024_hoc
     name: >-
       Farah et al. 2024 developing human heart scRNA-seq, UCSC Cell Browser

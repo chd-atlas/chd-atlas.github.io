@@ -86,7 +86,7 @@ def test_each_audain_2026_odds_ratio_matches_its_own_stratum() -> None:
         expected = (a / (n - a)) / (c / (m - c))
         assert abs(expected - row["effect"]) <= max(0.02, 0.02 * expected), row
         checked += 1
-    assert checked == 1026
+    assert checked == 1041
 
 
 def test_no_audain_2026_row_has_no_carrier_on_either_side() -> None:
@@ -95,7 +95,7 @@ def test_no_audain_2026_row_has_no_carrier_on_either_side() -> None:
     A 2x2 table of zeros supports no test, so the study emitted no row for it;
     that is what lets the renderer read a blank cell as "no carrier either
     side" rather than "not tested". Guards the committed rows against a row
-    with 0 case and 0 control carriers, and pins the two one-sided counts: 375
+    with 0 case and 0 control carriers, and pins the two one-sided counts: 384
     rows without a case carrier and 37 without a control carrier. It does not
     prove the study's emission rule (417 of the 417 checkable absences agreed
     with it when measured against the workbook; the rest cannot be checked).
@@ -104,7 +104,7 @@ def test_no_audain_2026_row_has_no_carrier_on_either_side() -> None:
     assert rows.filter(
         (pl.col("n_case_carriers") == 0) & (pl.col("n_control_carriers") == 0)
     ).is_empty()
-    assert rows.filter(pl.col("n_case_carriers") == 0).height == 375
+    assert rows.filter(pl.col("n_case_carriers") == 0).height == 384
     assert rows.filter(pl.col("n_control_carriers") == 0).height == 37
 
 

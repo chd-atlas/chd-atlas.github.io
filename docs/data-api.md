@@ -49,7 +49,7 @@ What the build produced, and a checksum for every file in it.
 ```json
 {
   "counts": {
-    "assertions": 2, "burden_combined": 108, "burden_rows": 1210,
+    "assertions": 2, "burden_combined": 108, "burden_rows": 1219,
     "burden_surviving_genes": 32, "cell_type_datasets": 1, "cell_type_genes": 118,
     "cohort_families": 2, "cohorts": 20, "datasets": 2, "featured": 1, "functional": 0,
     "genes": 119, "literature_findings": 94, "literature_genes": 2, "phenotypes": 8, "profile_datasets": 1, "profile_genes": 119,
@@ -105,7 +105,7 @@ wrong by the next one.
   - `burden_rows` is the number of rare-variant statistics reaching a bundle, which is
     exactly the sum of every browse row's `burden_row_count`. It counts what a
     consumer can fetch, **not** what `mirrors/burden.tsv` holds: that file is
-    deliberately wider than the publication gate, and today 64 of its 182 genes
+    deliberately wider than the publication gate, and today 65 of its 184 genes
     publish no page.
   - `cohort_families` is the number of independent cohort families, the length
     of any bundle's `independent_datasets.families` array — the same for every
@@ -990,10 +990,10 @@ warrant itself.
 
 Published rare-variant statistics for the gene, one object per
 (study, cohort stratum, variant class, consequence class, frequency threshold).
-**1210 rows reach the API**, across 118 of the 119 published genes, from
+**1219 rows reach the API**, across 119 of the 119 published genes, from
 3 studies (PMID:34324492, PMID:40127276, PMID:42230622), contributing
-77, 216, 917 rows respectively. `mirrors/burden.tsv` holds 1,811 rows for 182 genes; the other 601,
-covering 64 genes, are for genes the site does not publish and reach no
+77, 216, 926 rows respectively. `mirrors/burden.tsv` holds 1,836 rows for 184 genes; the other 617,
+covering 65 genes, are for genes the site does not publish and reach no
 bundle and no page. They are held
 so that widening the publication gate later needs no re-mirroring — which is
 exactly what happened on 2026-08-06, when the gate widened from 23 genes to 92
@@ -1008,10 +1008,12 @@ a burden test. The bundle keeps the historical key `burden` for every
 rare-variant analysis, case series included; the gene page heads them "Rare-variant association" and names each study's
 analysis.
 
-**One published gene carries no burden rows at all** and its `burden` array is
-`[]`. That is not a fetch failure: the publication gate is an authority's
+**Every published gene has at least one burden row today, and that is a fact about the
+current corpus, not a guarantee.** A gene no rare-variant study covered has a `burden`
+array of `[]`; that is not a fetch failure: the publication gate is an authority's
 classification, not the presence of rare-variant evidence, and a gene no rare-variant study
-covered is exactly what a widened gate admits.
+covered is exactly what a widened gate admits. (CRIPTO was the only such gene until the
+Audain 2026 package recovered its rows through its previous symbol TDGF1.)
 `burden_row_count` on the browse row is this array's length.
 
 Every count in this section is asserted against a real build by
@@ -1080,19 +1082,19 @@ and differs only in what "expected" meant:
 | `mutation_model` | `expected_count` | `expected_count` | `enrichment_ratio` |
 | `none` | nothing (a case series) | neither | none, and no `pvalue` |
 
-**Both `control_cohort` (1102 rows) and `mutation_model` (108 rows) appear today;
+**Both `control_cohort` (1111 rows) and `mutation_model` (108 rows) appear today;
 `none` does not.** PMID:40127276 contributes the `mutation_model` rows — de novo
 mutations in 3,887 trios against a mutability-based expectation — and they carry
 null control fields, a non-null `expected_count`, and an `enrichment_ratio`
 rather than an odds ratio. A consumer that reads only `n_control_carriers` will
-see `null` on 108 of the 1,210 rows, several of which are the strongest results the
+see `null` on 108 of the 1,219 rows, several of which are the strongest results the
 atlas publishes. The build refuses to publish a row whose statistic contradicts
 its comparator.
 
 **`consequence_class` is not a partition: `damaging` is the union of `lof` and
 `missense_damaging`.** PMID:40127276 reports its primary analysis over
 loss-of-function and damaging missense together, and publishes that composite
-alongside its two components — 72 of the 1210 rows. Its `n_case_carriers` is
+alongside its two components — 72 of the 1219 rows. Its `n_case_carriers` is
 exactly the sum of the two component rows for the same gene, stratum and
 comparator, verified on every one. **Summing `n_case_carriers` across
 `consequence_class` therefore double-counts those variants.** Group by
@@ -1119,7 +1121,7 @@ Six obligations, each of which is a wrong claim if you get it wrong:
    "∞" each say something the row does not.
 3. **An absent (stratum, consequence) cell is not a null result — but why it is
    absent is the study's rule, not the atlas's.** Read it per study rather than
-   as one law. For `PMID:42230622`, zero of its 1,438 mirror rows have no case
+   as one law. For `PMID:42230622`, zero of its 1,462 mirror rows have no case
    carrier *and* no control carrier, so a 2×2 of all zeros supports no test and
    that study emitted none. The other two do not follow the same rule:
    `PMID:34324492` tests one consequence class by construction (CNV deletions),
@@ -1134,16 +1136,16 @@ Six obligations, each of which is a wrong claim if you get it wrong:
 4. **Do not filter out `consequence_class: "synonymous"`.** It is a study's own
    negative control — synonymous variants should show no enrichment — and where
    one is significant, that gene's comparison is poorly calibrated, which a
-   reader can only see if you show it. **It is not available everywhere:** 339
-   of the 1210 published rows are synonymous and all of them come from
+   reader can only see if you show it. **It is not available everywhere:** 342
+   of the 1219 published rows are synonymous and all of them come from
    `PMID:42230622`. The other two studies publish no synonymous row at all, so
    their results have no negative control on this page and must be read without
    one. (This obligation once called synonymous "the most numerous class, 435
    rows against 345 loss-of-function", measured against a one-study corpus; then
    "92 loss-of-function and 69 synonymous", measured against the 23-gene
    population. Then "306 and 261" over the 92-gene population. All three went
-   stale the same way. Today loss-of-function is 401 and synonymous 339, beside
-   398 damaging missense and 72 damaging composite —
+   stale the same way. Today loss-of-function is 404 and synonymous 342, beside
+   401 damaging missense and 72 damaging composite —
    re-derive these rather than citing them.)
 5. **Read `pvalue_adjusted` where it is present.** A raw and a corrected
    p-value can point opposite ways: CHD7 in `PMID:34324492` is `0.0068` raw and

@@ -1,0 +1,55 @@
+{
+  "built_by": {
+    "host": "workstation",
+    "recipe_commit": "4b0bc16f8a4755643dd51ce3fb0323015dfc44d3"
+  },
+  "coverage": "every_gene",
+  "dropped": [
+    {
+      "count": 209,
+      "examples": [
+        "2001-03-01",
+        "2001-09-01",
+        "2001-12-01",
+        "2002-03-01",
+        "2002-09-01"
+      ],
+      "reason": "Excel date corruption"
+    }
+  ],
+  "ids": "symbol",
+  "input_counts": {
+    "genes": 17155,
+    "rows": 138609
+  },
+  "inputs": [
+    {
+      "name": "41525_2026_582_MOESM4_ESM.xlsx",
+      "retrieved_on": "2026-08-04",
+      "sha256": "8ebb6fdceb38b0099d6229a1ebf4d77db9f9492a62cfafb569d2865f9645ee2b",
+      "upstream_release": null,
+      "url": "https://static-content.springer.com/esm/art%3A10.1038%2Fs41525-026-00582-z/MediaObjects/41525_2026_582_MOESM4_ESM.xlsx"
+    }
+  ],
+  "licence_evidence": "\"This article is licensed under a Creative Commons Attribution 4.0 International License ... To view a copy of this licence, visit http://creativecommons.org/licenses/by/4.0/\" -- the article's own licence statement, which covers its supplementary material.",
+  "package": "audain2026_sd3",
+  "source": {
+    "licence": "CC-BY-4.0",
+    "name": "Audain et al. 2026, npj Genomic Medicine 11, Supplementary Data 3 (per-gene rare variant burden, aCHD / sCHD / nsCHD versus controls)",
+    "redistribution": "permitted_with_attribution",
+    "retrieved_on": "2026-08-04",
+    "url": "https://static-content.springer.com/esm/art%3A10.1038%2Fs41525-026-00582-z/MediaObjects/41525_2026_582_MOESM4_ESM.xlsx",
+    "version": "sha256:8ebb6fdceb38b0099d6229a1ebf4d77db9f9492a62cfafb569d2865f9645ee2b"
+  },
+  "tables": [
+    {
+      "file": "burden.tsv.gz",
+      "format_version": 1,
+      "genes": 17130,
+      "name": "burden",
+      "rows": 138400,
+      "sha256": "5fbd9d5c0f590ca9c92ab7b4e22b4dfab05cbc380ac475c29deb528403e08abf"
+    }
+  ],
+  "version": "8ebb6fdc"
+}

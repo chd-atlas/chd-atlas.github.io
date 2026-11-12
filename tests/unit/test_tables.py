@@ -1141,7 +1141,14 @@ def test_polars_pattern_engine_agrees_with_python_re(tmp_path: Path) -> None:
     # ingest added CIROZ (previous symbol C1orf127): 6 burden rows x 3
     # pattern-checked columns + the 3 of them with a control cohort + 3 combined
     # rows x 3 = 30 (measured as the difference; the 3 is read off the diff).
-    assert total_compared == 224_451
+    #
+    # **224,451 -> 224,551 on 2026-11-13**, when the Audain 2021 and 2026
+    # packages' first ingest recovered three genes through previous symbols
+    # (POPDC1/BVES, CIROZ/C1orf127, CRIPTO/TDGF1): 25 burden rows, each with
+    # `study`, `gene`, `case_cohorts` and `control_cohorts` non-null = 100
+    # (the per-column non-null counts of `burden.tsv` before and after, read
+    # with `read_table`; the E-MTAB-6814 shards came out byte-identical).
+    assert total_compared == 224_551
 
     for pattern in patterns:
         compiled = re.compile(pattern)
