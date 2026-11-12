@@ -857,7 +857,7 @@ def test_a_row_dropped_without_being_named_stops_the_ingest_before_any_write(
 
     assert str(excinfo.value) == (
         "ingest row accounting does not add up: 6 in, 5 written, "
-        "0 outside the registry, 0 unresolved"
+        "0 outside the registry, 0 unresolved, 0 outside the filter, 0 naming an unknown term"
     )
     assert tree(repo) == before
 
@@ -1626,6 +1626,10 @@ def _step_result(source_id: str) -> IngestResult:
         rows_outside_registry=0,
         rows_unresolved=0,
         unresolved=(),
+        rows_outside_filter=0,
+        filter_reasons=(),
+        rows_unknown_term=0,
+        unknown_terms=(),
         registry_genes_absent=(),
         registry_genes=0,
         coverage="every_gene",

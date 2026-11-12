@@ -284,6 +284,18 @@ def _summary_lines(result: IngestResult) -> list[str]:
             f"{len(result.unresolved)} gene id(s) did not resolve and their rows were not "
             f"written: {names}"
         )
+    # Only for a package a table filter applied to; an unknown term is its own
+    # line, because it is not a row the filter judged (`ingest.filters`).
+    if result.filter_reasons:
+        lines.append(
+            f"{result.rows_outside_filter} row(s) are outside the filter "
+            f"({'; '.join(result.filter_reasons)})"
+        )
+    if result.unknown_terms:
+        lines.append(
+            f"{result.rows_unknown_term} row(s) name a term the pinned release does not know: "
+            + ", ".join(result.unknown_terms)
+        )
     absent = result.registry_genes_absent
     if absent:
         genes = ", ".join(absent)

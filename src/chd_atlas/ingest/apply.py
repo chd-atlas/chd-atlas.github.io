@@ -88,8 +88,8 @@ with an empty cell smallest: the order `validate.sort_order._precedes` checks.
 
 `ING010` is every refusal about the repository rather than the package: a
 current mirror, ``sources.yaml`` or committed package manifest the ingest
-cannot read before writing, a registry the filter cannot use, and any
-validation error once the package is applied. An ``hgnc`` ingest's validation
+cannot read before writing, a registry or table filter the ingest cannot use,
+and any validation error once the package is applied. An ``hgnc`` ingest's validation
 failure ends with one sentence pointing to ``chd-atlas ingest --all``.
 
 The registry filter is ``mirrors/genes.tsv``'s genes for every package but
@@ -100,6 +100,17 @@ mirrors. So an ``hgnc`` ingest needs no ``genes.tsv`` at all, and refuses when
 the registry cannot be derived (`RegistryUnavailable`, its reason quoted) or
 derives empty; any other package refuses when ``genes.tsv`` is absent or lists
 no gene. Either empty registry would drop every row.
+Two tables are also filtered to the atlas's scope (spec F23), after resolution
+and the registry filter; neither has a gene column, so this is their only
+filter. ``orphanet_phenotypes`` keeps the rows under HP:0001626 in the pinned
+HPO release and ``mondo_xrefs`` the rows whose term a validity mirror names
+(the rules, and when a filter cannot be built, are `ingest.filters`'s
+docstring). A row the filter does not keep is counted in
+`IngestResult.rows_outside_filter`; a row whose term the release does not
+define is counted in `IngestResult.rows_unknown_term` instead and its term
+named in `IngestResult.unknown_terms`, never counted as outside. A filter that
+cannot be built (`FilterUnavailable`) is ING010, before anything is written.
+
 Validation warnings never refuse an ingest (`ValidationReport.ok`); they are
 returned for the caller to print: on `IngestResult.warnings`, which is empty for
 an ingest run with ``validate=False``; `ingest_all` returns its one
@@ -126,6 +137,7 @@ from ruamel.yaml.tokens import CommentToken
 
 from chd_atlas.fs import write_bytes_atomically
 from chd_atlas.genes import Resolved
+from chd_atlas.ingest.filters import FilterUnavailable, table_filter
 from chd_atlas.ingest.package import (
     BLANK,
     HGNC_SOURCE,
@@ -191,14 +203,25 @@ ALL_HINT: Final = (
 class IngestResult:
     source_id: str
     version: str
-    # rows_in == rows_written + rows_outside_registry + rows_unresolved, which
-    # `ingest_package` checks before writing.
+    # rows_in == rows_written + rows_outside_registry + rows_unresolved
+    #   + rows_outside_filter + rows_unknown_term,
+    # which `ingest_package` checks before writing.
     rows_in: int
     rows_written: int
     rows_outside_registry: int
     # Rows whose gene id is one of `unresolved`'s, and so were not written.
     rows_unresolved: int
     unresolved: tuple[Resolved, ...]
+    # Rows a table filter (`ingest.filters`) did not keep although the
+    # filter's release defines their term, and the reason of each filter the
+    # package's tables went through, once each in table order (empty when none
+    # did, as for every table but orphanet_phenotypes and mondo_xrefs).
+    rows_outside_filter: int
+    filter_reasons: tuple[str, ...]
+    # Rows whose term the filter's release does not define, not written and
+    # never counted as outside the filter; those terms, sorted.
+    rows_unknown_term: int
+    unknown_terms: tuple[str, ...]
     # Registry genes with no resolved row in any gene-keyed table of the
     # package, sorted; empty for a package with no gene-keyed table.
     registry_genes_absent: tuple[str, ...]
@@ -256,6 +279,9 @@ def ingest_package(
     present: set[str] = set()
     gene_keyed = False
     rows_in = rows_written = rows_outside = rows_unresolved = 0
+    rows_outside_filter = rows_unknown_term = 0
+    filter_reasons: list[str] = []
+    unknown_terms: set[str] = set()
     for table in package.tables:
         schema = table.schema
         frame = table.frame
@@ -276,6 +302,20 @@ def ingest_package(
                 kept = frame.filter(pl.col(gene_column).is_in(sorted(registry)))
                 rows_outside += frame.height - kept.height
                 frame = kept
+        try:
+            row_filter = table_filter(root, schema.name)
+        except FilterUnavailable as exc:
+            raise IngestRefused(
+                "ING010", f"the {schema.name} filter cannot be built: {exc}"
+            ) from exc
+        if row_filter is not None:
+            filtered = row_filter.apply(frame)
+            frame = filtered.frame
+            rows_outside_filter += filtered.outside
+            rows_unknown_term += filtered.unknown_rows
+            unknown_terms.update(filtered.unknown_terms)
+            if row_filter.reason not in filter_reasons:
+                filter_reasons.append(row_filter.reason)
         rows = [
             tuple("" if cell is None else str(cell) for cell in row)
             for row in frame.select(schema.column_names).iter_rows()
@@ -283,12 +323,16 @@ def ingest_package(
         rows_written += len(rows)
         path = _mirror_path(root, table)
         writes[path] = _render(schema, _merge(_read_mirror(path, schema), rows, schema, source_id))
-    if rows_in != rows_written + rows_outside + rows_unresolved:
+    not_written = rows_outside + rows_unresolved + rows_outside_filter + rows_unknown_term
+    if rows_in != rows_written + not_written:
         # Never reached through data: every row is written, counted outside the
-        # registry or named as unresolved. A raise, not an assert (`-O`).
+        # registry or a table filter, or named as unresolved or as an unknown
+        # term. A raise, not an assert (`-O`).
         raise RuntimeError(
             f"ingest row accounting does not add up: {rows_in} in, {rows_written} written, "
-            f"{rows_outside} outside the registry, {rows_unresolved} unresolved"
+            f"{rows_outside} outside the registry, {rows_unresolved} unresolved, "
+            f"{rows_outside_filter} outside the filter, {rows_unknown_term} naming an "
+            "unknown term"
         )
 
     manifest = package.manifest
@@ -314,6 +358,10 @@ def ingest_package(
         rows_outside_registry=rows_outside,
         rows_unresolved=rows_unresolved,
         unresolved=tuple(unresolved[symbol] for symbol in sorted(unresolved)),
+        rows_outside_filter=rows_outside_filter,
+        filter_reasons=tuple(filter_reasons),
+        rows_unknown_term=rows_unknown_term,
+        unknown_terms=tuple(sorted(unknown_terms)),
         registry_genes_absent=tuple(sorted(registry - present)) if gene_keyed else (),
         registry_genes=len(registry),
         coverage=coverage if coverage == "every_gene" else coverage.registry_slice,

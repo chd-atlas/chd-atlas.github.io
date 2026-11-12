@@ -41,7 +41,8 @@ from chd_atlas.tables import CLINGEN_VALIDITY, GENCC_SUBMISSIONS, read_table, va
 SCOPE_FILE: Final = "curation/chd_scope.yaml"
 # What an absent validity mirror contributes to the derivation: no rows.
 ABSENT_MIRROR: Final = pl.DataFrame(schema={"gene": pl.String, "disease": pl.String})
-_MIRRORS: Final = (
+# The two validity mirrors, ClinGen first, relative to the repository root.
+VALIDITY_MIRRORS: Final = (
     ("mirrors/clingen_gene_validity.tsv", CLINGEN_VALIDITY),
     ("mirrors/gencc_submissions.tsv", GENCC_SUBMISSIONS),
 )
@@ -96,8 +97,20 @@ def derive_registry_from_root(root: Path) -> frozenset[str]:
     if scope is None:
         problems = "; ".join(f"{issue.code} {issue.message}" for issue in acc.issues[:3])
         raise RegistryUnavailable(f"{SCOPE_FILE} cannot be read: {problems}")
+    clingen, gencc = read_validity_mirrors(root)
+    return derive_registry((str(entry.id) for entry in scope.diseases), clingen, gencc)
+
+
+def read_validity_mirrors(root: Path) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """``root``'s ClinGen and GenCC mirrors as `read_table` returns them, in that order.
+
+    An absent mirror is `ABSENT_MIRROR`. A present one that reports any error
+    against its table schema raises `RegistryUnavailable` (see
+    `derive_registry_from_root`). Also read by `ingest.filters`, whose Mondo
+    filter keeps the terms these two name.
+    """
     frames: list[pl.DataFrame] = []
-    for relative, schema in _MIRRORS:
+    for relative, schema in VALIDITY_MIRRORS:
         path = root / relative
         if not path.is_file():
             frames.append(ABSENT_MIRROR)
@@ -115,4 +128,4 @@ def derive_registry_from_root(root: Path) -> frozenset[str]:
             raise RegistryUnavailable(f"{relative} cannot be read")
         frames.append(frame)
     clingen, gencc = frames
-    return derive_registry((str(entry.id) for entry in scope.diseases), clingen, gencc)
+    return clingen, gencc

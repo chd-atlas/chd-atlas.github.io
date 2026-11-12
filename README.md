@@ -89,6 +89,17 @@ slice lacks. And the converters still in `scripts/` that read the registry
 hand. `hgnc`, `sierant2025_ds6` and `farah2024_hoc` have no converter here any more: their
 recipes live in `chd-atlas/feeds` (`sources/<id>`).
 
+Two tables are kept only in part, because their packages carry the whole source.
+`orphanet_phenotypes` (Orphanet product 4) keeps an annotation whose `hpo` is under
+HP:0001626 (Abnormality of the cardiovascular system), alt ids included, in the HPO release
+`mirrors/sources.yaml` pins for `HP`; an HPO id that release does not define is not counted
+as outside the filter but named, and its rows are not written. `mondo_xrefs` (Mondo SSSOM)
+keeps a row whose `mondo` term is a `disease` of either validity mirror as it stands at
+ingest; `--all` ingests it after ClinGen and GenCC, so it is re-filtered against the
+mirrors they just wrote. Ingest prints how many rows each filter left out, and refuses
+with `ING010` when a filter cannot be built (the pinned HPO release cannot be read or lacks
+HP:0001626, a validity mirror fails its schema, or neither names a disease).
+
 The package is refused with `ING015` if any table cell's parsed value begins with a double quote; `validate` reports
 the same in a committed mirror as `TBL013` (the CSV reader would otherwise merge rows silently).
 It is refused with `ING016` if its version equals the pinned one but its manifest bytes differ: a version names one set of bytes.

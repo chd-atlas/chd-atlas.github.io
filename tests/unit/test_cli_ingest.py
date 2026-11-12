@@ -98,6 +98,10 @@ def test_an_ingested_package_exits_0_and_names_everything_it_did_not_write(
             Resolved("MADH7", Resolution.AMBIGUOUS, None, ("HGNC:6772", "HGNC:6773")),
             Resolved("NOSUCH", Resolution.UNKNOWN),
         ),
+        rows_outside_filter=0,
+        filter_reasons=(),
+        rows_unknown_term=0,
+        unknown_terms=(),
         registry_genes_absent=("HGNC:1", "HGNC:2"),
         registry_genes=185,
         coverage=coverage,  # type: ignore[arg-type]
@@ -135,6 +139,51 @@ def test_an_ingested_package_exits_0_and_names_everything_it_did_not_write(
     assert "grew" not in result.stdout
 
 
+def test_a_filtered_ingest_names_the_rows_outside_the_filter_and_the_unknown_terms(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Two separate lines: a term the release does not know is not "outside the filter".
+
+    The filter line prints only for a package one of `ingest.filters` applied
+    to (`test_ingest_all_prints_...` holds that it does not print otherwise),
+    the unknown-term line only when there is a term to name.
+    """
+    reason = "hpo not under HP:0001626 in ontologies/hp-2026-06-23.obo"
+    result_ = IngestResult(
+        source_id="orphanet_product4",
+        version="4f44e8a6",
+        rows_in=10,
+        rows_written=5,
+        rows_outside_registry=0,
+        rows_unresolved=0,
+        unresolved=(),
+        rows_outside_filter=3,
+        filter_reasons=(reason,),
+        rows_unknown_term=2,
+        unknown_terms=("HP:7777777",),
+        registry_genes_absent=(),
+        registry_genes=185,
+        coverage="every_gene",
+        dropped=(),
+        warnings=(),
+    )
+    monkeypatch.setattr("chd_atlas.cli.ingest_package", lambda *_: result_)
+
+    result = runner.invoke(
+        app, ["ingest", "orphanet_product4", "--root", str(tmp_path), "--package", str(tmp_path)]
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout.splitlines() == [
+        "ingested orphanet_product4 4f44e8a6: 10 row(s) in the package, 5 written",
+        "0 row(s) name a gene outside the registry and were not written",
+        "0 row(s) name a gene id that did not resolve and were not written",
+        f"3 row(s) are outside the filter ({reason})",
+        "2 row(s) name a term the pinned release does not know: HP:7777777",
+        "validate: 0 error(s), 0 warning(s)",
+    ]
+
+
 def test_a_filesystem_error_exits_2_with_its_message(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -167,6 +216,10 @@ def _result(source_id: str, warnings: tuple[ValidationIssue, ...] = ()) -> Inges
         rows_outside_registry=0,
         rows_unresolved=0,
         unresolved=(),
+        rows_outside_filter=0,
+        filter_reasons=(),
+        rows_unknown_term=0,
+        unknown_terms=(),
         registry_genes_absent=(),
         registry_genes=185,
         coverage="every_gene",
