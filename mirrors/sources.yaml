@@ -88,6 +88,9 @@ sources:
     # -- https://clinicalgenome.org/docs/terms-of-use/
     licence: CC0-1.0
     redistribution: permitted
+    package:
+      version: '2026-08-03'
+      manifest_sha256: 7d4cc6eda6d8090238e34cd22cf3857504e77e330cefb11401f773c2122436f3
   - id: gencc
     name: Gene Curation Coalition (GenCC) submissions export
     # The export carries no release/version tag of its own -- `sgc_id` and
@@ -106,6 +109,9 @@ sources:
     # also CC0. -- https://thegencc.org/terms
     licence: CC0-1.0
     redistribution: permitted
+    package:
+      version: 88c77272
+      manifest_sha256: 872aba3c356067e25b41fb3f6ea2e9a83097da77780bfef11e11e35cc7a59149
   - id: hgnc
     name: HUGO Gene Nomenclature Committee
     # Since 2026-11-11 `mirrors/genes.tsv` is written by `chd-atlas ingest hgnc`
@@ -181,6 +187,9 @@ sources:
     # site is not.
     licence: CC-BY-4.0
     redistribution: permitted_with_attribution
+    package:
+      version: 4f44e8a6
+      manifest_sha256: aa9422ebca85c37d6c433675c293445e2350d3ec0209cf5a852fd740dfcd1484
   - id: orphanet_product1
     name: >-
       Orphadata Science, product 1 ("Rare diseases and alignment with
@@ -195,6 +204,9 @@ sources:
     # Same licence block and terms as product 4.
     licence: CC-BY-4.0
     redistribution: permitted_with_attribution
+    package:
+      version: df8d562a
+      manifest_sha256: c40351d278e51ab8c97eccb10c147939d82432a888de40b6896f2071e93e99e4
   - id: mondo_sssom
     name: >-
       Mondo Disease Ontology mappings (mondo.sssom.tsv), release v2026-10-06:
@@ -207,6 +219,9 @@ sources:
     # SPDX CC-BY-4.0 for monarch-initiative/mondo).
     licence: CC-BY-4.0
     redistribution: permitted_with_attribution
+    package:
+      version: '2026-10-06'
+      manifest_sha256: 27cb03e70df6b4ad360dbcee0a38d09ce3cb20d12262d7e2276b327933201bfb
   - id: expression_atlas_e_mtab_6814
     name: >-
       EMBL-EBI Expression Atlas, experiment E-MTAB-6814 ("Human RNA-seq
