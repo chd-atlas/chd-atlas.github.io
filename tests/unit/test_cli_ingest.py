@@ -493,6 +493,7 @@ def test_the_summary_shows_25_unknown_ids_and_writes_every_one(
         f"… and 5 more (all 31 in {path})"
     ) in result.stdout.splitlines()
     assert "ENSG025" not in result.stdout
+    assert (tmp_path / path).is_file(), f"{path} was not written"
     lines = (tmp_path / path).read_text(encoding="utf-8").splitlines()
     assert lines[0] == "id\tresolution\tcandidates"
     assert lines[1:] == [

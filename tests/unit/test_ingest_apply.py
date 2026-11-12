@@ -256,6 +256,8 @@ def test_reingesting_the_same_version_changes_no_byte(ingested: Ingested) -> Non
     assert ingested.again == ingested.after
     assert ingested.second == ingested.first
     cache = f"local/packages/{SOURCE}/{VERSION}"
+    assert cache in ingested.after, f"the package cache {cache} was not written"
+    assert f"{cache}/manifest.json" in ingested.after, f"{cache}/manifest.json was not written"
     for name in ("manifest.json", "burden.tsv"):
         assert ingested.after[f"{cache}/{name}"] == (ingested.package / name).read_bytes()
     # Only what the ingest wrote changed: the burden mirror, the committed
@@ -2038,10 +2040,12 @@ def test_a_failed_repin_restores_everything(
     cache = digests(repo, "local")
     written = recording_writes(monkeypatch)
 
-    with pytest.raises(IngestRefused) as excinfo:
+    with pytest.raises((IngestRefused, OSError)) as caught:
         ingest_all(repo, {"clingen": directory})
 
-    assert excinfo.value.code == "ING001"
+    assert caught.type is IngestRefused, caught.value
+    assert isinstance(caught.value, IngestRefused)
+    assert caught.value.code == "ING001"
     v2_cache = package_cache(repo, "clingen", CLINGEN_V2)
     assert (v2_cache / "manifest.json" in written) is wrote
     assert (repo / "mirrors" / "sources.yaml" in written) is wrote
