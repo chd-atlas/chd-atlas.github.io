@@ -24,7 +24,11 @@ _RECORDED_RELEASE: Final = {
 
 
 def test_the_committed_mirrors_carry_noonan_4s_route_to_its_parent() -> None:
-    """MONDO:0012547 -> OMIM:610733 -> ORPHA:648 (BTNT, Validated), measured 2026-10-24."""
+    """MONDO:0012547 -> OMIM:610733 -> ORPHA:648 (BTNT, Validated), measured 2026-10-24.
+
+    Guards the committed rows the Noonan 4S route needs. It does not guard the
+    ingest filters that choose the rows (tests/unit/test_ingest_filters.py does).
+    """
     tables = load_orphanet_tables(REPO_ROOT)
     assert tables is not None
     assert reach("MONDO:0012547", "ORPHA:648", tables) == ("subtype", "OMIM:610733")
@@ -34,10 +38,12 @@ def test_the_committed_mirrors_carry_noonan_4s_route_to_its_parent() -> None:
 def test_the_recorded_orphadata_release_is_pinned() -> None:
     """The `<JDBOR>` header values `sources.json` publishes and the landing page cites (R11).
 
-    Transcribed from the headers of the two Orphadata files whose releases the
-    feeds packages carry (2026-06-23 release, read 2026-10-26). They are
-    recorded in `mirrors/sources.yaml`, not derived, so changing one without
-    the other half of the pin is a published-value change this test names.
+    The feeds recipes read them from the two files' `<JDBOR>` headers into each
+    package's manifest, and ingest copies them into `mirrors/sources.yaml`
+    (2026-06-23 release, read 2026-10-26). A re-pin that moves them, or a hand
+    edit of either field, fails here: it is a change to a published value. It
+    does not check the values against the pinned manifests; ingest writes them
+    from the manifest.
     """
     registry, _ = load_sources(REPO_ROOT)
     recorded = {
