@@ -49,7 +49,7 @@ any error, 2 if `--root` is not a directory.
 gh release download SOURCE_ID/VERSION -R chd-atlas/feeds -D local/packages/SOURCE_ID/VERSION
 uv run chd-atlas ingest SOURCE_ID --package local/packages/SOURCE_ID/VERSION
 uv run chd-atlas ingest SOURCE_ID   # re-ingest the pinned version from local/packages/
-uv run chd-atlas ingest --all       # after any edit to curation/chd_scope.yaml
+uv run chd-atlas ingest --all       # after any edit to curation/chd_scope.yaml, or after re-pinning HP in mirrors/sources.yaml
 uv run chd-atlas ingest --all --repin clingen=local/packages/clingen/VERSION   # see below
 ```
 
@@ -67,8 +67,10 @@ every path left changed.
 
 Ingest in this order, which `--all` follows: ClinGen and GenCC (written whole, never
 filtered: the registry is derived from them), then `hgnc` (it writes `mirrors/genes.tsv`,
-filtered to that derived registry), then every other package (filtered to
-`mirrors/genes.tsv`; its gene symbols resolve against the pinned HGNC package). Without
+filtered to that derived registry), then every other package (a gene-keyed one is filtered to
+`mirrors/genes.tsv` and its gene symbols resolve against the pinned HGNC package;
+`orphanet_product4` is filtered to the pinned HPO release's cardiovascular branch and
+`mondo_sssom` to the terms the validity mirrors name). Without
 `--package`, the pinned version's cache is used; `ING017` refuses when that cache is
 missing, does not hold the pinned manifest, or holds one naming another version than the
 pin, and names the `gh release download` command for a missing or wrong cache.
@@ -108,16 +110,19 @@ It is refused with `ING016` if its version equals the pinned one but its manifes
 Only the `hgnc` package ships the `genes` table, always keyed by `hgnc_id` (`ING009`); its ingest writes
 `mirrors/genes.tsv` filtered to the registry the atlas derives from `curation/chd_scope.yaml` and the two validity mirrors.
 `validate` reports a gene that registry holds and `mirrors/genes.tsv` lacks as `GEN006`; re-ingest `hgnc` or run
-`chd-atlas ingest --all` to clear it, or, when a ClinGen or GenCC package moved the registry,
+`chd-atlas ingest --all` to clear it, or, when a ClinGen or GenCC package brought the gene in,
 `chd-atlas ingest --all --repin <id>=<dir>` (below); if the pinned HGNC package lacks the gene, pin a newer
 HGNC release.
 
 ### Refreshing ClinGen or GenCC
 
-The registry is derived from the ClinGen and GenCC mirrors, so a new ClinGen or GenCC
-package can move it, and then it cannot be ingested alone: `mirrors/genes.tsv` lacks the
-gene the new release brings in until `hgnc` re-derives the registry, so validation reports
-`GEN006` and the ingest is refused, naming this command:
+The registry is derived from the ClinGen and GenCC mirrors. Refresh either source only with
+`chd-atlas ingest --all --repin <id>=<dir>`, whatever the new package does: a single
+`ingest clingen` or `ingest gencc` writes only the validity mirror. It does not prune the
+genes that left the registry and it does not re-filter `mondo_xrefs`. A single ingest is
+refused only when the new release brings a gene into the registry (`mirrors/genes.tsv`
+lacks it until `hgnc` re-derives the registry, so validation reports `GEN006`), naming
+this command:
 
 ```bash
 gh release download clingen/VERSION -R chd-atlas/feeds -D local/packages/clingen/VERSION

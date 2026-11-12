@@ -47,10 +47,14 @@ in `ingest_order`: the pinned owners of the registry's input tables (ClinGen,
 GenCC), then ``hgnc``, whose filter they derive, then every other source by id.
 Given ``repin`` (``ingest --all --repin SOURCE=DIR``), it ingests each named
 source from that directory instead, in the same order. That is the one route
-for a ClinGen or GenCC package that moves the registry: ingested alone it is
-refused, because validation reports the registry gene `genes.tsv` lacks
-(GEN006) before ``hgnc`` has re-derived the registry from it, which is why a
-single ClinGen or GenCC ingest's validation failure ends with `REPIN_HINT`.
+for a ClinGen or GenCC package, whatever it does to the registry. Ingested
+alone it is refused only when it brings a gene into the registry (validation
+reports the registry gene `genes.tsv` lacks, GEN006, before ``hgnc`` has
+re-derived it), which is why a single ingest's validation failure ends with
+`REPIN_HINT`. A package that removes a gene, or adds a disease the pinned Mondo
+package carries, is accepted alone and leaves the pruning and `mondo_xrefs`
+re-filtering undone (reviewer's measurement on copies of the committed corpus:
+GenCC v2 without HGNC:10727's in-scope rows, 185 -> 184 genes, 0 errors).
 No step validates. Validating each step would deadlock a scope shrink: ``hgnc``
 alone drops a gene that other rows still name (BUR011), and any other package
 alone keeps its rows, because its filter is the `genes.tsv` only ``hgnc``
@@ -402,8 +406,10 @@ def ingest_order(pinned: Iterable[str]) -> tuple[str, ...]:
     """The order `ingest_all` applies pinned and repinned sources in (see the module docstring).
 
     ``hgnc``'s filter is derived from the ClinGen and GenCC mirrors, so a
-    re-pinned one must land before it; every other package's filter is the
-    `genes.tsv` that ``hgnc`` writes.
+    re-pinned one must land before it; a gene-keyed package's filter is the
+    `genes.tsv` that ``hgnc`` writes. Two others filter on something else:
+    ``orphanet_product4`` on the pinned HPO release's cardiovascular branch and
+    ``mondo_sssom`` on the terms the validity mirrors name.
     """
     sources = set(pinned)
     inputs = sorted(sources & REGISTRY_INPUTS)

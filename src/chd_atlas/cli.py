@@ -22,6 +22,7 @@ from chd_atlas.gene_literature_io import (
     with_findings_updated,
 )
 from chd_atlas.ingest.apply import (
+    REGISTRY_INPUTS,
     IngestAllResult,
     IngestResult,
     ingest_all,
@@ -164,8 +165,8 @@ def ingest(
         metavar="SOURCE=DIR",
         help="With --all: ingest SOURCE from the package directory DIR instead of its pinned "
         "cache, and pin DIR's version, in the same transaction. Repeatable. The route for a "
-        "ClinGen or GenCC package that moves the gene registry, which ingested alone is "
-        "refused.",
+        "ClinGen or GenCC package, whatever it does to the gene registry; ingested alone "
+        "it is refused when it brings a gene into the registry.",
     ),
     root: Path = typer.Option(Path("."), help="Repository root to ingest into."),
 ) -> None:
@@ -268,7 +269,10 @@ def report_changes(
 
 def _ingest_lines(root: Path, result: IngestResult) -> list[str]:
     """What an ingest wrote and, by name, everything it did not; then its validation."""
-    return _summary_lines(root, result) + _validation_lines(result.warnings)
+    lines = _summary_lines(root, result)
+    if result.source_id in REGISTRY_INPUTS:
+        lines.append(ALL_NOTE)
+    return lines + _validation_lines(result.warnings)
 
 
 def _ingest_all_lines(root: Path, every: IngestAllResult) -> list[str]:
@@ -297,6 +301,14 @@ def _ingest_all_lines(root: Path, every: IngestAllResult) -> list[str]:
 # the phase 3 plan), which as one line buries everything else; the full list
 # goes to a file outside the package cache instead.
 UNRESOLVED_SHOWN: Final = 25
+
+# Printed after a successful single ClinGen or GenCC ingest, which writes only
+# its own mirror (`ingest.apply` module docstring).
+ALL_NOTE: Final = (
+    "note: a single ingest writes only this mirror; `chd-atlas ingest --all` (with "
+    "`--repin <id>=<dir>` for a new version) re-filters the registry, the "
+    "registry-filtered mirrors and mondo_xrefs"
+)
 
 
 def _write_unresolved(root: Path, result: IngestResult) -> str:

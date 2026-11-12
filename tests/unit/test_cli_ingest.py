@@ -541,3 +541,69 @@ def test_an_unwritable_unresolved_list_is_named_and_the_summary_still_prints(
         failed = [line for line in lines if line.startswith("could not write") and path in line]
         assert len(failed) == 1
         assert "Errno" in failed[0] or "exist" in failed[0].lower()
+
+
+_ALL_NOTE = (
+    "note: a single ingest writes only this mirror; `chd-atlas ingest --all` (with "
+    "`--repin <id>=<dir>` for a new version) re-filters the registry, the "
+    "registry-filtered mirrors and mondo_xrefs"
+)
+
+
+@pytest.mark.parametrize("count", [25, 26], ids=["exactly-25", "26"])
+def test_the_summary_caps_unknown_ids_at_25_and_names_the_file_only_past_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, count: int
+) -> None:
+    """The boundary: 25 unknowns are all shown with no suffix and no path; 26 add `… and 1 more`.
+
+    Kills `more >= 0` (a suffix at exactly 25) and printing the path unconditionally.
+    The file is written either way.
+    """
+    unknown = [Resolved(f"ENSG{n:03d}", Resolution.UNKNOWN) for n in range(count)]
+    result_ = replace(
+        _result("e_mtab_6814"),
+        version="v9",
+        rows_unresolved=count,
+        unresolved=tuple(reversed(unknown)),
+    )
+    monkeypatch.setattr("chd_atlas.cli.ingest_package", lambda *_: result_)
+
+    result = runner.invoke(
+        app, ["ingest", "e_mtab_6814", "--root", str(tmp_path), "--package", str(tmp_path)]
+    )
+
+    path = "local/ingest/e_mtab_6814-v9.unresolved.tsv"
+    shown = "; ".join(f"ENSG{n:03d} (unknown)" for n in range(25))
+    head = f"{count} gene id(s) did not resolve and their rows were not written: {shown}"
+    expected = head if count == 25 else f"{head}; … and 1 more (all 26 in {path})"
+    assert result.exit_code == 0
+    assert expected in result.stdout.splitlines()
+    assert (path in result.stdout) is (count == 26)
+    assert "… and" not in result.stdout.replace(expected, "")
+    assert len((tmp_path / path).read_text(encoding="utf-8").splitlines()) == count + 1
+
+
+@pytest.mark.parametrize(
+    ("source", "noted"),
+    [("clingen", True), ("gencc", True), ("hgnc", False), ("alpha", False)],
+)
+def test_a_single_validity_ingest_says_only_ingest_all_refilters_the_registry(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, source: str, noted: bool
+) -> None:
+    """The note is pinned against a literal; ingest --all and other sources print none."""
+    monkeypatch.setattr("chd_atlas.cli.ingest_package", lambda *_: _result(source))
+
+    single = runner.invoke(
+        app, ["ingest", source, "--root", str(tmp_path), "--package", str(tmp_path)]
+    )
+    assert single.exit_code == 0
+    assert (_ALL_NOTE in single.stdout.splitlines()) is noted
+
+    if noted:
+        monkeypatch.setattr(
+            "chd_atlas.cli.ingest_all",
+            lambda *_: IngestAllResult((_result(source),), (), ()),
+        )
+        everything = runner.invoke(app, ["ingest", "--all", "--root", str(tmp_path)])
+        assert everything.exit_code == 0
+        assert _ALL_NOTE not in everything.stdout.splitlines()

@@ -44,8 +44,9 @@ from chd_atlas.tables import (
 )
 
 # The branch `chd-atlas ingest` keeps of Orphanet product 4 (spec F23): wider
-# than the rule, so that a change to the structural subset needs no new
-# package. The rule never reads it; `ingest.filters` does.
+# than the rule, so that a change to the structural subset needs a
+# re-ingest rather than a new package. The rule never reads it;
+# `ingest.filters` does.
 CARDIOVASCULAR_ROOT: Final = "HP:0001626"
 
 # HP:0001627's EXACT synonyms include "Congenital heart defect", so Orphanet
