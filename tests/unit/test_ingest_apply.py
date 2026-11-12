@@ -2124,10 +2124,13 @@ def test_two_package_symbols_resolving_to_one_gene_are_refused(tmp_path: Path) -
     assert excinfo.value.code == "ING010"
     # Measured 2026-11-12: two errors, this one and an SRC005 for the fixture's
     # hgnc pin, which has no committed mirrors/packages/hgnc.json in a temp repo.
-    assert (
-        "ERROR [TBL007] mirrors/burden.tsv:row 201: duplicate ['gene', 'study', "
-        "'cohort_stratum', 'lesion_group', 'variant_class', 'consequence_class', 'origin', "
-        "'maf_max'] key: ('HGNC:11701', 'PMID:40127276', 'all', None, 'snv_indel', "
-        "'damaging', 'de_novo', 0.0001)"
-    ) in excinfo.value.message
+    # No row number: rows that sort before this gene's change it (a later
+    # package adds HGNC:1152 rows), and the test is about the duplicate.
+    assert re.search(
+        r"ERROR \[TBL007\] mirrors/burden\.tsv:row \d+: duplicate \['gene', 'study', "
+        r"'cohort_stratum', 'lesion_group', 'variant_class', 'consequence_class', 'origin', "
+        r"'maf_max'\] key: \('HGNC:11701', 'PMID:40127276', 'all', None, 'snv_indel', "
+        r"'damaging', 'de_novo', 0\.0001\)",
+        excinfo.value.message,
+    )
     assert tree(repo) == before

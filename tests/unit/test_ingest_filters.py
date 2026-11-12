@@ -135,8 +135,10 @@ def test_the_orphanet_filter_reads_the_hpo_release_sources_yaml_pins(
     syndrome it qualifies failing the rule with nothing saying why. The first
     release stays at the path the committed file pins, so a filter reading a
     fixed path instead of the pin keeps the first release's answer and fails.
-    (This replaces `test_convert_orphanet.py`'s coupling test, which compared
-    the converter's literal path with the pin.)
+    This guards that the filter reads the pinned release. It does not detect a
+    mirror filtered under an older release: `orphanet_phenotypes` is filtered
+    only at ingest, so after re-pinning HP the curator runs `ingest --all`
+    (README "Ingesting a source package").
     """
     repo = orphanet_repo(tmp_path, monkeypatch, FIRST)
     (repo / "ontologies" / "hp-second.obo").write_text(SECOND, encoding="utf-8")
@@ -323,6 +325,10 @@ def test_every_committed_orphanet_phenotype_is_in_the_pinned_cardiovascular_bran
 
     assert len(terms) == 7902
     assert sorted(set(terms) - release.cardiovascular) == []
+    # The rule's own terms sit inside the ingest's branch (measured 291 inside
+    # 1,670), so an ADDED_BRANCHES term outside HP:0001626 cannot make ingest
+    # drop an annotation the rule reads.
+    assert structural <= release.cardiovascular
     assert "HP:0000822" in terms
     assert "HP:0000822" in release.cardiovascular
     assert "HP:0000822" not in structural
