@@ -142,67 +142,80 @@ def test_a_symbol_two_genes_claim_is_refused_rather_than_picked() -> None:
     assert resolved.gene == "HGNC:1"
 
 
-def test_a_live_alias_outranks_a_retired_name_and_two_retired_names_are_refused() -> None:
-    """Why previous symbols are a *third* tier and not more entries in the
-    alias map -- the two cases that decide it, both measured on the real
-    registry rather than invented.
+def test_a_name_the_alias_and_previous_tiers_give_to_different_genes_is_refused() -> None:
+    """Owner decision F27 (2026-11-13): the alias and previous tiers answer
+    together, so a name they give to more than one gene is refused, exactly as
+    a name two genes retired is.
 
-    **`ODD` is the reason the tiers are ranked.** It is a current alias of GJA1
-    (HGNC:4274) and the withdrawn name of OSR1 (HGNC:8111), and it is the only
-    string in the committed registry that any two tiers both claim (measured
-    2026-08-24: `approved & alias` and `approved & previous` are empty,
-    `alias & previous` is exactly `{"ODD"}`). Merged into one index it is
-    claimed twice and resolves to nothing; ranked, the live alias wins. HGNC
-    retires a name into `prev_symbol` and leaves current synonyms in
-    `alias_symbol`, so "still in use" beating "formerly official" is the
-    upstream's semantics, not a preference invented here.
+    **`ODD` is the case that decided it.** It is a current alias of GJA1
+    (HGNC:4274) and the withdrawn name of OSR1 (HGNC:8111), and the only string
+    the committed registry's alias and previous tiers both claim (re-measured
+    2026-11-13 over its 185 genes). Until F27 the live alias won. Over the
+    whole HGNC release the pins use (2026-10-06) 356 names sit in both tiers,
+    and neither order is right for them: the old name means the previous gene
+    for `MLL2` (KMT2D) and `HRAS1` (HRAS), the alias gene or nobody for `CBP`
+    (CREBBP) and `SIP1` (ZEB2). Refusing names the collision in the ingest
+    report, where an order would land the rows on a gene silently.
 
-    **`MADH7` is the reason precedence never breaks a tie inside a tier.**
-    SMAD6 (HGNC:6772) and SMAD7 (HGNC:6773) both retired it, so it is ambiguous
-    *within* the previous tier and is refused, exactly as an ambiguous alias is.
+    **`CBP` is the case a reordering reaches.** Two genes claim it as an alias
+    (CREBBP, PAG1) and a third retired it (OPN1LW). Every claimant is a
+    candidate: stopping at the alias tier hides OPN1LW, and reading the previous
+    tier first answers OPN1LW, a colour-vision gene, for a name that usually
+    means CREBBP.
 
-    **The third case has no live instance and is the one a mutant reaches.** A
-    symbol two genes claim as an alias must not fall through to a third gene's
-    retired name: `resolve` stops at the first tier that claims the name at all,
-    including when that tier claims it twice. Written as separate branches
-    rather than one `len(claimed) == 1` for exactly this, and a fall-through
-    would turn a reportable collision into a confident wrong id -- the failure
-    this module exists to prevent, arriving through the code added to prevent
-    it.
+    **`HIGM1` is the case that must still resolve.** It is CD40LG's alias *and*
+    its withdrawn name, so one gene claims it: it resolves, labelled an alias,
+    so `previous_symbols` leaves it out.
+
+    **`MADH7` is unchanged.** SMAD6 (HGNC:6772) and SMAD7 (HGNC:6773) both
+    retired it, so it is ambiguous *within* the previous tier.
     """
-    ranked = GeneRegistry(
+    odd = GeneRegistry(
         (
             {"hgnc_id": "HGNC:4274", "symbol": "GJA1", "aliases": "ODD", "prev_symbols": ""},
             {"hgnc_id": "HGNC:8111", "symbol": "OSR1", "aliases": "", "prev_symbols": "ODD"},
         )
-    )
-    live = ranked.resolve("ODD")
-    assert live.resolution is Resolution.ALIAS
-    assert live.gene == "HGNC:4274"
-    assert live.candidates == ("HGNC:4274",)
+    ).resolve("ODD")
+    assert odd.resolution is Resolution.AMBIGUOUS
+    assert odd.gene is None
+    assert odd.candidates == ("HGNC:4274", "HGNC:8111")
 
-    retired_twice = GeneRegistry(
+    cbp = GeneRegistry(
+        (
+            {"hgnc_id": "HGNC:2348", "symbol": "CREBBP", "aliases": "CBP", "prev_symbols": ""},
+            {"hgnc_id": "HGNC:30043", "symbol": "PAG1", "aliases": "CBP", "prev_symbols": ""},
+            {"hgnc_id": "HGNC:9936", "symbol": "OPN1LW", "aliases": "", "prev_symbols": "CBP"},
+        )
+    ).resolve("CBP")
+    assert cbp.resolution is Resolution.AMBIGUOUS
+    assert cbp.gene is None
+    assert cbp.candidates == ("HGNC:2348", "HGNC:30043", "HGNC:9936")
+
+    one_gene = GeneRegistry(
+        (
+            {
+                "hgnc_id": "HGNC:11935",
+                "symbol": "CD40LG",
+                "aliases": "CD40L|HIGM1",
+                "prev_symbols": "HIGM1|TNFSF5",
+            },
+        )
+    )
+    higm1 = one_gene.resolve("HIGM1")
+    assert higm1.resolution is Resolution.ALIAS
+    assert higm1.gene == "HGNC:11935"
+    assert higm1.candidates == ("HGNC:11935",)
+    assert one_gene.previous_symbols("HGNC:11935") == ("TNFSF5",)
+
+    madh7 = GeneRegistry(
         (
             {"hgnc_id": "HGNC:6772", "symbol": "SMAD6", "aliases": "", "prev_symbols": "MADH7"},
             {"hgnc_id": "HGNC:6773", "symbol": "SMAD7", "aliases": "", "prev_symbols": "MADH7"},
         )
-    )
-    refused = retired_twice.resolve("MADH7")
-    assert refused.resolution is Resolution.AMBIGUOUS
-    assert refused.gene is None
-    assert refused.candidates == ("HGNC:6772", "HGNC:6773")
-
-    shadowed = GeneRegistry(
-        (
-            {"hgnc_id": "HGNC:1", "symbol": "AAA", "aliases": "TWICE", "prev_symbols": ""},
-            {"hgnc_id": "HGNC:2", "symbol": "BBB", "aliases": "TWICE", "prev_symbols": ""},
-            {"hgnc_id": "HGNC:3", "symbol": "CCC", "aliases": "", "prev_symbols": "TWICE"},
-        )
-    )
-    stopped = shadowed.resolve("TWICE")
-    assert stopped.resolution is Resolution.AMBIGUOUS
-    assert stopped.gene is None
-    assert stopped.candidates == ("HGNC:1", "HGNC:2")
+    ).resolve("MADH7")
+    assert madh7.resolution is Resolution.AMBIGUOUS
+    assert madh7.gene is None
+    assert madh7.candidates == ("HGNC:6772", "HGNC:6773")
 
 
 def test_a_row_with_no_id_is_skipped_without_taking_the_registry_with_it() -> None:
@@ -428,9 +441,10 @@ def test_a_published_genes_identity_ids_are_held_to_the_rule_the_build_refuses_o
     assert validate_identity_ids({}, set(), "mirrors/genes.tsv") == []
 
 
-def test_previous_symbols_drop_ambiguous_and_alias_shadowed_names() -> None:
-    """`MADH7` (retired by two genes) and `ODD` (a live alias elsewhere) are not
-    names a search may attach to one gene; a clean retired name is, sorted."""
+def test_previous_symbols_drop_the_names_the_resolver_refuses() -> None:
+    """`MADH7` (retired by two genes) and `ODD` (OSR1's retired name and GJA1's
+    alias, refused under F27) are not names a search may attach to one gene; a
+    clean retired name is, sorted."""
     registry = GeneRegistry(
         [
             {

@@ -41,32 +41,38 @@ structural rather than a bet on that staying true, because the registry is
 regenerated from upstream and the number that matters is the one after the next
 refresh.
 
-**Three tiers, not two: approved, then alias, then previous.** `prev_symbols`
-arrived with the mirror column of the same name; before it this module could
-not resolve a retired name at all, which is what left `BVES` unresolvable while
-ClinGen used it (the standing `GEN003`). Measured over the regenerated registry
-on 2026-08-24 -- 154 approved, 309 alias, **69 distinct** previous symbols
-across 56 genes:
+**An approved symbol first; then an alias or previous symbol, answered
+together.** `prev_symbols` arrived with the mirror column of the same name;
+before it this module could not resolve a retired name at all, which is what
+left `BVES` unresolvable while ClinGen used it (the standing `GEN003`).
 
-- `approved & alias` and `approved & previous` are both **empty**.
-- `alias & previous` holds exactly one string, **`ODD`**: a live alias of GJA1
-  (HGNC:4274) and the retired name of OSR1 (HGNC:8111). It is the whole reason
-  the previous symbols are a *third* tier rather than more entries in the alias
-  map. Merged, `ODD` is claimed twice and resolves to nothing; ranked, the live
-  alias wins, which is what a source writing `ODD` today means. HGNC retires a
-  name into `prev_symbol` and leaves the live synonyms in `alias_symbol`, so
-  "currently used" beating "formerly official" is the upstream's own semantics
-  rather than a preference invented here.
-- **`MADH7`** is claimed by two genes *within* the previous tier -- SMAD6
-  (HGNC:6772) and SMAD7 (HGNC:6773) both retired it -- and is refused, exactly
-  as an ambiguous alias would be. Precedence resolves *between* tiers; it never
-  breaks a tie inside one.
+**A name the alias and previous tiers give to more than one gene between them
+is refused** (owner decision F27, 2026-11-13). Until then a live alias outranked
+a retired name, on the argument that HGNC leaves current synonyms in
+`alias_symbol`. Measured on the HGNC release the pins use (2026-10-06, 45,233
+genes): 356 names sit in both tiers and 352 of them name different genes, and
+no order is right for all of them. The old name means the previous gene for `MLL2`
+(KMT2D's withdrawn symbol, KMT2B's alias) and `HRAS1` (HRAS's, RASSF7's), so
+alias-first lands a source's rows on another gene, reported only as "outside
+the registry"; it means the alias gene, or nobody, for `CBP` (CREBBP's and
+PAG1's alias, OPN1LW's withdrawn symbol) and `SIP1` (ZEB2, SCAF11; GEMIN2), so
+previous-first answers a colour-vision gene for CREBBP. Refused, each is named
+in the ingest report with every claimant. In the pinned packages that is SD3's
+TAZ, LOR, SARS, MPP6 and DUSP27 and S6's DEC1, MPP6 and SEPT2 (42 rows), each
+one gene's withdrawn symbol and another's alias, which alias-first had answered
+with the alias gene; none is a registry gene, and no mirror or published byte
+changed (three real `ingest --all` and builds, one per order).
 
-**A tier is consulted only when every tier above it is silent, and an ambiguous
-tier stops the search.** A symbol two genes claim as an alias must not be
-quietly answered by some third gene's retired name: that would turn a reportable
-collision into a confident wrong id, which is the failure this module exists to
-prevent.
+The committed registry (185 genes, re-measured 2026-11-13) has one such name,
+**`ODD`**: GJA1's (HGNC:4274) alias and OSR1's (HGNC:8111) withdrawn symbol. It
+resolved to GJA1 until F27 and is refused now. **`MADH7`** is claimed twice
+*within* the previous tier -- SMAD6 (HGNC:6772) and SMAD7 (HGNC:6773) both
+retired it -- and was always refused. A name one gene holds as both an alias
+and a withdrawn symbol (`HIGM1`, CD40LG's) resolves, labelled an alias.
+
+**The tiers stay separate columns because the distinction is still read.**
+`previous_symbols` lists only names that resolve as `PREVIOUS`, and the search
+index publishes a gene's aliases ahead of its withdrawn names.
 """
 
 from __future__ import annotations
@@ -83,21 +89,19 @@ class Resolution(StrEnum):
     """The symbol is some gene's current HGNC-approved symbol."""
 
     ALIAS = "alias"
-    """The symbol is a current alias of exactly one gene.
+    """The symbol is a current alias of exactly one gene, and no other gene
+    claims it as an alias or a previous symbol.
 
-    **Aliases only.** This docstring read "an alias or previous symbol" while
-    the registry carried no previous symbols at all, so it described a tier
-    that did not exist and would have been the natural place to merge them
-    when one did -- see `PREVIOUS` for why they are ranked instead.
+    Also the label when that one gene holds the name as both its alias and its
+    withdrawn symbol (`HIGM1`, CD40LG's).
     """
 
     PREVIOUS = "previous"
     """The symbol is the retired HGNC symbol of exactly one gene, and no gene
     claims it as an approved symbol or a current alias.
 
-    Ranked below `ALIAS` rather than merged into it, on the module docstring's
-    measurement: `ODD` is GJA1's live alias and OSR1's retired name, and only
-    an ordering answers it.
+    A name that is one gene's retired symbol and another's alias is
+    `AMBIGUOUS`, not this (F27; the module docstring has the measurement).
     """
 
     UNKNOWN = "unknown"
@@ -136,14 +140,14 @@ class GeneRegistry:
     `validate_scope_terms` and `validate_source_references` have, and what lets
     it be tested without a filesystem.
 
-    **Approved symbols win over aliases, which win over previous symbols, and
-    the precedence is not a tie-break to be tidied away.** HGNC retires a symbol
-    by making it a *previous* symbol of the gene that kept the name, so a string
+    **An approved symbol wins over every alias and previous symbol, and that
+    precedence is not a tie-break to be tidied away.** HGNC retires a symbol by
+    making it a *previous* symbol of the gene that kept the name, so a string
     that is one gene's approved symbol and another's alias names the first gene
     today. Resolving to the alias would attribute a row to a gene the source did
-    not mean. The same argument one rung down puts a live alias ahead of a
-    retired name -- see the module docstring, where the one string this actually
-    decides (`ODD`) is named and measured.
+    not mean. Below the approved tier there is no precedence: an alias and a
+    previous symbol are answered together, and a name they give to two genes is
+    refused (F27; the module docstring has the measurement).
     """
 
     def __init__(self, rows: Iterable[Mapping[str, object]]) -> None:
@@ -194,9 +198,9 @@ class GeneRegistry:
 
         Defined through `resolve` rather than the raw index so the answer is
         exactly the set of names a search may attach to this gene: a name two
-        genes retired (`MADH7`) and one a live alias outranks (`ODD`) both
-        resolve to something other than `Resolution.PREVIOUS` for this gene, and
-        are left out.
+        genes retired (`MADH7`), one another gene holds as an alias (`ODD`) and
+        one this gene also holds as an alias (`HIGM1`) all resolve to something
+        other than `Resolution.PREVIOUS` for this gene, and are left out.
         """
         names = []
         for name in self._previous:
@@ -208,12 +212,12 @@ class GeneRegistry:
     def resolve(self, symbol: str) -> Resolved:
         """One symbol, resolved or reported. Never guesses, never raises.
 
-        Walks the three tiers in order and **stops at the first that claims the
-        name at all** -- including when that tier claims it twice. Falling
-        through an ambiguous tier to a quieter one below would answer `MADH7`
-        (SMAD6 and SMAD7 both retired it) with whichever gene happened to hold
-        it further down, turning a reportable collision into a confident wrong
-        id. The empty-tier check and the ambiguity check are therefore separate
+        An approved symbol answers outright. Otherwise every gene that claims
+        the name as an alias **or** a previous symbol is a candidate, and one
+        candidate is an answer while two are a refusal naming both. Taking the
+        alias tier alone when it speaks would answer `ODD` with GJA1 and drop
+        OSR1 from the report; taking the previous tier first would answer `CBP`
+        with OPN1LW (F27). The empty check and the ambiguity check are separate
         branches, not one `len(claimed) == 1`.
         """
         name = symbol.strip()
@@ -224,22 +228,19 @@ class GeneRegistry:
             return Resolved(
                 symbol=name, resolution=Resolution.APPROVED, gene=gene, candidates=(gene,)
             )
-        for index, resolution in (
-            (self._aliases, Resolution.ALIAS),
-            (self._previous, Resolution.PREVIOUS),
-        ):
-            claimed = index.get(name)
-            if not claimed:
-                continue
-            if len(claimed) > 1:
-                return Resolved(
-                    symbol=name,
-                    resolution=Resolution.AMBIGUOUS,
-                    candidates=tuple(sorted(claimed)),
-                )
-            only = next(iter(claimed))
-            return Resolved(symbol=name, resolution=resolution, gene=only, candidates=(only,))
-        return Resolved(symbol=name, resolution=Resolution.UNKNOWN)
+        aliased = self._aliases.get(name, set())
+        claimed = aliased | self._previous.get(name, set())
+        if not claimed:
+            return Resolved(symbol=name, resolution=Resolution.UNKNOWN)
+        if len(claimed) > 1:
+            return Resolved(
+                symbol=name,
+                resolution=Resolution.AMBIGUOUS,
+                candidates=tuple(sorted(claimed)),
+            )
+        only = next(iter(claimed))
+        resolution = Resolution.ALIAS if aliased else Resolution.PREVIOUS
+        return Resolved(symbol=name, resolution=resolution, gene=only, candidates=(only,))
 
 
 def _text(value: object) -> str | None:
