@@ -379,7 +379,8 @@ def _touch(root: Path, relative: str) -> Path:
 def test_a_mirror_file_no_manifest_lists_is_src007(tmp_path: Path) -> None:
     """`toy_burden`'s manifest lists `burden` (flat); the genes file and a
     `profiles` shard are listed by nobody. A listed table in a different shard
-    does not cover another shard of the same table."""
+    does not cover another shard of the same table. Issue order is asserted
+    exactly: `mirror_paths` is sorted, so the genes file precedes the shard."""
     _pinned_repo(tmp_path)
     burden = _touch(tmp_path, "burden.tsv")
     genes = _touch(tmp_path, "genes.tsv")
@@ -387,18 +388,17 @@ def test_a_mirror_file_no_manifest_lists_is_src007(tmp_path: Path) -> None:
 
     issues = _cover(tmp_path, {str(burden): {"toy_burden"}})
 
-    assert sorted(issues) == sorted([("SRC007", str(genes)), ("SRC007", str(shard))])
+    assert issues == [("SRC007", str(genes)), ("SRC007", str(shard))]
 
 
 def test_a_listed_shard_is_covered_by_table_and_shard_together(tmp_path: Path) -> None:
     manifest = manifest_dict()
     manifest["tables"][0].update(name="profiles", file="profiles.tsv", shard="E-MTAB-6814")
     _pinned_repo(tmp_path, manifest=manifest)
-    listed = _touch(tmp_path, "profiles/E-MTAB-6814.tsv")
+    _touch(tmp_path, "profiles/E-MTAB-6814.tsv")
     other = _touch(tmp_path, "profiles/hoc.tsv")
 
     assert _cover(tmp_path, {}) == [("SRC007", str(other))]
-    assert listed.exists()
 
 
 def test_a_source_a_mirror_relies_on_without_a_pin_is_src008(tmp_path: Path) -> None:
@@ -411,19 +411,67 @@ def test_a_source_a_mirror_relies_on_without_a_pin_is_src008(tmp_path: Path) -> 
     assert issues == [("SRC008", str(burden))]
 
 
+def test_two_unpinned_sources_at_one_location_are_reported_in_id_order(tmp_path: Path) -> None:
+    """`clinvar` and `hpo` are qualitatively distinct strings, so a dropped sort
+    cannot hide behind a set that happens to iterate in order (CLAUDE.md 4.42)."""
+    unpinned = SOURCES_YAML.removeprefix("sources:\n")
+    _pin_packages(tmp_path, {"toy_burden": manifest_dict()}, unpinned)
+    burden = _touch(tmp_path, "burden.tsv")
+    registry, _ = load_sources(tmp_path)
+
+    issues = validate_pins_cover_mirrors(tmp_path, registry, {str(burden): {"hpo", "clinvar"}})
+
+    assert [i.code for i in issues] == ["SRC008", "SRC008"]
+    assert ["'clinvar'" in issues[0].message, "'hpo'" in issues[1].message] == [True, True]
+
+
+def _pin_packages(root: Path, manifests: dict[str, dict[str, Any]], extra: str = "") -> None:
+    """Pin each manifest under its own package id; `extra` is more registry YAML."""
+    text = "sources:\n"
+    packages = root / "mirrors" / "packages"
+    packages.mkdir(parents=True, exist_ok=True)
+    for package, manifest in manifests.items():
+        data = json.dumps(manifest).encode()
+        (packages / f"{package}.json").write_bytes(data)
+        text += (
+            f'  - id: {package}\n    name: {package}\n    version: "v"\n'
+            f"    retrieved_on: 2026-08-05\n    url: https://x.org/{package}\n"
+            f"    licence: CC0-1.0\n    redistribution: permitted\n"
+            f'    package:\n      version: "{manifest["version"]}"\n'
+            f'      manifest_sha256: "{hashlib.sha256(data).hexdigest()}"\n'
+        )
+    _write_sources(root, text + extra)
+
+
+def test_a_row_relabelled_to_a_source_whose_manifest_lists_another_table_is_src007(
+    tmp_path: Path,
+) -> None:
+    """The review's relabel: a `burden.tsv` row's source changed to a pinned source
+    whose own manifest lists only `profiles/hoc`. The file IS listed by another
+    manifest, so the file-level check passes; only the per-source check sees it."""
+    cells = manifest_dict(package="toy_cells")
+    cells["tables"][0].update(name="profiles", file="profiles.tsv", shard="hoc")
+    _pin_packages(tmp_path, {"toy_burden": manifest_dict(), "toy_cells": cells})
+    burden = _touch(tmp_path, "burden.tsv")
+    _touch(tmp_path, "profiles/hoc.tsv")
+    registry, _ = load_sources(tmp_path)
+
+    honest = validate_pins_cover_mirrors(tmp_path, registry, {str(burden): {"toy_burden"}})
+    relabelled = validate_pins_cover_mirrors(
+        tmp_path, registry, {str(burden): {"toy_burden", "toy_cells"}}
+    )
+
+    assert [(i.code, i.location) for i in honest] == []
+    assert [(i.code, i.location) for i in relabelled] == [("SRC007", str(burden))]
+    assert relabelled[0].message == (
+        "this mirror relies on source 'toy_cells', but the manifest of package "
+        "'toy_cells' does not list table 'burden'; listed by: toy_burden"
+    )
+
+
 _S8_SHA = "d" * 64
-_S6_SOURCES = """\
-sources:
-  - id: audain2021_s6
-    name: S6
-    version: "sha256:{s6}"
-    retrieved_on: 2026-08-05
-    url: https://x.org/s6
-    licence: CC0-1.0
-    redistribution: permitted
-    package:
-      version: "2026-11-10.1"
-      manifest_sha256: "{pin}"
+_S8_URL = "https://x.org/s8"
+_S8_ENTRY = """\
   - id: audain2021_s8
     name: S8
     version: "sha256:{s8}"
@@ -434,47 +482,69 @@ sources:
 """
 
 
-def _s8_repo(root: Path, *, s8_version_sha: str, in_package: str = "audain2021_s6") -> Path:
-    """`audain2021_s6` pins a manifest whose second input is `_S8_SHA`; the S8
-    source's `version` carries `s8_version_sha`. A second package, `other`,
-    also lists `_S8_SHA` when `in_package` is not s6 (the exemption must not
-    accept another package's inputs)."""
-    manifest = manifest_dict(package="audain2021_s6", version="2026-11-10.1")
-    manifest["inputs"].append(dict(manifest["inputs"][0], name="s013.xlsx", sha256=_S8_SHA))
-    if in_package != "audain2021_s6":
-        manifest["inputs"][1]["sha256"] = "e" * 64
-    data = json.dumps(manifest).encode()
-    _write_sources(
-        root,
-        _S6_SOURCES.format(s6="c" * 64, s8=s8_version_sha, pin=hashlib.sha256(data).hexdigest()),
-    )
-    packages = root / "mirrors" / "packages"
-    packages.mkdir(parents=True, exist_ok=True)
-    (packages / "audain2021_s6.json").write_bytes(data)
+def _s8_repo(
+    root: Path,
+    *,
+    s8_version_sha: str,
+    s6_lists_s8: bool = True,
+    other_lists_s8: bool = False,
+) -> Path:
+    """`audain2021_s6` pins a manifest whose second input is the S8 file (sha
+    `_S8_SHA`, the entry's url) when `s6_lists_s8`; the S8 entry's `version`
+    carries `s8_version_sha`. When `other_lists_s8`, a second pinned package
+    `other` lists `_S8_SHA` as an input too (the exemption must read the
+    owner's inputs only)."""
+    s6 = manifest_dict(package="audain2021_s6")
+    s8_input = dict(s6["inputs"][0], name="s013.xlsx", url=_S8_URL, sha256=_S8_SHA)
+    if s6_lists_s8:
+        s6["inputs"].append(s8_input)
+    manifests = {"audain2021_s6": s6}
+    if other_lists_s8:
+        other = manifest_dict(package="other")
+        other["inputs"].append(s8_input)
+        manifests["other"] = other
+    _pin_packages(root, manifests, _S8_ENTRY.format(s8=s8_version_sha))
     return _touch(root, "burden.tsv")
 
 
 def test_a_column_source_is_accepted_only_as_an_input_of_its_rows_package(
     tmp_path: Path,
 ) -> None:
+    used_sources = {"audain2021_s6", "audain2021_s8"}
     burden = _s8_repo(tmp_path, s8_version_sha=_S8_SHA)
-    used = {str(burden): {"audain2021_s6", "audain2021_s8"}}
-    assert _cover(tmp_path, used) == []
+    assert _cover(tmp_path, {str(burden): used_sources}) == []
 
-    # One hex digit off: no longer an input of the package.
-    one_off = tmp_path / "off"
-    burden = _s8_repo(one_off, s8_version_sha="d" * 63 + "e")
-    assert _cover(one_off, {str(burden): {"audain2021_s6", "audain2021_s8"}}) == [
-        ("SRC008", str(burden))
-    ]
+    cases = {
+        # One hex digit off: no longer an input of the package.
+        "one_off": {"s8_version_sha": "d" * 63 + "e"},
+        # The right hex, but the owner does not list it (the exemption names the
+        # owner's own inputs, not "any sha anywhere"): `other` does.
+        "elsewhere": {"s8_version_sha": _S8_SHA, "s6_lists_s8": False, "other_lists_s8": True},
+        # The entry's version set to the owner's OWN first input: the sha is an
+        # input of the manifest, but not at the entry's url.
+        "owners_own_sha": {"s8_version_sha": "c" * 64},
+    }
+    for name, kwargs in cases.items():
+        root = tmp_path / name
+        burden = _s8_repo(root, **kwargs)  # type: ignore[arg-type]
+        assert _cover(root, {str(burden): used_sources}) == [("SRC008", str(burden))], name
 
-    # The right hex, but the package does not list it (the exemption names a
-    # package's own inputs, not "any sha anywhere").
-    elsewhere = tmp_path / "elsewhere"
-    burden = _s8_repo(elsewhere, s8_version_sha=_S8_SHA, in_package="other")
-    assert _cover(elsewhere, {str(burden): {"audain2021_s6", "audain2021_s8"}}) == [
-        ("SRC008", str(burden))
-    ]
+
+def test_the_column_source_message_names_the_listed_sha_and_the_fix(tmp_path: Path) -> None:
+    burden = _s8_repo(tmp_path, s8_version_sha="d" * 63 + "e")
+    registry, _ = load_sources(tmp_path)
+
+    issues = validate_pins_cover_mirrors(
+        tmp_path, registry, {str(burden): {"audain2021_s6", "audain2021_s8"}}
+    )
+
+    assert [i.code for i in issues] == ["SRC008"]
+    assert issues[0].message == (
+        "this mirror relies on source 'audain2021_s8', which pins no package and whose "
+        "version is not an input of package 'audain2021_s6' with the entry's url; that "
+        f"manifest lists sha256:{_S8_SHA} for it; edit the entry's `version` and "
+        "`retrieved_on` by hand to match"
+    )
 
 
 def test_a_repository_with_no_pin_is_not_checked(tmp_path: Path) -> None:
@@ -488,9 +558,8 @@ def test_a_repository_with_no_pin_is_not_checked(tmp_path: Path) -> None:
 def test_an_unreadable_manifest_adds_nothing_beyond_its_src005(tmp_path: Path) -> None:
     """SRC005 already names the broken manifest; every file it would have listed
     must not also report SRC007."""
-    path = _pinned_repo(tmp_path, raw=b"{not json")
+    _pinned_repo(tmp_path, raw=b"{not json")
     burden = _touch(tmp_path, "burden.tsv")
-    assert path.exists()
 
     assert _cover(tmp_path, {str(burden): {"toy_burden"}}) == []
 
