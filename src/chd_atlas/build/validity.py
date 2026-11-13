@@ -125,8 +125,8 @@ def uncurated() -> GeneValidity:
     )
 
 
-def _sort_key(record: ValidityRecord) -> tuple[str, str, str, str, str]:
-    """`(source, disease, moi, submitter or "", sgc_id or "")`.
+def _sort_key(record: ValidityRecord) -> tuple[str, str, str, str, str, str]:
+    """`(source, disease, moi, submitter or "", sgc_id or "", gcep or "")`.
 
     So two builds of one commit agree on array order regardless of which
     mirror row was read first. `submitter` is `None` on every ClinGen record;
@@ -138,7 +138,11 @@ def _sort_key(record: ValidityRecord) -> tuple[str, str, str, str, str]:
     2026-10-25, adding it reorders zero published records -- `gene_validity`'s
     output for all 185 registry genes sorted under both keys reorders none, and
     a byte diff of two real builds differed only in `manifest.json`'s
-    `source_commit`.
+    `source_commit`. The sixth orders two ClinGen panels' records on one
+    (gene, disease, moi), which carry neither a submitter nor an sgc_id
+    (`clingen_validity` v2, F28: FOXE3 / MONDO:0019625 / AD in ClinGen's
+    2026-11-13 file). No published gene carries such a pair (measured
+    2026-11-13), so it reorders no published record.
     """
     return (
         record.source.value,
@@ -146,6 +150,7 @@ def _sort_key(record: ValidityRecord) -> tuple[str, str, str, str, str]:
         record.moi,
         record.submitter or "",
         record.sgc_id or "",
+        record.gcep or "",
     )
 
 

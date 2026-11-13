@@ -460,7 +460,7 @@ def test_a_validity_table_is_replaced_whole_and_not_filtered(
     (package / "clingen.tsv").write_bytes(data)
     table = {
         "name": "clingen_validity",
-        "format_version": 1,
+        "format_version": TABLE_SCHEMAS["clingen_validity"].version,
         "file": "clingen.tsv",
         "sha256": hashlib.sha256(data).hexdigest(),
         "rows": 2,

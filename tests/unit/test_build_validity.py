@@ -703,3 +703,38 @@ def test_two_submissions_tied_on_every_other_sort_field_order_by_sgc_id() -> Non
             "SGC-101696",
             "SGC-104080",
         ]
+
+
+_HCVD = "Hereditary Cardiovascular Disease Gene Curation Expert Panel"
+_HTAAD = "Heritable Thoracic Aortic Aneurysm and Dissection Gene Curation Expert Panel"
+
+
+def test_two_panels_on_one_triple_publish_both_in_panel_order() -> None:
+    """Two ClinGen panels' records on one (gene, disease, moi) both publish, ordered by panel.
+
+    FOXE3 / MONDO:0019625 / AD is the real case (ClinGen's 2026-11-13 file:
+    SOP4 Moderate 2016 by the HTAAD GCEP, SOP12 Limited 2026 by the HCVD GCEP;
+    F28). FOXE3 is not published, so the pair is placed on GATA6's in-scope
+    triple here. `(source, disease, moi, submitter, sgc_id)` ties on both --
+    neither carries a submitter or an sgc_id -- so without `gcep` in
+    `_sort_key` the order is the mirror's. Fed in both orders.
+
+    The headline keeps `strongest()` (plan Decision 2): the older Moderate
+    admits over the newer Limited. On equal grades the first record in sort
+    order admits, which is the panel that sorts first.
+    """
+    rows = [
+        _clingen_row(gcep=_HTAAD, sop="SOP4", classification="Moderate"),
+        _clingen_row(gcep=_HCVD, sop="SOP12", classification="Limited"),
+    ]
+    for feed in (rows, rows[::-1]):
+        entry = gene_validity(_clingen_frame(*feed), _gencc_frame(), in_scope={_GATA6_CHD})[_GATA6]
+        assert [record.gcep for record in entry.records] == [_HCVD, _HTAAD]
+        assert admitting_grade(entry) is Classification.MODERATE
+
+    tied = [{**row, "classification": "Limited"} for row in rows]
+    for feed in (tied, tied[::-1]):
+        entry = gene_validity(_clingen_frame(*feed), _gencc_frame(), in_scope={_GATA6_CHD})[_GATA6]
+        admitting = _admitting_clingen(entry)
+        assert admitting is not None
+        assert admitting.gcep == _HCVD

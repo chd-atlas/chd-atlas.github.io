@@ -103,13 +103,15 @@
   "primaryKey": [
     "gene",
     "disease",
-    "moi"
+    "moi",
+    "gcep"
   ],
   "sortKey": [
     "gene",
     "disease",
-    "moi"
+    "moi",
+    "gcep"
   ],
   "sourceColumn": null,
-  "version": 1
+  "version": 2
 }
