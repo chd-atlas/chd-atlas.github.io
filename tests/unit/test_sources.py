@@ -543,6 +543,36 @@ def test_a_column_source_is_accepted_only_as_an_input_of_its_rows_package(
         assert _cover(root, {str(burden): used_sources}) == [("SRC008", str(burden))], name
 
 
+def test_a_column_source_is_held_to_its_owners_manifest(tmp_path: Path) -> None:
+    """S8 has no manifest of its own, so the per-source check routes it through
+    `audain2021_s6`'s. Its column relied on in a table that manifest does not list
+    (`profiles/hoc`, listed only by `toy_cells`) is SRC007 naming the owner; checked
+    against S8's own (absent) manifest instead, the check would pass silently."""
+    s6 = manifest_dict(package="audain2021_s6")
+    s6["inputs"].append(dict(s6["inputs"][0], name="s013.xlsx", url=_S8_URL, sha256=_S8_SHA))
+    cells = manifest_dict(package="toy_cells")
+    cells["tables"][0].update(name="profiles", file="profiles.tsv", shard="hoc")
+    _pin_packages(tmp_path, {"audain2021_s6": s6, "toy_cells": cells}, _S8_ENTRY.format(s8=_S8_SHA))
+    burden = _touch(tmp_path, "burden.tsv")
+    profiles = _touch(tmp_path, "profiles/hoc.tsv")
+    registry, _ = load_sources(tmp_path)
+
+    issues = validate_pins_cover_mirrors(
+        tmp_path,
+        registry,
+        {
+            str(burden): {"audain2021_s6", "audain2021_s8"},
+            str(profiles): {"toy_cells", "audain2021_s8"},
+        },
+    )
+
+    assert [(i.code, i.location) for i in issues] == [("SRC007", str(profiles))]
+    assert issues[0].message == (
+        "this mirror relies on source 'audain2021_s8', but the manifest of package "
+        "'audain2021_s6' does not list table 'profiles' shard 'hoc'; listed by: toy_cells"
+    )
+
+
 def test_the_column_source_message_names_the_listed_sha_and_the_fix(tmp_path: Path) -> None:
     burden = _s8_repo(tmp_path, s8_version_sha="d" * 63 + "e")
     registry, _ = load_sources(tmp_path)
