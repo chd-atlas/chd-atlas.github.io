@@ -1,5 +1,6 @@
 import hashlib
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -411,18 +412,30 @@ def test_a_source_a_mirror_relies_on_without_a_pin_is_src008(tmp_path: Path) -> 
     assert issues == [("SRC008", str(burden))]
 
 
+class _ReversedSet(set[str]):
+    """A set that iterates in reverse id order, whatever the hash seed."""
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(sorted(super().__iter__(), reverse=True))
+
+
 def test_two_unpinned_sources_at_one_location_are_reported_in_id_order(tmp_path: Path) -> None:
-    """`clinvar` and `hpo` are qualitatively distinct strings, so a dropped sort
-    cannot hide behind a set that happens to iterate in order (CLAUDE.md 4.42)."""
+    """The set is handed over iterating in REVERSE id order, so a dropped
+    `sorted(...)` fails on every seed. A plain `{"hpo", "clinvar"}` iterates
+    already-sorted for 142 of 300 `PYTHONHASHSEED` values (measured), so a test
+    on one would let that mutant survive about half the time (CLAUDE.md 4.42)."""
     unpinned = SOURCES_YAML.removeprefix("sources:\n")
     _pin_packages(tmp_path, {"toy_burden": manifest_dict()}, unpinned)
     burden = _touch(tmp_path, "burden.tsv")
     registry, _ = load_sources(tmp_path)
 
-    issues = validate_pins_cover_mirrors(tmp_path, registry, {str(burden): {"hpo", "clinvar"}})
+    issues = validate_pins_cover_mirrors(
+        tmp_path, registry, {str(burden): _ReversedSet({"hpo", "clinvar"})}
+    )
 
     assert [i.code for i in issues] == ["SRC008", "SRC008"]
-    assert ["'clinvar'" in issues[0].message, "'hpo'" in issues[1].message] == [True, True]
+    assert "'clinvar'" in issues[0].message
+    assert "'hpo'" in issues[1].message
 
 
 def _pin_packages(root: Path, manifests: dict[str, dict[str, Any]], extra: str = "") -> None:
