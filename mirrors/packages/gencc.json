@@ -1,0 +1,43 @@
+{
+  "built_by": {
+    "host": "workstation",
+    "recipe_commit": "4b0bc16f8a4755643dd51ce3fb0323015dfc44d3"
+  },
+  "coverage": "every_gene",
+  "dropped": [],
+  "ids": "hgnc_id",
+  "input_counts": {
+    "genes": 6113,
+    "rows": 30410
+  },
+  "inputs": [
+    {
+      "name": "gencc_submissions.tsv",
+      "retrieved_on": "2026-08-03",
+      "sha256": "88c77272f0fd7bf807387ca7b5ae549d15183bd57e45a97f26cafc4d4e5c7808",
+      "upstream_release": null,
+      "url": "https://raw.githubusercontent.com/chd-atlas/chd-atlas.github.io/4b1f8f68cbc30beaf932fbbc58e3617ebe401b6d/mirrors/gencc_submissions.tsv"
+    }
+  ],
+  "licence_evidence": "\"The GenCC data are available free of restriction under a CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.\" GenCC additionally \"requests that you give attribution to GenCC and the contributing sources whenever possible and appropriate\" -- a request, not a licence condition: CC0 waives all rights. -- https://thegencc.org/terms",
+  "package": "gencc",
+  "source": {
+    "licence": "CC0-1.0",
+    "name": "Gene Curation Coalition (GenCC) submissions export",
+    "redistribution": "permitted",
+    "retrieved_on": "2026-08-03",
+    "url": "https://search.thegencc.org/download",
+    "version": "retrieved 2026-08-03"
+  },
+  "tables": [
+    {
+      "file": "gencc_submissions.tsv.gz",
+      "format_version": 1,
+      "genes": 6113,
+      "name": "gencc_submissions",
+      "rows": 30410,
+      "sha256": "bf76216faf47a0d8d46a6d5e830614b337bbf1a3383a69a2594f72039c1913df"
+    }
+  ],
+  "version": "88c77272"
+}

@@ -20,9 +20,10 @@ Two packages carry their whole source where the atlas mirrors a slice:
   ``mondo_sssom`` after ClinGen and GenCC (`apply.ingest_order`), so a validity
   refresh re-filters Mondo in the same transaction.
 
-Both are the rules `scripts/convert_orphanet.py` applies (`_cardiovascular`,
-`_mirrored_terms`), read from that file, so a package of the whole source
-ingests to the committed mirrors. Every committed ``orphanet_phenotypes`` row
+Both are the rules the retired `scripts/convert_orphanet.py` applied
+(`_cardiovascular`, `_mirrored_terms`; removed once the chd-atlas/feeds
+packages replaced it), so a package of the whole source ingests to the
+committed mirrors. Every committed ``orphanet_phenotypes`` row
 is under the pinned branch (`test_every_committed_orphanet_phenotype_is_in_
 the_pinned_cardiovascular_branch`); every committed ``mondo_xrefs`` row names
 a disease of a committed validity mirror (measured 2026-11-12 with a csv read

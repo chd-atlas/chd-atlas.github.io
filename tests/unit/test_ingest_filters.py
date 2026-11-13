@@ -3,8 +3,9 @@
 An Orphanet product 4 package carries every phenotype annotation and a Mondo
 SSSOM package every exact match; ingest keeps the annotations under HP:0001626
 in the HPO release `mirrors/sources.yaml` pins, and the Mondo terms either
-validity mirror names, so the committed mirrors keep the rows the converter
-(`scripts/convert_orphanet.py`) kept. The ingest tests run on `small_repo`
+validity mirror names, so the committed mirrors keep the rows the retired
+converter (`scripts/convert_orphanet.py`, removed with the feeds packages)
+kept. The ingest tests run on `small_repo`
 (`genes.tsv` and `sources.yaml` copied, validation stubbed), so the filter is
 the only thing between a package row and the mirror.
 """
@@ -208,7 +209,7 @@ def test_a_mondo_package_keeps_the_terms_a_validity_mirror_names(
 ) -> None:
     """Either mirror, every row of it whatever its classification, as it stands when ingest runs.
 
-    `scripts/convert_orphanet.py::_mirrored_terms` kept the same set (the
+    The retired `scripts/convert_orphanet.py::_mirrored_terms` kept the same set (the
     `disease` of every row of both mirrors). Measured 2026-11-12 over the
     committed mirrors: all 10,011 `mondo_xrefs.tsv` rows name a disease of
     one of them, over 7,418 distinct MONDO terms.

@@ -503,7 +503,7 @@ GENCC_SUBMISSIONS = TableSchema(
         Column("report_url", pl.String, nullable=True),
     ),
     # The submitter, and then its own row id -- see
-    # `scripts/convert_gencc.py` for why: GenCC publishes every submitter's
+    # the chd-atlas/feeds `gencc` recipe's docstring for why: GenCC publishes every submitter's
     # verdict with none adjudicated, so two submitters disagreeing about one
     # gene-disease-moi is the normal case, and `submitter` alone is still not
     # enough to key on.
@@ -966,7 +966,7 @@ MONDO_XREFS = TableSchema(
     name="mondo_xrefs",
     columns=(
         Column("mondo", pl.String, pattern=MONDO_PATTERN),
-        # `skos:exactMatch` only; the converter drops every other predicate.
+        # `skos:exactMatch` only; the feeds `mondo_sssom` recipe drops every other predicate.
         Column("target", pl.String, pattern=XREF_TARGET_PATTERN),
         Column("source", pl.String),
     ),

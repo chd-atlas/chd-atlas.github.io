@@ -615,6 +615,17 @@ def test_an_entry_updated_in_place_changes_no_line_outside_it() -> None:
     no-op.
     """
     text = (REPO_ROOT / "mirrors" / "sources.yaml").read_text(encoding="utf-8")
+    # The committed entry carries its package pin since the phase 3 ingest, and the
+    # path under test is the one that appends the block, so take it back off.
+    pin_of = load_sources(REPO_ROOT)[0].by_id["orphanet_product4"].package
+    assert pin_of is not None
+    text = _replace_once(
+        text,
+        "    package:\n"
+        f"      version: {pin_of.version}\n"
+        f"      manifest_sha256: {pin_of.manifest_sha256}\n",
+        "",
+    )
     text = _replace_once(
         text,
         OLD_FILE_LINES,
