@@ -1,10 +1,14 @@
-"""Invariants of the committed population mirrors that no ingest filter states.
+"""Invariants of the committed mirrors that no ingest filter states.
 
-Since the ClinGen, GenCC and Orphanet converters left for chd-atlas/feeds, the
-mirrors are written only by `chd-atlas ingest`, so nothing in the atlas can
-show a converter defect; these tests read the committed files and the pinned
-values, which is what catches a mirror edited by hand or a pin changed without
-its release (CLAUDE.md section 4.23).
+Holds three kinds of guard: the population mirrors (Orphanet routes, the
+recorded Orphadata release), the evidence mirror `burden.tsv` (the Audain 2026
+and Audain 2021 rows), and the real-corpus run of SRC007/SRC008.
+
+Since the converters left for chd-atlas/feeds, the mirrors are written only by
+`chd-atlas ingest`, so nothing in the atlas can show a recipe defect; these
+tests read the committed files and the pinned values, which is what catches a
+mirror edited by hand or a pin changed without its release (CLAUDE.md section
+4.23).
 """
 
 from __future__ import annotations
@@ -72,10 +76,13 @@ def test_each_audain_2026_odds_ratio_matches_its_own_stratum() -> None:
     wrong numerator with a stratum publishes a plausible number that is the
     syndromic-only odds ratio against the whole cohort. Guards the committed
     rows: each odds ratio equals (a / (n - a)) / (c / (m - c)) within
-    max(0.02, 0.02 * expected) -- 2% relative with an absolute floor of 0.02 (the
-    precision the paper published at); measured on the committed rows, the
-    largest relative deviation is 0.47% and the largest absolute 0.173, over the
-    rows with a case carrier, a control carrier and a finite effect. Rows with 0
+    max(0.02, 0.02 * expected) -- 2% relative with an absolute floor of 0.02.
+    Measured on the committed rows, over those with a case carrier, a control
+    carrier and a finite effect: the largest relative deviation is 0.47% and the
+    largest absolute 0.173. The largest relative one is HGNC:16053 syndromic
+    synonymous, published as 1.04 against a computed 1.0449, which fits rounding
+    to about three significant figures; the tolerance is therefore roughly four
+    times the publication precision, not equal to it. Rows with 0
     or unbounded ratios carry no information about the pairing and are skipped.
     It does not guard how the feeds recipe pairs the columns, only what ingest
     wrote.
@@ -93,17 +100,22 @@ def test_each_audain_2026_odds_ratio_matches_its_own_stratum() -> None:
 
 
 def test_no_audain_2026_row_has_no_carrier_on_either_side() -> None:
-    """An absent cell means "no qualifying variant in either group", which the gene page says.
+    """PMID:42230622 has no row with 0 case and 0 control carriers.
 
-    A 2x2 table of zeros supports no test, so the study emitted no row for it;
-    that is what lets the renderer read a blank cell as "no carrier either
-    side" rather than "not tested". Guards the committed rows against a row
-    with 0 case and 0 control carriers, and pins the two one-sided counts: 384
-    rows without a case carrier and 37 without a control carrier. It does not
-    prove the study's emission rule (417 of the 417 checkable absences agreed
-    with it when measured against the workbook over the study's earlier 1,192
-    rows, 2026-08-05; not re-measured over the 1,462 rows now committed, and
-    the rest cannot be checked).
+    Guards the committed rows against such a row, which keeps the sentence in
+    `docs/data-api.md` (burden obligation 3) true, and pins the two one-sided
+    counts: 384 rows without a case carrier and 37 without a control carrier.
+    It does NOT establish what an absent (stratum, consequence) cell means in
+    general. The gene page and `methods.html` say an absent cell is not a null
+    result and does not always mean no such variant was seen; the stronger
+    reading, as a claim about every study, was withdrawn on 2026-08-05
+    (`build/pages.py`, the bullet beginning "A consequence class with no row").
+    Only for PMID:42230622 does `docs/data-api.md` add "no carrier on either
+    side". Against the workbook, 417 of
+    the 417 checkable absences were consistent with "no carrier either side"
+    when measured over the study's earlier 1,192 rows (2026-08-05); that was not
+    re-measured over the 1,462 rows now committed, and the rest cannot be
+    checked.
     """
     rows = _burden_rows("PMID:42230622")
     assert rows.filter(
@@ -113,14 +125,17 @@ def test_no_audain_2026_row_has_no_carrier_on_either_side() -> None:
     assert rows.filter(pl.col("n_control_carriers") == 0).height == 37
 
 
-def test_audain_2026_denominators_are_its_post_qc_set() -> None:
+def test_audain_2026_denominators_are_the_ones_its_statistics_used() -> None:
     """3,876 cases (1,471 syndromic + 2,405 non-syndromic) against 45,082 controls.
 
-    The abstract's 4,747 cases and 52,881 controls are recruitment figures;
-    every statistic in the mirror was computed on the post-QC numbers, so a page
-    printing the abstract's beside them would show a denominator no statistic
-    used. Guards the committed denominators and that the two strata partition
-    the cases. It does not check them against the workbook.
+    The abstract states 4,747 cases and 52,881 controls. The paper never states
+    3,876, 1,471 or 2,405 and does not reconcile the gap, so the reason for the
+    difference is unstated and is not asserted here (the retired converter's
+    docstring says the same: `git show 8e6710a:scripts/convert_burden.py`).
+    What is certain is which numbers the published odds ratios were computed
+    from, and the mirror carries those; a page printing the abstract's figures
+    beside them would show a denominator no statistic used. Guards the
+    committed denominators. It does not check them against the workbook.
     """
     rows = _burden_rows("PMID:42230622")
     by_stratum = {
@@ -130,7 +145,6 @@ def test_audain_2026_denominators_are_its_post_qc_set() -> None:
         for stratum in ("all", "syndromic", "nonsyndromic")
     }
     assert by_stratum == {"all": [3876], "syndromic": [1471], "nonsyndromic": [2405]}
-    assert by_stratum["syndromic"][0] + by_stratum["nonsyndromic"][0] == by_stratum["all"][0]
     assert rows["n_controls"].unique().to_list() == [45082]
 
 
@@ -192,15 +206,22 @@ def test_every_committed_mirror_file_is_listed_by_a_pinned_manifest() -> None:
     SRC007 and SRC008 only run when some source pins a package, so a repository
     that lost every pin would validate clean; this holds the real corpus
     directly. Measured at dbaa36f: 11 manifests list all 11 mirror files, and
-    every source a mirror row names is pinned except `audain2021_s8` (a column
-    of `audain2021_s6`'s rows, Decision 8 of the phase 3 plan).
+    every source a mirror relies on is pinned except `audain2021_s8`, which no
+    row's `source` names: `_used_sources` derives it from `n_chd_case_carriers`,
+    a column of `audain2021_s6`'s rows (Decision 8 of the phase 3 plan). Every
+    pinned manifest must load, so a corrupted one cannot make this pass by
+    having SRC007 skipped.
     """
+    from chd_atlas.models.package import load_manifest
     from chd_atlas.validate.runner import _used_sources
     from chd_atlas.validate.sources import validate_pins_cover_mirrors
 
     registry, load_issues = load_sources(REPO_ROOT)
     assert load_issues == []
-    assert any(source.package is not None for source in registry.sources)
+    pinned = [source for source in registry.sources if source.package is not None]
+    assert pinned
+    for source in pinned:
+        load_manifest(REPO_ROOT / "mirrors" / "packages" / f"{source.id}.json")
 
     issues = validate_pins_cover_mirrors(REPO_ROOT, registry, _used_sources(REPO_ROOT))
 
