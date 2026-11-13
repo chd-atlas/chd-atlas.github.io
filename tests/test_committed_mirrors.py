@@ -179,3 +179,24 @@ def test_audain_2021_rows_carry_their_note_denominators_and_s8_split() -> None:
         "HGNC:7976": (10, 10),  # NR2F2
         "HGNC:8569": (10, 10),  # PCSK6, unpublished
     }
+
+
+def test_every_committed_mirror_file_is_listed_by_a_pinned_manifest() -> None:
+    """The real repository, with no `sources.yaml` gate (unlike the validator).
+
+    SRC007 and SRC008 only run when some source pins a package, so a repository
+    that lost every pin would validate clean; this holds the real corpus
+    directly. Measured at dbaa36f: 11 manifests list all 11 mirror files, and
+    every source a mirror row names is pinned except `audain2021_s8` (a column
+    of `audain2021_s6`'s rows, Decision 8 of the phase 3 plan).
+    """
+    from chd_atlas.validate.runner import _used_sources
+    from chd_atlas.validate.sources import validate_pins_cover_mirrors
+
+    registry, load_issues = load_sources(REPO_ROOT)
+    assert load_issues == []
+    assert any(source.package is not None for source in registry.sources)
+
+    issues = validate_pins_cover_mirrors(REPO_ROOT, registry, _used_sources(REPO_ROOT))
+
+    assert [i.format() for i in issues] == []

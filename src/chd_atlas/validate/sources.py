@@ -7,6 +7,7 @@ because the atlas redistributes third-party data.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from datetime import date
 from pathlib import Path, PurePosixPath
 
@@ -25,7 +26,7 @@ from chd_atlas.duplicates import duplicates
 from chd_atlas.fs import list_dir
 from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.models.package import SEGMENT, ManifestError, load_manifest
-from chd_atlas.tables import PACKAGES_DIR
+from chd_atlas.tables import FLAT_TABLES, PACKAGES_DIR, mirror_paths
 from chd_atlas.vocab import Redistribution
 
 
@@ -327,6 +328,94 @@ def validate_package_pins(root: Path, registry: SourceRegistry) -> list[Validati
                     str(entry),
                     f"'{entry.name}' is a package manifest but no source in "
                     f"mirrors/sources.yaml pins package '{entry.stem}'",
+                )
+            )
+    return issues
+
+
+# A source no table's rows are, but one column of another source's rows is
+# (plan Decision 8): `audain2021_s8` supplies `n_chd_case_carriers` on the
+# `audain2021_s6` package's burden rows. It keeps a hand-written registry entry
+# and no package; it is accepted because its `version` sha256 is an input of
+# the named package's committed manifest.
+COLUMN_ONLY_SOURCES: dict[str, str] = {"audain2021_s8": "audain2021_s6"}
+
+
+def validate_pins_cover_mirrors(
+    root: Path, registry: SourceRegistry, used: Mapping[str, set[str]]
+) -> list[ValidationIssue]:
+    """Every mirror row must come from a pinned package (SRC007, SRC008).
+
+    SRC007: a mirror file (`mirror_paths`) that no pinned source's committed
+    manifest lists by `(table, shard)`. SRC008: a source a mirror relies on
+    (`used`, as `runner._used_sources` returns it) that has no `package` pin and
+    is not a `COLUMN_ONLY_SOURCES` entry whose `version` sha256 is an input of
+    its package's manifest. A source id the registry does not hold is SRC003's,
+    not reported here.
+
+    Runs only when some source pins a package, so pin-less repositories (most
+    unit fixtures) stay valid; `tests/test_committed_mirrors.py` holds the real
+    corpus without that gate. A pinned manifest that cannot be read is SRC005's
+    (`validate_package_pins`): listing nothing, it would report every file it
+    would have listed, so SRC007 is skipped when any pinned manifest is
+    unreadable, and a column-only source whose package manifest is unreadable
+    is not reported either.
+    """
+    pinned = [source for source in registry.sources if source.package is not None]
+    if not pinned:
+        return []
+
+    inputs: dict[str, set[str]] = {}
+    listed: set[tuple[str, str | None]] = set()
+    unreadable = False
+    for source in pinned:
+        try:
+            manifest = load_manifest(root / "mirrors" / PACKAGES_DIR / f"{source.id}.json")
+        except ManifestError:
+            unreadable = True
+            continue
+        inputs[source.id] = {entry.sha256 for entry in manifest.inputs}
+        listed |= {(table.name, table.shard) for table in manifest.tables}
+
+    issues: list[ValidationIssue] = []
+    if not unreadable:
+        for path, schema_name in mirror_paths(root):
+            shard = None if schema_name in FLAT_TABLES else path.stem
+            if (schema_name, shard) not in listed:
+                issues.append(
+                    ValidationIssue(
+                        "SRC007",
+                        Severity.ERROR,
+                        str(path),
+                        f"no pinned package manifest lists table '{schema_name}'"
+                        + (f" shard '{shard}'" if shard else "")
+                        + "; mirror rows must be ingested from a pinned package",
+                    )
+                )
+
+    for location in sorted(used):
+        for source_id in sorted(used[location]):
+            entry = registry.by_id.get(source_id)
+            if entry is None or entry.package is not None:
+                continue
+            owner = COLUMN_ONLY_SOURCES.get(source_id)
+            if owner is not None:
+                if owner not in inputs and any(s.id == owner for s in pinned):
+                    continue  # the owner's manifest is unreadable: SRC005's
+                digest = entry.version.removeprefix("sha256:")
+                if entry.version.startswith("sha256:") and digest in inputs.get(owner, set()):
+                    continue
+            issues.append(
+                ValidationIssue(
+                    "SRC008",
+                    Severity.ERROR,
+                    location,
+                    f"this mirror relies on source '{source_id}', which pins no package"
+                    + (
+                        f" and whose version is not an input of package '{owner}'"
+                        if owner is not None
+                        else ""
+                    ),
                 )
             )
     return issues

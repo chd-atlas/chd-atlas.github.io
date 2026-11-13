@@ -1800,3 +1800,31 @@ def test_exactly_one_absent_validity_mirror_is_an_error_naming_the_file(
     assert absent in found[0].message
     assert report.ok is False
     assert "TBL012" not in {issue.code for issue in report.issues}
+
+
+def test_an_unlisted_mirror_file_reaches_the_report_on_the_loaded_registry_branch(
+    tmp_path: Path,
+) -> None:
+    """SRC007 is called where the registry loaded, the only branch that checks pins
+    (CLAUDE.md 4.34); the registry-unreadable branch reports SRC000 and none of it."""
+    import hashlib
+    import json
+
+    from tests.unit.package_fixtures import manifest_dict
+
+    data = json.dumps(manifest_dict(package="clinvar")).encode()
+    (tmp_path / "mirrors" / "packages").mkdir(parents=True)
+    (tmp_path / "mirrors" / "packages" / "clinvar.json").write_bytes(data)
+    (tmp_path / "mirrors" / "genes.tsv").write_text("x\n")
+    (tmp_path / "mirrors" / "sources.yaml").write_text(
+        "sources:\n"
+        "  - id: clinvar\n    name: ClinVar\n    version: '1'\n    retrieved_on: 2026-07-15\n"
+        "    url: https://x.org/\n    licence: public-domain\n    redistribution: permitted\n"
+        "    package:\n      version: '2026-11-10.1'\n"
+        f"      manifest_sha256: '{hashlib.sha256(data).hexdigest()}'\n"
+    )
+
+    report = validate_repository(tmp_path)
+
+    assert [i.code for i in report.issues if i.code == "SRC007"] == ["SRC007"]
+    assert not any(i.code in {"SRC000", "SRC001", "SRC005"} for i in report.issues)

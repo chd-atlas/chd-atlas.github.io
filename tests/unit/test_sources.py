@@ -5,7 +5,11 @@ from typing import Any
 
 import pytest
 
-from chd_atlas.validate.sources import load_sources, validate_package_pins
+from chd_atlas.validate.sources import (
+    load_sources,
+    validate_package_pins,
+    validate_pins_cover_mirrors,
+)
 from tests.unit.package_fixtures import manifest_dict
 
 SOURCES_YAML = """\
@@ -354,3 +358,147 @@ def test_a_manifest_no_pin_claims_is_src006(tmp_path: Path) -> None:
     (stray.parent / "notes.txt").write_text("ignored here; TBL009 owns it")
 
     assert _pin_issues(tmp_path) == [("SRC006", str(stray))]
+
+
+# --- every mirror row comes from a pinned package (feeds phase 3, task 18) ---
+
+
+def _cover(root: Path, used: dict[str, set[str]]) -> list[tuple[str, str]]:
+    registry, load_issues = load_sources(root)
+    assert load_issues == []
+    return [(i.code, i.location) for i in validate_pins_cover_mirrors(root, registry, used)]
+
+
+def _touch(root: Path, relative: str) -> Path:
+    path = root / "mirrors" / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("x\n")
+    return path
+
+
+def test_a_mirror_file_no_manifest_lists_is_src007(tmp_path: Path) -> None:
+    """`toy_burden`'s manifest lists `burden` (flat); the genes file and a
+    `profiles` shard are listed by nobody. A listed table in a different shard
+    does not cover another shard of the same table."""
+    _pinned_repo(tmp_path)
+    burden = _touch(tmp_path, "burden.tsv")
+    genes = _touch(tmp_path, "genes.tsv")
+    shard = _touch(tmp_path, "profiles/E-MTAB-6814.tsv")
+
+    issues = _cover(tmp_path, {str(burden): {"toy_burden"}})
+
+    assert sorted(issues) == sorted([("SRC007", str(genes)), ("SRC007", str(shard))])
+
+
+def test_a_listed_shard_is_covered_by_table_and_shard_together(tmp_path: Path) -> None:
+    manifest = manifest_dict()
+    manifest["tables"][0].update(name="profiles", file="profiles.tsv", shard="E-MTAB-6814")
+    _pinned_repo(tmp_path, manifest=manifest)
+    listed = _touch(tmp_path, "profiles/E-MTAB-6814.tsv")
+    other = _touch(tmp_path, "profiles/hoc.tsv")
+
+    assert _cover(tmp_path, {}) == [("SRC007", str(other))]
+    assert listed.exists()
+
+
+def test_a_source_a_mirror_relies_on_without_a_pin_is_src008(tmp_path: Path) -> None:
+    _pinned_repo(tmp_path)
+    burden = _touch(tmp_path, "burden.tsv")
+
+    issues = _cover(tmp_path, {str(burden): {"toy_burden", "hpo", "not_in_registry"}})
+
+    # `hpo` is registered and unpinned; an unregistered id is SRC003's, not ours.
+    assert issues == [("SRC008", str(burden))]
+
+
+_S8_SHA = "d" * 64
+_S6_SOURCES = """\
+sources:
+  - id: audain2021_s6
+    name: S6
+    version: "sha256:{s6}"
+    retrieved_on: 2026-08-05
+    url: https://x.org/s6
+    licence: CC0-1.0
+    redistribution: permitted
+    package:
+      version: "2026-11-10.1"
+      manifest_sha256: "{pin}"
+  - id: audain2021_s8
+    name: S8
+    version: "sha256:{s8}"
+    retrieved_on: 2026-08-05
+    url: https://x.org/s8
+    licence: CC0-1.0
+    redistribution: permitted
+"""
+
+
+def _s8_repo(root: Path, *, s8_version_sha: str, in_package: str = "audain2021_s6") -> Path:
+    """`audain2021_s6` pins a manifest whose second input is `_S8_SHA`; the S8
+    source's `version` carries `s8_version_sha`. A second package, `other`,
+    also lists `_S8_SHA` when `in_package` is not s6 (the exemption must not
+    accept another package's inputs)."""
+    manifest = manifest_dict(package="audain2021_s6", version="2026-11-10.1")
+    manifest["inputs"].append(dict(manifest["inputs"][0], name="s013.xlsx", sha256=_S8_SHA))
+    if in_package != "audain2021_s6":
+        manifest["inputs"][1]["sha256"] = "e" * 64
+    data = json.dumps(manifest).encode()
+    _write_sources(
+        root,
+        _S6_SOURCES.format(s6="c" * 64, s8=s8_version_sha, pin=hashlib.sha256(data).hexdigest()),
+    )
+    packages = root / "mirrors" / "packages"
+    packages.mkdir(parents=True, exist_ok=True)
+    (packages / "audain2021_s6.json").write_bytes(data)
+    return _touch(root, "burden.tsv")
+
+
+def test_a_column_source_is_accepted_only_as_an_input_of_its_rows_package(
+    tmp_path: Path,
+) -> None:
+    burden = _s8_repo(tmp_path, s8_version_sha=_S8_SHA)
+    used = {str(burden): {"audain2021_s6", "audain2021_s8"}}
+    assert _cover(tmp_path, used) == []
+
+    # One hex digit off: no longer an input of the package.
+    one_off = tmp_path / "off"
+    burden = _s8_repo(one_off, s8_version_sha="d" * 63 + "e")
+    assert _cover(one_off, {str(burden): {"audain2021_s6", "audain2021_s8"}}) == [
+        ("SRC008", str(burden))
+    ]
+
+    # The right hex, but the package does not list it (the exemption names a
+    # package's own inputs, not "any sha anywhere").
+    elsewhere = tmp_path / "elsewhere"
+    burden = _s8_repo(elsewhere, s8_version_sha=_S8_SHA, in_package="other")
+    assert _cover(elsewhere, {str(burden): {"audain2021_s6", "audain2021_s8"}}) == [
+        ("SRC008", str(burden))
+    ]
+
+
+def test_a_repository_with_no_pin_is_not_checked(tmp_path: Path) -> None:
+    """Decision 9's gate: many unit fixtures build pin-less repositories."""
+    _write_sources(tmp_path)
+    burden = _touch(tmp_path, "burden.tsv")
+
+    assert _cover(tmp_path, {str(burden): {"clinvar"}}) == []
+
+
+def test_an_unreadable_manifest_adds_nothing_beyond_its_src005(tmp_path: Path) -> None:
+    """SRC005 already names the broken manifest; every file it would have listed
+    must not also report SRC007."""
+    path = _pinned_repo(tmp_path, raw=b"{not json")
+    burden = _touch(tmp_path, "burden.tsv")
+    assert path.exists()
+
+    assert _cover(tmp_path, {str(burden): {"toy_burden"}}) == []
+
+
+def test_a_column_source_whose_package_manifest_is_unreadable_is_not_reported(
+    tmp_path: Path,
+) -> None:
+    burden = _s8_repo(tmp_path, s8_version_sha=_S8_SHA)
+    (tmp_path / "mirrors" / "packages" / "audain2021_s6.json").write_bytes(b"{not json")
+
+    assert _cover(tmp_path, {str(burden): {"audain2021_s6", "audain2021_s8"}}) == []
