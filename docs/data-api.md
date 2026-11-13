@@ -2091,9 +2091,11 @@ published as `terms` in `search/index.json.gz`; and `name`, `locus`,
 
 **`prev_symbols` was a lookup input only until `2.13`, and this paragraph said
 so.** It carries the HGNC symbols a gene has had withdrawn, and it arrived for
-the join: the resolver in `chd_atlas/genes.py` ranks an approved symbol above a
-current alias above a retired name, so a source still writing an old name lands
-on the right gene. Search did not read it, which meant **35 of the 92 published
+the join: the resolver in `chd_atlas/genes.py` ranks an approved symbol above
+every alias and retired name, and answers a name from the alias and retired
+columns together, so a source still writing an old name lands on the right gene
+and a name those columns give to two genes is refused rather than guessed.
+Search did not read it, which meant **35 of the 92 published
 genes held a retired symbol nothing on this site could find** — `TBX5`←`HOS`,
 `VEGFA`←`VEGF`, `ZIC3`←`HTX1`. `2.13` publishes them: 46 terms across those 35
 records, and **zero of them already named anything else in the index**, so no

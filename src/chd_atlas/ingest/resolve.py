@@ -12,7 +12,8 @@ cache (`local/packages/hgnc/<version>/`), never `mirrors/genes.tsv`: the two
 differ by construction (the mirror is a filtered registry of the atlas's own
 genes) and falling back would resolve against the wrong population. A missing
 pin or cache is `ING008`. Symbols go through `GeneRegistry.resolve`, so the
-precedence (approved, alias, previous; ambiguous refused) is the registry's own.
+rule (an approved symbol first, then an alias or previous symbol claimed by
+exactly one gene across both; anything else refused) is the registry's own.
 
 Two deliberate limits:
 
