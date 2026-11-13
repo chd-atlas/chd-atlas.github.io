@@ -2643,10 +2643,17 @@ requested citation ends "Data version [date]", and the site's front page prints
 both there.
 
 `package` (since `2.22`) names the data package a source's mirrored rows were
-ingested from: its `version` and the sha256 of its manifest. `null` when the
-source's rows were not ingested from a package: every source as of `2.22`, and
-for good a source no mirror table holds rows from, such as `hpo` above, whose
-release is pinned as an ontology file instead.
+ingested from: its `version` and the sha256 of its manifest. It is one of three
+things:
+
+- an object, for a source whose rows a mirror table holds (11 of the 13 entries
+  at this release);
+- `null` for a source no mirror table holds rows from, such as `hpo` above,
+  whose release is pinned as an ontology file instead;
+- `null` for `audain2021_s8`, whose one column (`n_chd_case_carriers`) arrives
+  inside the `audain2021_s6` package's burden rows rather than in a package of
+  its own. That package's manifest lists the S8 file's sha256 as an input, and
+  the entry's `version` is that sha256.
 
 The registry also carries `clingen` and `gencc` — the two sources every
 mirrored record in a gene bundle's `validity.records` is attributed to.
