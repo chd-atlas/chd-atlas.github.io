@@ -1800,3 +1800,45 @@ def test_exactly_one_absent_validity_mirror_is_an_error_naming_the_file(
     assert absent in found[0].message
     assert report.ok is False
     assert "TBL012" not in {issue.code for issue in report.issues}
+
+
+def test_an_unlisted_mirror_file_reaches_the_report_on_the_loaded_registry_branch(
+    tmp_path: Path,
+) -> None:
+    """SRC007 and SRC008 are called where the registry loaded, the only branch that
+    checks pins (CLAUDE.md 4.34); the registry-unreadable branch reports SRC000
+    and none of it. SRC008 is asserted here because the runner is what hands it
+    `_used_sources`: replacing that argument with `{}` leaves `test_sources.py`
+    green (it calls the function directly) and only this test red."""
+    import hashlib
+    import json
+
+    from tests.unit.package_fixtures import manifest_dict
+
+    data = json.dumps(manifest_dict(package="clinvar")).encode()
+    (tmp_path / "mirrors" / "packages").mkdir(parents=True)
+    (tmp_path / "mirrors" / "packages" / "clinvar.json").write_bytes(data)
+    (tmp_path / "mirrors" / "genes.tsv").write_text("x\n")
+    # A mirror whose one row names `hpo`: registered, and pinned to no package.
+    (tmp_path / "mirrors" / "mondo_xrefs.tsv").write_text(
+        "mondo\ttarget\tsource\nMONDO:0000001\tOMIM:100000\thpo\n"
+    )
+    (tmp_path / "mirrors" / "sources.yaml").write_text(
+        "sources:\n"
+        "  - id: clinvar\n    name: ClinVar\n    version: '1'\n    retrieved_on: 2026-07-15\n"
+        "    url: https://x.org/\n    licence: public-domain\n    redistribution: permitted\n"
+        "    package:\n      version: '2026-11-10.1'\n"
+        f"      manifest_sha256: '{hashlib.sha256(data).hexdigest()}'\n"
+        "  - id: hpo\n    name: HPO\n    version: '1'\n    retrieved_on: 2026-07-15\n"
+        "    url: https://x.org/hpo\n    licence: public-domain\n"
+        "    redistribution: permitted\n"
+    )
+
+    report = validate_repository(tmp_path)
+
+    assert [(i.code, i.location) for i in report.issues if i.code.startswith("SRC00")] == [
+        ("SRC007", "mirrors/genes.tsv"),
+        ("SRC007", "mirrors/mondo_xrefs.tsv"),
+        ("SRC008", "mirrors/mondo_xrefs.tsv"),
+    ]
+    assert not any(i.code in {"SRC000", "SRC001", "SRC005"} for i in report.issues)

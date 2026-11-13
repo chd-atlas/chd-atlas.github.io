@@ -38,10 +38,12 @@ def validate_symbol_resolution(
     **GEN001 (unmapped) and GEN002 (ambiguous) are the whole point of the
     issue.** A source that publishes symbols alone -- CHDgene is the likely
     first, see #31 -- gets joined onto HGNC ids somewhere, and the failure mode
-    is not a crash: it is a row quietly not appearing. `scripts/convert_burden.py`
-    already demonstrates the discipline, naming all 25 Excel date-corrupted
-    symbols (`2001-03-01` = MARCH1/MARC1 collapsed) on every run, which is the
-    only reason anyone knows about them.
+    is not a crash: it is a row quietly not appearing. The chd-atlas/feeds
+    `audain2026_sd3` recipe, like the converter it replaced, demonstrates the
+    discipline: it records the Excel date-corrupted
+    symbols (`2001-03-01` = MARCH1/MARC1 collapsed) in its manifest's `dropped`
+    list instead of losing them silently: the row count (209) and up to five
+    examples, not all 25 symbols (the retired converter named all 25).
 
     Warnings rather than errors, deliberately. An unresolvable symbol in an
     upstream file is not a defect in *this* repository's curation, and refusing

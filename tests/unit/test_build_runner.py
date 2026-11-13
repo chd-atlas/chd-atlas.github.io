@@ -673,13 +673,16 @@ def test_the_committed_cell_type_mirror_reaches_every_bundle_page_and_count_it_c
     and one equal to the mirror's gene count would let a census of the whole
     mirror pass, so either equality fails here and asks for a fixture instead.
 
-    **Two equalities that guard cannot see** (measured 2026-11-02 on a real
-    build's `manifest.json` `counts`): the covered count 118 equals the burden
-    census's gene count (118), and the one dataset equals `profile_datasets`
-    (1). So `cell_type_genes` published from the burden census, or
-    `cell_type_datasets` from the profile census, passes here. The
-    monkeypatched `test_the_cell_type_census_is_published_under_its_own_keys`
-    below kills both.
+    **One equality that guard cannot see:** the one dataset equals
+    `profile_datasets` (1, measured on a real build's `manifest.json`
+    `counts` 2026-11-13), so `cell_type_datasets` published from the profile
+    census passes here. The covered count used to equal the burden census's
+    gene count as well (both 118 on 2026-11-02, so `cell_type_genes` published
+    from the burden census passed); since the Audain 2026 package recovered
+    CRIPTO's rows through its previous symbol TDGF1 (2026-11-13) the burden
+    census counts 119 and that cross-wire fails here too. The monkeypatched
+    `test_the_cell_type_census_is_published_under_its_own_keys` below still
+    kills both and stays.
 
     Mutants, each applied to `build/runner.py` and run against this test alone
     (2026-11-02): `cell_types=` deleted from the `build_genes` call or the
@@ -713,7 +716,7 @@ def test_the_committed_cell_type_mirror_reaches_every_bundle_page_and_count_it_c
         "the committed corpus no longer separates the covered genes from the published "
         "ones, the mirrored ones, the dataset count or none; build a fixture that does"
     )
-    # Not a guard against 118 = burden genes or 1 = profile_datasets: see the docstring.
+    # Not a guard against 1 = profile_datasets: see the docstring.
     assert counts["cell_type_genes"] == len(covered)
     assert counts["cell_type_datasets"] == 1
     landing = (out / "index.html").read_text()
@@ -751,13 +754,14 @@ def test_the_cell_type_census_is_published_under_its_own_keys(
 ) -> None:
     """`build_site` publishes the cell-type census under `cell_type_*`, from nothing else.
 
-    The real-build test above cannot separate `cell_type_genes` from the burden
-    census's gene count (both 118) or `cell_type_datasets` from `profile_datasets`
-    (both 1): CLAUDE.md section 4.30. A patched census whose values appear in no
-    other count makes every cross-wire visible. Measured 2026-11-02, no value in
-    a real build's `counts` is 5 or 3 (they are 0, 1, 2, 8, 11, 20, 32, 105,
-    108, 118, 119 and 1,210), and the first two assertions re-check that on
-    this build, so a new count equal to either fails loudly here.
+    The real-build test above cannot separate `cell_type_datasets` from
+    `profile_datasets` (both 1), and could not separate `cell_type_genes` from
+    the burden census's gene count while both were 118: CLAUDE.md section 4.30.
+    A patched census whose values appear in no other count makes every
+    cross-wire visible. Measured 2026-11-13 on a real build, no value in
+    `counts` is 5 or 3 (they are 0, 1, 2, 8, 20, 32, 86, 94, 105, 108, 118,
+    119 and 1,219), and the first two assertions re-check that on this build,
+    so a new count equal to either fails loudly here.
     """
     monkeypatch.setattr(
         "chd_atlas.build.runner.cell_type_census",

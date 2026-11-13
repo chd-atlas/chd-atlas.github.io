@@ -1234,14 +1234,15 @@ def _card_rare_variants(
     study by an atlas author)" where several did and all are, and "(k of the
     n studies by an atlas author)" where only some are -- counted in studies,
     because the line's own count is of datasets and one family may hold both
-    kinds. Measured on a real build: all 86 such lines carry it (24 + 4 of
-    the first form, 48 of the second, 7 + 3 of the third). Where a
+    kinds. Measured on a build of 1861252 (2026-11-13): all 87 such lines
+    carry it (29 of the first form, 48 of the second, 7 + 3 of the third). Where a
     no-correction line follows for the same study, it carries the mark too
     (24 cards); each line keeps its own declaration. With no row at all it says no
     study here reports a result, and not that no study *tested* the gene: a
-    supplement that omits a gene (CRIPTO, in PMID:42230622) does not say the
-    study never ran it. The power caveat follows whenever the gene has rows,
-    so "none survives" never stands alone beside a definitive chip.
+    supplement that omits a gene does not say the study never ran it (CRIPTO
+    looked like such a gene until 2026-11-13, when its TDGF1 rows were recovered).
+    The power caveat follows whenever the gene has rows, so "none survives" never
+    stands alone beside a definitive chip.
 
     **The count carries the front page's qualifier** (owner answer
     2026-10-27), `render.REGISTRY_QUALIFIER`, "(as far as the cohort registry
@@ -1250,9 +1251,10 @@ def _card_rare_variants(
     no overlap the registry does not record. It follows the count directly
     and precedes the declaration: placed after it, it would read as
     qualifying who wrote the studies, which the registry does not record at
-    all. Measured on a real build the day it was added: all 86 lines carry
-    it, in these five forms: "Tested in 1 independent dataset (as far
-    as the cohort registry records) (a study by an atlas author)." on 24, the
+    all. Measured on a real build the day it was added (2026-10-27): all 86
+    lines carried it (87 since 2026-11-13; see above), in these five forms:
+    "Tested in 1 independent dataset (as far as the cohort registry records)
+    (a study by an atlas author)." on 24, the
     same ending "; none survives a correction its study published." on 4,
     "(each study by an atlas author)" on 48, and two datasets with "(1 of the
     2 studies ...)" on 7 and "(2 of the 3 studies ...)" on 3.
@@ -2558,15 +2560,18 @@ def _burden_section(
       study that publishes one has it. Synonymous variants should show no
       enrichment; where one does, that gene's comparison is poorly calibrated.
       It is sorted last within each stratum so it reads as what it is -- the row
-      that says whether to believe the two above it. 69 of the 290 published
-      rows are synonymous and every one is from PMID:42230622, so
+      that says whether to believe the two above it. 69 of the 290 rows then
+      published were synonymous and every one was from PMID:42230622, so
       `_SYNONYMOUS_NOTICE` was conditional: a page with no such row must not
       promise a check it cannot offer.
 
     The last two bullets' sentences left the page on 2026-10-26 (D50): they
     were the folded reading notes, identical wherever they rendered -- the
     absent-row sentence on all 118 pages with a rare-variant section, the
-    synonymous one on the 113 of them with a synonymous row -- and are now on
+    synonymous one on the 113 of them with a synonymous row (118 and 113 on
+    that day's build; 119 and 114 on a build of dbaa36f, counted as the gene
+    pages containing `id="rare-variants"` and the genes bundles with a
+    `consequence_class == "synonymous"` burden row) -- and are now on
     `methods.html#rare-variants` (`methods._RARE_VARIANTS`), stated once with
     their conditions in their own words. The first stays, as the pooling
     caption and the `shared_cohorts` notice.
@@ -2709,8 +2714,9 @@ def _burden_section(
     #
     # The general reading notes -- the units glossary, what an absent cell means,
     # and the synonymous negative control -- were folded here under "How to read
-    # these numbers": the first two on all 118 pages carrying a rare-variant
-    # section, the third on the 113 of them with a synonymous row.
+    # these numbers": the first two on all 118 pages then carrying a rare-variant
+    # section, the third on the 113 of them with a synonymous row (119 and 114
+    # on a build of dbaa36f, counted as in `_burden_section`'s docstring).
     # They moved to `methods.html#rare-variants` on 2026-10-26 (D50), which
     # `_MIRRORED_NOTICE` links; none is lost -- the unit word is still in every
     # cell and the matrix renders `not tested` as its own state.
@@ -3375,8 +3381,10 @@ _STRATUM_UNION: Final[tuple[str, tuple[str, ...]]] = (
 # genes -- KLF13, CFC1, MYH11" (measured 2026-08-20) until 2026-10-26, which
 # counted the second set and read as the first. Measured that day on a build of
 # 4233eca: **77 pages**, one block each, all PMID:34324492; 4 of them (KLF13,
-# CFC1, HRAS, MYH11) carry no other study. CRIPTO carries no burden row at all
-# and reaches this section never.
+# CFC1, HRAS, MYH11) carry no other study. CRIPTO gained 9 burden rows when its
+# TDGF1 rows were recovered through the previous symbol (2026-11-13): all 9 are
+# PMID:42230622's, so it carries no PMID:34324492 block (re-measured on a build
+# of dbaa36f: 77 pages with that study, the same four with no other).
 _NO_EFFECT_MEASURE: Final = (
     '<p class="method">This study publishes <strong>no effect measure</strong> for this '
     "gene &mdash; no odds ratio, enrichment or rate ratio &mdash; so there is nothing to "

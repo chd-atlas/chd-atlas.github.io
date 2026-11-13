@@ -165,8 +165,8 @@ def validate_burden(root: Path) -> list[ValidationIssue]:
         # `case` is within it (measured 2026-10-27, "only CHD" plus "only TAA"
         # is "CHD+TAA", which is S6's `case`, for all 528 genes, a blank read
         # as none). What catches a misread band is
-        # `scripts/convert_audain2021.py`, which locates the column from S8's
-        # header rows and refuses a sheet where it cannot.
+        # the chd-atlas/feeds `audain2021_s6` recipe, which locates the column from
+        # S8's header rows and refuses a sheet where it cannot.
         for carriers, total in (
             ("n_case_carriers", "n_cases"),
             ("n_control_carriers", "n_controls"),

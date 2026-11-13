@@ -309,8 +309,9 @@ def test_the_manifest_gene_count_is_the_population_not_the_genes_carrying_burden
     **The fixture's health check is TBX20's own bundle, not an arithmetic
     identity.** It was `carrying == len(bundles) - 1` until 2026-08-06, which
     silently assumed every other published gene carries burden rows. The widened
-    gate admits genes no burden study covered — measured on the committed
-    mirrors, one published gene has no rows before this fixture removes any — so
+    gate admitted genes no burden study covered — on 2026-08-06 one published
+    gene had no rows (since 2026-11-13 CRIPTO has 9, and on a build of
+    dbaa36f all 119 published genes carry burden rows) — so
     that identity started failing for a reason that had nothing to do with what
     it was guarding. Naming the gene the fixture edits is the check that stays
     true however many others are untested, and it fails loudly if TBX20 ever
@@ -612,8 +613,9 @@ def test_the_burden_census_reaches_the_page_once_per_figure(
     correction (`HGNC:2`'s one row; none of `HGNC:1`'s five), so the new figure
     differs from every other (CLAUDE.md section 4.30). Its label is not the
     owner's "Genes tested in rare-variant studies": the figure counts genes a
-    study reports a result for, and the gene it leaves out on a real build
-    (CRIPTO) is one a study may have tested and not reported.
+    study reports a result for, which a study may do for fewer genes than it
+    tested (on a build of dbaa36f every one of the 119 published genes has a
+    result, so the real corpus no longer shows the difference).
 
     The third family reports on no published gene, which is what makes it
     different from the gene count. That is not contrived -- it is a study whose
@@ -1164,8 +1166,9 @@ def test_the_orphadata_citation_states_the_release_each_product_was_mirrored_fro
 
     The page printed none and pointed to `sources.json`, which identified both
     files by sha256 alone. Each product's own `<JDBOR>` header version and date
-    are now in `mirrors/sources.yaml`, written there by the converter, and the
-    citation prints them: once where both products are one release on one day
+    are now in `mirrors/sources.yaml`, written there by `chd-atlas ingest` from
+    the package manifest, and the citation prints them: once where both products
+    are one release on one day
     (the literal in the test above), each by name where they differ, and
     nothing where no header was recorded -- never a version one product
     carries attributed to both, which is also why a release only one product
