@@ -24,7 +24,7 @@ import hashlib
 import json
 import re
 import shutil
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +47,7 @@ from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.models.package import PackageSource, RegistrySlice
 from chd_atlas.registry import RegistryUnavailable, derive_registry_from_root
 from chd_atlas.tables import TABLE_SCHEMAS, mirror_paths, table_layout
+from chd_atlas.validate import runner as validate_runner
 from chd_atlas.validate.runner import ValidationReport, validate_repository
 from chd_atlas.validate.sort_order import validate_sort_order
 from chd_atlas.validate.sources import PackagePin, load_sources
@@ -59,6 +60,23 @@ SLICE_COMMIT = "0123456789abcdef0123456789abcdef01234567"
 SENTINEL = "  # SENTINEL: a comment above clingen, which an ingest must not move\n"
 TOY_MAF = "0.0001"
 OUTSIDE_GENE = "HGNC:5"  # A1BG: a valid HGNC id, not in mirrors/genes.tsv
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _partial_pins_are_the_point_of_these_fixtures() -> Iterator[None]:
+    """Switch off SRC007/SRC008 (`validate_pins_cover_mirrors`) for this module.
+
+    Every fixture here copies the committed corpus with its pins removed and
+    ingests one toy package into it, so the repository the real validator sees
+    has one pin and mirror files other sources wrote: exactly what SRC007 and
+    SRC008 refuse. Measured with the guard on: 3 failures and 10 errors in this
+    file, all ING010 listing only SRC007 and SRC008. Those two codes are held by
+    `tests/unit/test_sources.py`, the runner's call-site test and
+    `tests/test_committed_mirrors.py`, not here; every other check still runs.
+    """
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(validate_runner, "validate_pins_cover_mirrors", lambda *_args: [])
+        yield
 
 
 _PIN_BLOCK = re.compile(
