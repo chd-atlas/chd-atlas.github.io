@@ -382,12 +382,11 @@ GENES = TableSchema(
         Column("name", pl.String),
         Column("aliases", pl.String, nullable=True),
         # Separate from `aliases`, never merged into it. HGNC retires a symbol
-        # into `prev_symbol` rather than into `alias_symbol`, and `genes.py`
-        # resolves an alias *ahead* of a previous symbol -- so a string that is
-        # one gene's live alias and another's retired name resolves to the
-        # first. Merging the two columns here would erase the distinction that
-        # precedence turns on and make `ODD` (alias of GJA1, previous of OSR1)
-        # ambiguous instead of answerable.
+        # into `prev_symbol` rather than into `alias_symbol`. `genes.py` answers
+        # a name from both columns together (a name they give to two genes,
+        # `ODD`, is refused: F27) and labels the answer by column, which
+        # `previous_symbols` reads; the search index orders a gene's terms by
+        # column, aliases first.
         Column("prev_symbols", pl.String, nullable=True),
         Column("ensembl_gene", pl.String, nullable=True),
         Column("ncbi_gene", pl.Int64, nullable=True),

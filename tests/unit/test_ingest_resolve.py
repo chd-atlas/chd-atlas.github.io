@@ -38,14 +38,16 @@ def frame(genes: list[str | None]) -> pl.DataFrame:
 
 
 @pytest.mark.parametrize("gz", [False, True])
-def test_symbols_resolve_with_the_registry_precedence(tmp_path: Path, gz: bool) -> None:
-    # ODD is GJA1's live alias and OSR1's retired name: the alias wins. BVES is
-    # only ever a retired name. A gz-compressed genes table reads the same.
+def test_symbols_resolve_with_the_registry_rule(tmp_path: Path, gz: bool) -> None:
+    # ODD is GJA1's live alias and OSR1's retired name, so it is refused and
+    # named with both candidates (F27); its row goes. BVES is only ever a
+    # retired name. A gz-compressed genes table reads the same.
     rows, unresolved = resolve_frame(
         frame(["ODD", "BVES", "TBX5", "HOS"]), "gene", resolver(tmp_path, gz=gz)
     )
-    assert rows["gene"].to_list() == ["HGNC:4274", "HGNC:1152", "HGNC:11604", "HGNC:11604"]
-    assert unresolved == ()
+    assert rows["gene"].to_list() == ["HGNC:1152", "HGNC:11604", "HGNC:11604"]
+    assert rows["n"].to_list() == [1, 2, 3]
+    assert unresolved == (Resolved("ODD", Resolution.AMBIGUOUS, None, ("HGNC:4274", "HGNC:8111")),)
 
 
 def test_an_ambiguous_symbol_drops_its_rows_and_is_named(tmp_path: Path) -> None:
