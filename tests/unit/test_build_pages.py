@@ -3916,7 +3916,9 @@ def test_a_gene_with_no_plottable_row_gets_a_sentence_and_no_chart(
     tmp_path: Path, facts_uncurated: dict[str, GeneFacts]
 ) -> None:
     """D42. Measured: KLF13, CFC1 and MYH11 carry only CNV rows with no effect
-    measure at all; CRIPTO has no burden row. Four of 92."""
+    measure at all. Four of 92 when written; CRIPTO's 9 burden rows (recovered
+    through TDGF1, 2026-11-12) are all PMID:42230622's, so it has a plottable
+    one."""
     section = _burden_section_text(
         _burden_page(
             tmp_path,

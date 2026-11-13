@@ -2638,7 +2638,7 @@ taken, so a claim can be traced to the exact release it rests on.
 about itself, verbatim, where `version` is a checksum that identifies the file
 but cites as nothing. Both Orphadata products carry them, from their `<JDBOR>`
 header — `"1.3.42 / 4.1.8 [2025-03-03]"`, dated `2026-06-23` — written beside
-the sha256 by the converter on every run; `null` elsewhere. Orphadata's
+the sha256 by `chd-atlas ingest` from the package manifest; `null` elsewhere. Orphadata's
 requested citation ends "Data version [date]", and the site's front page prints
 both there.
 

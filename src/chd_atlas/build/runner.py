@@ -461,7 +461,7 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
         cell_type_census=cell_type_stats,
         emitter=emitter,
         # For the Orphadata citation's data version (R11), read off the files'
-        # own headers into `mirrors/sources.yaml` by the converter.
+        # own headers into `mirrors/sources.yaml` by `chd-atlas ingest`.
         sources=registry,
         facts=facts,
         concordance=concordance,

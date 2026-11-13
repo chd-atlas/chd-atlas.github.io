@@ -2558,15 +2558,18 @@ def _burden_section(
       study that publishes one has it. Synonymous variants should show no
       enrichment; where one does, that gene's comparison is poorly calibrated.
       It is sorted last within each stratum so it reads as what it is -- the row
-      that says whether to believe the two above it. 69 of the 290 published
-      rows are synonymous and every one is from PMID:42230622, so
+      that says whether to believe the two above it. 69 of the 290 rows then
+      published were synonymous and every one was from PMID:42230622, so
       `_SYNONYMOUS_NOTICE` was conditional: a page with no such row must not
       promise a check it cannot offer.
 
     The last two bullets' sentences left the page on 2026-10-26 (D50): they
     were the folded reading notes, identical wherever they rendered -- the
     absent-row sentence on all 118 pages with a rare-variant section, the
-    synonymous one on the 113 of them with a synonymous row -- and are now on
+    synonymous one on the 113 of them with a synonymous row (118 and 113 on
+    that day's build; 119 and 114 on a build of dbaa36f, counted as the gene
+    pages containing `id="rare-variants"` and the genes bundles with a
+    `consequence_class == "synonymous"` burden row) -- and are now on
     `methods.html#rare-variants` (`methods._RARE_VARIANTS`), stated once with
     their conditions in their own words. The first stays, as the pooling
     caption and the `shared_cohorts` notice.
@@ -2709,8 +2712,9 @@ def _burden_section(
     #
     # The general reading notes -- the units glossary, what an absent cell means,
     # and the synonymous negative control -- were folded here under "How to read
-    # these numbers": the first two on all 118 pages carrying a rare-variant
-    # section, the third on the 113 of them with a synonymous row.
+    # these numbers": the first two on all 118 pages then carrying a rare-variant
+    # section, the third on the 113 of them with a synonymous row (119 and 114
+    # on a build of dbaa36f, counted as in `_burden_section`'s docstring).
     # They moved to `methods.html#rare-variants` on 2026-10-26 (D50), which
     # `_MIRRORED_NOTICE` links; none is lost -- the unit word is still in every
     # cell and the matrix renders `not tested` as its own state.
@@ -3375,8 +3379,10 @@ _STRATUM_UNION: Final[tuple[str, tuple[str, ...]]] = (
 # genes -- KLF13, CFC1, MYH11" (measured 2026-08-20) until 2026-10-26, which
 # counted the second set and read as the first. Measured that day on a build of
 # 4233eca: **77 pages**, one block each, all PMID:34324492; 4 of them (KLF13,
-# CFC1, HRAS, MYH11) carry no other study. CRIPTO carries no burden row at all
-# and reaches this section never.
+# CFC1, HRAS, MYH11) carry no other study. CRIPTO gained 9 burden rows when its
+# TDGF1 rows were recovered through the previous symbol (2026-11-12): all 9 are
+# PMID:42230622's, so it carries no PMID:34324492 block (re-measured on a build
+# of dbaa36f: 77 pages with that study, the same four with no other).
 _NO_EFFECT_MEASURE: Final = (
     '<p class="method">This study publishes <strong>no effect measure</strong> for this '
     "gene &mdash; no odds ratio, enrichment or rate ratio &mdash; so there is nothing to "

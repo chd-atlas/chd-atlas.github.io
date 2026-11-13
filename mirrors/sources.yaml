@@ -38,6 +38,9 @@ sources:
     # open-access supplementary bundle for PMC12002227 and its sha256 recorded
     # above. The two are the same file; the sha256 is what lets a curator prove
     # it, which is the reason this field is a checksum rather than a date.
+    # `mirrors/burden.tsv` and `mirrors/burden_combined.tsv` carry this study's
+    # rows from the chd-atlas/feeds package `sierant2025_ds6` d8e9f777 (recipe
+    # `sources/sierant2025_ds6`; the pin below), written by `chd-atlas ingest`.
     url: https://www.pnas.org/doi/suppl/10.1073/pnas.2420343122/suppl_file/pnas.2420343122.sd06.xlsx
     # "Copyright (c) 2025 the Author(s). Published by PNAS. This open access
     # article is distributed under Creative Commons Attribution License 4.0
@@ -57,6 +60,10 @@ sources:
       (gene-based case/control CNV-deletion permutation testing, PLINK)
     version: "sha256:e8bd50c0a454d3f5563a6c1ee52c62206d98840cc696c3c8db4c0e0eccb63e62"
     retrieved_on: 2026-08-05
+    # `mirrors/burden.tsv` carries this study's rows (and its S8 column, below)
+    # from the chd-atlas/feeds package `audain2021_s6` e8bd50c0 (recipe
+    # `sources/audain2021_s6`, two inputs: this S6 workbook and S8; the pin
+    # below), written by `chd-atlas ingest`.
     url: https://journals.plos.org/plosgenetics/article/file?id=10.1371/journal.pgen.1009679.s011&type=supplementary
     # "This is an open access article, free of all copyright, and may be freely
     # reproduced, distributed, transmitted, modified, built upon, or otherwise
@@ -73,7 +80,10 @@ sources:
   # rows for the genes this table lists (owner decision R2, 2026-10-26); every
   # other number on those rows is S6's, above. Same article, same licence
   # statement. Retrieved with the rest of the supplement: the local copy's
-  # modification time is 2026-08-05, as for S6.
+  # modification time is 2026-08-05, as for S6. It has no package of its own:
+  # no table's rows are S8's, so it is the second input of the `audain2021_s6`
+  # package, and `chd-atlas validate` (SRC008) accepts this entry unpinned only
+  # while the sha256 in `version` below is listed there.
   - id: audain2021_s8
     name: >-
       Audain et al. 2021, PLoS Genetics 17(7) e1009679, S8 Table (the 528
@@ -89,6 +99,10 @@ sources:
     # was generated, which is the only version identifier the authority offers.
     version: "FILE CREATED: 2026-08-03"
     retrieved_on: 2026-08-03
+    # `mirrors/clingen_gene_validity.tsv` is written by `chd-atlas ingest
+    # clingen` from the chd-atlas/feeds package `clingen` 2026-08-03 (the pin
+    # below), bootstrapped from the mirror as committed rather than re-derived
+    # from the 2026-08-03 download, which is kept nowhere.
     url: https://search.clinicalgenome.org/kb/gene-validity
     # "All curated content published by ClinGen is available free of restriction
     # under the CC0 1.0 Universal (CC0 1.0) Public Domain Dedication."
@@ -106,6 +120,9 @@ sources:
     # same situation as `clingen` above.
     version: "retrieved 2026-08-03"
     retrieved_on: 2026-08-03
+    # `mirrors/gencc_submissions.tsv` is written by `chd-atlas ingest gencc`
+    # from the chd-atlas/feeds package `gencc` 88c77272 (the pin below),
+    # bootstrapped from the mirror as committed, as for `clingen`.
     url: https://search.thegencc.org/download
     # "The GenCC data are available free of restriction under a CC0 1.0
     # Universal (CC0 1.0) Public Domain Dedication." GenCC additionally

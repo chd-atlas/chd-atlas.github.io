@@ -71,11 +71,14 @@ def test_each_audain_2026_odds_ratio_matches_its_own_stratum() -> None:
     which comparison their `fet.*` columns describe, so a recipe pairing the
     wrong numerator with a stratum publishes a plausible number that is the
     syndromic-only odds ratio against the whole cohort. Guards the committed
-    rows: each odds ratio equals (a / (n - a)) / (c / (m - c)) within 2% (the
-    precision the paper published at), over the rows with a case carrier, a
-    control carrier and a finite effect. Rows with 0 or unbounded ratios carry
-    no information about the pairing and are skipped. It does not guard how the
-    feeds recipe pairs the columns, only what ingest wrote.
+    rows: each odds ratio equals (a / (n - a)) / (c / (m - c)) within
+    max(0.02, 0.02 * expected) -- 2% relative with an absolute floor of 0.02 (the
+    precision the paper published at); measured on the committed rows, the
+    largest relative deviation is 0.47% and the largest absolute 0.173, over the
+    rows with a case carrier, a control carrier and a finite effect. Rows with 0
+    or unbounded ratios carry no information about the pairing and are skipped.
+    It does not guard how the feeds recipe pairs the columns, only what ingest
+    wrote.
     """
     checked = 0
     for row in _burden_rows("PMID:42230622").iter_rows(named=True):
@@ -98,7 +101,9 @@ def test_no_audain_2026_row_has_no_carrier_on_either_side() -> None:
     with 0 case and 0 control carriers, and pins the two one-sided counts: 384
     rows without a case carrier and 37 without a control carrier. It does not
     prove the study's emission rule (417 of the 417 checkable absences agreed
-    with it when measured against the workbook; the rest cannot be checked).
+    with it when measured against the workbook over the study's earlier 1,192
+    rows, 2026-08-05; not re-measured over the 1,462 rows now committed, and
+    the rest cannot be checked).
     """
     rows = _burden_rows("PMID:42230622")
     assert rows.filter(
