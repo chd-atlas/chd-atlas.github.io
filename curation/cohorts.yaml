@@ -241,7 +241,7 @@ cohorts:
   # assembled; the article's methods put the permutation test on the 6,746
   # cases and 14,024 controls that remained after filtering, the rows now
   # publish those, and the sentence names them (see `DENOMINATORS` in
-  # scripts/convert_audain2021.py). It still names no count of the 777 within
+  # the chd-atlas/feeds `audain2021_s6` recipe). It still names no count of the 777 within
   # that set, because nothing read in the study gives one.
   - id: taa_cases
     name: Sporadic thoracic aortic aneurysm case series (PMID 21092924)

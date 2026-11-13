@@ -1,0 +1,50 @@
+{
+  "built_by": {
+    "host": "workstation",
+    "recipe_commit": "4b0bc16f8a4755643dd51ce3fb0323015dfc44d3"
+  },
+  "coverage": "every_gene",
+  "dropped": [],
+  "ids": "symbol",
+  "input_counts": {
+    "genes": 11515,
+    "rows": 11515
+  },
+  "inputs": [
+    {
+      "name": "s011.xlsx",
+      "retrieved_on": "2026-08-05",
+      "sha256": "e8bd50c0a454d3f5563a6c1ee52c62206d98840cc696c3c8db4c0e0eccb63e62",
+      "upstream_release": null,
+      "url": "https://journals.plos.org/plosgenetics/article/file?id=10.1371/journal.pgen.1009679.s011&type=supplementary"
+    },
+    {
+      "name": "s013.xlsx",
+      "retrieved_on": "2026-08-05",
+      "sha256": "d070834994949311b3cff7a8a8470944c6ddd14c4644351062b0243c57db0ebc",
+      "upstream_release": null,
+      "url": "https://journals.plos.org/plosgenetics/article/file?id=10.1371/journal.pgen.1009679.s013&type=supplementary"
+    }
+  ],
+  "licence_evidence": "\"This is an open access article, free of all copyright, and may be freely reproduced, distributed, transmitted, modified, built upon, or otherwise used by anyone for any lawful purpose. The work is made available under the Creative Commons CC0 public domain dedication.\" -- the article's own licence statement, which covers its supplementary material. CC0, not the CC BY that PLOS uses for some titles: read off this article, not assumed.",
+  "package": "audain2021_s6",
+  "source": {
+    "licence": "CC0-1.0",
+    "name": "Audain et al. 2021, PLoS Genetics 17(7) e1009679, S6 Table Sheet A (gene-based case/control CNV-deletion permutation testing, PLINK)",
+    "redistribution": "permitted",
+    "retrieved_on": "2026-08-05",
+    "url": "https://journals.plos.org/plosgenetics/article/file?id=10.1371/journal.pgen.1009679.s011&type=supplementary",
+    "version": "sha256:e8bd50c0a454d3f5563a6c1ee52c62206d98840cc696c3c8db4c0e0eccb63e62"
+  },
+  "tables": [
+    {
+      "file": "burden.tsv.gz",
+      "format_version": 1,
+      "genes": 11515,
+      "name": "burden",
+      "rows": 11515,
+      "sha256": "aaf6fcee6bb680affc6d421b574c89d881b092dbbee86a63bf3c08ba6b485439"
+    }
+  ],
+  "version": "e8bd50c0"
+}

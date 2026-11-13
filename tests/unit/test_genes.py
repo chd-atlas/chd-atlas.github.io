@@ -105,8 +105,8 @@ def test_an_unknown_symbol_is_reported_and_never_resolved_to_a_guess() -> None:
 def test_a_symbol_two_genes_claim_is_refused_rather_than_picked() -> None:
     """Ambiguity names every candidate and resolves to none of them.
 
-    `scripts/convert_burden.py` declines to match aliases at all, and its stated
-    reason is this exact hazard: "an alias that is another gene's current symbol
+    The retired Audain 2026 converter declined to match aliases at all, and its
+    stated reason was this exact hazard: "an alias that is another gene's current symbol
     would silently attribute one gene's burden to another". Measured 2026-08-14
     the collision does not occur in the committed registry -- 154 approved
     symbols, 309 aliases, zero overlap -- so only a fixture can reach it, and it

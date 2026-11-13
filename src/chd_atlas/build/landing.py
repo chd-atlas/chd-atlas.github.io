@@ -227,7 +227,7 @@ def _orphadata_version(sources: SourceRegistry) -> str:
     Orphadata asks to be cited "... Data version [date]", and the page pointed
     to `sources.json`, which identified both files by sha256 alone. Each
     product's `file_version` and `file_date` are its `<JDBOR>` header,
-    transcribed into `mirrors/sources.yaml` by the converter beside the
+    transcribed into `mirrors/sources.yaml` by `chd-atlas ingest` beside the
     sha256, so this prints the release actually mirrored and moves when it
     does. The date is the header's day; its time of day differs between the
     two products of one release (07:57:18 and 07:53:50 on 2026-06-23), so one

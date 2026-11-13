@@ -1,0 +1,43 @@
+{
+  "built_by": {
+    "host": "workstation",
+    "recipe_commit": "4b0bc16f8a4755643dd51ce3fb0323015dfc44d3"
+  },
+  "coverage": "every_gene",
+  "dropped": [],
+  "ids": "hgnc_id",
+  "input_counts": {
+    "genes": 3017,
+    "rows": 3653
+  },
+  "inputs": [
+    {
+      "name": "clingen_gene_validity.tsv",
+      "retrieved_on": "2026-08-03",
+      "sha256": "b4c89cb6b0bbb5016894661ef9add7b432b91240118e5b89e55fd3dc7e6ec1d1",
+      "upstream_release": "FILE CREATED: 2026-08-03",
+      "url": "https://raw.githubusercontent.com/chd-atlas/chd-atlas.github.io/4b1f8f68cbc30beaf932fbbc58e3617ebe401b6d/mirrors/clingen_gene_validity.tsv"
+    }
+  ],
+  "licence_evidence": "\"All curated content published by ClinGen is available free of restriction under the CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.\" -- https://clinicalgenome.org/docs/terms-of-use/",
+  "package": "clingen",
+  "source": {
+    "licence": "CC0-1.0",
+    "name": "Clinical Genome Resource (ClinGen) Gene-Disease Validity",
+    "redistribution": "permitted",
+    "retrieved_on": "2026-08-03",
+    "url": "https://search.clinicalgenome.org/kb/gene-validity",
+    "version": "FILE CREATED: 2026-08-03"
+  },
+  "tables": [
+    {
+      "file": "clingen_validity.tsv.gz",
+      "format_version": 1,
+      "genes": 3017,
+      "name": "clingen_validity",
+      "rows": 3653,
+      "sha256": "28e3488c8f93c7d0551cc0b5130ffe4edbd39c8135ee52e7ca57e1634161f881"
+    }
+  ],
+  "version": "2026-08-03"
+}

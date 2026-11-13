@@ -68,6 +68,7 @@ from chd_atlas.validate.sort_order import validate_sort_order
 from chd_atlas.validate.sources import (
     load_sources,
     validate_package_pins,
+    validate_pins_cover_mirrors,
     validate_source_references,
 )
 
@@ -1072,8 +1073,10 @@ def validate_repository(root: Path) -> ValidationReport:
             )
         )
     else:
-        issues.extend(validate_source_references(_used_sources(root), registry))
+        used_sources = _used_sources(root)
+        issues.extend(validate_source_references(used_sources, registry))
         issues.extend(validate_package_pins(root, registry))
+        issues.extend(validate_pins_cover_mirrors(root, registry, used_sources))
 
     # The ontology pins live in sources.yaml, so a registry that failed to load
     # pins nothing and every term reports ONT003 "no pinned ontology" — one per

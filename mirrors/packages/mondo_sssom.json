@@ -1,0 +1,42 @@
+{
+  "built_by": {
+    "host": "workstation",
+    "recipe_commit": "4b0bc16f8a4755643dd51ce3fb0323015dfc44d3"
+  },
+  "coverage": "every_gene",
+  "dropped": [],
+  "ids": "hgnc_id",
+  "input_counts": {
+    "rows": 19832
+  },
+  "inputs": [
+    {
+      "name": "mondo.sssom.tsv",
+      "retrieved_on": "2026-10-25",
+      "sha256": "ec15afdb32fab3d3cb679d357e25ef4fb38b5e2c468ff4ac5456da10e2f6c80b",
+      "upstream_release": "v2026-10-06",
+      "url": "https://raw.githubusercontent.com/monarch-initiative/mondo/v2026-10-06/src/ontology/mappings/mondo.sssom.tsv"
+    }
+  ],
+  "licence_evidence": "The repository's LICENSE is CC BY 4.0 (GitHub's licence API reports SPDX CC-BY-4.0 for monarch-initiative/mondo).",
+  "package": "mondo_sssom",
+  "source": {
+    "licence": "CC-BY-4.0",
+    "name": "Mondo Disease Ontology mappings (mondo.sssom.tsv), release v2026-10-06: skos:exactMatch to Orphanet and OMIM, for terms the validity mirrors name",
+    "redistribution": "permitted_with_attribution",
+    "retrieved_on": "2026-10-25",
+    "url": "https://raw.githubusercontent.com/monarch-initiative/mondo/v2026-10-06/src/ontology/mappings/mondo.sssom.tsv",
+    "version": "sha256:ec15afdb32fab3d3cb679d357e25ef4fb38b5e2c468ff4ac5456da10e2f6c80b"
+  },
+  "tables": [
+    {
+      "file": "mondo_xrefs.tsv.gz",
+      "format_version": 1,
+      "genes": null,
+      "name": "mondo_xrefs",
+      "rows": 19832,
+      "sha256": "b2894c469e0bbd50c6dc1bc2aaf07ea273ba245909ba07ae41b11c759b681230"
+    }
+  ],
+  "version": "2026-10-06"
+}

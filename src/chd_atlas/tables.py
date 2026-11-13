@@ -503,7 +503,7 @@ GENCC_SUBMISSIONS = TableSchema(
         Column("report_url", pl.String, nullable=True),
     ),
     # The submitter, and then its own row id -- see
-    # `scripts/convert_gencc.py` for why: GenCC publishes every submitter's
+    # the chd-atlas/feeds `gencc` recipe's docstring for why: GenCC publishes every submitter's
     # verdict with none adjudicated, so two submitters disagreeing about one
     # gene-disease-moi is the normal case, and `submitter` alone is still not
     # enough to key on.
@@ -787,7 +787,7 @@ BURDEN = TableSchema(
         # PMID:34324492 is one: its case set combines CHD with a series of 777
         # sporadic thoracic aortic aneurysm probands, and its S8 Table gives
         # the "only CHD" case count for 521 of the 528 genes it lists, leaving
-        # 7 blank, which `convert_audain2021.py` transcribes. `source` still
+        # 7 blank, which the chd-atlas/feeds `audain2021_s6` recipe transcribes. `source` still
         # names the file the row's statistic came from. Same `count_unit` as
         # `n_case_carriers`, and never above it (BUR003).
         Column("n_chd_case_carriers", pl.Int64, nullable=True, minimum=0),
@@ -909,7 +909,7 @@ BURDEN_COMBINED = TableSchema(
         Column("source", pl.String),
     ),
     # Gene first, then study, for the reason `BURDEN`'s key is: the file reads
-    # gene by gene, and `burden_mirror.merge_study` sorts both the same way.
+    # gene by gene, and `chd-atlas ingest` sorts both the same way.
     sort_key=("gene", "study", "cohort_stratum", "lesion_group", "consequence_class"),
 )
 
@@ -966,7 +966,7 @@ MONDO_XREFS = TableSchema(
     name="mondo_xrefs",
     columns=(
         Column("mondo", pl.String, pattern=MONDO_PATTERN),
-        # `skos:exactMatch` only; the converter drops every other predicate.
+        # `skos:exactMatch` only; the feeds `mondo_sssom` recipe drops every other predicate.
         Column("target", pl.String, pattern=XREF_TARGET_PATTERN),
         Column("source", pl.String),
     ),

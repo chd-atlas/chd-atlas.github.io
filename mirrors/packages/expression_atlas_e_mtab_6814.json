@@ -1,0 +1,60 @@
+{
+  "built_by": {
+    "host": "workstation",
+    "recipe_commit": "4b0bc16f8a4755643dd51ce3fb0323015dfc44d3"
+  },
+  "coverage": "every_gene",
+  "dropped": [],
+  "ids": "ensembl_gene_id",
+  "input_counts": {
+    "genes": 58735,
+    "rows": 58735
+  },
+  "inputs": [
+    {
+      "name": "E-MTAB-6814-tpms.tsv",
+      "retrieved_on": "2026-08-19",
+      "sha256": "92484a979fb8e262fe1f535b2b902ba8088310bbbec76969ba873b51d593f4be",
+      "upstream_release": null,
+      "url": "https://ftp.ebi.ac.uk/pub/databases/microarray/data/atlas/experiments/E-MTAB-6814/E-MTAB-6814-tpms.tsv"
+    },
+    {
+      "name": "E-MTAB-6814-configuration.xml",
+      "retrieved_on": "2026-08-19",
+      "sha256": "31de8dd2c78067cba2a333527d1af123e9d497443c4acdf7c5dea2da115b166f",
+      "upstream_release": null,
+      "url": "https://ftp.ebi.ac.uk/pub/databases/microarray/data/atlas/experiments/E-MTAB-6814/E-MTAB-6814-configuration.xml"
+    }
+  ],
+  "licence_evidence": "Verified against EMBL-EBI's Terms of Use on 2026-08-19: \"EMBL-EBI itself places no additional restrictions on the use or redistribution of the data available via its Data Resources and Tools other than those provided by the original data owners\", and EMBL-EBI \"expects attribution ... in accordance with good scientific practice\". No CC licence is asserted: EMBL-EBI's own licensing page states that no single licence is mandated across resources, and this experiment's IDF declares none.",
+  "package": "expression_atlas_e_mtab_6814",
+  "source": {
+    "licence": "EMBL-EBI Terms of Use",
+    "name": "EMBL-EBI Expression Atlas, experiment E-MTAB-6814 (\"Human RNA-seq time-series of the development of seven major organs\"), the per-assay-group TPM matrix E-MTAB-6814-tpms.tsv and its E-MTAB-6814-configuration.xml",
+    "redistribution": "permitted_with_attribution",
+    "retrieved_on": "2026-08-19",
+    "url": "https://www.ebi.ac.uk/gxa/experiments/E-MTAB-6814/Results",
+    "version": "sha256:92484a979fb8e262fe1f535b2b902ba8088310bbbec76969ba873b51d593f4be"
+  },
+  "tables": [
+    {
+      "file": "profile_quantiles.E-MTAB-6814.tsv.gz",
+      "format_version": 1,
+      "genes": null,
+      "name": "profile_quantiles",
+      "rows": 12019,
+      "sha256": "6aa9229fe45c3b2d184aa88d32987decde3872a2a151f42691f6574314eeec0b",
+      "shard": "E-MTAB-6814"
+    },
+    {
+      "file": "profiles.E-MTAB-6814.tsv.gz",
+      "format_version": 1,
+      "genes": 58735,
+      "name": "profiles",
+      "rows": 6989465,
+      "sha256": "dd5fa0ef258782609b629bf945bb2abe8033fef92a5b8450081fd182214fc2c6",
+      "shard": "E-MTAB-6814"
+    }
+  ],
+  "version": "92484a97"
+}

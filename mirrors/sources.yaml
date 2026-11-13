@@ -8,10 +8,11 @@ sources:
       (per-gene rare variant burden, aCHD / sCHD / nsCHD versus controls)
     # A journal supplement carries no release tag, so the file's own sha256 is
     # the version -- and unlike a `retrieved_on` date it is checkable: a curator
-    # can prove they hold the identical workbook these 1,192 rows came from.
+    # can prove they hold the identical workbook the rows came from.
     # The file itself is NOT committed (`local/` is gitignored): it is 11 MB,
     # its redistribution terms are the article's, and the reviewable artifact is
-    # `mirrors/burden.tsv`. Reproduce with `scripts/convert_burden.py`.
+    # `mirrors/burden.tsv`. Reproduce with the
+    # chd-atlas/feeds `audain2026_sd3` recipe, then `chd-atlas ingest`.
     version: "sha256:8ebb6fdceb38b0099d6229a1ebf4d77db9f9492a62cfafb569d2865f9645ee2b"
     retrieved_on: 2026-08-04
     url: https://static-content.springer.com/esm/art%3A10.1038%2Fs41525-026-00582-z/MediaObjects/41525_2026_582_MOESM4_ESM.xlsx
@@ -21,6 +22,9 @@ sources:
     # statement, which covers its supplementary material.
     licence: CC-BY-4.0
     redistribution: permitted_with_attribution
+    package:
+      version: 8ebb6fdc
+      manifest_sha256: 268360d9cd9bb06478c476a2c3768432a7f3118cdfdc1033ed344ae350d4f542
   - id: sierant2025_ds6
     name: >-
       Sierant et al. 2025, PNAS 122(13) e2420343122, Dataset S6
@@ -34,6 +38,9 @@ sources:
     # open-access supplementary bundle for PMC12002227 and its sha256 recorded
     # above. The two are the same file; the sha256 is what lets a curator prove
     # it, which is the reason this field is a checksum rather than a date.
+    # `mirrors/burden.tsv` and `mirrors/burden_combined.tsv` carry this study's
+    # rows from the chd-atlas/feeds package `sierant2025_ds6` d8e9f777 (recipe
+    # `sources/sierant2025_ds6`; the pin below), written by `chd-atlas ingest`.
     url: https://www.pnas.org/doi/suppl/10.1073/pnas.2420343122/suppl_file/pnas.2420343122.sd06.xlsx
     # "Copyright (c) 2025 the Author(s). Published by PNAS. This open access
     # article is distributed under Creative Commons Attribution License 4.0
@@ -53,6 +60,10 @@ sources:
       (gene-based case/control CNV-deletion permutation testing, PLINK)
     version: "sha256:e8bd50c0a454d3f5563a6c1ee52c62206d98840cc696c3c8db4c0e0eccb63e62"
     retrieved_on: 2026-08-05
+    # `mirrors/burden.tsv` carries this study's rows (and its S8 column, below)
+    # from the chd-atlas/feeds package `audain2021_s6` e8bd50c0 (recipe
+    # `sources/audain2021_s6`, two inputs: this S6 workbook and S8; the pin
+    # below), written by `chd-atlas ingest`.
     url: https://journals.plos.org/plosgenetics/article/file?id=10.1371/journal.pgen.1009679.s011&type=supplementary
     # "This is an open access article, free of all copyright, and may be freely
     # reproduced, distributed, transmitted, modified, built upon, or otherwise
@@ -62,11 +73,17 @@ sources:
     # CC BY that PLOS uses for some titles: read off this article, not assumed.
     licence: CC0-1.0
     redistribution: permitted
+    package:
+      version: e8bd50c0
+      manifest_sha256: 477e96fd5196a841f0b3835666ce720e49f1da930a990527e1ec37ec9421c4b9
   # One column of the burden mirror, `n_chd_case_carriers`, on PMID:34324492's
   # rows for the genes this table lists (owner decision R2, 2026-10-26); every
   # other number on those rows is S6's, above. Same article, same licence
   # statement. Retrieved with the rest of the supplement: the local copy's
-  # modification time is 2026-08-05, as for S6.
+  # modification time is 2026-08-05, as for S6. It has no package of its own:
+  # no table's rows are S8's, so it is the second input of the `audain2021_s6`
+  # package, and `chd-atlas validate` (SRC008) accepts this entry unpinned only
+  # while the sha256 in `version` below is listed there.
   - id: audain2021_s8
     name: >-
       Audain et al. 2021, PLoS Genetics 17(7) e1009679, S8 Table (the 528
@@ -82,12 +99,19 @@ sources:
     # was generated, which is the only version identifier the authority offers.
     version: "FILE CREATED: 2026-08-03"
     retrieved_on: 2026-08-03
+    # `mirrors/clingen_gene_validity.tsv` is written by `chd-atlas ingest
+    # clingen` from the chd-atlas/feeds package `clingen` 2026-08-03 (the pin
+    # below), bootstrapped from the mirror as committed rather than re-derived
+    # from the 2026-08-03 download, which is kept nowhere.
     url: https://search.clinicalgenome.org/kb/gene-validity
     # "All curated content published by ClinGen is available free of restriction
     # under the CC0 1.0 Universal (CC0 1.0) Public Domain Dedication."
     # -- https://clinicalgenome.org/docs/terms-of-use/
     licence: CC0-1.0
     redistribution: permitted
+    package:
+      version: '2026-08-03'
+      manifest_sha256: 7d4cc6eda6d8090238e34cd22cf3857504e77e330cefb11401f773c2122436f3
   - id: gencc
     name: Gene Curation Coalition (GenCC) submissions export
     # The export carries no release/version tag of its own -- `sgc_id` and
@@ -96,6 +120,9 @@ sources:
     # same situation as `clingen` above.
     version: "retrieved 2026-08-03"
     retrieved_on: 2026-08-03
+    # `mirrors/gencc_submissions.tsv` is written by `chd-atlas ingest gencc`
+    # from the chd-atlas/feeds package `gencc` 88c77272 (the pin below),
+    # bootstrapped from the mirror as committed, as for `clingen`.
     url: https://search.thegencc.org/download
     # "The GenCC data are available free of restriction under a CC0 1.0
     # Universal (CC0 1.0) Public Domain Dedication." GenCC additionally
@@ -106,6 +133,9 @@ sources:
     # also CC0. -- https://thegencc.org/terms
     licence: CC0-1.0
     redistribution: permitted
+    package:
+      version: 88c77272
+      manifest_sha256: 872aba3c356067e25b41fb3f6ea2e9a83097da77780bfef11e11e35cc7a59149
   - id: hgnc
     name: HUGO Gene Nomenclature Committee
     # Since 2026-11-11 `mirrors/genes.tsv` is written by `chd-atlas ingest hgnc`
@@ -157,16 +187,18 @@ sources:
     ontology_prefix: HP
     ontology_file: ontologies/hp-2026-06-23.obo
   # The three sources the Orphanet scope rule reads (issue #8 part 1). The raw
-  # files live in gitignored local/data/ and are reproduced by
-  # scripts/convert_orphanet.py; the sha256 is what lets a curator prove a
-  # re-download is the same file.
+  # files are no longer kept in the atlas: since 2026-11-12 the mirrors are
+  # written by `chd-atlas ingest` from chd-atlas/feeds packages (recipes
+  # sources/orphanet_product4, orphanet_product1 and mondo_sssom); the sha256
+  # is what lets a curator prove a re-download is the same file.
   - id: orphanet_product4
     name: >-
       Orphadata Science, product 4 ("Phenotypes associated with rare
       disorders", en_product4.xml): HPO phenotype annotations with frequency
       bands, cardiovascular branch (HP:0001626) only
     # `file_version` and `file_date` are the file's own `<JDBOR>` header,
-    # verbatim, written beside the sha256 by scripts/convert_orphanet.py.
+    # verbatim, read by the feeds orphanet_product4 / orphanet_product1 recipe
+    # and kept here beside the sha256.
     version: "sha256:4f44e8a61201399911aa1ba44a293c0ccaa5ce11272c47d40862255cb72f6b32"
     file_version: "1.3.42 / 4.1.8 [2025-03-03]"
     file_date: "2026-06-23 07:57:18"
@@ -181,6 +213,9 @@ sources:
     # site is not.
     licence: CC-BY-4.0
     redistribution: permitted_with_attribution
+    package:
+      version: 4f44e8a6
+      manifest_sha256: aa9422ebca85c37d6c433675c293445e2350d3ec0209cf5a852fd740dfcd1484
   - id: orphanet_product1
     name: >-
       Orphadata Science, product 1 ("Rare diseases and alignment with
@@ -195,6 +230,9 @@ sources:
     # Same licence block and terms as product 4.
     licence: CC-BY-4.0
     redistribution: permitted_with_attribution
+    package:
+      version: df8d562a
+      manifest_sha256: c40351d278e51ab8c97eccb10c147939d82432a888de40b6896f2071e93e99e4
   - id: mondo_sssom
     name: >-
       Mondo Disease Ontology mappings (mondo.sssom.tsv), release v2026-10-06:
@@ -207,6 +245,9 @@ sources:
     # SPDX CC-BY-4.0 for monarch-initiative/mondo).
     licence: CC-BY-4.0
     redistribution: permitted_with_attribution
+    package:
+      version: '2026-10-06'
+      manifest_sha256: 27cb03e70df6b4ad360dbcee0a38d09ce3cb20d12262d7e2276b327933201bfb
   - id: expression_atlas_e_mtab_6814
     name: >-
       EMBL-EBI Expression Atlas, experiment E-MTAB-6814 ("Human RNA-seq
@@ -221,8 +262,8 @@ sources:
     #
     # The files themselves are NOT committed: 86 MB and 24 KB respectively,
     # and the reviewable artifacts are mirrors/profiles/E-MTAB-6814.tsv and
-    # mirrors/profile_quantiles/E-MTAB-6814.tsv. Reproduce with
-    # scripts/convert_cardoso_moreira.py (run via scripts/hpc/).
+    # mirrors/profile_quantiles/E-MTAB-6814.tsv. Reproduce with the
+    # chd-atlas/feeds `expression_atlas_e_mtab_6814` recipe, then `chd-atlas ingest`.
     version: "sha256:92484a979fb8e262fe1f535b2b902ba8088310bbbec76969ba873b51d593f4be"
     retrieved_on: 2026-08-19
     url: https://www.ebi.ac.uk/gxa/experiments/E-MTAB-6814/Results
@@ -235,6 +276,9 @@ sources:
     # mandated across resources, and this experiment's IDF declares none.
     licence: EMBL-EBI Terms of Use
     redistribution: permitted_with_attribution
+    package:
+      version: 92484a97
+      manifest_sha256: 3abb6d214cf4ae829dd9ef79e4751042a7bf846651e9c3c9b43a0152661ffae6
   - id: farah2024_hoc
     name: >-
       Farah et al. 2024 developing human heart scRNA-seq, UCSC Cell Browser
