@@ -66,13 +66,21 @@ OUTSIDE_GENE = "HGNC:5"  # A1BG: a valid HGNC id, not in mirrors/genes.tsv
 def _partial_pins_are_the_point_of_these_fixtures() -> Iterator[None]:
     """Switch off SRC007/SRC008 (`validate_pins_cover_mirrors`) for this module.
 
-    Every fixture here copies the committed corpus with its pins removed and
-    ingests one toy package into it, so the repository the real validator sees
-    has one pin and mirror files other sources wrote: exactly what SRC007 and
-    SRC008 refuse. Measured with the guard on: 3 failures and 10 errors in this
-    file, all ING010 listing only SRC007 and SRC008. Those two codes are held by
-    `tests/unit/test_sources.py`, the runner's call-site test and
-    `tests/test_committed_mirrors.py`, not here; every other check still runs.
+    The fixtures here copy the committed corpus with its pins removed
+    (`copy_repo`, `hgnc_repo`) or keep a few (`Pinned` ingests `hgnc` and
+    `toy_burden` and plants rows; `Repinned` repins `clingen`), so the
+    repository the real validator sees has some pins and mirror files other
+    sources wrote: what SRC007 and SRC008 refuse. Measured with the guard on:
+    3 failures and 10 errors in this file, all ING010 listing only SRC007 and
+    SRC008. Where the codes are held:
+
+    - `tests/unit/test_sources.py` calls the function directly;
+    - `tests/unit/test_runner.py` reaches both through `validate_repository`;
+    - `tests/test_committed_mirrors.py` runs it on the real corpus;
+    - `tests/unit/test_ingest_first_package.py` ingests a new source's first
+      package into a copy that keeps the committed pins, with both live.
+
+    Every other check still runs here.
     """
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(validate_runner, "validate_pins_cover_mirrors", lambda *_args: [])
