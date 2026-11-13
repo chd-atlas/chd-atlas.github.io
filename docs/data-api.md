@@ -2646,8 +2646,8 @@ both there.
 ingested from: its `version` and the sha256 of its manifest. It is one of three
 things:
 
-- an object, for a source whose rows a mirror table holds (11 of the 13 entries
-  at this release);
+- an object, for a source whose rows a mirror table holds (the build refuses a
+  mirror that relies on a source with no package);
 - `null` for a source no mirror table holds rows from, such as `hpo` above,
   whose release is pinned as an ontology file instead;
 - `null` for `audain2021_s8`, whose one column (`n_chd_case_carriers`) arrives

@@ -1251,9 +1251,10 @@ def _card_rare_variants(
     no overlap the registry does not record. It follows the count directly
     and precedes the declaration: placed after it, it would read as
     qualifying who wrote the studies, which the registry does not record at
-    all. Measured on a real build the day it was added: all 86 lines carry
-    it, in these five forms: "Tested in 1 independent dataset (as far
-    as the cohort registry records) (a study by an atlas author)." on 24, the
+    all. Measured on a real build the day it was added (2026-10-27): all 86
+    lines carried it (87 since 2026-11-13; see above), in these five forms:
+    "Tested in 1 independent dataset (as far as the cohort registry records)
+    (a study by an atlas author)." on 24, the
     same ending "; none survives a correction its study published." on 4,
     "(each study by an atlas author)" on 48, and two datasets with "(1 of the
     2 studies ...)" on 7 and "(2 of the 3 studies ...)" on 3.
