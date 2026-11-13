@@ -3917,7 +3917,7 @@ def test_a_gene_with_no_plottable_row_gets_a_sentence_and_no_chart(
 ) -> None:
     """D42. Measured: KLF13, CFC1 and MYH11 carry only CNV rows with no effect
     measure at all. Four of 92 when written; CRIPTO's 9 burden rows (recovered
-    through TDGF1, 2026-11-12) are all PMID:42230622's, so it has a plottable
+    through TDGF1, 2026-11-13) are all PMID:42230622's, so it has a plottable
     one."""
     section = _burden_section_text(
         _burden_page(
@@ -8768,7 +8768,8 @@ def test_a_card_with_no_surviving_result_counts_the_datasets_that_tested_the_gen
 def test_a_card_with_no_rare_variant_row_says_so_and_claims_no_test(
     tmp_path: Path, facts_uncurated: dict[str, GeneFacts]
 ) -> None:
-    """CRIPTO's case: no study in this atlas publishes a row for the gene.
+    """The case of a published gene no study here publishes a row for (CRIPTO was one until
+    2026-11-13; at that date no published gene is).
 
     Says what is known -- no study here reports a result -- and not "no study
     tested it", which a study whose supplement simply omits the gene cannot be

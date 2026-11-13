@@ -53,7 +53,7 @@ floor_source: >-
   literature (Kryuchkova-Mostacci & Robinson-Rechavi 2017, Brief Bioinform,
   the same benchmark this layer's tau follows).
 # R type-7 / numpy default, implemented explicitly in
-# in the chd-atlas/feeds `expression_atlas_e_mtab_6814` recipe so the rule
+# the chd-atlas/feeds `expression_atlas_e_mtab_6814` recipe so the rule
 # behind a published percentile is auditable from the recipe alone.
 quantile_estimator: linear
 stages:

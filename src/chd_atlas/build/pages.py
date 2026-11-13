@@ -1234,14 +1234,15 @@ def _card_rare_variants(
     study by an atlas author)" where several did and all are, and "(k of the
     n studies by an atlas author)" where only some are -- counted in studies,
     because the line's own count is of datasets and one family may hold both
-    kinds. Measured on a real build: all 86 such lines carry it (24 + 4 of
-    the first form, 48 of the second, 7 + 3 of the third). Where a
+    kinds. Measured on a build of 1861252 (2026-11-13): all 87 such lines
+    carry it (29 of the first form, 48 of the second, 7 + 3 of the third). Where a
     no-correction line follows for the same study, it carries the mark too
     (24 cards); each line keeps its own declaration. With no row at all it says no
     study here reports a result, and not that no study *tested* the gene: a
-    supplement that omits a gene (CRIPTO, in PMID:42230622) does not say the
-    study never ran it. The power caveat follows whenever the gene has rows,
-    so "none survives" never stands alone beside a definitive chip.
+    supplement that omits a gene does not say the study never ran it (CRIPTO
+    looked like such a gene until 2026-11-13, when its TDGF1 rows were recovered).
+    The power caveat follows whenever the gene has rows, so "none survives" never
+    stands alone beside a definitive chip.
 
     **The count carries the front page's qualifier** (owner answer
     2026-10-27), `render.REGISTRY_QUALIFIER`, "(as far as the cohort registry
@@ -3380,7 +3381,7 @@ _STRATUM_UNION: Final[tuple[str, tuple[str, ...]]] = (
 # counted the second set and read as the first. Measured that day on a build of
 # 4233eca: **77 pages**, one block each, all PMID:34324492; 4 of them (KLF13,
 # CFC1, HRAS, MYH11) carry no other study. CRIPTO gained 9 burden rows when its
-# TDGF1 rows were recovered through the previous symbol (2026-11-12): all 9 are
+# TDGF1 rows were recovered through the previous symbol (2026-11-13): all 9 are
 # PMID:42230622's, so it carries no PMID:34324492 block (re-measured on a build
 # of dbaa36f: 77 pages with that study, the same four with no other).
 _NO_EFFECT_MEASURE: Final = (

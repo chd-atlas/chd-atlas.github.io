@@ -27,12 +27,13 @@ cannot report either, and a gene that fails to map and simply vanishes is
 precisely the silent evidence loss this project treats as its characteristic
 failure -- the build stays green and the gene is not there.
 
-**Ambiguity is refused, never guessed.** The retired Audain 2026 converter (now the chd-atlas/feeds
-`audain2026_sd3` recipe, which resolves approved, then alias, then previous
-symbols) declined to
+**Ambiguity is refused, never guessed.** The retired Audain 2026 converter declined to
 match aliases at all, and its stated reason was exactly right: "an alias that is
 another gene's current symbol would silently attribute one gene's burden to
-another". Measured against the committed registry, that collision does not occur
+another". Its feeds recipe (`audain2026_sd3`) now ships symbols verbatim and
+`chd-atlas ingest` resolves them here (approved, alias, previous), which is how
+CRIPTO, POPDC1 and CIROZ were recovered. Measured against the committed
+registry, that collision does not occur
 today -- 185 approved symbols, 382 alias symbols, **zero** overlap between the
 two sets and **zero** aliases claimed by more than one gene (re-measured
 2026-10-25, after the registry widened from 154 genes) -- but the guard is

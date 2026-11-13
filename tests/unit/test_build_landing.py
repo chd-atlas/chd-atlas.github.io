@@ -310,7 +310,7 @@ def test_the_manifest_gene_count_is_the_population_not_the_genes_carrying_burden
     identity.** It was `carrying == len(bundles) - 1` until 2026-08-06, which
     silently assumed every other published gene carries burden rows. The widened
     gate admitted genes no burden study covered — on 2026-08-06 one published
-    gene had no rows (since 2026-11-12 CRIPTO has 9, and on a build of
+    gene had no rows (since 2026-11-13 CRIPTO has 9, and on a build of
     dbaa36f all 119 published genes carry burden rows) — so
     that identity started failing for a reason that had nothing to do with what
     it was guarding. Naming the gene the fixture edits is the check that stays
@@ -1166,8 +1166,9 @@ def test_the_orphadata_citation_states_the_release_each_product_was_mirrored_fro
 
     The page printed none and pointed to `sources.json`, which identified both
     files by sha256 alone. Each product's own `<JDBOR>` header version and date
-    are now in `mirrors/sources.yaml`, written there by the converter, and the
-    citation prints them: once where both products are one release on one day
+    are now in `mirrors/sources.yaml`, written there by `chd-atlas ingest` from
+    the package manifest, and the citation prints them: once where both products
+    are one release on one day
     (the literal in the test above), each by name where they differ, and
     nothing where no header was recorded -- never a version one product
     carries attributed to both, which is also why a release only one product

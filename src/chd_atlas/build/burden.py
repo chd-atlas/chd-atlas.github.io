@@ -111,8 +111,9 @@ class BurdenRow:
 def _cohorts(value: object) -> tuple[str, ...]:
     """The `;`-joined cohort column as a tuple, in the order it was written.
 
-    Not sorted: the converter writes them in the order the study's own cohort
-    description names them, and a reader meeting "cnchd, ddd, nottingham"
+    Not sorted: the package that wrote the mirror lists them in the order the study's own
+    cohort description names them (the recipe's documented rule, not re-measured),
+    and a reader meeting "cnchd, ddd, nottingham"
     should meet the study's ordering rather than the alphabet's. The mirror cell
     is a single string, so this order is stable across builds by construction.
     """

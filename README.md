@@ -133,8 +133,8 @@ instead of its pinned cache and pins DIR's version, inside the one `--all` trans
 ClinGen and GenCC first, then `hgnc` re-deriving the registry from them, then every other
 pinned package (an every-gene package adds the new genes' rows, and `mondo_xrefs` is
 re-filtered against the new validity mirrors), then the prune above for any gene the
-registry lost, then one validation. The registry-slice and converter caveats of a scope
-growth apply here too. If anything fails, `mirrors/` is restored and the new version's
+registry lost, then one validation. The registry-slice caveat of a scope
+growth applies here too. If anything fails, `mirrors/` is restored and the new version's
 cache directory removed, unless DIR is that directory (where `gh release download` put
 it), which is kept as it was.
 

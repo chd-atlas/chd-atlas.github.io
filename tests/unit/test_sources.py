@@ -234,7 +234,7 @@ def test_a_files_own_version_and_date_are_declared_together(
     """R11: a file's header version cites as little without its date as the reverse.
 
     `file_version` and `file_date` are what an Orphadata file states in its
-    `<JDBOR>` header, written by the converter as a pair; one alone, or one
+    `<JDBOR>` header, written by `chd-atlas ingest` as a pair; one alone, or one
     that is blank, is a malformed entry reported as SRC002 rather than
     published as half a citation.
     """
