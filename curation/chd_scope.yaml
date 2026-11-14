@@ -28,10 +28,12 @@
 # is a transcription of the cited authority's position, never an argument made
 # here.
 #
-# Measured 2026-10-25 across these 105 terms: 13 are used by ClinGen's
-# Congenital Heart Disease GCEP, 11 by another ClinGen expert panel, 45 by a
+# Measured 2026-11-14 across these 104 terms: 13 are used by ClinGen's
+# Congenital Heart Disease GCEP, 11 by another ClinGen expert panel, 44 by a
 # GenCC submitter, and 36 are admitted on Orphanet's frequencies. None is
-# unattributable. (68 terms until 2026-10-25: 13, 10 and 45.)
+# unattributable. (105 terms from 2026-10-25, 45 of them GenCC's, until
+# MONDO:0016460 left with its only GenCC row; 68 terms until 2026-10-25: 13,
+# 10 and 45.)
 #
 # NINE TERMS ARE SCOPED ONLY BY A COMMERCIAL CLINICAL LABORATORY, and are kept
 # rather than dropped. Clinical labs curate for test-panel inclusion, a more
@@ -370,13 +372,6 @@ diseases:
     admitted_by: gencc_submitter
     attributed_to: G2P
     admitted_on: 2026-08-03
-  - id: MONDO:0016460
-    label: polyvalvular heart disease syndrome
-    reason: >-
-      Malformation of multiple cardiac valves.
-    admitted_by: gencc_submitter
-    attributed_to: Orphanet
-    admitted_on: 2026-08-03
   - id: MONDO:0016581
     label: conotruncal heart malformations
     reason: >-
@@ -441,7 +436,7 @@ diseases:
     attributed_to: PanelApp Australia
     admitted_on: 2026-08-03
   - id: MONDO:0100009
-    label: structural congenital heart disease, multiple types - GATA4
+    label: GATA4-related congenital heart disease with or without pancreatic hypoplasia or diabetes
     reason: >-
       GATA4's structural CHD entity, curated by the Congenital Heart Disease GCEP.
     admitted_by: clingen_chd_panel
