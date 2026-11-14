@@ -55,7 +55,7 @@
 # than heart disease itself, so a gene page can say a grade for it is a grade
 # for the syndrome as a whole. Curated, because no field said it: "congenital
 # heart disease with heterotaxy syndrome" carries the word and is CHD itself.
-# Set on the nine ClinGen-scoped terms that the ten genes graded at their
+# Set on the nine ClinGen-scoped terms that the eleven genes graded at their
 # headline for a syndrome are graded for (Alagille, Holt-Oram, Kabuki 1 and 2,
 # CHARGE, Ellis-van Creveld, Mowat-Wilson, TARP, and NR2F2-related multiple
 # congenital anomalies/dysmorphic syndrome); an Orphanet-path term needs no

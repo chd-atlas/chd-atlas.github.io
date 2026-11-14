@@ -135,7 +135,8 @@ class ScopeEntry(BaseModel):
     # syndrome a heart grade must be qualified for. A gene page's card reads
     # it: a gene graded at its headline only for marked, ClinGen-scoped
     # syndromes says the grade is for the syndrome as a whole. Set on exactly
-    # the nine terms the ten genes graded that way are graded for; an
+    # the nine terms the genes graded that way are graded for (ten genes on
+    # 2026-10-26, eleven since SEMA3E joined CHARGE syndrome on 2026-11-14); an
     # Orphanet-scoped term needs no mark, its warrant already says it.
     syndrome: bool = False
     admitted_on: date

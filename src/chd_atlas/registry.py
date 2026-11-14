@@ -11,7 +11,7 @@ read the scope ids with a regular expression over the YAML text; here they are
 `ChdScopeFile.diseases[].id`. Measured 2026-11-10, the file's 105 ``- id:``
 lines are all MONDO ids under ``diseases``, so the two readings agreed on the
 committed file. `tests/unit/test_registry.py` pins one thing about the
-committed corpus: this module derives exactly the 185 genes of
+committed corpus: this module derives exactly the 186 genes of
 `mirrors/genes.tsv`.
 
 A validity mirror that is ABSENT counts as a mirror with no rows: its genes

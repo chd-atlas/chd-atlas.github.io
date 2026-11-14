@@ -38,8 +38,8 @@ extension is corrected rather than copied.) The dead-link sweep in
 it walks each published `path` and checks the file exists, so a record that
 was never emitted breaks no link and leaves the sweep green.
 
-Keyed on `genes` -- the whole 185-gene registry -- it would be worse: 66
-results whose `path` names a bundle no builder wrote. That direction the
+Keyed on `genes` -- the whole 186-gene registry -- it would be worse: 67
+results whose `path` names a bundle no builder wrote (2026-11-14). That direction the
 sweep does catch. `published` is the only population that is right in both.
 
 Amendment A29 records the sharper case, which this module does not change: a
@@ -156,8 +156,9 @@ def build_search(
 
     The approved name is a term and not the label. `mirrors/genes.tsv` requires
     `name` on every row and leaves `aliases` nullable, and measured on the mirror
-    as committed, `name` is non-null in 185/185 rows while `aliases` is null in
-    41 (re-measured 2026-10-25; 154/154 and 38 before the registry widened):
+    as committed, `name` is non-null in 186/186 rows while `aliases` is null in
+    41 (re-measured 2026-11-14; 185/185 and 41 on 2026-10-25, 154/154 and 38
+    before the registry widened):
     the one piece of gene text a reader is guaranteed to be able to search for
     is the one that was not indexed, and the one that was is absent for more
     than a fifth of the registry. This paragraph read "1/1 rows" and "null in 1/1"

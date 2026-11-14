@@ -97,9 +97,9 @@ def _gencc_row(**overrides: object) -> dict[str, object]:
 def repository_validity() -> dict[str, GeneValidity]:
     """`gene_validity()` over the committed mirrors and scope file.
 
-    Module-scoped: the GenCC mirror is 30,410 rows, and one call costs 0.22s
-    (mean of 5 warmed runs, measured 2026-08-04) -- more than a third of what
-    this whole module currently takes to run.
+    Module-scoped: the GenCC mirror is 30,376 rows (2026-11-14), and one call
+    cost 0.22s on its 30,410 rows (mean of 5 warmed runs, measured 2026-08-04)
+    -- more than a third of what this whole module took to run then.
     """
     root = Path(__file__).parent.parent.parent
     corpus, _ = load_curation(root)
@@ -636,11 +636,13 @@ def test_the_committed_mirrors_publish_one_hundred_nineteen_genes_across_four_ru
     scope edit and a mirror refresh can move in opposite directions and leave
     unchanged, and it says nothing about which warrant admitted what. The split
     is what `docs/data-api.md`, `index.html`'s counts and every chip on the site
-    are written against: measured 2026-10-25, 98 genes carry a ClinGen record at
-    or above the floor and 21 are admitted on GenCC agreement alone. (92 = 76 +
-    16 until the Orphanet scope path admitted Noonan, Costello, Adams-Oliver and
-    the other syndromes where CHD is frequent but not definitional, and NOTCH1's
-    own ClinGen term; issue #8.)
+    are written against: measured 2026-11-14, 100 genes carry a ClinGen record
+    at or above the floor and 19 are admitted on GenCC agreement alone -- the
+    total held while SEMA3E and ZFPM2 moved warrant, when ClinGen's refresh
+    graded both Limited (98 and 21 from 2026-10-25). (92 = 76 + 16 until the
+    Orphanet scope path admitted Noonan, Costello, Adams-Oliver and the other
+    syndromes where CHD is frequent but not definitional, and NOTCH1's own
+    ClinGen term; issue #8.)
 
     The population was 23 until 2026-08-06 and every gene in it was ClinGen
     `Definitive`; those 23 are still here, which is what makes this a widening
@@ -653,7 +655,7 @@ def test_the_committed_mirrors_publish_one_hundred_nineteen_genes_across_four_ru
         admission_provenance(repository_validity[gene])["admitted_by"]["authority"]  # type: ignore[index]
         for gene in published
     )
-    assert by_warrant == {"clingen": 98, "gencc_agreement": 21}
+    assert by_warrant == {"clingen": 100, "gencc_agreement": 19}
 
     by_grade = Counter(
         record.classification
@@ -662,7 +664,7 @@ def test_the_committed_mirrors_publish_one_hundred_nineteen_genes_across_four_ru
     )
     assert by_grade == {
         Classification.DEFINITIVE: 42,
-        Classification.LIMITED: 45,
+        Classification.LIMITED: 47,
         Classification.MODERATE: 10,
         Classification.STRONG: 1,
     }

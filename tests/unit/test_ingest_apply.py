@@ -1381,7 +1381,7 @@ def test_ingest_all_survives_a_scope_shrink(pinned: Pinned, tmp_path: Path) -> N
     result = ingest_all(repo)
 
     counts = [(r.source_id, r.rows_written, r.rows_outside_registry) for r in result.results]
-    assert counts == [("hgnc", 185, 2), (SOURCE, 6, 6)]
+    assert counts == [("hgnc", 186, 2), (SOURCE, 6, 6)]
     assert result.pruned == tuple(
         PrunedRows(table, relative, ENO1, pinned.planted[relative])
         for relative, (table, _) in sorted(CONVERTER_ROWS.items())
@@ -1850,7 +1850,7 @@ def _entry(source_id: str, **changes: Any) -> dict[str, Any]:
 class Repinned:
     """ClinGen v1 (the committed rows), hgnc, toy_burden and Mondo pinned and cached; then v2.
 
-    The registry is the committed 185 genes (A). The hgnc package also carries
+    The registry is the committed 186 genes (A). The hgnc package also carries
     SLC11A1 (B) and A1BG (Z), the burden package six HGNC:10023 rows and the
     same six for SLC11A1, and the Mondo package every committed row plus
     yellow nail syndrome's, which its filter leaves out. Every mirror is then

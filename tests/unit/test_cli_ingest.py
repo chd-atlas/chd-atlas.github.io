@@ -81,9 +81,11 @@ def test_an_ingested_package_exits_0_and_names_everything_it_did_not_write(
 ) -> None:
     """The absent-genes line states the slice and the registry, never a cause.
 
-    The committed Farah shard lacks 4 of the 185 registry genes (POPDC1, CRIPTO,
-    CIROZ, CIROP; measured 2026-11-10), and CRIPTO at least is a symbol gap (the
-    source names it TDGF1), not a registry that grew after the slice was cut.
+    The committed Farah shard lacks 5 of the 186 registry genes: POPDC1, CRIPTO,
+    CIROZ and CIROP (measured 2026-11-10 against 185), and PLAGL1, which entered
+    the registry on 2026-11-14 after the slice was cut. CRIPTO at least is a
+    symbol gap (the source names it TDGF1), not a registry that grew after the
+    slice was cut; PLAGL1 is the opposite case.
     The ingest itself is `test_ingest_apply`'s (on the real corpus); this pins
     what the command prints of its result.
     """

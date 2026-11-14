@@ -914,7 +914,7 @@ def test_an_unreadable_gene_registry_does_not_multiply_by_the_burden_mirror(
     validate. Now one GEN004, and the build refuses before writing anything.
 
     **And one GEN006** (feeds phase 2): the scope and the validity mirrors
-    still derive 185 genes, and the file lists none of them. One issue naming
+    still derive 186 genes, and the file lists none of them. One issue naming
     the cause, like GEN004, not one per gene.
     """
     root = _real_repo(tmp_path / "repo")
@@ -939,7 +939,7 @@ def test_an_unreadable_gene_registry_does_not_multiply_by_the_burden_mirror(
 
     assert [issue.code for issue in errors] == ["GEN004", "GEN006"]
     assert "the gene registry holds no gene rows" in errors[0].message
-    assert "lacks 185 genes" in errors[1].message
+    assert "lacks 186 genes" in errors[1].message
     out = tmp_path / "dist"
     with pytest.raises(BuildRefused, match="GEN004"):
         build_site(root, out)

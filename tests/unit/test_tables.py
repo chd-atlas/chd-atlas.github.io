@@ -211,7 +211,8 @@ def test_clingen_validity_is_keyed_on_the_triple_and_the_panel() -> None:
     Heritable Thoracic Aortic Aneurysm and Dissection GCEP and SOP12 Limited
     (2026) by the Hereditary Cardiovascular Disease GCEP. Both stay, as GenCC's
     table keeps every submitter's row; (gene, disease, moi, gcep) is unique on
-    all 3,731 rows of that file.
+    all 3,731 rows of that file and on all 3,733 of the later download pinned
+    as clingen/2026-11-13 (its banner carries the same date).
     """
     assert CLINGEN_VALIDITY.sort_key == ("gene", "disease", "moi", "gcep")
     assert CLINGEN_VALIDITY.version == 2
@@ -848,8 +849,9 @@ def test_vectorized_checks_match_the_original_on_every_committed_mirror(
     """Real curated/mirrored data holds zero offenders in every checked column --
     the case this vectorization optimizes for, and the case a hand-written
     synthetic fixture would not think to cover. `clingen_gene_validity.tsv`
-    (3,653 rows) and `gencc_submissions.tsv` (30,410 rows) are the tables that
-    exposed the regression this change fixes.
+    and `gencc_submissions.tsv` (3,653 and 30,410 rows then; 3,733 and 30,376
+    since 2026-11-14) are the tables that exposed the regression this change
+    fixes.
     """
     schema = TABLE_SCHEMAS[schema_name]
     assert validate_table(path, schema) == _slow_validate_table(path, schema)
@@ -1189,7 +1191,13 @@ def test_polars_pattern_engine_agrees_with_python_re(tmp_path: Path) -> None:
     # `study`, `gene`, `case_cohorts` and `control_cohorts` non-null = 100
     # (the per-column non-null counts of `burden.tsv` before and after, read
     # with `read_table`; the E-MTAB-6814 shards came out byte-identical).
-    assert total_compared == 224_551
+    #
+    # **224,551 -> 224,684 on 2026-11-14**, the ClinGen/GenCC refresh (F28-F30),
+    # measured per table and column against fbc9d2f: clingen_gene_validity +80
+    # rows x 2 = +160, gencc_submissions -34 x 4 = -136, mondo_xrefs -20 x 2 =
+    # -40, and PLAGL1 entering the registry: genes.tsv +1 x 2, burden.tsv +7 x 4
+    # and profiles/E-MTAB-6814.tsv +119.
+    assert total_compared == 224_684
 
     for pattern in patterns:
         compiled = re.compile(pattern)
