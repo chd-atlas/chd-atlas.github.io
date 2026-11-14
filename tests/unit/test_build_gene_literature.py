@@ -23,9 +23,10 @@ from chd_atlas.build.gene_literature import (
     LiteratureCensus,
     gene_literature,
     literature_census,
+    literature_tallies,
 )
 from chd_atlas.corpus import Corpus
-from chd_atlas.models.gene_literature import GeneLiteratureFile
+from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile
 from chd_atlas.models.literature import Publication
 from tests.unit._stamp import stamped
 
@@ -220,6 +221,17 @@ def test_the_empty_shape_is_literally_the_documented_one() -> None:
         "triage": {"included": 0, "excluded": {}, "pending": 0},
         "pending_approval": 0,
         "findings": [],
+        "tallies": {
+            "papers": 0,
+            "first_year": None,
+            "last_year": None,
+            "designs": {},
+            "lesion_groups": {},
+            "de_novo_papers": 0,
+            "inherited_papers": 0,
+            "abstract_only_papers": 0,
+            "pending_review_papers": 0,
+        },
     }
 
 
@@ -251,3 +263,85 @@ def test_the_census_counts_published_genes_with_a_search_and_their_approved_find
         genes=3, findings=8
     )
     assert literature_census({}, {TBX5}) == LiteratureCensus(genes=0, findings=0)
+
+
+def _f(number: int, pmid: str, **changes: Any) -> Finding:
+    return Finding.model_validate(_finding(number, pmid, **changes))
+
+
+_YEARS = {"PMID:9": 2003, "PMID:10": 2026, "PMID:11": 2010}
+
+
+def test_tallies_count_papers_not_findings() -> None:
+    """Three findings in two papers: 2 papers; each category counts papers."""
+    case = {
+        "design": "case_report",
+        "screened": 1,
+        "carriers": {"de_novo": 1, "inherited": 0, "origin_unknown": 0},
+    }
+    tallies = literature_tallies(
+        [
+            _f(1, "PMID:9", lesion_groups=["septal", "avsd"]),
+            _f(2, "PMID:9", **case, lesion_groups=["septal"]),
+            _f(3, "PMID:10", lesion_groups=["septal"]),
+        ],
+        _YEARS,
+    )
+    assert tallies["papers"] == 2
+    assert tallies["designs"] == {"case_report": 1, "cohort_screen": 2}
+    assert tallies["lesion_groups"] == {"avsd": 1, "septal": 2}
+    assert list(tallies["designs"]) == ["case_report", "cohort_screen"]
+
+
+def test_tallies_read_null_carriers_as_none() -> None:
+    common = {
+        "design": "common_variant_association",
+        "carriers": None,
+        "screened": None,
+        "count_unit": None,
+        "cases": 40,
+        "controls": 90,
+        "variant_classes": [],
+        "methods": ["exome"],
+    }
+    tallies = literature_tallies([_f(1, "PMID:9", **common)], _YEARS)
+    assert tallies["papers"] == 1
+    assert tallies["de_novo_papers"] == tallies["inherited_papers"] == 0
+
+
+def test_tallies_count_carrier_origin_and_review_marks_by_paper() -> None:
+    mark = {"review_note": "n"}
+    tallies = literature_tallies(
+        [
+            _f(1, "PMID:9", review_status="not_accessible", **mark),
+            _f(2, "PMID:9", review_status="not_accessible", **mark),
+            _f(3, "PMID:10", review_status="pending_review", **mark),
+            _f(
+                4,
+                "PMID:11",
+                carriers={"de_novo": 0, "inherited": 4, "origin_unknown": 1},
+            ),
+        ],
+        _YEARS,
+    )
+    assert tallies["abstract_only_papers"] == 1
+    assert tallies["pending_review_papers"] == 1
+    # PMID:9 and :10 carry de novo 2 each; PMID:11 has none but inherited 4.
+    assert tallies["de_novo_papers"] == 2
+    assert tallies["inherited_papers"] == 3
+
+
+def test_tallies_span_the_publication_years() -> None:
+    tallies = literature_tallies([_f(1, "PMID:10"), _f(2, "PMID:9"), _f(3, "PMID:11")], _YEARS)
+    assert (tallies["first_year"], tallies["last_year"]) == (2003, 2026)
+
+
+def test_a_gene_with_no_approved_finding_publishes_empty_tallies() -> None:
+    raw = _file().model_dump(mode="json")
+    for finding in raw["findings"]:
+        finding.update(approved_by=None, approved_on=None, approved_digest=None)
+    entry = gene_literature(_corpus(GeneLiteratureFile.model_validate(raw)))[TBX5]
+    assert entry["findings"] == []
+    assert entry["tallies"] == EMPTY_GENE_LITERATURE["tallies"]
+    assert entry["tallies"]["first_year"] is None
+    assert entry["tallies"]["last_year"] is None

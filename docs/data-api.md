@@ -765,7 +765,11 @@ abridged, and each is documented in full further down.
                 "pending": 0 },
     "pending_approval": 0,
     "findings": [ { "id": "CHDA:LIT:0000015", "publication": "PMID:12789647",
-                    "design": "cohort_screen", … }, … ]
+                    "design": "cohort_screen", … }, … ],
+    "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
+                 "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
+                 "de_novo_papers": 11, "inherited_papers": 24,
+                 "abstract_only_papers": 21, "pending_review_papers": 3 }
   }
 }
 ```
@@ -1615,7 +1619,10 @@ On every gene bundle (since `2.21`). Always present; a gene with no
 
 ```json
 { "searches": [], "triage": { "included": 0, "excluded": {}, "pending": 0 },
-  "pending_approval": 0, "findings": [] }
+  "pending_approval": 0, "findings": [],
+  "tallies": { "papers": 0, "first_year": null, "last_year": null, "designs": {},
+               "lesion_groups": {}, "de_novo_papers": 0, "inherited_papers": 0,
+               "abstract_only_papers": 0, "pending_review_papers": 0 } }
 ```
 
 TBX5's, abridged:
@@ -1627,7 +1634,11 @@ TBX5's, abridged:
   "pending_approval": 0,
   "findings": [ { "id": "CHDA:LIT:0000015", "publication": "PMID:12789647", "design": "cohort_screen",
                   "count_unit": "probands", "screened": 49,
-                  "carriers": { "de_novo": 0, "inherited": 9, "origin_unknown": 8 }, … }, … ] }
+                  "carriers": { "de_novo": 0, "inherited": 9, "origin_unknown": 8 }, … }, … ],
+  "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
+               "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
+               "de_novo_papers": 11, "inherited_papers": 24,
+               "abstract_only_papers": 21, "pending_review_papers": 3 } }
 ```
 
 - `searches` lists each recorded PubMed search: `source`, `query`, `run_on` (an
@@ -1655,6 +1666,16 @@ TBX5's, abridged:
   not yet approved, which is then in no bundle, so the id resolves nowhere in the
   published data. `carriers` and `screened` are counted in `count_unit`: with
   `families`, `screened` is families and each origin count is carrier families.
+- `tallies` counts the approved findings by paper (distinct `publication`), never
+  carriers: papers may share probands, so no carrier total across papers is
+  published. A paper with several findings counts once in each category, so the
+  categories need not sum to `papers`. `designs` and `lesion_groups` map a value
+  to its papers and hold only values with at least one paper.
+  `de_novo_papers` and `inherited_papers` count papers with at least one finding
+  carrying such a carrier; `abstract_only_papers` and `pending_review_papers`
+  count papers with at least one finding marked `not_accessible` or
+  `pending_review`. `first_year` and `last_year` span the papers' years, `null`
+  with no approved finding.
 
 The gene page renders this as its Literature section, right after the atlas's
 curated evidence (on a gene with none, after the validity table) and before the
