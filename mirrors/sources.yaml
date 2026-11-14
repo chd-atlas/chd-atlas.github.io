@@ -102,8 +102,8 @@ sources:
     # `mirrors/clingen_gene_validity.tsv` is written by `chd-atlas ingest
     # clingen` from the chd-atlas/feeds package `clingen` 2026-11-13 (the pin
     # below; table v2, keyed on the panel too), built from the CSV downloaded
-    # 2026-11-14. The banner date is the server's day, a UTC date: the download
-    # ran at 2026-11-13T23:20Z.
+    # 2026-11-14 on the workstation (2026-11-13T23:20Z). The banner carries the
+    # server's date, not the workstation's.
     url: https://search.clinicalgenome.org/kb/gene-validity
     # "All curated content published by ClinGen is available free of restriction
     # under the CC0 1.0 Universal (CC0 1.0) Public Domain Dedication."
