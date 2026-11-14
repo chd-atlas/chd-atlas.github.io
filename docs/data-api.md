@@ -59,7 +59,7 @@ What the build produced, and a checksum for every file in it.
     "genes/index.json": "sha256:<64 hex>",
     "publications.json": "sha256:<64 hex>"
   },
-  "schema_version": "2.22",
+  "schema_version": "2.23",
   "source_commit": "<40-hex commit sha, or null outside a git checkout>",
   "status": "in-development"
 }
@@ -307,6 +307,9 @@ wrong by the next one.
   when the source's rows were not ingested from a data package, which is every
   source as of `2.22`, and for good a source no mirror table holds rows from,
   such as `hpo`. Additive.
+  `2.23` added `tallies` to every gene bundle's `literature` object: the
+  approved findings counted by paper (see the field's own description). The gene
+  page card now reads from it. Additive.
 - `status` is the atlas's own readiness, so a program can read it without
   scraping `index.html`'s prose. Today it is always `"in-development"` — one
   curated gene-disease assertion alongside mirrored ClinGen/GenCC validity for
@@ -1990,6 +1993,17 @@ and a gene with only those still reads "Not yet curated by the atlas". The
 JSON field is unchanged: `atlas_curation` stays derived from lesion assertions
 alone, so such a gene is `not_yet_curated` in its bundle and curated on its
 card. The `literature` key carries the findings the card counts.
+
+Two more lines sit under the curation sentence. Where a curated lesion
+assertion records a mechanism, "Mechanism, as curated by the atlas:
+haploinsufficiency." names it (distinct values, sorted); a gene with no
+assertion has no such line. Where a gene has approved literature, a literature
+line states it by paper from `literature.tallies`: the years the papers span,
+then the study designs, the lesion groups, the papers reporting de novo and
+inherited carriers, and the papers read from the abstract only or awaiting
+review. Every figure counts papers. The card never states a carrier count summed
+across papers, because those cohorts overlap, and it names a common-variant
+association apart from the Mendelian designs ("not Mendelian evidence").
 
 Read the uncurated sentences precisely, because they are narrower than they first appear. **A lesion
 assertion**, or an approved literature finding, is what decides which sentence the card shows, not

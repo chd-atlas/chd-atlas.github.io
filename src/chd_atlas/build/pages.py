@@ -96,6 +96,7 @@ from chd_atlas.build.emit import Emitter, Json
 from chd_atlas.build.gene_literature import (
     EMPTY_GENE_LITERATURE,
     GeneLiterature,
+    LiteratureTallies,
     SearchRecord,
     pmid_number,
 )
@@ -1812,6 +1813,109 @@ def _card_scope(
     return f'<p class="card-scope">{html.escape(sentence)}</p>'
 
 
+# The card's literature line: papers, never carriers summed across papers.
+_CARD_MENDELIAN_DESIGNS: Final = (
+    ("family_segregation", "family segregation"),
+    ("cohort_screen", "cohort screens"),
+    ("case_report", "case reports"),
+    ("rare_variant_association", "rare-variant association"),
+)
+# `LesionGroup` order is the tie-break order; `other` is last whatever its count.
+_CARD_LESION_LABELS: Final = (
+    ("conotruncal", "conotruncal"),
+    ("septal", "septal"),
+    ("lvoto", "LVOTO"),
+    ("rvoto", "RVOTO"),
+    ("avsd", "AVSD"),
+    ("heterotaxy", "heterotaxy"),
+    ("anomalous_venous_return", "anomalous venous return"),
+    ("complex", "complex"),
+    ("other", "other"),
+)
+
+
+def _papers(n: int) -> str:
+    return f"{n} paper" if n == 1 else f"{n} papers"
+
+
+def _card_literature(tallies: LiteratureTallies) -> str:
+    """The card's literature line: what the approved findings amount to, by paper.
+
+    Every count is of distinct papers (`literature_tallies`), so no figure here
+    sums carriers across papers: those cohorts overlap and the atlas publishes
+    no pooled statistic. `""` when the gene has no approved paper. A common-variant
+    association is named apart from the Mendelian designs and says so, because a
+    reader must not add it to rare-variant evidence.
+    """
+    if tallies["papers"] == 0:
+        return ""
+    first, last = tallies["first_year"], tallies["last_year"]
+    span = f"{first}" if first == last else f"{first} to {last}"
+    designs = tallies["designs"]
+    clauses = [
+        f"{label} in {_papers(designs[key])}"
+        for key, label in _CARD_MENDELIAN_DESIGNS
+        if designs.get(key)
+    ]
+    text = f"Papers from {span}, by design: " + ", ".join(clauses)
+    common = designs.get("common_variant_association", 0)
+    if common:
+        text += "; " if clauses else ""
+        text += f"common-variant association in {_papers(common)}, not Mendelian evidence"
+    sentences = [text + "."]
+    groups = tallies["lesion_groups"]
+    order = {key: index for index, (key, _) in enumerate(_CARD_LESION_LABELS)}
+    labels = dict(_CARD_LESION_LABELS)
+    present = sorted(
+        (key for key in groups if groups[key] > 0 and key != "other"),
+        key=lambda key: (-groups[key], order[key]),
+    )
+    if groups.get("other"):
+        present.append("other")
+    if present:
+        sentences.append(
+            "Lesions, by paper: "
+            + ", ".join(f"{labels[key]} {groups[key]}" for key in present)
+            + "."
+        )
+    origin = [
+        f"{label} carriers in {_papers(count)}"
+        for label, count in (
+            ("de novo", tallies["de_novo_papers"]),
+            ("inherited", tallies["inherited_papers"]),
+        )
+        if count
+    ]
+    if origin:
+        sentences.append("; ".join(origin).capitalize() + ".")
+    basis = [
+        f"{label}: {_papers(count)}"
+        for label, count in (
+            ("from the abstract only", tallies["abstract_only_papers"]),
+            ("awaiting review", tallies["pending_review_papers"]),
+        )
+        if count
+    ]
+    if basis:
+        sentences.append("; ".join(basis).capitalize() + ".")
+    return f'<p class="card-literature">{html.escape(" ".join(sentences))}</p>'
+
+
+def _card_mechanism(mechanisms: Sequence[str]) -> str:
+    """The card's mechanism sentence, from the gene's curated lesion assertions.
+
+    `""` when there are none. Distinct values, sorted: a gene whose assertions
+    record two mechanisms names both.
+    """
+    if not mechanisms:
+        return ""
+    labels = ", ".join(sorted({value.replace("_", " ") for value in mechanisms}))
+    return (
+        f'<p class="card-mechanism">'
+        f"{html.escape(f'Mechanism, as curated by the atlas: {labels}.')}</p>"
+    )
+
+
 def _rail(
     gene: str,
     symbol: str,
@@ -1826,6 +1930,7 @@ def _rail(
     scope_terms: Mapping[str, ScopeEntry] | None = None,
     panel_graders: Mapping[tuple[str, str], tuple[str, ...]] | None = None,
     literature: GeneLiterature = EMPTY_GENE_LITERATURE,
+    mechanisms: tuple[str, ...] = (),
 ) -> str:
     """The clinician card: the summary column, for every gene whether curated here or not.
 
@@ -1836,7 +1941,10 @@ def _rail(
     no-association line (`_card_no_association`, R6); the Orphanet line
     (`_card_scope`); the rare-variant results that survive their own
     study's correction (`_card_rare_variants`, D56), each linking to its
-    study's block; the atlas-curation sentence (`_card_curation`); and a last
+    study's block; the atlas-curation sentence (`_card_curation`); the
+    mechanism sentence (`_card_mechanism`, from the gene's lesion assertions);
+    the literature line (`_card_literature`, papers by design, lesion group,
+    carrier origin and review state); and a last
     line linking the top of `methods.html` as "How to read this page" (P1,
     2026-10-26) beside the gene's JSON. The nav's link to the same file reads
     "How to read this atlas"; from the card the question is about this page.
@@ -1928,6 +2036,8 @@ def _rail(
         f"{_card_scope(fact, gene_validity, warrants or {}, scope_terms, panel_graders)}"
         f"{_card_rare_variants(rows, families, publications or {})}"
         f"{_card_curation(fact, literature)}"
+        f"{_card_mechanism(mechanisms)}"
+        f"{_card_literature(literature['tallies'])}"
         '<p><a href="../methods.html">How to read this page</a> &middot; '
         f'<a href="../{html.escape(bundle)}">this gene as JSON</a></p></aside>'
     )
@@ -6879,6 +6989,7 @@ def build_gene_pages(
                 scope_terms=scope_terms,
                 panel_graders=graders,
                 literature=gene_literature_bundle,
+                mechanisms=tuple(record.mechanism.value for record in records),
             )
             + "<div>"
             + _SCOPE_SHORT

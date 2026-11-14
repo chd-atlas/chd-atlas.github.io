@@ -62,7 +62,7 @@ def write_site(
     *,
     counts: dict[str, int] | None = None,
     files: dict[str, str] | None = None,
-    schema_version: str = "2.22",
+    schema_version: str = "2.23",
     source_commit: str | None = None,
 ) -> Path:
     """`genes` is (index entry, bundle) pairs; the bundle is written verbatim."""
