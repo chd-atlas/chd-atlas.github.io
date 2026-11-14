@@ -320,11 +320,13 @@ def test_tallies_count_carrier_origin_and_review_marks_by_paper() -> None:
                 4,
                 "PMID:11",
                 carriers={"de_novo": 0, "inherited": 4, "origin_unknown": 1},
+                review_status="not_accessible",
+                **mark,
             ),
         ],
         _YEARS,
     )
-    assert tallies["abstract_only_papers"] == 1
+    assert tallies["abstract_only_papers"] == 2  # PMID:9 (twice) and PMID:11
     assert tallies["pending_review_papers"] == 1
     # PMID:9 and :10 carry de novo 2 each; PMID:11 has none but inherited 4.
     assert tallies["de_novo_papers"] == 2
