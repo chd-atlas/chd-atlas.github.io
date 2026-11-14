@@ -121,8 +121,8 @@ from chd_atlas.models.review import ReviewStatus
 # for both page kinds. Its last clause said the disease "is shown beside the
 # gene", true on a gene page and on the gene index and unanchored here, so it
 # now names both places -- and says "for a gene a ClinGen panel graded", since
-# the 21 genes admitted on submitter agreement have no panel-named disease to
-# show (their card names the submitters instead).
+# a gene admitted on submitter agreement has no panel-named disease to show
+# (its card names the submitters instead).
 #
 # Its first part was rewritten on 2026-10-26, after review measured it false
 # read as a rule (each measured that day on the committed mirrors and the

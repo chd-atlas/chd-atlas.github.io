@@ -97,9 +97,9 @@ def _gencc_row(**overrides: object) -> dict[str, object]:
 def repository_validity() -> dict[str, GeneValidity]:
     """`gene_validity()` over the committed mirrors and scope file.
 
-    Module-scoped: the GenCC mirror is 30,410 rows, and one call costs 0.22s
-    (mean of 5 warmed runs, measured 2026-08-04) -- more than a third of what
-    this whole module currently takes to run.
+    Module-scoped: the GenCC mirror is 30,376 rows (2026-11-14), and one call
+    cost 0.22s on its 30,410 rows (mean of 5 warmed runs, measured 2026-08-04)
+    -- more than a third of what this whole module took to run then.
     """
     root = Path(__file__).parent.parent.parent
     corpus, _ = load_curation(root)
@@ -636,11 +636,13 @@ def test_the_committed_mirrors_publish_one_hundred_nineteen_genes_across_four_ru
     scope edit and a mirror refresh can move in opposite directions and leave
     unchanged, and it says nothing about which warrant admitted what. The split
     is what `docs/data-api.md`, `index.html`'s counts and every chip on the site
-    are written against: measured 2026-10-25, 98 genes carry a ClinGen record at
-    or above the floor and 21 are admitted on GenCC agreement alone. (92 = 76 +
-    16 until the Orphanet scope path admitted Noonan, Costello, Adams-Oliver and
-    the other syndromes where CHD is frequent but not definitional, and NOTCH1's
-    own ClinGen term; issue #8.)
+    are written against: measured 2026-11-14, 100 genes carry a ClinGen record
+    at or above the floor and 19 are admitted on GenCC agreement alone -- the
+    total held while SEMA3E and ZFPM2 moved warrant, when ClinGen's refresh
+    graded both Limited (98 and 21 from 2026-10-25). (92 = 76 + 16 until the
+    Orphanet scope path admitted Noonan, Costello, Adams-Oliver and the other
+    syndromes where CHD is frequent but not definitional, and NOTCH1's own
+    ClinGen term; issue #8.)
 
     The population was 23 until 2026-08-06 and every gene in it was ClinGen
     `Definitive`; those 23 are still here, which is what makes this a widening
@@ -653,7 +655,7 @@ def test_the_committed_mirrors_publish_one_hundred_nineteen_genes_across_four_ru
         admission_provenance(repository_validity[gene])["admitted_by"]["authority"]  # type: ignore[index]
         for gene in published
     )
-    assert by_warrant == {"clingen": 98, "gencc_agreement": 21}
+    assert by_warrant == {"clingen": 100, "gencc_agreement": 19}
 
     by_grade = Counter(
         record.classification
@@ -662,7 +664,7 @@ def test_the_committed_mirrors_publish_one_hundred_nineteen_genes_across_four_ru
     )
     assert by_grade == {
         Classification.DEFINITIVE: 42,
-        Classification.LIMITED: 45,
+        Classification.LIMITED: 47,
         Classification.MODERATE: 10,
         Classification.STRONG: 1,
     }
@@ -703,3 +705,38 @@ def test_two_submissions_tied_on_every_other_sort_field_order_by_sgc_id() -> Non
             "SGC-101696",
             "SGC-104080",
         ]
+
+
+_HCVD = "Hereditary Cardiovascular Disease Gene Curation Expert Panel"
+_HTAAD = "Heritable Thoracic Aortic Aneurysm and Dissection Gene Curation Expert Panel"
+
+
+def test_two_panels_on_one_triple_publish_both_in_panel_order() -> None:
+    """Two ClinGen panels' records on one (gene, disease, moi) both publish, ordered by panel.
+
+    FOXE3 / MONDO:0019625 / AD is the real case (ClinGen's 2026-11-13 file:
+    SOP4 Moderate 2016 by the HTAAD GCEP, SOP12 Limited 2026 by the HCVD GCEP;
+    F28). FOXE3 is not published, so the pair is placed on GATA6's in-scope
+    triple here. `(source, disease, moi, submitter, sgc_id)` ties on both --
+    neither carries a submitter or an sgc_id -- so without `gcep` in
+    `_sort_key` the order is the mirror's. Fed in both orders.
+
+    The headline keeps `strongest()` (plan Decision 2): the older Moderate
+    admits over the newer Limited. On equal grades the first record in sort
+    order admits, which is the panel that sorts first.
+    """
+    rows = [
+        _clingen_row(gcep=_HTAAD, sop="SOP4", classification="Moderate"),
+        _clingen_row(gcep=_HCVD, sop="SOP12", classification="Limited"),
+    ]
+    for feed in (rows, rows[::-1]):
+        entry = gene_validity(_clingen_frame(*feed), _gencc_frame(), in_scope={_GATA6_CHD})[_GATA6]
+        assert [record.gcep for record in entry.records] == [_HCVD, _HTAAD]
+        assert admitting_grade(entry) is Classification.MODERATE
+
+    tied = [{**row, "classification": "Limited"} for row in rows]
+    for feed in (tied, tied[::-1]):
+        entry = gene_validity(_clingen_frame(*feed), _gencc_frame(), in_scope={_GATA6_CHD})[_GATA6]
+        admitting = _admitting_clingen(entry)
+        assert admitting is not None
+        assert admitting.gcep == _HCVD

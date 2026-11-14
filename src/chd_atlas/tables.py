@@ -70,8 +70,8 @@ class TableSchema:
     name: str
     columns: tuple[Column, ...]
     sort_key: tuple[str, ...]
-    # Bumped when a column is added, removed or retyped; the exported schema is
-    # named `<name>.v<version>.json`.
+    # Bumped when a column is added, removed or retyped, or the key changes; the
+    # exported schema is named `<name>.v<version>.json`.
     version: int = 1
 
     @property
@@ -450,10 +450,18 @@ CLINGEN_VALIDITY = TableSchema(
         Column("report_url", pl.String),
     ),
     # The triple, not the pair. Measured 2026-08-03 against the ClinGen bulk
-    # CSV (3,653 rows): (gene, disease, moi) is unique at 3,653/3,653;
+    # CSV (3,653 rows): (gene, disease, moi) was unique at 3,653/3,653;
     # (gene, disease) at 3,594 -- 59 pairs are curated twice under different
     # MOI with different classifications.
-    sort_key=("gene", "disease", "moi"),
+    #
+    # And the panel (v2, F28). ClinGen's 2026-11-13 file lists FOXE3 /
+    # MONDO:0019625 / AD twice, by two GCEPs (SOP4 Moderate 2016, SOP12
+    # Limited 2026); both are kept, and (gene, disease, moi, gcep) is unique on
+    # all 3,731 rows of the planning download and on all 3,733 of the one pinned
+    # as clingen/2026-11-13 (downloaded 2026-11-13T23:20Z; both banners read
+    # 2026-11-13). `gcep` is not nullable, so the key never holds a blank.
+    sort_key=("gene", "disease", "moi", "gcep"),
+    version=2,
 )
 
 # GenCC's own vocabulary (the harmonised `classification_title` column of its
@@ -492,8 +500,9 @@ GENCC_SUBMISSIONS = TableSchema(
         Column("classification", pl.String, allowed=_GENCC_CLASSIFICATIONS),
         Column("submitter", pl.String),
         # Every GenCC value begins with an ISO calendar date (30,410 of 30,410
-        # measured); what follows varies. The column stays nullable on purpose: a
-        # third party's missing date must not fail the whole build. The pattern
+        # measured 2026-08-03, 30,376 of 30,376 on 2026-11-14); what follows
+        # varies. The column stays nullable on purpose: a third party's missing
+        # date must not fail the whole build. The pattern
         # skips nulls, so `docs/data-api.md` promises the prefix for any
         # non-null value only, and the gene page truncates to it. The trailing `.*$` is not
         # decoration: the engine-agreement test compares `re.fullmatch` with
