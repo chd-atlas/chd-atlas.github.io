@@ -2206,8 +2206,11 @@ def _study_label(pmid: str, publications: Mapping[str, Publication]) -> str:
     author and the same year, the label gains the PMID as stored --
     "Baban A et al. 2014 (PMID:25263169)" -- so two papers shown on one page
     cannot read as one. The check runs over the whole mapping, so every caller
-    gets it with no call-site change. A fallback label (missing record, blank
-    first author) is a bare PMID already and never gets a suffix. Measured
+    gets it with no call-site change. The gene pages pass the full curation
+    registry (runner.py), papers withheld from publications.json included, so a
+    withheld paper sharing a label also gives a published one its PMID. A
+    fallback label (missing record, blank first author) is a bare PMID already
+    and never gets a suffix. Measured
     2026-11-15 by comparing (stripped first author, year) over the publications
     registry at c7c21a6: one collision, PMID:25263169 and PMID:24664498
     ("Baban A et al. 2014"), both TBX5 literature papers.
