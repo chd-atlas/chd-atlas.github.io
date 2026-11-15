@@ -1842,3 +1842,15 @@ def test_an_unlisted_mirror_file_reaches_the_report_on_the_loaded_registry_branc
         ("SRC008", "mirrors/mondo_xrefs.tsv"),
     ]
     assert not any(i.code in {"SRC000", "SRC001", "SRC005"} for i in report.issues)
+
+
+def test_the_runner_reports_synthesis_issues(tmp_path: Path) -> None:
+    """§4.34: the call site, not only `validate_gene_synthesis`, is under test."""
+    root = _literature_repo(
+        tmp_path,
+        synthesis={
+            "sentences": [{"text": "Two carriers.", "cites": ["CHDA:LIT:0000001"]}],
+            "drafted_by": "agent:gene-synthesis/test",
+        },
+    )
+    assert "SYN002" in _codes_of(root)

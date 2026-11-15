@@ -26,7 +26,14 @@ from ruamel.yaml import YAML
 from chd_atlas import vocab
 from chd_atlas.cli import app
 from chd_atlas.models.assertion import InTextLocator, SupplementaryLocator
-from chd_atlas.models.gene_literature import Carriers, Finding, Search, TriageEntry
+from chd_atlas.models.gene_literature import (
+    Carriers,
+    Finding,
+    Search,
+    Synthesis,
+    SynthesisSentence,
+    TriageEntry,
+)
 from chd_atlas.models.literature import Publication
 from chd_atlas.models.review import ReviewStatus
 
@@ -67,7 +74,9 @@ def _model_fields() -> set[str]:
         | set(Publication.model_fields)
         | set(InTextLocator.model_fields)
         | set(SupplementaryLocator.model_fields)
-        | {"findings", "triage", "searches", "gene"}
+        | set(Synthesis.model_fields)
+        | set(SynthesisSentence.model_fields)
+        | {"findings", "triage", "searches", "gene", "synthesis"}
     )
 
 

@@ -148,3 +148,31 @@ convention only a person can check.
 - Approval is not dated before the search that found the paper (`LIT008`).
 - A review mark (`pending_review` or `not_accessible`, with its `review_note`) is
   published with the finding. It does not withdraw an approval.
+
+## Synthesis
+
+An optional `synthesis` block in a gene's literature file: the "In short" paragraph of
+its page.
+
+- Reader: a clinical geneticist. Cover the lesion spectrum, inheritance, mechanism,
+  syndromic features and how well established the gene is.
+- Sources: atlas records only. Every sentence rests on a record published on the same
+  page: an approved finding of this file or a lesion assertion of this gene.
+- Every sentence cites at least one such record in `cites` (`SYN001`).
+- No numbers: no digit run, no number word (one to twenty, dozen, hundred, half,
+  majority, most). Gene names and variants such as NKX2-5, 22q11.2 and p.Gly80Arg are
+  fine. Counts live in the card's literature line (`SYN002`).
+- One to five sentences, at most 120 words in all (`SYN003`).
+- `drafted_by` is `agent:<skill>/<model>`. An agent only drafts. `approved_by` is a
+  person's name, and `approved_by`, `approved_on` and `approved_digest` are set together.
+- The approval covers the text and every approved finding and lesion assertion of the
+  gene. Changing any of them makes the validator report `SYN004`, and the synthesis is
+  not published until a person approves it again.
+
+```yaml
+synthesis:
+  sentences:
+    - text: Septal defects are the usual presentation.
+      cites: [CHDA:LIT:0000001, CHDA:AST:0000001]
+  drafted_by: agent:gene-synthesis/model
+```
