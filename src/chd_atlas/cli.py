@@ -569,6 +569,25 @@ def _first_search_run_on(record: GeneLiteratureFile, finding: Finding) -> date |
     return next((s.run_on for s in record.searches if s.id == first), None)
 
 
+def _own_assertions(curation: Any, record: GeneLiteratureFile) -> list[Any]:
+    """The loaded curation's lesion assertions for the file's own gene.
+
+    The one filter behind the synthesis listing and `--approve-synthesis`: the
+    synthesis digest covers the gene's own assertions, so both must pass the
+    same list or an approval is stale the moment it is written.
+    """
+    return [a for a in curation.assertions if str(a.gene) == str(record.gene)]
+
+
+def _cited_state(finding: Finding) -> str:
+    """` [unapproved]` or ` [<review mark>]` after a cited finding, else nothing."""
+    if finding.approved_by is None:
+        return " [unapproved]"
+    if finding.review_status is not None:
+        return f" [{finding.review_status.value}]"
+    return ""
+
+
 def _synthesis_listing(record: GeneLiteratureFile, assertions: Sequence[Any]) -> list[str]:
     """The synthesis's approval state, its sentences and what each cites."""
     synthesis = record.synthesis
@@ -581,7 +600,7 @@ def _synthesis_listing(record: GeneLiteratureFile, assertions: Sequence[Any]) ->
         if synthesis.approved_digest == synthesis_digest(synthesis, record.findings, assertions):
             state = who
         else:
-            state = f"STALE ({who}; the records it covers changed)"
+            state = f"STALE ({who}; the text or the records it covers changed since)"
     findings: dict[str, Finding] = {f.id: f for f in record.findings}
     assertion_genes: dict[str, str] = {a.id: str(a.gene) for a in assertions}
     lines = [f"synthesis: {state}"]
@@ -589,7 +608,8 @@ def _synthesis_listing(record: GeneLiteratureFile, assertions: Sequence[Any]) ->
         lines.append(f"  {number}. {sentence.text}")
         for cite in sentence.cites:
             if cite in findings:
-                lines.append(f"     {cite}: {findings[cite].summary}")
+                cited = findings[cite]
+                lines.append(f"     {cite}: {cited.summary}{_cited_state(cited)}")
             elif cite in assertion_genes:
                 lines.append(f"     {cite}: lesion assertion for {assertion_genes[cite]}")
             else:
@@ -624,9 +644,10 @@ def literature_review(
     note: str = typer.Option("", "--note", help="The measured disagreement, for --pending-review."),
     root: Path = typer.Option(Path("."), help="Repository root."),
 ) -> None:
-    """List the findings awaiting approval, approve some, or mark one pending review.
+    """List the findings awaiting approval (and the synthesis, if any), approve some, or mark one.
 
-    A review mark is published with the finding; it does not withdraw an
+    `--approve-synthesis` approves the gene's synthesis, or re-approves a stale
+    one. A review mark is published with the finding; it does not withdraw an
     approval, and a marked finding can still be approved. A finding carries one
     mark: a second is refused rather than overwriting the first note.
     """
@@ -634,17 +655,21 @@ def literature_review(
     if sum(bool(a) for a in (approve, pending_review, approve_synthesis)) > 1:
         raise _fail(
             "--approve, --pending-review and --approve-synthesis are separate actions; "
-            "use only one (not both of two)",
+            "use only one of them",
             2,
         )
     if approve_synthesis and allow_unverified:
         raise _fail("--allow-unverified does not apply to --approve-synthesis", 2)
     if not approve and not approve_synthesis and (by or on or allow_unverified):
-        raise _fail("--by, --on and --allow-unverified only apply with --approve", 2)
+        raise _fail(
+            "--by and --on only apply with --approve or --approve-synthesis, "
+            "and --allow-unverified only with --approve",
+            2,
+        )
     if not pending_review and note:
         raise _fail("--note only applies with --pending-review", 2)
     if against is not None and (approve or pending_review or approve_synthesis):
-        raise _fail("--against only applies to the listing, not to the two actions", 2)
+        raise _fail("--against only applies to the listing, not to an action", 2)
     if approve or approve_synthesis:
         flag = "--approve" if approve else "--approve-synthesis"
         if not by.strip():
@@ -672,7 +697,8 @@ def literature_review(
         waiting = sorted((f for f in record.findings if f.approved_by is None), key=lambda f: f.id)
         if not waiting:
             typer.echo(f"{approved_symbol}: no findings awaiting approval")
-        papers = {p.id: p for p in load_curation(root)[0].publications}
+        curation = load_curation(root)[0]
+        papers = {p.id: p for p in curation.publications}
         differences: dict[str, list[tuple[str, Any, Any]]] = {}
         unpaired: set[str] = set()
         if against is not None:
@@ -698,8 +724,7 @@ def literature_review(
                     )
             typer.echo("")
         if record.synthesis is not None:
-            own = [a for a in load_curation(root)[0].assertions if str(a.gene) == str(record.gene)]
-            for line in _synthesis_listing(record, own):
+            for line in _synthesis_listing(record, _own_assertions(curation, record)):
                 typer.echo(line)
         return
 
@@ -707,7 +732,7 @@ def literature_review(
         synthesis = record.synthesis
         if synthesis is None:
             raise _fail(f"{path} has no synthesis to approve", 2)
-        own = [a for a in load_curation(root)[0].assertions if str(a.gene) == str(record.gene)]
+        own = _own_assertions(load_curation(root)[0], record)
         digest = synthesis_digest(synthesis, record.findings, own)
         if synthesis.approved_by is not None and synthesis.approved_digest == digest:
             raise _fail(
@@ -728,6 +753,14 @@ def literature_review(
             raise _fail(
                 f"the synthesis fails validation ({', '.join(errors)}); "
                 f"fix it before approving: `chd-atlas validate`",
+                2,
+            )
+        approved_dates = [f.approved_on for f in record.findings if f.approved_on is not None]
+        if approved_dates and when < max(approved_dates):
+            latest = max(approved_dates)
+            raise _fail(
+                f"--on {when.isoformat()} is before {latest.isoformat()}, when a finding "
+                f"this synthesis covers was approved; an approval cannot predate what it covers",
                 2,
             )
         try:

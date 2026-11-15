@@ -576,7 +576,7 @@ def test_approve_defaults_the_date_to_today_and_takes_several_ids(
         ),
         (
             ["--approve", "CHDA:LIT:0000002", "--pending-review", "CHDA:LIT:0000001", "--by", "A"],
-            "not both",
+            "separate actions; use only one of them",
         ),
         (["--pending-review", "CHDA:LIT:0000001"], "--note"),
         (["--pending-review", "CHDA:LIT:0000001", "--note", "  "], "--note"),
@@ -931,6 +931,27 @@ assertions:
     curator: Dr. Curator
     curated_on: 2026-07-01
     last_reviewed: 2026-07-01
+  - id: CHDA:AST:0000002
+    gene: HGNC:4173
+    phenotypes:
+      - HP:0001629
+    lesion_groups:
+      - conotruncal
+    inheritance:
+      - AD
+    mechanism: dominant_negative
+    syndromic: isolated
+    evidence:
+      - publication: PMID:111
+        evidence_class: genetic_case
+        locator:
+          kind: in_text
+          element: Abstract
+        summary: A missense variant in another gene.
+        strength: moderate
+    curator: Dr. Other
+    curated_on: 2026-07-02
+    last_reviewed: 2026-07-02
 """
 
 SYNTHESIS = """\
@@ -947,7 +968,7 @@ synthesis:
 
 
 def _with_synthesis(root: Path, lit_path: Path, block: str = SYNTHESIS) -> str:
-    """Write the gene's assertion and append `block` to the literature file."""
+    """Write the assertions (TBX5's and GATA4's) and append `block` to the literature file."""
     (root / "curation" / "assertions").mkdir(exist_ok=True)
     (root / "curation" / "assertions" / "TBX5.yaml").write_text(ASSERTION_FILE)
     lit_path.write_text(lit_path.read_text() + block)
@@ -1019,10 +1040,30 @@ def test_a_stale_approval_is_re_approved_and_a_current_one_is_never_overwritten(
         (SYNTHESIS, ["--by", "agent:x"], "agent"),
         (SYNTHESIS, ["--by", "A", "--on", "2999-01-01"], "future"),
         (SYNTHESIS, ["--by", "A", "--allow-unverified"], "--allow-unverified"),
-        (SYNTHESIS, ["--by", "A", "--approve", "CHDA:LIT:0000002"], "separate actions"),
+        (
+            SYNTHESIS,
+            ["--by", "A", "--approve", "CHDA:LIT:0000002"],
+            "--approve, --pending-review and --approve-synthesis are separate actions; "
+            "use only one of them",
+        ),
         (SYNTHESIS, ["--by", "A", "--pending-review", "CHDA:LIT:0000001"], "separate actions"),
-        (SYNTHESIS, ["--by", "A", "--against", "x.yaml"], "--against"),
+        (
+            SYNTHESIS,
+            ["--by", "A", "--against", "x.yaml"],
+            "--against only applies to the listing, not to an action",
+        ),
+        (
+            SYNTHESIS,
+            ["--by", "A", "--on", "2026-09-30"],
+            "--on 2026-09-30 is before 2026-10-01, when a finding this synthesis covers was "
+            "approved; an approval cannot predate what it covers",
+        ),
         (SYNTHESIS.replace("usual presentation", "usual in 12 families"), ["--by", "A"], "SYN002"),
+        (
+            SYNTHESIS.replace("usual presentation", "usual " + "word " * 120),
+            ["--by", "A"],
+            "SYN003",
+        ),
         (SYNTHESIS.replace("CHDA:LIT:0000003", "CHDA:LIT:0000004"), ["--by", "A"], "SYN001"),
     ],
 )
@@ -1063,7 +1104,7 @@ def test_the_listing_prints_the_synthesis_state_sentences_and_what_each_cites(
     )
     # an unapproved finding's summary is shown too, so the approver sees what is cited
     lit_path.write_text(lit_path.read_text().replace("- CHDA:LIT:0000009", "- CHDA:LIT:0000004"))
-    assert "     CHDA:LIT:0000004: Another proband.\n" in _review(root).stdout
+    assert "     CHDA:LIT:0000004: Another proband. [unapproved]\n" in _review(root).stdout
 
     both = "        - CHDA:LIT:0000003\n        - CHDA:LIT:0000004\n"
     lit_path.write_text(lit_path.read_text().replace(both, "        - CHDA:LIT:0000003\n"))
@@ -1073,8 +1114,8 @@ def test_the_listing_prints_the_synthesis_state_sentences_and_what_each_cites(
     # a changed covered record voids the approval: STALE, with who and when
     lit_path.write_text(lit_path.read_text().replace("A proband.", "A different proband."))
     assert (
-        "synthesis: STALE (approved by Dr. A on 2026-11-03; the records it covers changed)\n"
-        in _review(root).stdout
+        "synthesis: STALE (approved by Dr. A on 2026-11-03; "
+        "the text or the records it covers changed since)\n" in _review(root).stdout
     )
 
 
@@ -1089,3 +1130,34 @@ def test_a_synthesis_write_the_model_would_refuse_is_never_made(lit_path: Path) 
         with_synthesis_approval(with_block, {**approval, "approved_by": "agent:x"})
     with pytest.raises(LiteratureFileError):
         with_synthesis_approval(with_block, {"approved_by": "Dr. A"})
+
+
+def test_the_listing_marks_a_cited_findings_review_state(root: Path, lit_path: Path) -> None:
+    """A cited finding shows `[pending_review]` or `[not_accessible]`; a plain one shows nothing."""
+    block = SYNTHESIS.replace(
+        "        - CHDA:LIT:0000003\n",
+        "        - CHDA:LIT:0000003\n        - CHDA:LIT:0000004\n",
+    )
+    _with_synthesis(root, lit_path, block)
+    marked = lit_path.read_text().replace(
+        "    summary: A proband.\n",
+        "    summary: A proband.\n    review_status: pending_review\n"
+        "    review_note: The table disagrees.\n",
+    )
+    lit_path.write_text(marked)
+    out = _review(root).stdout
+    assert "     CHDA:LIT:0000003: A proband. [pending_review]\n" in out
+    assert "     CHDA:LIT:0000004: Another proband. [unapproved]\n" in out
+    lit_path.write_text(
+        marked.replace("review_status: pending_review", "review_status: not_accessible")
+    )
+    assert "     CHDA:LIT:0000003: A proband. [not_accessible]\n" in _review(root).stdout
+
+
+def test_approval_flags_without_an_approval_are_refused(root: Path, lit_path: Path) -> None:
+    result = _review(root, "--by", "A")
+    assert result.exit_code == 2
+    assert (
+        "--by and --on only apply with --approve or --approve-synthesis, "
+        "and --allow-unverified only with --approve"
+    ) in result.stdout

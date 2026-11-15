@@ -11088,6 +11088,17 @@ def test_synthesis_text_and_provenance_are_escaped() -> None:
     assert "<i>" not in fragment
 
 
+def test_a_sentence_without_a_final_period_is_escaped_too() -> None:
+    """The branch for a sentence not ending in "." is a different line of code."""
+    synthesis = _synthesis(("Does <i>TBX5</i> & GATA4 interact?", ["CHDA:AST:0000001"]))
+    fragment = _card_synthesis(synthesis, [], {})
+    paragraph = fragment.split('<p class="card-provenance">', 1)[0]
+    assert paragraph.endswith(
+        "Does &lt;i&gt;TBX5&lt;/i&gt; &amp; GATA4 interact? (CHDA:AST:0000001)</p>"
+    )
+    assert "<i>" not in paragraph
+
+
 def test_no_synthesis_renders_nothing() -> None:
     assert _card_synthesis(None, _SYN_FINDINGS, _syn_pubs()) == ""
 
