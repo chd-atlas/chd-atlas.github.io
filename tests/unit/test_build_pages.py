@@ -10896,36 +10896,6 @@ def _fold_block(fold: str, pmid: str) -> str:
     return blocks[0]
 
 
-def test_an_atlas_authors_paper_declares_itself_in_the_fold_and_the_timeline() -> None:
-    pubs = {
-        "PMID:8988165": _LIT_PUBLICATION.model_copy(update={"own_lab": True}),
-        "PMID:2": _LIT_PUBLICATION.model_copy(update={"id": "PMID:2", "year": 1999}),
-    }
-    findings = [
-        _lit_finding(id="CHDA:LIT:0000001"),
-        _lit_finding(id="CHDA:LIT:0000002", publication="PMID:2"),
-    ]
-    groups = _paper_groups(findings, pubs)
-    fold = _literature_publications(groups, pubs)
-    own_summary = re.search(r"<summary>(.*?)</summary>", _fold_block(fold, "PMID:8988165"))
-    other_summary = re.search(r"<summary>(.*?)</summary>", _fold_block(fold, "PMID:2"))
-    assert own_summary is not None and other_summary is not None
-    assert own_summary.group(1).endswith(" · 1 finding · study by an atlas author")
-    assert other_summary.group(1).endswith(" · 1 finding")
-    assert "study by an atlas author" not in other_summary.group(1)
-
-    titles = re.findall(
-        r"<title>(.*?)</title>", g_part(_literature_timeline(groups, pubs), "lit-marks")
-    )
-    own_title = [t for t in titles if " · PMID:8988165 · " in t]
-    other_title = [t for t in titles if " · PMID:2 · " in t]
-    assert len(own_title) == 1
-    assert own_title[0].startswith(
-        "Basson CT et al. 1997 · study by an atlas author · PMID:8988165 · "
-    )
-    assert len(other_title) == 1 and "study by an atlas author" not in other_title[0]
-
-
 def _label_pubs() -> dict[str, Publication]:
     def pub(pmid: str, author: str, year: int) -> Publication:
         return _LIT_PUBLICATION.model_copy(update={"id": pmid, "authors": [author], "year": year})
@@ -10977,3 +10947,33 @@ def test_a_colliding_paper_names_its_pmid_once_in_its_hover_and_its_fold_summary
     assert summaries[1].startswith("Baban A et al. 2014 (PMID:11) · Nature genetics · ")
     assert summaries[2].startswith("Baban A et al. 2014 (PMID:12) · Nature genetics · ")
     assert summaries[3].startswith("Baban A et al. 2016 · Nature genetics · ")
+
+
+def test_an_atlas_authors_paper_declares_itself_in_the_fold_and_the_timeline() -> None:
+    pubs = {
+        "PMID:8988165": _LIT_PUBLICATION.model_copy(update={"own_lab": True}),
+        "PMID:2": _LIT_PUBLICATION.model_copy(update={"id": "PMID:2", "year": 1999}),
+    }
+    findings = [
+        _lit_finding(id="CHDA:LIT:0000001"),
+        _lit_finding(id="CHDA:LIT:0000002", publication="PMID:2"),
+    ]
+    groups = _paper_groups(findings, pubs)
+    fold = _literature_publications(groups, pubs)
+    own_summary = re.search(r"<summary>(.*?)</summary>", _fold_block(fold, "PMID:8988165"))
+    other_summary = re.search(r"<summary>(.*?)</summary>", _fold_block(fold, "PMID:2"))
+    assert own_summary is not None and other_summary is not None
+    assert own_summary.group(1).endswith(" · 1 finding · study by an atlas author")
+    assert other_summary.group(1).endswith(" · 1 finding")
+    assert "study by an atlas author" not in other_summary.group(1)
+
+    titles = re.findall(
+        r"<title>(.*?)</title>", g_part(_literature_timeline(groups, pubs), "lit-marks")
+    )
+    own_title = [t for t in titles if " · PMID:8988165 · " in t]
+    other_title = [t for t in titles if " · PMID:2 · " in t]
+    assert len(own_title) == 1
+    assert own_title[0].startswith(
+        "Basson CT et al. 1997 · study by an atlas author · PMID:8988165 · "
+    )
+    assert len(other_title) == 1 and "study by an atlas author" not in other_title[0]
