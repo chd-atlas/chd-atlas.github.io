@@ -97,6 +97,7 @@ from chd_atlas.build.gene_literature import (
     EMPTY_GENE_LITERATURE,
     GeneLiterature,
     LiteratureTallies,
+    PublishedSynthesis,
     SearchRecord,
     pmid_number,
 )
@@ -1924,6 +1925,53 @@ def _card_mechanism(mechanisms: Sequence[str]) -> str:
     )
 
 
+def _card_synthesis(
+    synthesis: PublishedSynthesis | None,
+    findings: Sequence[Mapping[str, Json]],
+    publications: Mapping[str, Publication],
+) -> str:
+    """The card's "In short" narrative, or `""` when the gene publishes none.
+
+    `synthesis` is `None` (so nothing renders) when the gene has no synthesis,
+    it is unapproved, or its approval no longer matches the records it covers
+    (`gene_literature._published_synthesis`). Each sentence's cites follow it in
+    parentheses, before its closing period when it has one. A cited finding
+    renders as its paper's link (`_paper_link`), once per sentence in first-cite
+    order however many of that paper's findings it cites; an assertion, or a
+    finding id absent from `findings`, renders as its escaped id -- a citation
+    is never dropped. The provenance line names who drafted and who approved.
+    """
+    if synthesis is None:
+        return ""
+    paper_of = {str(finding["id"]): str(finding["publication"]) for finding in findings}
+    sentences: list[str] = []
+    for sentence in synthesis["sentences"]:
+        seen: set[str] = set()
+        cites: list[str] = []
+        for cite in sentence["cites"]:
+            pmid = paper_of.get(str(cite))
+            key = str(cite) if pmid is None else pmid
+            if key in seen:
+                continue
+            seen.add(key)
+            cites.append(html.escape(key) if pmid is None else _paper_link(pmid, publications).html)
+        text = str(sentence["text"])
+        joined = "; ".join(cites)
+        if text.endswith("."):
+            sentences.append(f"{html.escape(text[:-1])} ({joined}).")
+        else:
+            sentences.append(f"{html.escape(text)} ({joined})")
+    provenance = (
+        f"Drafted by {html.escape(synthesis['drafted_by'])} from the records cited; "
+        f"approved by {html.escape(synthesis['approved_by'])} "
+        f"on {html.escape(synthesis['approved_on'])}."
+    )
+    return (
+        '<div class="card-synthesis"><p><strong>In short.</strong> '
+        f'{" ".join(sentences)}</p><p class="card-provenance">{provenance}</p></div>'
+    )
+
+
 def _rail(
     gene: str,
     symbol: str,
@@ -1952,7 +2000,8 @@ def _rail(
     study's block; the atlas-curation sentence (`_card_curation`); the
     mechanism sentence (`_card_mechanism`, from the gene's lesion assertions);
     the literature line (`_card_literature`, papers by design, lesion group,
-    carrier origin and review state); and a last
+    carrier origin and review state); the approved "In short" narrative
+    (`_card_synthesis`, when the gene has a current approved one); and a last
     line linking the top of `methods.html` as "How to read this page" (P1,
     2026-10-26) beside the gene's JSON. The nav's link to the same file reads
     "How to read this atlas"; from the card the question is about this page.
@@ -2046,6 +2095,7 @@ def _rail(
         f"{_card_curation(fact, literature)}"
         f"{_card_mechanism(mechanisms)}"
         f"{_card_literature(literature['tallies'])}"
+        f"{_card_synthesis(literature['synthesis'], literature['findings'], publications or {})}"
         '<p><a href="../methods.html">How to read this page</a> &middot; '
         f'<a href="../{html.escape(bundle)}">this gene as JSON</a></p></aside>'
     )

@@ -307,9 +307,10 @@ wrong by the next one.
   when the source's rows were not ingested from a data package, which is every
   source as of `2.22`, and for good a source no mirror table holds rows from,
   such as `hpo`. Additive.
-  `2.23` added `tallies` to every gene bundle's `literature` object: the
-  approved findings counted by paper (see the field's own description). The gene
-  page card now reads from it. Additive.
+  `2.23` added `tallies` and `synthesis` to every gene bundle's `literature`
+  object: the approved findings counted by paper, and the gene's approved "In
+  short" narrative, `null` for every gene today (see each field's own
+  description). The gene page card reads from both. Additive.
 - `status` is the atlas's own readiness, so a program can read it without
   scraping `index.html`'s prose. Today it is always `"in-development"` — one
   curated gene-disease assertion alongside mirrored ClinGen/GenCC validity for
@@ -772,7 +773,8 @@ abridged, and each is documented in full further down.
     "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
                  "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
                  "de_novo_papers": 11, "inherited_papers": 24,
-                 "abstract_only_papers": 21, "pending_review_papers": 3 }
+                 "abstract_only_papers": 21, "pending_review_papers": 3 },
+    "synthesis": null
   }
 }
 ```
@@ -1625,7 +1627,8 @@ On every gene bundle (since `2.21`). Always present; a gene with no
   "pending_approval": 0, "findings": [],
   "tallies": { "papers": 0, "first_year": null, "last_year": null, "designs": {},
                "lesion_groups": {}, "de_novo_papers": 0, "inherited_papers": 0,
-               "abstract_only_papers": 0, "pending_review_papers": 0 } }
+               "abstract_only_papers": 0, "pending_review_papers": 0 },
+  "synthesis": null }
 ```
 
 TBX5's, abridged:
@@ -1641,7 +1644,8 @@ TBX5's, abridged:
   "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
                "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
                "de_novo_papers": 11, "inherited_papers": 24,
-               "abstract_only_papers": 21, "pending_review_papers": 3 } }
+               "abstract_only_papers": 21, "pending_review_papers": 3 },
+  "synthesis": null }
 ```
 
 - `searches` lists each recorded PubMed search: `source`, `query`, `run_on` (an
@@ -2013,6 +2017,13 @@ papers reporting de novo and inherited carriers, and the papers read from the
 abstract only or pending review. Every figure counts papers. The card never
 states a carrier count summed across papers, because those cohorts may overlap, and it names a common-variant
 association apart from the Mendelian designs ("not Mendelian evidence").
+
+Where `literature.synthesis` is not `null`, an "In short" paragraph follows
+the literature line: each sentence with its cited papers in parentheses before
+its closing period ("Basson CT et al. 1997", linked to PubMed, once per sentence
+however many of that paper's findings it cites; an assertion appears as its id),
+then "Drafted by … from the records cited; approved by … on …". A withheld
+synthesis renders nothing.
 
 Read the uncurated sentences precisely, because they are narrower than they first appear. **A lesion
 assertion**, or an approved literature finding, is what decides which sentence the card shows, not

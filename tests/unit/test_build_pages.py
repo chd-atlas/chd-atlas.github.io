@@ -27,6 +27,7 @@ from chd_atlas.build.gene_literature import (
     EMPTY_GENE_LITERATURE,
     GeneLiterature,
     LiteratureTallies,
+    PublishedSynthesis,
 )
 from chd_atlas.build.identity import GeneIdentity
 from chd_atlas.build.pages import (
@@ -36,6 +37,7 @@ from chd_atlas.build.pages import (
     _analysis_label,
     _card_literature,
     _card_mechanism,
+    _card_synthesis,
     _chd_only,
     _count,
     _date,
@@ -9865,6 +9867,7 @@ def _approved(*pmids: str) -> GeneLiterature:
         pending_approval=0,
         findings=[{"id": f"F{n}", "publication": pmid} for n, pmid in enumerate(pmids)],
         tallies=EMPTY_GENE_LITERATURE["tallies"],
+        synthesis=None,
     )
 
 
@@ -9934,6 +9937,7 @@ def test_a_gene_whose_findings_all_await_approval_is_not_yet_curated(tmp_path: P
         pending_approval=2,
         findings=[],
         tallies=EMPTY_GENE_LITERATURE["tallies"],
+        synthesis=None,
     )
     build_gene_pages(
         {GATA4: _facts(GATA4, AtlasCuration.NOT_YET_CURATED)},
@@ -9971,6 +9975,7 @@ def test_the_card_counts_the_approved_findings_and_not_those_awaiting_approval(
         pending_approval=4,
         findings=[{"id": "F0", "publication": "PMID:1"}, {"id": "F1", "publication": "PMID:2"}],
         tallies=EMPTY_GENE_LITERATURE["tallies"],
+        synthesis=None,
     )
     build_gene_pages(
         {GATA4: _facts(GATA4, AtlasCuration.NOT_YET_CURATED)},
@@ -10300,6 +10305,7 @@ def _lit(
         pending_approval=waiting,
         findings=findings or [],
         tallies=EMPTY_GENE_LITERATURE["tallies"],
+        synthesis=None,
     )
 
 
@@ -11016,3 +11022,101 @@ def test_the_mechanism_sentence_reads_exactly() -> None:
     assert _card_text(
         _card_mechanism(("loss_of_function", "dominant_negative", "loss_of_function"))
     ) == ("Mechanism, as curated by the atlas: dominant negative, loss of function.")
+
+
+_SYN_FINDINGS = [
+    {"id": "CHDA:LIT:0000001", "publication": "PMID:1"},
+    {"id": "CHDA:LIT:0000002", "publication": "PMID:1"},
+    {"id": "CHDA:LIT:0000003", "publication": "PMID:2"},
+]
+
+
+def _synthesis(*sentences: tuple[str, list[str]]) -> PublishedSynthesis:
+    """Drafter, approver and date are three distinct strings (section 4.30)."""
+    return PublishedSynthesis(
+        sentences=[{"text": text, "cites": cites} for text, cites in sentences],
+        drafted_by="agent:draft/x",
+        approved_by="B. Person",
+        approved_on="2026-11-12",
+    )
+
+
+def _syn_pubs() -> dict[str, Publication]:
+    return {
+        "PMID:1": _LIT_PUBLICATION.model_copy(update={"id": "PMID:1", "title": "T1"}),
+        "PMID:2": _LIT_PUBLICATION.model_copy(
+            update={"id": "PMID:2", "year": 2005, "authors": ["Other X"], "title": "T2"}
+        ),
+    }
+
+
+def test_the_synthesis_renders_exactly() -> None:
+    """Sentence one cites two findings of one paper (one link); two, a finding and an assertion."""
+    synthesis = _synthesis(
+        ("Variants cause septal defects.", ["CHDA:LIT:0000001", "CHDA:LIT:0000002"]),
+        ("Loss of function is the mechanism", ["CHDA:LIT:0000003", "CHDA:AST:0000001"]),
+    )
+    assert _card_synthesis(synthesis, _SYN_FINDINGS, _syn_pubs()) == (
+        '<div class="card-synthesis"><p><strong>In short.</strong> '
+        "Variants cause septal defects "
+        '(<a href="https://pubmed.ncbi.nlm.nih.gov/1/" title="T1">Basson CT et al. 1997</a>). '
+        "Loss of function is the mechanism "
+        '(<a href="https://pubmed.ncbi.nlm.nih.gov/2/" title="T2">Other X et al. 2005</a>; '
+        "CHDA:AST:0000001)</p>"
+        '<p class="card-provenance">Drafted by agent:draft/x from the records cited; '
+        "approved by B. Person on 2026-11-12.</p></div>"
+    )
+
+
+def test_a_finding_the_bundle_lacks_renders_as_its_id_not_nothing() -> None:
+    synthesis = _synthesis(("Text.", ["CHDA:LIT:0000099"]))
+    assert "Text (CHDA:LIT:0000099)." in _card_synthesis(synthesis, _SYN_FINDINGS, _syn_pubs())
+
+
+def test_synthesis_text_and_provenance_are_escaped() -> None:
+    synthesis = PublishedSynthesis(
+        sentences=[{"text": "A <b>bold</b> claim.", "cites": ["CHDA:AST:0000001"]}],
+        drafted_by="agent:<i>x</i>",
+        approved_by="B & C",
+        approved_on="2026-11-12",
+    )
+    fragment = _card_synthesis(synthesis, [], {})
+    assert "A &lt;b&gt;bold&lt;/b&gt; claim (CHDA:AST:0000001)." in fragment
+    assert "Drafted by agent:&lt;i&gt;x&lt;/i&gt; " in fragment
+    assert "approved by B &amp; C on" in fragment
+    assert "<b>" not in fragment
+    assert "<i>" not in fragment
+
+
+def test_no_synthesis_renders_nothing() -> None:
+    assert _card_synthesis(None, _SYN_FINDINGS, _syn_pubs()) == ""
+
+
+def test_the_card_puts_the_synthesis_right_after_the_literature_line(tmp_path: Path) -> None:
+    """Wiring: the rail renders it, after `card-literature`, and withholds it when `None`."""
+    base = _lit([_lit_finding(id="CHDA:LIT:0000003")])
+    base["tallies"] = _tallies()
+    with_synthesis = GeneLiterature(
+        **{**base, "synthesis": _synthesis(("Text.", ["CHDA:LIT:0000003"]))}  # type: ignore[typeddict-item]
+    )
+    rail = _rail_of(
+        _expression_page(
+            tmp_path,
+            {},
+            literature={GATA4: with_synthesis},
+            publications={"PMID:8988165": _LIT_PUBLICATION},
+        )
+    )
+    literature_end = rail.index('<p class="card-literature">')
+    after = rail[rail.index("</p>", literature_end) + len("</p>") :]
+    assert after.startswith('<div class="card-synthesis"><p><strong>In short.</strong> Text (')
+
+    without = _rail_of(
+        _expression_page(
+            tmp_path / "w",
+            {},
+            literature={GATA4: base},
+            publications={"PMID:8988165": _LIT_PUBLICATION},
+        )
+    )
+    assert "card-synthesis" not in without
