@@ -563,7 +563,7 @@
     },
     "Synthesis": {
       "additionalProperties": false,
-      "description": "A gene's \"In short\" narrative: one to five sentences, each citing records.\n\nDrafted by an agent and approved by a named person; the approval is bound to\n`synthesis_digest`, so an edit to the text or to the records it covers voids it.",
+      "description": "A gene's \"In short\" narrative: one to five sentences, each citing records.\n\nDrafted by an agent and approved by a named person; the approval is bound to\n`synthesis_digest`, so an edit to the text, to an approved finding of the gene\n(its review mark included) or to a lesion assertion of the gene voids it.",
       "properties": {
         "approved_by": {
           "anyOf": [

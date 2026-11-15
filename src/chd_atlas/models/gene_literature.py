@@ -287,7 +287,8 @@ class Synthesis(BaseModel):
     """A gene's "In short" narrative: one to five sentences, each citing records.
 
     Drafted by an agent and approved by a named person; the approval is bound to
-    `synthesis_digest`, so an edit to the text or to the records it covers voids it.
+    `synthesis_digest`, so an edit to the text, to an approved finding of the gene
+    (its review mark included) or to a lesion assertion of the gene voids it.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -318,6 +319,17 @@ def _canonical_digest(content: object) -> str:
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _covered_finding(finding: Finding) -> str:
+    """A finding's digest plus its review mark, which `finding_digest` leaves out."""
+    return _canonical_digest(
+        {
+            "finding": finding_digest(finding),
+            "review_status": finding.review_status.value if finding.review_status else None,
+            "review_note": finding.review_note or None,
+        }
+    )
+
+
 def synthesis_digest(
     synthesis: Synthesis,
     findings: Sequence[Finding],
@@ -326,18 +338,20 @@ def synthesis_digest(
     """`sha256:` and the hex digest of what a synthesis says and rests on.
 
     Canonical JSON (as `finding_digest`) of the sentences' `text` and `cites`
-    (in order), the sorted `finding_digest` of every finding in `findings` with
-    `approved_by` set, and the sorted digests of `assertions`, each the
+    (in order), the sorted digest of every finding in `findings` with
+    `approved_by` set (its `finding_digest` and its review mark, which the
+    finding's own digest leaves out), and the sorted digests of `assertions`, each the
     canonical JSON of `model_dump(mode="json", exclude_defaults=True)`. The
     synthesis's own approval fields and `drafted_by` are not covered. Findings
     are filtered here, so the caller passes all of the file's; assertions are
     NOT filtered by gene, so the caller passes the gene's own lesion assertions.
-    Input order does not matter. Editing a covered record, approving another
-    finding or adding an assertion voids a standing approval.
+    Input order does not matter. Editing a covered record, marking an approved
+    finding for review, approving another finding or adding an assertion voids a
+    standing approval.
     """
     content = {
         "sentences": [{"text": s.text, "cites": list(s.cites)} for s in synthesis.sentences],
-        "findings": sorted(finding_digest(f) for f in findings if f.approved_by is not None),
+        "findings": sorted(_covered_finding(f) for f in findings if f.approved_by is not None),
         "assertions": sorted(
             _canonical_digest(a.model_dump(mode="json", exclude_defaults=True)) for a in assertions
         ),

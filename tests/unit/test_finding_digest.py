@@ -204,6 +204,27 @@ def test_the_synthesis_digest_moves_with_an_approved_finding_and_an_assertion() 
         }
     )
     assert synthesis_digest(edited_text, [first, second], [assertion]) != base
+    # an approved finding's review mark is covered by the synthesis digest, and
+    # not by the finding's own digest (a mark never voids a finding's approval)
+    marked_raw = _raw(review_status="pending_review", review_note="The paper's table disagrees.")
+    marked = Finding.model_validate(marked_raw)
+    assert finding_digest(marked) == finding_digest(first)
+    with_mark = synthesis_digest(syn, [marked, second], [assertion])
+    assert with_mark != base
+    other_note = Finding.model_validate({**marked_raw, "review_note": "A different note."})
+    assert synthesis_digest(syn, [other_note, second], [assertion]) not in {base, with_mark}
+    not_accessible = Finding.model_validate(
+        {
+            **marked_raw,
+            "review_status": "not_accessible",
+            "review_note": "The paper's table disagrees.",
+        }
+    )
+    assert synthesis_digest(syn, [not_accessible, second], [assertion]) not in {base, with_mark}
+    # the assertion part is order-independent
+    assert synthesis_digest(syn, [first, second], [other, assertion]) == synthesis_digest(
+        syn, [first, second], [assertion, other]
+    )
     # the approval itself and the drafter are not
     approved = Synthesis.model_validate(
         {
