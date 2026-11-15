@@ -14,7 +14,13 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from chd_atlas.models.gene_literature import Finding, finding_digest
+from chd_atlas.models.assertion import LesionAssertion
+from chd_atlas.models.gene_literature import (
+    Finding,
+    Synthesis,
+    finding_digest,
+    synthesis_digest,
+)
 from tests.unit._stamp import stamped
 from tests.unit.test_runner import _codes_of, _literature_repo
 
@@ -124,3 +130,88 @@ def test_a_field_added_to_the_model_at_its_default_does_not_move_the_digest() ->
     assert finding_digest(Grown.model_validate(raw)) == finding_digest(Finding.model_validate(raw))
     changed = finding_digest(Grown.model_validate({**raw, "new_optional": "x"}))
     assert changed != finding_digest(Finding.model_validate(raw))
+
+
+def _assertion(**changes: Any) -> LesionAssertion:
+    base: dict[str, Any] = {
+        "id": "CHDA:AST:0000001",
+        "gene": "HGNC:11604",
+        "phenotypes": ["HP:0001631"],
+        "lesion_groups": ["septal"],
+        "inheritance": ["AD"],
+        "mechanism": "haploinsufficiency",
+        "syndromic": "isolated",
+        "evidence": [
+            {
+                "publication": "PMID:8988165",
+                "evidence_class": "genetic_case",
+                "locator": {"kind": "in_text", "element": "Abstract"},
+                "summary": "A nonsense variant.",
+                "strength": "strong",
+            }
+        ],
+        "curator": "A. Curator",
+        "curated_on": "2026-07-31",
+        "last_reviewed": "2026-07-31",
+    }
+    base.update(changes)
+    return LesionAssertion.model_validate(base)
+
+
+def _synthesis() -> Synthesis:
+    return Synthesis.model_validate(
+        {
+            "sentences": [{"text": "Septal.", "cites": ["CHDA:LIT:0000001", "CHDA:AST:0000001"]}],
+            "drafted_by": "agent:synthesis/test",
+        }
+    )
+
+
+def test_the_synthesis_digest_moves_with_an_approved_finding_and_an_assertion() -> None:
+    first = Finding.model_validate(_raw())
+    second = Finding.model_validate(
+        _raw(id="CHDA:LIT:0000002", summary="Nine of eleven probands carry a variant.", screened=11)
+    )
+    unapproved = Finding.model_validate(
+        _raw(id="CHDA:LIT:0000003", summary="Not yet approved.", approved_by=None, approved_on=None)
+    )
+    assert unapproved.approved_by is None
+    syn = _synthesis()
+    assertion = _assertion()
+    base = synthesis_digest(syn, [first, second], [assertion])
+    assert base.startswith("sha256:")
+    # reordering distinct approved findings changes nothing
+    assert synthesis_digest(syn, [second, first], [assertion]) == base
+    # an unapproved finding is not covered
+    assert synthesis_digest(syn, [first, second, unapproved], [assertion]) == base
+    # approving a further finding moves it
+    third = Finding.model_validate(_raw(id="CHDA:LIT:0000003", summary="Approved now."))
+    assert synthesis_digest(syn, [first, second, third], [assertion]) != base
+    # editing an approved finding moves it
+    edited = Finding.model_validate(_raw(summary="Changed."))
+    assert synthesis_digest(syn, [edited, second], [assertion]) != base
+    # editing an assertion's mechanism moves it; so does adding one
+    assert (
+        synthesis_digest(syn, [first, second], [_assertion(mechanism="dominant_negative")]) != base
+    )
+    other = _assertion(id="CHDA:AST:0000002")
+    assert synthesis_digest(syn, [first, second], [assertion, other]) != base
+    # the text and the cites are covered
+    edited_text = Synthesis.model_validate(
+        {
+            "sentences": [{"text": "Valvar.", "cites": ["CHDA:LIT:0000001", "CHDA:AST:0000001"]}],
+            "drafted_by": "agent:synthesis/test",
+        }
+    )
+    assert synthesis_digest(edited_text, [first, second], [assertion]) != base
+    # the approval itself and the drafter are not
+    approved = Synthesis.model_validate(
+        {
+            **syn.model_dump(mode="json"),
+            "drafted_by": "agent:other",
+            "approved_by": "A. Curator",
+            "approved_on": "2026-11-05",
+            "approved_digest": base,
+        }
+    )
+    assert synthesis_digest(approved, [first, second], [assertion]) == base

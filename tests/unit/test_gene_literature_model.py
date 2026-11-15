@@ -10,6 +10,7 @@ from chd_atlas.models.gene_literature import (
     Finding,
     GeneLiteratureFile,
     Search,
+    Synthesis,
     TriageEntry,
 )
 
@@ -274,3 +275,71 @@ def test_a_literature_file_round_trips_its_parts() -> None:
         )
     )
     assert [f.id for f in parsed.findings] == ["CHDA:LIT:0000001", "CHDA:LIT:0000002"]
+
+
+def _synthesis(**changes: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "sentences": [
+            {"text": "TBX5 variants cause septal defects.", "cites": ["CHDA:LIT:0000001"]}
+        ],
+        "drafted_by": "agent:synthesis/test",
+    }
+    base.update(changes)
+    return base
+
+
+def test_a_literature_file_carries_one_optional_synthesis() -> None:
+    assert GeneLiteratureFile.model_validate(_file()).synthesis is None
+    loaded = GeneLiteratureFile.model_validate(_file(synthesis=_synthesis()))
+    assert loaded.synthesis is not None
+    assert loaded.synthesis.approved_by is None
+
+
+_ONE = {"text": "A sentence.", "cites": ["CHDA:LIT:0000001"]}
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"sentences": []},
+        {"sentences": [_ONE] * 6},
+        {"sentences": [{"text": "A sentence.", "cites": []}]},
+        {"sentences": [{"text": "A sentence.", "cites": ["CHDA:LIT:0000001", "CHDA:LIT:0000001"]}]},
+        {"sentences": [{"text": "   ", "cites": ["CHDA:LIT:0000001"]}]},
+        {"sentences": [{"text": "A sentence.", "cites": ["CHDA:AST:0000001", "PMID:1"]}]},
+        {"approved_by": "A. Curator"},
+        {"approved_on": "2026-11-05"},
+        {"approved_digest": "sha256:abc"},
+        {
+            "approved_by": "agent:x",
+            "approved_on": "2026-11-05",
+            "approved_digest": "sha256:abc",
+        },
+        {"extra": 1},
+    ],
+)
+def test_a_synthesis_breaking_a_rule_is_refused(changes: dict[str, Any]) -> None:
+    with pytest.raises(ValidationError):
+        Synthesis.model_validate(_synthesis(**changes))
+
+
+def test_a_synthesis_may_cite_findings_and_assertions_and_have_five_sentences() -> None:
+    five = [
+        {"text": f"Sentence {i}.", "cites": ["CHDA:LIT:0000001", "CHDA:AST:0000001"]}
+        for i in range(5)
+    ]
+    assert len(Synthesis.model_validate(_synthesis(sentences=five)).sentences) == 5
+
+
+def test_a_synthesis_approval_names_a_person_with_the_findings_messages() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="synthesis: approved_by, approved_on and approved_digest are set together",
+    ):
+        Synthesis.model_validate(_synthesis(approved_by="A. Curator"))
+    with pytest.raises(
+        ValidationError, match="synthesis: approved_by names an agent; a person must approve"
+    ):
+        Synthesis.model_validate(
+            _synthesis(approved_by=" Agent:x", approved_on="2026-11-05", approved_digest="sha256:a")
+        )
