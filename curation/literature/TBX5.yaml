@@ -3269,3 +3269,44 @@ findings:
     approved_digest: sha256:baaf0630af185db432db6c541a3b8d6e91412725d370e38a0a544ae5cab2bdf0
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
+synthesis:
+  sentences:
+    - text: Carriers' lesions include atrial, ventricular and atrioventricular septal defects, double outlet right ventricle, hypoplastic left heart syndrome, anomalous pulmonary venous return and patent ductus arteriosus; tetralogy of Fallot, coarctation and tricuspid atresia rest on abstracts alone.
+      cites:
+        - CHDA:AST:0000001
+        - CHDA:LIT:0000021
+        - CHDA:LIT:0000075
+        - CHDA:LIT:0000056
+        - CHDA:LIT:0000069
+        - CHDA:LIT:0000088
+        - CHDA:LIT:0000086
+        - CHDA:LIT:0000089
+    - text: Carriers with a heart defect can also have atrioventricular block or atrial fibrillation.
+      cites:
+        - CHDA:LIT:0000016
+        - CHDA:LIT:0000052
+        - CHDA:LIT:0000048
+    - text: Carriers present with Holt-Oram syndrome, upper-limb malformation with a heart defect, or isolated heart disease; a report cautions subtle limb anomalies may have been missed.
+      cites:
+        - CHDA:AST:0000001
+        - CHDA:LIT:0000050
+        - CHDA:LIT:0000069
+        - CHDA:LIT:0000072
+    - text: Variants arose de novo or segregated with disease in families, where carriers can differ in lesion or have arrhythmia without a reported structural defect.
+      cites:
+        - CHDA:LIT:0000016
+        - CHDA:LIT:0000071
+        - CHDA:LIT:0000075
+        - CHDA:LIT:0000056
+        - CHDA:LIT:0000059
+        - CHDA:LIT:0000031
+    - text: Reported variants include nonsense, frameshift, splice-site and missense changes, a deletion of the whole coding sequence and partial duplications.
+      cites:
+        - CHDA:LIT:0000056
+        - CHDA:LIT:0000076
+        - CHDA:LIT:0000041
+        - CHDA:LIT:0000075
+        - CHDA:LIT:0000071
+        - CHDA:LIT:0000021
+        - CHDA:LIT:0000025
+  drafted_by: agent:gene-synthesis/claude-opus-5-5

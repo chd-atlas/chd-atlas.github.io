@@ -626,3 +626,41 @@ findings:
     approved_by: E.A.M
     approved_on: 2026-11-09
     approved_digest: sha256:8167a9bc88c734062e8b384db7e2bb4701750de80b2ef6ae02f39c80d555efd6
+synthesis:
+  sentences:
+    - text: Carriers' lesions span atrioventricular, atrial and ventricular septal defects, bicuspid aortic valve, coarctation, hypoplastic left heart, tetralogy of Fallot and double outlet right ventricle.
+      cites:
+        - CHDA:LIT:0000001
+        - CHDA:LIT:0000107
+        - CHDA:LIT:0000009
+        - CHDA:LIT:0000004
+        - CHDA:LIT:0000101
+    - text: Variants arose de novo in isolated and syndromic cases, passed from unaffected and affected parents, and segregated with differing lesions among relatives.
+      cites:
+        - CHDA:LIT:0000003
+        - CHDA:LIT:0000007
+        - CHDA:LIT:0000001
+        - CHDA:LIT:0000004
+        - CHDA:LIT:0000011
+    - text: Syndromic features include congenital diaphragmatic hernia, asplenia, developmental delay and differences of sex development; XX frameshift carriers ascertained for the latter had heart defects.
+      cites:
+        - CHDA:LIT:0000007
+        - CHDA:LIT:0000009
+        - CHDA:AST:0000002
+    - text: Variants include missense, frameshift, nonsense and splice changes, an intragenic translocation breakpoint, and 15q26 deletions also spanning other genes, IGF1R among them.
+      cites:
+        - CHDA:LIT:0000001
+        - CHDA:LIT:0000007
+        - CHDA:LIT:0000010
+        - CHDA:LIT:0000006
+        - CHDA:LIT:0000005
+        - CHDA:LIT:0000012
+        - CHDA:LIT:0000014
+    - text: Only abstracts were read for a syndromic coarctation case, terminal deletions with unspecified heart defects, and a family whose index patient had double outlet right ventricle.
+      cites:
+        - CHDA:LIT:0000103
+        - CHDA:LIT:0000099
+        - CHDA:LIT:0000100
+        - CHDA:LIT:0000101
+        - CHDA:LIT:0000102
+  drafted_by: agent:gene-synthesis/claude-opus-5-5
