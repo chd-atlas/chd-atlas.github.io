@@ -97,12 +97,13 @@ sources:
     name: Clinical Genome Resource (ClinGen) Gene-Disease Validity
     # The bulk CSV carries no version tag. Its banner stamps the date the file
     # was generated, which is the only version identifier the authority offers.
-    version: "FILE CREATED: 2026-08-03"
-    retrieved_on: 2026-08-03
+    version: "FILE CREATED: 2026-11-13"
+    retrieved_on: 2026-11-14
     # `mirrors/clingen_gene_validity.tsv` is written by `chd-atlas ingest
-    # clingen` from the chd-atlas/feeds package `clingen` 2026-08-03 (the pin
-    # below), bootstrapped from the mirror as committed rather than re-derived
-    # from the 2026-08-03 download, which is kept nowhere.
+    # clingen` from the chd-atlas/feeds package `clingen` 2026-11-13 (the pin
+    # below; table v2, keyed on the panel too), built from the CSV downloaded
+    # 2026-11-14 on the workstation (2026-11-13T23:20Z). The banner carries the
+    # server's date, not the workstation's.
     url: https://search.clinicalgenome.org/kb/gene-validity
     # "All curated content published by ClinGen is available free of restriction
     # under the CC0 1.0 Universal (CC0 1.0) Public Domain Dedication."
@@ -110,19 +111,20 @@ sources:
     licence: CC0-1.0
     redistribution: permitted
     package:
-      version: '2026-08-03'
-      manifest_sha256: 7d4cc6eda6d8090238e34cd22cf3857504e77e330cefb11401f773c2122436f3
+      version: '2026-11-13'
+      manifest_sha256: 0e6d8e330b78f5961dd9a5a9433f8d7fc771a626845cdf19e5615e4f00f7a6d0
   - id: gencc
     name: Gene Curation Coalition (GenCC) submissions export
     # The export carries no release/version tag of its own -- `sgc_id` and
     # `version_number` identify one submission, not one release of the file.
     # `retrieved_on` is the only version identifier this authority offers, the
     # same situation as `clingen` above.
-    version: "retrieved 2026-08-03"
-    retrieved_on: 2026-08-03
+    version: "retrieved 2026-11-14"
+    retrieved_on: 2026-11-14
     # `mirrors/gencc_submissions.tsv` is written by `chd-atlas ingest gencc`
-    # from the chd-atlas/feeds package `gencc` 88c77272 (the pin below),
-    # bootstrapped from the mirror as committed, as for `clingen`.
+    # from the chd-atlas/feeds package `gencc` af6d7468 (the pin below), built
+    # from the export downloaded 2026-11-14; the version is the first 8 hex of
+    # that file's sha256.
     url: https://search.thegencc.org/download
     # "The GenCC data are available free of restriction under a CC0 1.0
     # Universal (CC0 1.0) Public Domain Dedication." GenCC additionally
@@ -134,8 +136,8 @@ sources:
     licence: CC0-1.0
     redistribution: permitted
     package:
-      version: 88c77272
-      manifest_sha256: 872aba3c356067e25b41fb3f6ea2e9a83097da77780bfef11e11e35cc7a59149
+      version: af6d7468
+      manifest_sha256: 3ea3f3ffc0c97316b4ef91c15374737d18e49bac43c194c7ebe815351f462f59
   - id: hgnc
     name: HUGO Gene Nomenclature Committee
     # Since 2026-11-11 `mirrors/genes.tsv` is written by `chd-atlas ingest hgnc`

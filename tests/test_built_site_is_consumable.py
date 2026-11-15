@@ -1623,23 +1623,26 @@ def test_exactly_the_genes_graded_for_a_clingen_scoped_syndrome_say_so_on_their_
 ) -> None:
     """R5 (owner decision 2026-10-26) on the real corpus.
 
-    Ten genes are graded at their headline for a syndrome a ClinGen expert
+    Ten genes were graded at their headline for a syndrome a ClinGen expert
     panel scoped, and their cards said nothing of it while the 21 Orphanet-
-    scoped ones did. `scope.json` now publishes the curated `syndrome` mark,
-    on exactly the nine terms those ten are graded for; ZIC3 and NODAL, graded
-    for "congenital heart disease with heterotaxy syndrome", are CHD itself and
-    stay unmarked. Two ways, both required to agree: the genes whose card
-    carries the line are the literal ten, and they are the genes whose every
+    scoped ones did; eleven are since the 2026-11-14 refresh (SEMA3E, Limited
+    for CHARGE syndrome). `scope.json` now publishes the curated `syndrome`
+    mark, on exactly the nine terms those eleven are graded for; ZIC3 and NODAL,
+    graded for "congenital heart disease with heterotaxy syndrome", are CHD
+    itself and stay unmarked. Two ways, both required to agree: the genes whose
+    card carries the line are the literal eleven, and they are the genes whose every
     headline disease `scope.json` marks and attributes to a ClinGen class --
     derived from the payloads, so a runner that stopped threading the registry
     to the pages fails here while every unit test passes. TBX5's line is pinned
     as a literal.
 
-    So is EVC2's, the one line whose panel did not grade its gene (review,
-    2026-10-27): it names the gene that panel graded for the term instead.
-    Every line is held to that rule from the bundles' own `gcep`, and the
-    lines it applies to must be exactly EVC2's, so a page that dropped the
-    distinction, or drew it on another gene, fails here.
+    So are EVC2's and SEMA3E's, the two lines whose panel did not grade their
+    gene (review, 2026-10-27; SEMA3E's since 2026-11-14, graded by the SCID-CID
+    panel for a term scoped on the Hearing Loss panel's curation): each names
+    the gene that panel graded for the term instead. Every line is held to that
+    rule from the bundles' own `gcep`, and the lines it applies to must be
+    exactly those two, so a page that dropped the distinction, or drew it on
+    another gene, fails here.
     """
     scope = {term["id"]: term for term in _read(site, "scope.json")["terms"]}
     assert sorted(mondo for mondo, term in scope.items() if term["syndrome"] is True) == [
@@ -1676,6 +1679,12 @@ def test_exactly_the_genes_graded_for_a_clingen_scoped_syndrome_say_so_on_their_
                 "ClinGen&#x27;s Kidney Cystic and Ciliopathy Disorders Gene Curation Expert "
                 "Panel&#x27;s curation of it for EVC."
             ]
+        if entry["symbol"] == "SEMA3E":
+            assert lines == [
+                "Graded for CHARGE syndrome as a whole syndrome; in scope on "
+                "ClinGen&#x27;s Hearing Loss Gene Curation Expert Panel&#x27;s "
+                "curation of it for CHD7."
+            ]
         headline = bundle["headline_confidence"]
         graded = {
             record["disease"]
@@ -1710,7 +1719,7 @@ def test_exactly_the_genes_graded_for_a_clingen_scoped_syndrome_say_so_on_their_
         ):
             expected.add(entry["symbol"])
     assert lined == expected
-    assert lined_by_another == {"EVC2"}
+    assert lined_by_another == {"EVC2", "SEMA3E"}
     assert sorted(lined) == [
         "CHD7",
         "EVC",
@@ -1720,6 +1729,7 @@ def test_exactly_the_genes_graded_for_a_clingen_scoped_syndrome_say_so_on_their_
         "NOTCH2",
         "NR2F2",
         "RBM10",
+        "SEMA3E",
         "TBX5",
         "ZEB2",
     ]

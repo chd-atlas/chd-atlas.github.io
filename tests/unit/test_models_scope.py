@@ -86,7 +86,8 @@ def test_the_committed_scope_list_loads_and_names_no_individual() -> None:
     raw = path.read_text(encoding="utf-8")
     parsed = ChdScopeFile.model_validate(YAML(typ="safe").load(raw))
 
-    assert len(parsed.diseases) == 105  # 68 until the Orphanet path landed, 2026-10-25
+    # 68 until the Orphanet path landed (2026-10-25); 105 until MONDO:0016460 left (F29).
+    assert len(parsed.diseases) == 104
     # Every authority is external, by construction of the enum.
     assert {entry.admitted_by for entry in parsed.diseases} <= set(ScopeAuthority)
     # And the file names no individual anywhere, comments included.

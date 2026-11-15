@@ -34,9 +34,10 @@ another". Its feeds recipe (`audain2026_sd3`) now ships symbols verbatim and
 `chd-atlas ingest` resolves them here (approved, alias, previous), which is how
 CRIPTO, POPDC1 and CIROZ were recovered. Measured against the committed
 registry, that collision does not occur
-today -- 185 approved symbols, 382 alias symbols, **zero** overlap between the
+today -- 186 approved symbols, 384 alias symbols, **zero** overlap between the
 two sets and **zero** aliases claimed by more than one gene (re-measured
-2026-10-25, after the registry widened from 154 genes) -- but the guard is
+2026-11-14; 185 and 382 on 2026-10-25, after the registry widened from 154
+genes) -- but the guard is
 structural rather than a bet on that staying true, because the registry is
 regenerated from upstream and the number that matters is the one after the next
 refresh.
@@ -63,7 +64,7 @@ one gene's withdrawn symbol and another's alias, which alias-first had answered
 with the alias gene; none is a registry gene, and no mirror or published byte
 changed (three real `ingest --all` and builds, one per order).
 
-The committed registry (185 genes, re-measured 2026-11-13) has one such name,
+The committed registry (186 genes, re-measured 2026-11-14) has one such name,
 **`ODD`**: GJA1's (HGNC:4274) alias and OSR1's (HGNC:8111) withdrawn symbol. It
 resolved to GJA1 until F27 and is refused now. **`MADH7`** is claimed twice
 *within* the previous tier -- SMAD6 (HGNC:6772) and SMAD7 (HGNC:6773) both

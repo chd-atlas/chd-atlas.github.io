@@ -217,9 +217,10 @@ _SCOPE_SHORT: Final = (
 # * The submitter-admitted sentence keeps its scope. "No ClinGen expert panel
 #   has graded this gene" is false unscoped for ACTC1 (Definitive for
 #   hypertrophic cardiomyopathy), ELN (Definitive for cutis laxa), FLNA, SMAD6
-#   and MNS1 (Disputed for primary ciliary dyskinesia) -- five of the 21
+#   and MNS1 (Disputed for primary ciliary dyskinesia) -- five of the 19
 #   admitted on agreement carry a ClinGen record for a disease out of scope,
-#   measured 2026-10-26 against `mirrors/clingen_gene_validity.tsv`. Those
+#   measured 2026-11-14 against `mirrors/clingen_gene_validity.tsv` (five of
+#   21 on 2026-10-26). Those
 #   records reach no page, so the page could not even show the reader the
 #   record that contradicted it. The scope clause -- "for any of the diseases
 #   in scope here" -- is the grade key's `ungraded` gloss's (`render.GRADE_GLOSS`,
@@ -822,11 +823,12 @@ def _card_curation(fact: GeneFacts, literature: GeneLiterature = EMPTY_GENE_LITE
       findings. `literature` is the bundle's, which carries approved findings
       only, so a gene whose findings all await approval is not counted here;
     * **not curated, a ClinGen panel holds a record** -- every classification
-      on the page is a panel's or a named curator's (97 genes);
+      on the page is a panel's or a named curator's (98 genes, measured
+      2026-11-14);
     * **not curated, no panel record** -- no ClinGen expert panel has graded
       the gene for any of the diseases in scope here, and it is published
       because the submitters named in the card's `admitted by` row assert it
-      (21 genes). Scoped, because unscoped it is false; and scoped to the
+      (19 genes). Scoped, because unscoped it is false; and scoped to the
       list, because scoped to a property of a disease it was false too; see
       `_CURATION_BY_AGREEMENT`;
     * **functional records but no lesion assertion** (latent: the committed
@@ -856,8 +858,8 @@ def _card_curation(fact: GeneFacts, literature: GeneLiterature = EMPTY_GENE_LITE
 
     **`validity_state` is the discriminator between the two uncurated
     sentences, not `headline_confidence is None`**, for the reason the notices
-    it replaced used it: the two agree on every gene published today (98 and
-    21), and equal figures are one figure to every test. They can differ: a
+    it replaced used it: the two agree on every gene published today (100 and
+    19, 2026-11-14), and equal figures are one figure to every test. They can differ: a
     gene admitted on agreement that ClinGen recorded `No Known Disease
     Relationship` for in scope has a panel record and no headline, and the
     panel sentence stays true of it where "no ClinGen expert panel has graded
@@ -1688,8 +1690,8 @@ def _card_scope(
     naming all of them, joined with "and" rather than the warrant row's "; ".
     A gene graded at its headline for a syndrome and for a disease an
     authority curated as CHD would read as in scope through Orphanet while it
-    is not only that -- 0 of the 98 graded genes today (measured 2026-10-26),
-    so the condition is latent and fixture-pinned. And all of them, not the
+    is not only that -- 0 of the 100 graded genes (measured 2026-11-14; 0 of
+    98 on 2026-10-26), so the condition is latent and fixture-pinned. And all of them, not the
     admitting record's alone: PTPN11 is Definitive for Noonan syndrome *and*
     Noonan syndrome with multiple lentigines. Nothing for a gene no panel
     graded: nothing was graded.
@@ -1704,11 +1706,12 @@ def _card_scope(
     **A syndrome a ClinGen expert panel scoped gets the line too** (owner
     decision 2026-10-26, R5): "Graded for Holt-Oram syndrome as a whole
     syndrome; in scope on its curation by ClinGen's Syndromic Disorders Gene
-    Curation Expert Panel." Ten genes are graded at their headline for such a
-    syndrome and their cards said nothing. Which terms are syndromes is the
-    curated `ScopeEntry.syndrome` mark, because nothing else says it: ZIC3 and
-    NODAL are graded for "congenital heart disease with heterotaxy syndrome",
-    which is CHD itself. Rendered only when **every** headline disease is a
+    Curation Expert Panel." Ten genes were graded at their headline for such a
+    syndrome and their cards said nothing (eleven since the 2026-11-14 refresh
+    admitted SEMA3E on a ClinGen Limited for CHARGE syndrome). Which terms are
+    syndromes is the curated `ScopeEntry.syndrome` mark, because nothing else
+    says it: ZIC3 and NODAL are graded for "congenital heart disease with
+    heterotaxy syndrome", which is CHD itself. Rendered only when **every** headline disease is a
     marked term an authority of a ClinGen class scoped, for the reason the
     Orphanet line needs all of them.
 
@@ -1730,8 +1733,11 @@ def _card_scope(
     the genes that panel did grade for it (`panel_graders`, from the validity
     mirror the build already holds): "in scope on ClinGen's <panel>'s curation
     of it for EVC." Measured on a build of 5f7161b: 1 of the 10 lines (EVC2);
-    the other nine panels graded the page's own gene. None found is a scope
-    term SCP005 refuses, so it raises rather than inventing a gene.
+    the other nine panels graded the page's own gene. Since the 2026-11-14
+    refresh, 2 of 11: SEMA3E's grade for CHARGE syndrome is the SCID-CID
+    panel's, and the term is scoped on the Hearing Loss panel's curation of it
+    for CHD7. None found is a scope term SCP005 refuses, so it raises rather
+    than inventing a gene.
 
     **Each disease is paired with its own panel.** With two diseases the
     clause sorted the panels apart from the diseases and joined the two lists,
@@ -1739,7 +1745,7 @@ def _card_scope(
     Heart Disease and the Syndromic Disorders panels -- the reverse of the
     terms' attributions. Several diseases now get one "ClinGen's <panel>'s
     curation of <disease>" each, in the order the line names the diseases.
-    Latent: every one of the ten lines names one disease.
+    Latent: every one of the eleven lines names one disease (2026-11-14).
     """
     headline = fact.headline_confidence
     if headline is None:
@@ -2011,8 +2017,9 @@ def _validity_section(
     laboratory wrote it. Both groups share one header and one vocabulary
     (`_inheritance`, `_date`), so they read across.
 
-    An empty group is a sentence, not a header over no rows: 21 published genes
-    have no panel record at all (measured 2026-10-25), and an empty "Expert
+    An empty group is a sentence, not a header over no rows: 19 published genes
+    have no panel record at all (measured 2026-11-14; 21 on 2026-10-25), and an
+    empty "Expert
     panel" table reads as a rendering fault rather than as that fact.
 
     `_repeats_the_panel` decides which of ClinGen's own GenCC copies are

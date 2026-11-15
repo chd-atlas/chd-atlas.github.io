@@ -19872,6 +19872,125 @@ E-MTAB-6814	HGNC:8803	testis	infant	49.0	tpm	42.0	51.0	3
 E-MTAB-6814	HGNC:8803	testis	middle adult	5.0	tpm			1
 E-MTAB-6814	HGNC:8803	testis	toddler	106.0	tpm			1
 E-MTAB-6814	HGNC:8803	testis	young adult	8.0	tpm	6.0	9.0	4
+E-MTAB-6814	HGNC:9046	forebrain	10 week post conception	38.0	tpm			1
+E-MTAB-6814	HGNC:9046	forebrain	11 week post conception	32.0	tpm	30.0	33.0	4
+E-MTAB-6814	HGNC:9046	forebrain	12 week post conception	28.0	tpm			1
+E-MTAB-6814	HGNC:9046	forebrain	13 week post conception	18.0	tpm	15.0	23.0	3
+E-MTAB-6814	HGNC:9046	forebrain	16 week post conception	29.0	tpm			2
+E-MTAB-6814	HGNC:9046	forebrain	18 week post conception	25.0	tpm			1
+E-MTAB-6814	HGNC:9046	forebrain	19 week post conception	28.0	tpm	27.0	41.0	5
+E-MTAB-6814	HGNC:9046	forebrain	4 week post conception	75.0	tpm	64.0	78.0	3
+E-MTAB-6814	HGNC:9046	forebrain	5 week post conception	69.0	tpm			2
+E-MTAB-6814	HGNC:9046	forebrain	7 week post conception	75.0	tpm	64.0	107.0	3
+E-MTAB-6814	HGNC:9046	forebrain	8 week post conception	42.0	tpm	27.0	59.0	4
+E-MTAB-6814	HGNC:9046	forebrain	9 week post conception	27.0	tpm	24.0	43.0	3
+E-MTAB-6814	HGNC:9046	forebrain	adolescent	4.0	tpm	3.0	6.0	4
+E-MTAB-6814	HGNC:9046	forebrain	elderly	3.0	tpm			2
+E-MTAB-6814	HGNC:9046	forebrain	infant	9.0	tpm			2
+E-MTAB-6814	HGNC:9046	forebrain	middle adult	6.0	tpm			2
+E-MTAB-6814	HGNC:9046	forebrain	neonate	12.0	tpm	12.0	17.0	3
+E-MTAB-6814	HGNC:9046	forebrain	school age child	5.0	tpm			2
+E-MTAB-6814	HGNC:9046	forebrain	toddler	3.0	tpm	3.0	4.0	3
+E-MTAB-6814	HGNC:9046	forebrain	young adult	4.0	tpm	4.0	4.0	5
+E-MTAB-6814	HGNC:9046	heart	10 week post conception	28.0	tpm	23.0	36.0	4
+E-MTAB-6814	HGNC:9046	heart	11 week post conception	42.0	tpm	35.0	47.0	4
+E-MTAB-6814	HGNC:9046	heart	12 week post conception	20.0	tpm			2
+E-MTAB-6814	HGNC:9046	heart	13 week post conception	27.0	tpm	23.0	30.0	4
+E-MTAB-6814	HGNC:9046	heart	16 week post conception	46.0	tpm	44.0	59.0	3
+E-MTAB-6814	HGNC:9046	heart	18 week post conception	47.0	tpm			1
+E-MTAB-6814	HGNC:9046	heart	19 week post conception	20.0	tpm	18.0	21.0	3
+E-MTAB-6814	HGNC:9046	heart	4 week post conception	26.0	tpm			2
+E-MTAB-6814	HGNC:9046	heart	5 week post conception	31.0	tpm			2
+E-MTAB-6814	HGNC:9046	heart	6 week post conception	38.0	tpm			2
+E-MTAB-6814	HGNC:9046	heart	7 week post conception	33.0	tpm	30.0	37.0	3
+E-MTAB-6814	HGNC:9046	heart	8 week post conception	42.0	tpm	34.0	44.0	5
+E-MTAB-6814	HGNC:9046	heart	9 week post conception	34.0	tpm	30.0	45.0	3
+E-MTAB-6814	HGNC:9046	heart	adolescent	5.0	tpm			1
+E-MTAB-6814	HGNC:9046	heart	infant	6.0	tpm	4.0	8.0	4
+E-MTAB-6814	HGNC:9046	heart	middle adult	5.0	tpm			1
+E-MTAB-6814	HGNC:9046	heart	neonate	10.0	tpm	7.0	11.0	3
+E-MTAB-6814	HGNC:9046	heart	toddler	7.0	tpm			2
+E-MTAB-6814	HGNC:9046	heart	young adult	2.0	tpm			1
+E-MTAB-6814	HGNC:9046	hindbrain	10 week post conception	22.0	tpm			2
+E-MTAB-6814	HGNC:9046	hindbrain	11 week post conception	18.0	tpm	16.0	20.0	4
+E-MTAB-6814	HGNC:9046	hindbrain	12 week post conception	16.0	tpm	14.0	18.0	3
+E-MTAB-6814	HGNC:9046	hindbrain	13 week post conception	14.0	tpm	13.0	14.0	3
+E-MTAB-6814	HGNC:9046	hindbrain	16 week post conception	20.0	tpm	18.0	20.0	3
+E-MTAB-6814	HGNC:9046	hindbrain	4 week post conception	64.0	tpm	60.0	78.0	3
+E-MTAB-6814	HGNC:9046	hindbrain	5 week post conception	44.0	tpm			2
+E-MTAB-6814	HGNC:9046	hindbrain	6 week post conception	52.0	tpm	46.0	59.0	4
+E-MTAB-6814	HGNC:9046	hindbrain	7 week post conception	27.0	tpm	25.0	30.0	3
+E-MTAB-6814	HGNC:9046	hindbrain	8 week post conception	39.0	tpm	34.0	42.0	4
+E-MTAB-6814	HGNC:9046	hindbrain	9 week post conception	28.0	tpm			2
+E-MTAB-6814	HGNC:9046	kidney	10 week post conception	58.0	tpm	58.0	64.0	3
+E-MTAB-6814	HGNC:9046	kidney	11 week post conception	76.0	tpm			2
+E-MTAB-6814	HGNC:9046	kidney	12 week post conception	77.0	tpm			2
+E-MTAB-6814	HGNC:9046	kidney	13 week post conception	61.0	tpm	59.0	64.0	3
+E-MTAB-6814	HGNC:9046	kidney	16 week post conception	71.0	tpm	66.0	72.0	3
+E-MTAB-6814	HGNC:9046	kidney	18 week post conception	55.0	tpm	51.0	55.0	3
+E-MTAB-6814	HGNC:9046	kidney	19 week post conception	60.0	tpm	59.0	61.0	3
+E-MTAB-6814	HGNC:9046	kidney	4 week post conception	194.0	tpm			1
+E-MTAB-6814	HGNC:9046	kidney	5 week post conception	251.0	tpm			2
+E-MTAB-6814	HGNC:9046	kidney	6 week post conception	236.0	tpm			2
+E-MTAB-6814	HGNC:9046	kidney	7 week post conception	100.0	tpm			2
+E-MTAB-6814	HGNC:9046	kidney	8 week post conception	54.0	tpm			2
+E-MTAB-6814	HGNC:9046	kidney	9 week post conception	63.0	tpm			2
+E-MTAB-6814	HGNC:9046	kidney	infant	9.0	tpm	8.0	10.0	4
+E-MTAB-6814	HGNC:9046	kidney	neonate	18.0	tpm	17.0	19.0	3
+E-MTAB-6814	HGNC:9046	kidney	school age child	2.0	tpm			1
+E-MTAB-6814	HGNC:9046	kidney	toddler	7.0	tpm			2
+E-MTAB-6814	HGNC:9046	liver	10 week post conception	4.0	tpm	4.0	4.0	4
+E-MTAB-6814	HGNC:9046	liver	11 week post conception	4.0	tpm	3.0	4.0	3
+E-MTAB-6814	HGNC:9046	liver	12 week post conception	7.0	tpm			1
+E-MTAB-6814	HGNC:9046	liver	13 week post conception	4.0	tpm			1
+E-MTAB-6814	HGNC:9046	liver	16 week post conception	7.0	tpm			2
+E-MTAB-6814	HGNC:9046	liver	18 week post conception	6.0	tpm	6.0	6.0	3
+E-MTAB-6814	HGNC:9046	liver	19 week post conception	4.0	tpm	4.0	5.0	4
+E-MTAB-6814	HGNC:9046	liver	4 week post conception	25.0	tpm	22.0	29.0	4
+E-MTAB-6814	HGNC:9046	liver	5 week post conception	12.0	tpm			2
+E-MTAB-6814	HGNC:9046	liver	6 week post conception	8.0	tpm			2
+E-MTAB-6814	HGNC:9046	liver	7 week post conception	10.0	tpm	9.0	12.0	4
+E-MTAB-6814	HGNC:9046	liver	8 week post conception	7.0	tpm	6.0	9.0	4
+E-MTAB-6814	HGNC:9046	liver	9 week post conception	4.0	tpm	3.0	6.0	3
+E-MTAB-6814	HGNC:9046	liver	adolescent	0.2	tpm			1
+E-MTAB-6814	HGNC:9046	liver	elderly	0.7	tpm			2
+E-MTAB-6814	HGNC:9046	liver	infant	3.0	tpm			2
+E-MTAB-6814	HGNC:9046	liver	middle adult	0.5	tpm			1
+E-MTAB-6814	HGNC:9046	liver	neonate	5.0	tpm			2
+E-MTAB-6814	HGNC:9046	liver	school age child	0.9	tpm			1
+E-MTAB-6814	HGNC:9046	liver	toddler	2.0	tpm			1
+E-MTAB-6814	HGNC:9046	liver	young adult	0.6	tpm	0.5	0.7	3
+E-MTAB-6814	HGNC:9046	ovary	10 week post conception	75.0	tpm			2
+E-MTAB-6814	HGNC:9046	ovary	11 week post conception	81.0	tpm			1
+E-MTAB-6814	HGNC:9046	ovary	12 week post conception	75.0	tpm			2
+E-MTAB-6814	HGNC:9046	ovary	13 week post conception	86.0	tpm			1
+E-MTAB-6814	HGNC:9046	ovary	16 week post conception	76.0	tpm			1
+E-MTAB-6814	HGNC:9046	ovary	18 week post conception	40.0	tpm			2
+E-MTAB-6814	HGNC:9046	ovary	4 week post conception	192.0	tpm			2
+E-MTAB-6814	HGNC:9046	ovary	5 week post conception	148.0	tpm			1
+E-MTAB-6814	HGNC:9046	ovary	6 week post conception	157.0	tpm			1
+E-MTAB-6814	HGNC:9046	ovary	7 week post conception	181.0	tpm			2
+E-MTAB-6814	HGNC:9046	ovary	8 week post conception	151.0	tpm			2
+E-MTAB-6814	HGNC:9046	ovary	9 week post conception	110.0	tpm			1
+E-MTAB-6814	HGNC:9046	testis	10 week post conception	72.0	tpm			2
+E-MTAB-6814	HGNC:9046	testis	11 week post conception	108.0	tpm			2
+E-MTAB-6814	HGNC:9046	testis	12 week post conception	77.0	tpm			2
+E-MTAB-6814	HGNC:9046	testis	13 week post conception	131.0	tpm	122.0	146.0	3
+E-MTAB-6814	HGNC:9046	testis	16 week post conception	174.0	tpm	133.0	191.0	3
+E-MTAB-6814	HGNC:9046	testis	18 week post conception	168.0	tpm			1
+E-MTAB-6814	HGNC:9046	testis	19 week post conception	132.0	tpm			1
+E-MTAB-6814	HGNC:9046	testis	4 week post conception	302.0	tpm			1
+E-MTAB-6814	HGNC:9046	testis	5 week post conception	166.0	tpm			2
+E-MTAB-6814	HGNC:9046	testis	6 week post conception	155.0	tpm			2
+E-MTAB-6814	HGNC:9046	testis	7 week post conception	153.0	tpm	149.0	155.0	3
+E-MTAB-6814	HGNC:9046	testis	8 week post conception	76.0	tpm	58.0	117.0	3
+E-MTAB-6814	HGNC:9046	testis	9 week post conception	124.0	tpm			2
+E-MTAB-6814	HGNC:9046	testis	adolescent	5.0	tpm	2.0	9.0	4
+E-MTAB-6814	HGNC:9046	testis	elderly	2.0	tpm			1
+E-MTAB-6814	HGNC:9046	testis	infant	38.0	tpm	31.0	51.0	3
+E-MTAB-6814	HGNC:9046	testis	middle adult	1.0	tpm			1
+E-MTAB-6814	HGNC:9046	testis	toddler	53.0	tpm			1
+E-MTAB-6814	HGNC:9046	testis	young adult	2.0	tpm	2.0	3.0	4
 E-MTAB-6814	HGNC:9067	forebrain	10 week post conception	1.0	tpm			1
 E-MTAB-6814	HGNC:9067	forebrain	11 week post conception	1.0	tpm	0.8	1.0	4
 E-MTAB-6814	HGNC:9067	forebrain	12 week post conception	2.0	tpm			1

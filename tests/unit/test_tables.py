@@ -196,23 +196,65 @@ def test_a_combined_row_is_keyed_on_the_burden_partition_minus_what_its_arms_spa
     assert "pvalue_adjusted" not in BURDEN_COMBINED.column_names
 
 
-def test_clingen_validity_is_keyed_on_the_triple_not_the_pair() -> None:
-    """(gene, disease, moi) is the key; (gene, disease) is not.
+def test_clingen_validity_is_keyed_on_the_triple_and_the_panel() -> None:
+    """(gene, disease, moi, gcep) is the key (table v2, F28); the pair is not.
 
-    Measured 2026-08-03 against the ClinGen bulk CSV: the triple is unique at
+    Measured 2026-08-03 against the ClinGen bulk CSV: the triple was unique at
     3,653/3,653 rows, while (gene, disease) collapses 59 of them -- pairs curated
     twice under different modes of inheritance with different classifications.
     Sorting on the pair would make those rows compare equal and let a real
     ordering violation pass; more importantly it documents which columns a
     consumer must key on to avoid dropping one of each duplicate.
+
+    The triple stopped being unique on 2026-11-13: ClinGen's file lists FOXE3
+    (HGNC:3808) / MONDO:0019625 / AD twice -- SOP4 Moderate (2016) by the
+    Heritable Thoracic Aortic Aneurysm and Dissection GCEP and SOP12 Limited
+    (2026) by the Hereditary Cardiovascular Disease GCEP. Both stay, as GenCC's
+    table keeps every submitter's row; (gene, disease, moi, gcep) is unique on
+    all 3,731 rows of that file and on all 3,733 of the later download pinned
+    as clingen/2026-11-13 (its banner carries the same date).
     """
-    assert CLINGEN_VALIDITY.sort_key == ("gene", "disease", "moi")
+    assert CLINGEN_VALIDITY.sort_key == ("gene", "disease", "moi", "gcep")
+    assert CLINGEN_VALIDITY.version == 2
     assert "sop" in CLINGEN_VALIDITY.column_names
     sop = next(c for c in CLINGEN_VALIDITY.columns if c.name == "sop")
     # Not nullable: 22% of the file predates SOP8 and ClinGen publishes no
     # crosswalk between framework versions, so a classification without the
     # framework that produced it is an unqualified claim.
     assert sop.nullable is False
+
+
+_FOXE3_HTAAD = (
+    "HGNC:3808\tFOXE3\tMONDO:0019625\tfamilial thoracic aortic aneurysm and aortic dissection"
+    "\tAD\tSOP4\tModerate\t2016-06-15T00:00:00"
+    "\tHeritable Thoracic Aortic Aneurysm and Dissection Gene Curation Expert Panel"
+    "\thttps://search.clinicalgenome.org/kb/gene-validity/CGGCIEX:assertion_8261"
+)
+_FOXE3_HCVD = (
+    "HGNC:3808\tFOXE3\tMONDO:0019625\tfamilial thoracic aortic aneurysm and aortic dissection"
+    "\tAD\tSOP12\tLimited\t2026-06-19T16:00:00.000Z"
+    "\tHereditary Cardiovascular Disease Gene Curation Expert Panel"
+    "\thttps://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_982f5f02-596f-4dfa-a019-147934f6509b-2026-06-19T160000.000Z"
+)
+
+
+def test_two_panels_on_one_triple_validate_and_one_panel_twice_does_not(tmp_path: Path) -> None:
+    """FOXE3's two real 2026-11-13 rows pass; the same panel twice is TBL007.
+
+    Rows in v2 key order: "Hereditary..." sorts before "Heritable...".
+    """
+    header = "\t".join(CLINGEN_VALIDITY.column_names)
+    two_panels = _write(tmp_path / "two.tsv", f"{header}\n{_FOXE3_HCVD}\n{_FOXE3_HTAAD}\n")
+    assert validate_table(two_panels, CLINGEN_VALIDITY) == []
+
+    same_panel = _FOXE3_HTAAD.replace(
+        "Heritable Thoracic Aortic Aneurysm and Dissection Gene Curation Expert Panel",
+        "Hereditary Cardiovascular Disease Gene Curation Expert Panel",
+    )
+    assert same_panel != _FOXE3_HTAAD
+    one_panel_twice = _write(tmp_path / "twice.tsv", f"{header}\n{_FOXE3_HCVD}\n{same_panel}\n")
+    issues = validate_table(one_panel_twice, CLINGEN_VALIDITY)
+    assert [i.code for i in issues] == ["TBL007"]
 
 
 def test_gencc_keys_on_the_submitter_because_it_publishes_no_verdict() -> None:
@@ -807,8 +849,9 @@ def test_vectorized_checks_match_the_original_on_every_committed_mirror(
     """Real curated/mirrored data holds zero offenders in every checked column --
     the case this vectorization optimizes for, and the case a hand-written
     synthetic fixture would not think to cover. `clingen_gene_validity.tsv`
-    (3,653 rows) and `gencc_submissions.tsv` (30,410 rows) are the tables that
-    exposed the regression this change fixes.
+    and `gencc_submissions.tsv` (3,653 and 30,410 rows then; 3,733 and 30,376
+    since 2026-11-14) are the tables that exposed the regression this change
+    fixes.
     """
     schema = TABLE_SCHEMAS[schema_name]
     assert validate_table(path, schema) == _slow_validate_table(path, schema)
@@ -1148,7 +1191,13 @@ def test_polars_pattern_engine_agrees_with_python_re(tmp_path: Path) -> None:
     # `study`, `gene`, `case_cohorts` and `control_cohorts` non-null = 100
     # (the per-column non-null counts of `burden.tsv` before and after, read
     # with `read_table`; the E-MTAB-6814 shards came out byte-identical).
-    assert total_compared == 224_551
+    #
+    # **224,551 -> 224,684 on 2026-11-14**, the ClinGen/GenCC refresh (F28-F30),
+    # measured per table and column against fbc9d2f: clingen_gene_validity +80
+    # rows x 2 = +160, gencc_submissions -34 x 4 = -136, mondo_xrefs -20 x 2 =
+    # -40, and PLAGL1 entering the registry: genes.tsv +1 x 2, burden.tsv +7 x 4
+    # and profiles/E-MTAB-6814.tsv +119.
+    assert total_compared == 224_684
 
     for pattern in patterns:
         compiled = re.compile(pattern)

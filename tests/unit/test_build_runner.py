@@ -758,8 +758,8 @@ def test_the_cell_type_census_is_published_under_its_own_keys(
     `profile_datasets` (both 1), and could not separate `cell_type_genes` from
     the burden census's gene count while both were 118: CLAUDE.md section 4.30.
     A patched census whose values appear in no other count makes every
-    cross-wire visible. Measured 2026-11-13 on a real build, no value in
-    `counts` is 5 or 3 (they are 0, 1, 2, 8, 20, 32, 86, 94, 105, 108, 118,
+    cross-wire visible. Measured 2026-11-14 on a real build, no value in
+    `counts` is 5 or 3 (they are 0, 1, 2, 8, 20, 32, 86, 94, 104, 108, 118,
     119 and 1,219), and the first two assertions re-check that on this build,
     so a new count equal to either fails loudly here.
     """

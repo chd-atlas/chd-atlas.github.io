@@ -53,8 +53,10 @@ reports the registry gene `genes.tsv` lacks, GEN006, before ``hgnc`` has
 re-derived it), which is why a single ingest's validation failure ends with
 `REPIN_HINT`. A package that removes a gene, or adds a disease the pinned Mondo
 package carries, is accepted alone and leaves the pruning and `mondo_xrefs`
-re-filtering undone (reviewer's measurement on copies of the committed corpus:
-GenCC v2 without HGNC:10727's in-scope rows, 185 -> 184 genes, 0 errors).
+re-filtering undone (reviewer's measurement on copies of the committed corpus,
+2026-11-12: GenCC v2 without HGNC:10727's in-scope rows, 185 -> 184 genes, 0
+errors; HGNC:10727, SEMA3E, has had an in-scope ClinGen record since 2026-11-14,
+so the same edit no longer removes it).
 No step validates. Validating each step would deadlock a scope shrink: ``hgnc``
 alone drops a gene that other rows still name (BUR011), and any other package
 alone keeps its rows, because its filter is the `genes.tsv` only ``hgnc``
@@ -189,10 +191,11 @@ from chd_atlas.validate.sources import PackagePin, load_sources
 
 # Written whole, never filtered to the registry: spec §4.4 derives the registry
 # from these two, so filtering them would discard the rows the next derivation
-# needs. Measured 2026-11-10 against the 185-gene `mirrors/genes.tsv`: 3,429 of
-# `clingen_gene_validity.tsv`'s 3,653 rows and 29,257 of
-# `gencc_submissions.tsv`'s 30,410 rows name a gene outside it, and the
-# committed mirrors carry them all. Their gene column is still resolved.
+# needs. Measured 2026-11-14 against the 186-gene `mirrors/genes.tsv`: 3,501 of
+# `clingen_gene_validity.tsv`'s 3,733 rows and 29,222 of
+# `gencc_submissions.tsv`'s 30,376 rows name a gene outside it (3,429 of 3,653
+# and 29,257 of 30,410 against 185 genes on 2026-11-10), and the committed
+# mirrors carry them all. Their gene column is still resolved.
 UNFILTERED_TABLES: Final[frozenset[str]] = frozenset({"clingen_validity", "gencc_submissions"})
 
 # The source that owns each flat table without a ``source`` column (ING014).

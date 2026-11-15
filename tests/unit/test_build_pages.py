@@ -946,7 +946,8 @@ def test_the_browse_page_says_whose_classification_the_confidence_column_carries
     panel's or submitter's" and "A blank confidence means ...". The column is
     `headline_confidence`, the admitting ClinGen panel's grade and never a
     submitter's, and a gene no panel graded renders an em dash there, not a
-    blank -- 21 of the 119 rows on a real build. So the fixture now carries one
+    blank -- 19 of the 119 rows on a real build (2026-11-14; 21 on 2026-10-26).
+    So the fixture now carries one
     gene of each kind, and the em-dash cell is asserted beside the sentence
     that describes it: the two fail together.
     """

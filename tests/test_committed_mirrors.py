@@ -96,7 +96,8 @@ def test_each_audain_2026_odds_ratio_matches_its_own_stratum() -> None:
         expected = (a / (n - a)) / (c / (m - c))
         assert abs(expected - row["effect"]) <= max(0.02, 0.02 * expected), row
         checked += 1
-    assert checked == 1041
+    # 1,041 until PLAGL1 entered the registry (2026-11-14) with three checkable rows.
+    assert checked == 1044
 
 
 def test_no_audain_2026_row_has_no_carrier_on_either_side() -> None:
@@ -104,7 +105,8 @@ def test_no_audain_2026_row_has_no_carrier_on_either_side() -> None:
 
     Guards the committed rows against such a row, which keeps the sentence in
     `docs/data-api.md` (burden obligation 3) true, and pins the two one-sided
-    counts: 384 rows without a case carrier and 37 without a control carrier.
+    counts: 387 rows without a case carrier and 37 without a control carrier
+    (384 until PLAGL1 entered the registry on 2026-11-14 with three).
     It does NOT establish what an absent (stratum, consequence) cell means in
     general. The gene page and `methods.html` say an absent cell is not a null
     result and does not always mean no such variant was seen; the stronger
@@ -114,14 +116,14 @@ def test_no_audain_2026_row_has_no_carrier_on_either_side() -> None:
     side". Against the workbook, 417 of
     the 417 checkable absences were consistent with "no carrier either side"
     when measured over the study's earlier 1,192 rows (2026-08-05); that was not
-    re-measured over the 1,462 rows now committed, and the rest cannot be
+    re-measured over the 1,468 rows now committed, and the rest cannot be
     checked.
     """
     rows = _burden_rows("PMID:42230622")
     assert rows.filter(
         (pl.col("n_case_carriers") == 0) & (pl.col("n_control_carriers") == 0)
     ).is_empty()
-    assert rows.filter(pl.col("n_case_carriers") == 0).height == 384
+    assert rows.filter(pl.col("n_case_carriers") == 0).height == 387
     assert rows.filter(pl.col("n_control_carriers") == 0).height == 37
 
 

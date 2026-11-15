@@ -161,5 +161,9 @@ def test_the_genes_table_schema_is_version_2_and_takes_an_accession_list(tmp_pat
     assert not re.match(pattern, "P0DW28|")
     hgnc = next(f for f in document["fields"] if f["name"] == "hgnc_id")
     assert "only in the `hgnc` package" in hgnc["description"]
-    # Only `genes` moved: every other table is still version 1.
-    assert {n for n, t in TABLE_SCHEMAS.items() if t.version != 1} == {"genes"}
+    # Only `genes` and `clingen_validity` (its key gained `gcep`, F28) moved:
+    # every other table is still version 1.
+    assert {n for n, t in TABLE_SCHEMAS.items() if t.version != 1} == {
+        "genes",
+        "clingen_validity",
+    }

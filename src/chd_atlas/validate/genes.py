@@ -135,7 +135,7 @@ def validate_mirror_symbols(
     issues: list[ValidationIssue] = []
     for gene, symbol, where in rows:
         # Only genes the registry actually carries. A mirror row for a gene
-        # outside the 185-gene registry is not a naming disagreement -- the
+        # outside the registry is not a naming disagreement -- the
         # registry is deliberately narrower than the mirrors, and reporting
         # those would drown the one real finding in 3,000 non-findings.
         if gene not in known:

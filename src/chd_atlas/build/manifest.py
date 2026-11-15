@@ -637,7 +637,8 @@ def write_manifest(
         "phenotypes": len(corpus.phenotypes),
         "publications": len(corpus.publications),
         # The whole registry `scope.json` publishes: every disease term in
-        # scope, on whichever authority's warrant. 105 since 2026-10-25.
+        # scope, on whichever authority's warrant. 104 since 2026-11-14 (105 from
+        # 2026-10-25).
         "scope_terms": len(corpus.chd_scope),
     }
     # A build count silently shadowing a corpus count would republish one figure
