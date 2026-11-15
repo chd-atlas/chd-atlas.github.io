@@ -516,6 +516,8 @@ from chd_atlas.corpus import Corpus
 # object gains `tallies`, the approved findings counted by paper (design,
 # lesion group, carrier origin, review state) and the years the papers span.
 # `{"papers": 0, ...}` with empty maps where the gene has no approved finding.
+# It also gains `synthesis`: the gene's "In short" narrative, `null` unless it is
+# approved and its approval is current.
 SCHEMA_VERSION: Final = "2.23"
 
 # What `status` publishes today. A literal rather than something derived from

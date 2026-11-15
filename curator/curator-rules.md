@@ -155,19 +155,32 @@ An optional `synthesis` block in a gene's literature file: the "In short" paragr
 its page.
 
 - Reader: a clinical geneticist. Cover the lesion spectrum, inheritance, mechanism,
-  syndromic features and how well established the gene is.
+  syndromic features, genotype–phenotype observations, and how much rests on abstracts
+  alone. It synthesises this gene's approved findings and lesion assertions only. It
+  does not restate the validity grade or the burden results; the card states them above
+  it.
 - Sources: atlas records only. Every sentence rests on a record published on the same
   page: an approved finding of this file or a lesion assertion of this gene.
-- Every sentence cites at least one such record in `cites` (`SYN001`).
+- Every sentence cites at least one such record in `cites`. A cite that is not an
+  approved finding of this file or a lesion assertion of this gene is `SYN001`.
 - No numbers: no digit run, no number word (one to twenty, dozen, hundred, half,
-  majority, most). Gene names and variants such as NKX2-5, 22q11.2 and p.Gly80Arg are
-  fine. Counts live in the card's literature line (`SYN002`).
-- One to five sentences, at most 120 words in all (`SYN003`).
+  majority, most, and their plurals dozens, hundreds, halves, majorities), and no
+  `>` or `<` before a digit. Gene names, ontology ids and variants such as NKX2-5,
+  22q11.2, HP:0001631 and p.Gly80Arg are fine. Counts live in the card's literature
+  line (`SYN002`). Terms that trip it: "half-sibling" (write "a sibling sharing one
+  parent"), "trisomy 21" ("Down syndrome"), "45,X" ("Turner syndrome") and an en dash
+  in a gene name ("NKX2–5": use a hyphen).
+- One to five sentences, and at most 120 words in all (`SYN003` is the 120 words; the
+  sentence count is the model's rule).
 - `drafted_by` is `agent:<skill>/<model>`. An agent only drafts. `approved_by` is a
   person's name, and `approved_by`, `approved_on` and `approved_digest` are set together.
-- The approval covers the text and every approved finding and lesion assertion of the
-  gene. Changing any of them makes the validator report `SYN004`, and the synthesis is
-  not published until a person approves it again.
+- The approval covers the text, every approved finding of the file (its review mark
+  included: marking an approved finding `pending_review` or `not_accessible` voids it)
+  and every lesion assertion of the gene. Changing any of them makes the validator
+  report `SYN004`, and the synthesis is not published until a person approves it again.
+- Withdrawing the approval of a finding a sentence cites, or deleting a cited
+  assertion, is `SYN001`, an error: the build refuses until the finding is approved
+  again or the sentence stops citing it.
 - A person approves with `chd-atlas literature review <SYMBOL> --approve-synthesis --by <name>`;
   the listing (no flags) shows the text and what each sentence cites first.
 

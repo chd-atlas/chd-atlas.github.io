@@ -309,8 +309,9 @@ wrong by the next one.
   such as `hpo`. Additive.
   `2.23` added `tallies` and `synthesis` to every gene bundle's `literature`
   object: the approved findings counted by paper, and the gene's approved "In
-  short" narrative, `null` for every gene today (see each field's own
-  description). The gene page card reads from both. Additive.
+  short" narrative, `null` where the gene has none, or its approval is missing
+  or stale (see each field's own description). The gene page card reads from
+  both. Additive.
 - `status` is the atlas's own readiness, so a program can read it without
   scraping `index.html`'s prose. Today it is always `"in-development"` — one
   curated gene-disease assertion alongside mirrored ClinGen/GenCC validity for
@@ -1690,13 +1691,15 @@ TBX5's, abridged:
 - `synthesis` (since `2.23`) is the gene's "In short" narrative. It is `null` when
   the gene has none, it is unapproved, or its approval no longer matches: the
   approved digest differs from one computed over the sentences, the approved
-  findings and the gene's own lesion assertions, so editing any of them
-  withholds it. Otherwise it is `{ "sentences": [ { "text", "cites" } ],
+  findings (each with its review mark) and the gene's own lesion assertions, so
+  editing the text, changing any approved finding (marking it for review
+  included) or changing a lesion assertion of the gene withholds it. Otherwise
+  it is `{ "sentences": [ { "text", "cites" } ],
   "drafted_by", "approved_by", "approved_on" }`, one to five sentences, with
   `approved_on` an ISO date. `cites` lists record ids in the curator's order,
   each a `literature.findings[].id` or an id of one of the gene's lesion
-  assertions. The validator refuses a number in a sentence's text, so the
-  object carries no figures; those are in `tallies` and the findings.
+  assertions. The validator refuses a standalone digit run and a fixed list of
+  number words in a sentence's text; counts are in `tallies` and the findings.
 
 The gene page renders this as its Literature section, right after the atlas's
 curated evidence (on a gene with none, after the validity table) and before the
@@ -1835,7 +1838,8 @@ Top to bottom:
    evidence against a gene — follows whenever the gene has rows.
 7. One sentence saying what the atlas itself has curated, then, where a curated
    lesion assertion exists, a mechanism sentence and, where approved findings
-   exist, a literature line (both described below).
+   exist, a literature line and, where an approved synthesis is current, the
+   "In short" paragraph (all described below).
 8. *How to read this page*, a link to the top of [`methods.html`](#methodshtml),
    and a link to the gene's own JSON.
 
