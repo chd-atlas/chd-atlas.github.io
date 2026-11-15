@@ -56,12 +56,16 @@ NUMBER_WORDS = [
     "half",
     "majority",
     "most",
+    "dozens",
+    "hundreds",
+    "halves",
+    "majorities",
 ]
 
-# A digit run not glued to a letter, digit, dot, hyphen, colon or ">" on its left,
-# nor to a letter or digit on its right: NKX2-5, 22q11.2, p.Gly80Arg and c.2T>C
-# pass; "3-generation" and "in 2003" do not.
-_DIGITS = re.compile(r"(?<![A-Za-z0-9.\-:>])\d+(?:[.,]\d+)*(?![A-Za-z0-9])")
+# A digit run not glued to a letter, digit, dot, hyphen or colon on its left,
+# nor to a letter or digit on its right: NKX2-5, 22q11.2, p.Gly80Arg, c.2T>C and
+# HP:0001631 pass; "3-generation", "in 2003", ">50" and "p>0.05" do not.
+_DIGITS = re.compile(r"(?<![A-Za-z0-9.\-:])\d+(?:[.,]\d+)*(?![A-Za-z0-9])")
 _WORDS = re.compile(r"(?<![A-Za-z0-9])(" + "|".join(NUMBER_WORDS) + r")(?![A-Za-z0-9])", re.I)
 _WORDLIKE = re.compile(r"[A-Za-z0-9]")
 
@@ -129,9 +133,10 @@ def validate_gene_synthesis(corpus: Corpus) -> list[ValidationIssue]:
                     "SYN004",
                     Severity.WARNING,
                     f"{path}:synthesis",
-                    "approval is stale: the text or a record it rests on changed; "
-                    f"re-approve with `chd-atlas literature review {path.stem} "
-                    "--approve-synthesis`",
+                    "approval is stale: the text, an approved finding or a lesion assertion "
+                    f"of {literature.gene} changed since it was approved; re-approve with "
+                    f"`chd-atlas literature review {path.stem} --approve-synthesis "
+                    "--by <name>`",
                 )
             )
     return issues

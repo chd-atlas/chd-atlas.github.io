@@ -158,13 +158,37 @@ def test_a_finding_that_exists_only_in_another_genes_file_is_syn001() -> None:
 
 @pytest.mark.parametrize(
     "text",
-    ["a 3-generation family", "Two families", "in 2003", "most carriers", "one of twenty"],
+    [
+        "a 3-generation family",
+        "Two families",
+        "in 2003",
+        "most carriers",
+        "one of twenty",
+        "seen in >50 families",
+        "not significant (p>0.05)",
+    ],
 )
 def test_a_number_digit_or_word_is_syn002_naming_the_token(text: str) -> None:
     issues = _run(_synthesis((text, [F1])))
     assert _codes(issues) == ["SYN002"]
     assert issues[0].location == f"{PATH}:synthesis.sentences[0]"
     assert issues[0].severity is Severity.ERROR
+
+
+@pytest.mark.parametrize(
+    "word",
+    [
+        "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+        "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
+        "eighteen", "nineteen", "twenty", "dozen", "hundred", "half", "majority", "most",
+        "dozens", "hundreds", "halves", "majorities",
+    ],
+)  # fmt: skip
+def test_every_listed_number_word_is_syn002(word: str) -> None:
+    """A literal list of the 29 words, not `NUMBER_WORDS`, so a removed word fails."""
+    issues = _run(_synthesis((f"Seen in {word} families.", [F1])))
+    assert _codes(issues) == ["SYN002"]
+    assert f"'{word}'" in issues[0].message
 
 
 @pytest.mark.parametrize(
@@ -182,6 +206,7 @@ def test_syn002_names_the_offending_token(text: str, token: str) -> None:
         "A 22q11.2 deletion is syndromic.",
         "The variant p.Gly80Arg recurs.",
         "The variant c.2T>C recurs.",
+        "The term HP:0001631 applies.",
         "Someone mostly agrees, and the honest answer is none.",
     ],
 )
@@ -212,11 +237,15 @@ def test_a_stale_approval_is_a_syn004_warning_naming_the_review_command() -> Non
     assert _codes(issues) == ["SYN004"]
     assert issues[0].severity is Severity.WARNING
     assert issues[0].location == f"{PATH}:synthesis"
-    assert "chd-atlas literature review TBX5 --approve-synthesis" in issues[0].message
+    assert issues[0].message == (
+        "approval is stale: the text, an approved finding or a lesion assertion of "
+        f"{TBX5} changed since it was approved; re-approve with "
+        "`chd-atlas literature review TBX5 --approve-synthesis --by <name>`"
+    )
 
 
-def test_an_edited_assertion_voids_the_approval() -> None:
-    """The digest covers the gene's own assertions, so one that changed is stale."""
+def test_an_added_assertion_voids_the_approval() -> None:
+    """The digest covers the gene's own assertions, so one added after approval is stale."""
     approved = _approved(GOOD)
     changed = (_assertion(OWN_AST, TBX5), _assertion("CHDA:AST:0000003", TBX5), ASSERTIONS[1])
     corpus = Corpus(root=Path("/r"), assertions=changed, literature=((PATH, _file(approved)),))
