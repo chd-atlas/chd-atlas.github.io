@@ -1822,7 +1822,8 @@ follows it with the curated evidence — a line saying each assertion is this
 atlas's own curation and changes no classification above, linking
 [`methods.html#curated-evidence`](#methodshtml); then each assertion and its
 evidence items, each with its class, strength and summary and the paper it
-cites, named by first author and year, linked to PubMed, its title on hover.
+cites, named by first author and year (and by its PMID too where two registered
+papers share both), linked to PubMed, its title on hover.
 The Literature section follows on every gene page.
 
 The rare-variant section opens with one line attributing every count and
