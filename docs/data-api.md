@@ -1669,15 +1669,19 @@ TBX5's, abridged:
   not yet approved, which is then in no bundle, so the id resolves nowhere in the
   published data. `carriers` and `screened` are counted in `count_unit`: with
   `families`, `screened` is families and each origin count is carrier families.
-- `tallies` counts the approved findings by paper (distinct `publication`), never
+- `tallies` (since `2.23`) counts the approved findings by paper (distinct `publication`), never
   carriers: papers may share probands, so no carrier total across papers is
   published. A paper with several findings counts once in each category, so the
   categories need not sum to `papers`. `designs` and `lesion_groups` map a value
-  to its papers and hold only values with at least one paper.
+  to its papers and hold only values with at least one paper. `lesion_groups`
+  counts papers by each approved finding's lesion groups, which for a screen that
+  found no carrier, or an association study, are the cohort's lesions rather than
+  carriers'.
   `de_novo_papers` and `inherited_papers` count papers with at least one finding
   carrying such a carrier; `abstract_only_papers` and `pending_review_papers`
-  count papers with at least one finding marked `not_accessible` or
-  `pending_review`. `first_year` and `last_year` span the papers' years, `null`
+  count papers with at least one finding whose `review_status` is
+  `not_accessible` (read from the abstract only) or `pending_review`
+  respectively. `first_year` and `last_year` span the papers' years, `null`
   with no approved finding.
 
 The gene page renders this as its Literature section, right after the atlas's
@@ -1815,7 +1819,9 @@ Top to bottom:
    published." With no row at
    all, that no rare-variant study here reports a result. The power caveat — no enrichment at these cohort sizes is not
    evidence against a gene — follows whenever the gene has rows.
-7. One sentence saying what the atlas itself has curated (below).
+7. One sentence saying what the atlas itself has curated, then, where a curated
+   lesion assertion exists, a mechanism sentence and, where approved findings
+   exist, a literature line (both described below).
 8. *How to read this page*, a link to the top of [`methods.html`](#methodshtml),
    and a link to the gene's own JSON.
 
@@ -1994,15 +2000,17 @@ JSON field is unchanged: `atlas_curation` stays derived from lesion assertions
 alone, so such a gene is `not_yet_curated` in its bundle and curated on its
 card. The `literature` key carries the findings the card counts.
 
-Two more lines sit under the curation sentence. Where a curated lesion
-assertion records a mechanism, "Mechanism, as curated by the atlas:
-haploinsufficiency." names it (distinct values, sorted); a gene with no
-assertion has no such line. Where a gene has approved literature, a literature
+Two more lines sit under the curation sentence. On every gene with a curated
+lesion assertion, "Mechanism, as curated by the atlas: haploinsufficiency."
+names the assertions' distinct mechanisms, sorted, `unknown` included; a gene
+with no assertion has no such line. Where a gene has approved literature, a literature
 line states it by paper from `literature.tallies`: the years the papers span,
-then the study designs, the lesion groups, the papers reporting de novo and
-inherited carriers, and the papers read from the abstract only or awaiting
-review. Every figure counts papers. The card never states a carrier count summed
-across papers, because those cohorts overlap, and it names a common-variant
+then the study designs, the lesion groups ("Lesions studied, by paper": the
+lesions each paper's findings name, which for a screen that found no carrier, or
+an association study, are the cohort's lesions rather than carriers'), the
+papers reporting de novo and inherited carriers, and the papers read from the
+abstract only or pending review. Every figure counts papers. The card never
+states a carrier count summed across papers, because those cohorts may overlap, and it names a common-variant
 association apart from the Mendelian designs ("not Mendelian evidence").
 
 Read the uncurated sentences precisely, because they are narrower than they first appear. **A lesion

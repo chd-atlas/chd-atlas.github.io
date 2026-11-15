@@ -273,7 +273,7 @@ _YEARS = {"PMID:9": 2003, "PMID:10": 2026, "PMID:11": 2010}
 
 
 def test_tallies_count_papers_not_findings() -> None:
-    """Three findings in two papers: 2 papers; each category counts papers."""
+    """Four findings in two papers (two cohort screens in one): each category counts papers."""
     case = {
         "design": "case_report",
         "screened": 1,
@@ -284,6 +284,7 @@ def test_tallies_count_papers_not_findings() -> None:
             _f(1, "PMID:9", lesion_groups=["septal", "avsd"]),
             _f(2, "PMID:9", **case, lesion_groups=["septal"]),
             _f(3, "PMID:10", lesion_groups=["septal"]),
+            _f(4, "PMID:9", lesion_groups=["avsd"]),
         ],
         _YEARS,
     )

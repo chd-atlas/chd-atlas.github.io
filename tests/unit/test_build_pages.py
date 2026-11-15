@@ -10943,8 +10943,8 @@ def _tallies(**changes: object) -> LiteratureTallies:
         designs={"family_segregation": 2, "cohort_screen": 3, "common_variant_association": 1},
         lesion_groups={"septal": 4, "lvoto": 2, "avsd": 2, "other": 3},
         de_novo_papers=1,
-        inherited_papers=2,
-        abstract_only_papers=1,
+        inherited_papers=3,
+        abstract_only_papers=4,
         pending_review_papers=0,
     )
     return LiteratureTallies(**{**base, **changes})  # type: ignore[typeddict-item]
@@ -10960,9 +10960,9 @@ def test_the_literature_line_reads_exactly() -> None:
     assert _card_text(fragment) == (
         "Papers from 2003 to 2026, by design: family segregation in 2 papers, cohort screens "
         "in 3 papers; common-variant association in 1 paper, not Mendelian evidence. "
-        "Lesions, by paper: septal 4, LVOTO 2, AVSD 2, other 3. "
-        "De novo carriers in 1 paper; inherited carriers in 2 papers. "
-        "From the abstract only: 1 paper."
+        "Lesions studied, by paper: septal 4, LVOTO 2, AVSD 2, other 3. "
+        "De novo carriers in 1 paper; inherited carriers in 3 papers. "
+        "From the abstract only: 4 papers."
     )
 
 
@@ -10981,8 +10981,8 @@ def test_the_literature_line_orders_ties_by_lesion_group_and_puts_other_last() -
     assert _card_text(fragment) == (
         "Papers from 2010, by design: family segregation in 2 papers, cohort screens "
         "in 3 papers; common-variant association in 1 paper, not Mendelian evidence. "
-        "Lesions, by paper: conotruncal 2, LVOTO 2, AVSD 2, RVOTO 1, other 9. "
-        "Awaiting review: 2 papers."
+        "Lesions studied, by paper: conotruncal 2, LVOTO 2, AVSD 2, RVOTO 1, other 9. "
+        "Pending review: 2 papers."
     )
 
 
@@ -10992,6 +10992,16 @@ def test_common_variant_alone_has_no_leading_semicolon() -> None:
         "Papers from 2003 to 2026, by design: common-variant association in 4 papers, "
         "not Mendelian evidence. "
     )
+
+
+def test_the_literature_line_has_a_label_for_every_design_and_lesion_group() -> None:
+    """A sixth `FindingDesign` or `LesionGroup` must not vanish from the line silently."""
+    from chd_atlas.build.pages import _CARD_LESION_LABELS, _CARD_MENDELIAN_DESIGNS
+    from chd_atlas.vocab import FindingDesign, LesionGroup
+
+    named = {key for key, _ in _CARD_MENDELIAN_DESIGNS} | {"common_variant_association"}
+    assert named == {d.value for d in FindingDesign}
+    assert [key for key, _ in _CARD_LESION_LABELS] == [g.value for g in LesionGroup]
 
 
 def test_no_line_without_papers() -> None:

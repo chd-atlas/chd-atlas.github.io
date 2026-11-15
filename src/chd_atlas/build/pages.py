@@ -1834,6 +1834,10 @@ _CARD_LESION_LABELS: Final = (
 )
 
 
+def _upper_first(text: str) -> str:
+    return text[:1].upper() + text[1:]
+
+
 def _papers(n: int) -> str:
     return f"{n} paper" if n == 1 else f"{n} papers"
 
@@ -1842,9 +1846,12 @@ def _card_literature(tallies: LiteratureTallies) -> str:
     """The card's literature line: what the approved findings amount to, by paper.
 
     Every count is of distinct papers (`literature_tallies`), so no figure here
-    sums carriers across papers: those cohorts overlap and the atlas publishes
-    no pooled statistic. `""` when the gene has no approved paper. A common-variant
-    association is named apart from the Mendelian designs and says so, because a
+    sums carriers across papers: those cohorts may overlap and the atlas publishes
+    no pooled statistic. The lesion counts are the lesions each paper's findings
+    name, which for a screen that found no carrier, or an association study, are
+    the cohort's lesions rather than carriers'; the label says "studied". `""`
+    when the gene has no approved paper. A common-variant association is named
+    apart from the Mendelian designs and says so, because a
     reader must not add it to rare-variant evidence.
     """
     if tallies["papers"] == 0:
@@ -1874,7 +1881,7 @@ def _card_literature(tallies: LiteratureTallies) -> str:
         present.append("other")
     if present:
         sentences.append(
-            "Lesions, by paper: "
+            "Lesions studied, by paper: "
             + ", ".join(f"{labels[key]} {groups[key]}" for key in present)
             + "."
         )
@@ -1887,17 +1894,17 @@ def _card_literature(tallies: LiteratureTallies) -> str:
         if count
     ]
     if origin:
-        sentences.append("; ".join(origin).capitalize() + ".")
+        sentences.append(_upper_first("; ".join(origin)) + ".")
     basis = [
         f"{label}: {_papers(count)}"
         for label, count in (
             ("from the abstract only", tallies["abstract_only_papers"]),
-            ("awaiting review", tallies["pending_review_papers"]),
+            ("pending review", tallies["pending_review_papers"]),
         )
         if count
     ]
     if basis:
-        sentences.append("; ".join(basis).capitalize() + ".")
+        sentences.append(_upper_first("; ".join(basis)) + ".")
     return f'<p class="card-literature">{html.escape(" ".join(sentences))}</p>'
 
 
