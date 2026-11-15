@@ -1079,6 +1079,36 @@ def test_every_synthesis_refusal_exits_two_and_writes_nothing(
     assert lit_path.read_bytes() == before
 
 
+def test_a_synthesis_approval_may_not_predate_the_latest_finding_approval(
+    root: Path, lit_path: Path
+) -> None:
+    """Two approval dates are needed: with one, the earliest and latest are the same date,
+    so `min` and `max` in the guard cannot be told apart."""
+    from chd_atlas.gene_literature_io import parse_literature
+
+    _with_synthesis(root, lit_path)
+    anchor = "    summary: Another proband.\n    extracted_by: agent:extract/test\n"
+    assert lit_path.read_text().count(anchor) == 1
+    later = "    approved_by: Dr. Later Approver\n    approved_on: 2026-10-20\n"
+    lit_path.write_text(
+        lit_path.read_text().replace(anchor, anchor + later + "    approved_digest: sha256:later\n")
+    )
+    assert parse_literature(lit_path.read_bytes()).findings  # the edit is still a valid file
+
+    before = lit_path.read_bytes()
+    early = _review(root, "--approve-synthesis", "--by", "Dr. Grace Hopper", "--on", "2026-10-10")
+    assert early.exit_code == 2, early.stdout
+    assert (
+        "--on 2026-10-10 is before 2026-10-20, when a finding this synthesis covers was "
+        "approved; an approval cannot predate what it covers"
+    ) in early.stdout
+    assert lit_path.read_bytes() == before
+
+    equal = _review(root, "--approve-synthesis", "--by", "Dr. Grace Hopper", "--on", "2026-10-20")
+    assert equal.exit_code == 0, equal.stdout
+    assert equal.stdout == "approved synthesis (Dr. Grace Hopper, 2026-10-20)\n"
+
+
 def test_the_listing_prints_the_synthesis_state_sentences_and_what_each_cites(
     root: Path, lit_path: Path
 ) -> None:
