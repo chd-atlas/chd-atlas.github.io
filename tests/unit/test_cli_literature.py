@@ -902,3 +902,190 @@ def test_target_refusals_exit_2_and_name_the_cause(
     result = _target(root, symbol)
     assert result.exit_code == 2
     assert message in result.output
+
+
+# --------------------------------------------------------------------------
+# --approve-synthesis and the synthesis listing (gene synthesis, Task 6)
+# --------------------------------------------------------------------------
+
+ASSERTION_FILE = """\
+assertions:
+  - id: CHDA:AST:0000001
+    gene: HGNC:11604
+    phenotypes:
+      - HP:0001631
+    lesion_groups:
+      - septal
+    inheritance:
+      - AD
+    mechanism: haploinsufficiency
+    syndromic: isolated
+    evidence:
+      - publication: PMID:222
+        evidence_class: genetic_case
+        locator:
+          kind: in_text
+          element: Abstract
+        summary: A nonsense variant.
+        strength: strong
+    curator: Dr. Curator
+    curated_on: 2026-07-01
+    last_reviewed: 2026-07-01
+"""
+
+SYNTHESIS = """\
+synthesis:
+  sentences:
+    - text: Septal defects are the usual presentation.
+      cites:
+        - CHDA:LIT:0000003
+    - text: A lesion record backs the inheritance pattern.
+      cites:
+        - CHDA:AST:0000001
+  drafted_by: agent:gene-synthesis/test
+"""
+
+
+def _with_synthesis(root: Path, lit_path: Path, block: str = SYNTHESIS) -> str:
+    """Write the gene's assertion and append `block` to the literature file."""
+    (root / "curation" / "assertions").mkdir(exist_ok=True)
+    (root / "curation" / "assertions" / "TBX5.yaml").write_text(ASSERTION_FILE)
+    lit_path.write_text(lit_path.read_text() + block)
+    return lit_path.read_text()
+
+
+def _current_digest(root: Path, lit_path: Path) -> str:
+    from chd_atlas.corpus import load_curation
+    from chd_atlas.gene_literature_io import parse_literature
+    from chd_atlas.models.gene_literature import synthesis_digest
+
+    record = parse_literature(lit_path.read_bytes())
+    assert record.synthesis is not None
+    own = [a for a in load_curation(root)[0].assertions if str(a.gene) == str(record.gene)]
+    return synthesis_digest(record.synthesis, record.findings, own)
+
+
+def test_approve_synthesis_stamps_three_fields_and_changes_no_other_byte(
+    root: Path, lit_path: Path
+) -> None:
+    before = _with_synthesis(root, lit_path)
+    result = _review(root, "--approve-synthesis", "--by", "Dr. Grace Hopper", "--on", "2026-11-03")
+
+    assert result.exit_code == 0, result.stdout
+    assert result.stdout == "approved synthesis (Dr. Grace Hopper, 2026-11-03)\n"
+    digest = _current_digest(root, lit_path)
+    assert lit_path.read_text() == before + (
+        f"  approved_by: Dr. Grace Hopper\n  approved_on: 2026-11-03\n  approved_digest: {digest}\n"
+    )
+    # the digest is the one the validator recomputes: no SYN004 afterwards
+    from chd_atlas.validate.runner import validate_repository
+
+    assert not [i for i in validate_repository(root).issues if i.code.startswith("SYN")]
+
+
+def test_a_stale_approval_is_re_approved_and_a_current_one_is_never_overwritten(
+    root: Path, lit_path: Path
+) -> None:
+    _with_synthesis(
+        root,
+        lit_path,
+        SYNTHESIS
+        + "  approved_by: Dr. First Approver\n  approved_on: 2026-10-05\n"
+        + "  approved_digest: sha256:stale\n",
+    )
+    stale = _review(root, "--approve-synthesis", "--by", "Dr. Second", "--on", "2026-11-04")
+    assert stale.exit_code == 0, stale.stdout
+    after = lit_path.read_text()
+    assert "approved_by: Dr. Second\n  approved_on: 2026-11-04\n" in after
+    assert "Dr. First Approver" not in after
+    assert f"approved_digest: {_current_digest(root, lit_path)}\n" in after
+    from chd_atlas.validate.runner import validate_repository
+
+    assert not [i for i in validate_repository(root).issues if i.code.startswith("SYN")]
+
+    again = _review(root, "--approve-synthesis", "--by", "Dr. Third")
+    assert again.exit_code == 2
+    assert "already approved by Dr. Second; approving again would erase who approved it" in (
+        again.stdout
+    )
+    assert lit_path.read_text() == after
+
+
+@pytest.mark.parametrize(
+    ("block", "args", "needle"),
+    [
+        (None, ["--by", "A"], "no synthesis"),
+        (SYNTHESIS, [], "--by"),
+        (SYNTHESIS, ["--by", "agent:x"], "agent"),
+        (SYNTHESIS, ["--by", "A", "--on", "2999-01-01"], "future"),
+        (SYNTHESIS, ["--by", "A", "--allow-unverified"], "--allow-unverified"),
+        (SYNTHESIS, ["--by", "A", "--approve", "CHDA:LIT:0000002"], "separate actions"),
+        (SYNTHESIS, ["--by", "A", "--pending-review", "CHDA:LIT:0000001"], "separate actions"),
+        (SYNTHESIS, ["--by", "A", "--against", "x.yaml"], "--against"),
+        (SYNTHESIS.replace("usual presentation", "usual in 12 families"), ["--by", "A"], "SYN002"),
+        (SYNTHESIS.replace("CHDA:LIT:0000003", "CHDA:LIT:0000004"), ["--by", "A"], "SYN001"),
+    ],
+)
+def test_every_synthesis_refusal_exits_two_and_writes_nothing(
+    root: Path, lit_path: Path, block: str | None, args: list[str], needle: str
+) -> None:
+    if block is not None:
+        _with_synthesis(root, lit_path, block)
+    before = lit_path.read_bytes()
+    result = _review(root, "--approve-synthesis", *args)
+    assert result.exit_code == 2, result.stdout
+    assert needle in result.stdout
+    assert lit_path.read_bytes() == before
+
+
+def test_the_listing_prints_the_synthesis_state_sentences_and_what_each_cites(
+    root: Path, lit_path: Path
+) -> None:
+    plain = _review(root)
+    assert "synthesis" not in plain.stdout  # a file with none prints nothing about one
+
+    _with_synthesis(
+        root,
+        lit_path,
+        SYNTHESIS.replace(
+            "        - CHDA:LIT:0000003\n",
+            "        - CHDA:LIT:0000003\n        - CHDA:LIT:0000009\n",
+        ),
+    )
+    tail = _review(root).stdout.split("synthesis: ", 1)[1]
+    assert tail == (
+        "unapproved\n"
+        "  1. Septal defects are the usual presentation.\n"
+        "     CHDA:LIT:0000003: A proband.\n"
+        "     CHDA:LIT:0000009: (not found)\n"
+        "  2. A lesion record backs the inheritance pattern.\n"
+        "     CHDA:AST:0000001: lesion assertion for HGNC:11604\n"
+    )
+    # an unapproved finding's summary is shown too, so the approver sees what is cited
+    lit_path.write_text(lit_path.read_text().replace("- CHDA:LIT:0000009", "- CHDA:LIT:0000004"))
+    assert "     CHDA:LIT:0000004: Another proband.\n" in _review(root).stdout
+
+    both = "        - CHDA:LIT:0000003\n        - CHDA:LIT:0000004\n"
+    lit_path.write_text(lit_path.read_text().replace(both, "        - CHDA:LIT:0000003\n"))
+    done = _review(root, "--approve-synthesis", "--by", "Dr. A", "--on", "2026-11-03")
+    assert done.exit_code == 0, done.stdout
+    assert "synthesis: approved by Dr. A on 2026-11-03\n" in _review(root).stdout
+    # a changed covered record voids the approval: STALE, with who and when
+    lit_path.write_text(lit_path.read_text().replace("A proband.", "A different proband."))
+    assert (
+        "synthesis: STALE (approved by Dr. A on 2026-11-03; the records it covers changed)\n"
+        in _review(root).stdout
+    )
+
+
+def test_a_synthesis_write_the_model_would_refuse_is_never_made(lit_path: Path) -> None:
+    from chd_atlas.gene_literature_io import LiteratureFileError, with_synthesis_approval
+
+    approval = {"approved_by": "Dr. A", "approved_on": date(2026, 11, 2), "approved_digest": "d"}
+    with pytest.raises(LiteratureFileError, match="no synthesis block"):
+        with_synthesis_approval(lit_path.read_bytes(), approval)
+    with_block = lit_path.read_bytes() + SYNTHESIS.encode()
+    with pytest.raises(LiteratureFileError):
+        with_synthesis_approval(with_block, {**approval, "approved_by": "agent:x"})
+    with pytest.raises(LiteratureFileError):
+        with_synthesis_approval(with_block, {"approved_by": "Dr. A"})

@@ -168,6 +168,8 @@ its page.
 - The approval covers the text and every approved finding and lesion assertion of the
   gene. Changing any of them makes the validator report `SYN004`, and the synthesis is
   not published until a person approves it again.
+- A person approves with `chd-atlas literature review <SYMBOL> --approve-synthesis --by <name>`;
+  the listing (no flags) shows the text and what each sentence cites first.
 
 ```yaml
 synthesis:
