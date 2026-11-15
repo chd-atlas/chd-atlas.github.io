@@ -1687,6 +1687,16 @@ TBX5's, abridged:
   `not_accessible` (read from the abstract only) or `pending_review`
   respectively. `first_year` and `last_year` span the papers' years, `null`
   with no approved finding.
+- `synthesis` (since `2.23`) is the gene's "In short" narrative. It is `null` when
+  the gene has none, it is unapproved, or its approval no longer matches: the
+  approved digest differs from one computed over the sentences, the approved
+  findings and the gene's own lesion assertions, so editing any of them
+  withholds it. Otherwise it is `{ "sentences": [ { "text", "cites" } ],
+  "drafted_by", "approved_by", "approved_on" }`, one to five sentences, with
+  `approved_on` an ISO date. `cites` lists record ids in the curator's order,
+  each a `literature.findings[].id` or an id of one of the gene's lesion
+  assertions. The validator refuses a number in a sentence's text, so the
+  object carries no figures; those are in `tallies` and the findings.
 
 The gene page renders this as its Literature section, right after the atlas's
 curated evidence (on a gene with none, after the validity table) and before the
