@@ -3269,3 +3269,48 @@ findings:
     approved_digest: sha256:baaf0630af185db432db6c541a3b8d6e91412725d370e38a0a544ae5cab2bdf0
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
+synthesis:
+  sentences:
+    - text: Carriers' lesions include atrial and ventricular septal defects, double outlet right ventricle, hypoplastic left heart syndrome, anomalous pulmonary venous return and patent ductus arteriosus; tetralogy of Fallot, coarctation and atrioventricular septal defect rest on papers read from the abstract only.
+      cites:
+        - CHDA:LIT:0000056
+        - CHDA:LIT:0000075
+        - CHDA:LIT:0000016
+        - CHDA:LIT:0000021
+        - CHDA:LIT:0000069
+        - CHDA:LIT:0000088
+        - CHDA:LIT:0000086
+        - CHDA:LIT:0000098
+    - text: Carriers with a heart defect can also have atrioventricular block or atrial fibrillation.
+      cites:
+        - CHDA:LIT:0000016
+        - CHDA:LIT:0000052
+        - CHDA:LIT:0000048
+    - text: Carriers present with Holt-Oram syndrome or isolated heart disease; reports caution subtle limb anomalies may be missed, and a family's isolated disease was rediagnosed as Holt-Oram syndrome.
+      cites:
+        - CHDA:AST:0000001
+        - CHDA:LIT:0000016
+        - CHDA:LIT:0000069
+        - CHDA:LIT:0000072
+        - CHDA:LIT:0000056
+    - text: Variants arose de novo or segregated with disease in families, where carriers can differ in lesion or have arrhythmia without a reported structural defect.
+      cites:
+        - CHDA:LIT:0000016
+        - CHDA:LIT:0000071
+        - CHDA:LIT:0000075
+        - CHDA:LIT:0000056
+        - CHDA:LIT:0000059
+        - CHDA:LIT:0000031
+    - text: Variants include nonsense, frameshift, splice-site and missense changes, a whole coding-sequence deletion and partial duplications.
+      cites:
+        - CHDA:LIT:0000056
+        - CHDA:LIT:0000076
+        - CHDA:LIT:0000041
+        - CHDA:LIT:0000075
+        - CHDA:LIT:0000071
+        - CHDA:LIT:0000021
+        - CHDA:LIT:0000025
+  drafted_by: agent:gene-synthesis/claude-opus-5-5
+  approved_by: E.A.M
+  approved_on: 2026-11-16
+  approved_digest: sha256:ce3761fc09389323d41fd089bba8ca7e65f3d79014077e54214cb7711df7efc7

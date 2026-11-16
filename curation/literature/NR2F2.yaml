@@ -626,3 +626,48 @@ findings:
     approved_by: E.A.M
     approved_on: 2026-11-09
     approved_digest: sha256:8167a9bc88c734062e8b384db7e2bb4701750de80b2ef6ae02f39c80d555efd6
+synthesis:
+  sentences:
+    - text: Carriers' lesions include atrioventricular, atrial and ventricular septal defects, bicuspid aortic valve, coarctation, pulmonary stenosis, hypoplastic left heart and tetralogy of Fallot.
+      cites:
+        - CHDA:LIT:0000001
+        - CHDA:LIT:0000004
+        - CHDA:LIT:0000009
+        - CHDA:LIT:0000010
+        - CHDA:LIT:0000011
+        - CHDA:LIT:0000005
+        - CHDA:LIT:0000012
+        - CHDA:LIT:0000107
+    - text: Variants arose de novo in isolated and syndromic cases and segregated with differing lesions in families; unaffected parents also transmitted missense variants.
+      cites:
+        - CHDA:LIT:0000003
+        - CHDA:LIT:0000001
+        - CHDA:LIT:0000007
+        - CHDA:LIT:0000004
+        - CHDA:LIT:0000011
+    - text: Syndromic features include congenital diaphragmatic hernia and differences of sex development; frameshift carriers with an XX karyotype ascertained for the latter had heart defects.
+      cites:
+        - CHDA:LIT:0000007
+        - CHDA:LIT:0000009
+        - CHDA:LIT:0000012
+    - text: Variants include missense, frameshift, nonsense and splice changes, an in-frame duplication, an intragenic translocation breakpoint, and 15q26 deletions also spanning other genes, IGF1R among them.
+      cites:
+        - CHDA:LIT:0000001
+        - CHDA:LIT:0000007
+        - CHDA:LIT:0000010
+        - CHDA:LIT:0000006
+        - CHDA:LIT:0000004
+        - CHDA:LIT:0000005
+        - CHDA:LIT:0000012
+        - CHDA:LIT:0000014
+    - text: Only the abstracts were read for a syndromic coarctation case, terminal deletions with unspecified heart defects, and a family whose index patient had double outlet right ventricle.
+      cites:
+        - CHDA:LIT:0000103
+        - CHDA:LIT:0000099
+        - CHDA:LIT:0000100
+        - CHDA:LIT:0000101
+        - CHDA:LIT:0000102
+  drafted_by: agent:gene-synthesis/claude-opus-5-5
+  approved_by: E.A.M
+  approved_on: 2026-11-16
+  approved_digest: sha256:cfe85ab728c854274039bdfb071bc95b4bfc8242fa4fd4ac7a6b1e44e7527f28
