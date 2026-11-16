@@ -1238,9 +1238,9 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
     decisions `vocab.TriageDecision` names, the two axes are `FindingDesign`
     and `DetectionMethod`, the carrier's unit is `Finding.count_unit`, approval
     is a named person (`Finding.approved_by`) and the two marks are
-    `ReviewStatus`. Measured: 251 words counting the heading as a word of its own
-    and 250 by the assertion below (tags removed unspaced, so the heading fuses
-    with the first word); the first paragraph alone was 156 and 155, under the 160 the
+    `ReviewStatus`. Measured: 253 words counting the heading as a word of its own
+    and 252 by the assertion below (tags removed unspaced, so the heading fuses
+    with the first word); the first paragraph alone is 158 and 157, under the 160 the
     plan allowed, and the second paragraph (the gene card's literature line, added
     2026-11-16) is the rest. The wording awaits the owner's
     approval (ruling R15).
@@ -1257,8 +1257,8 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
         "whatever the authors counted as one, in people or families as stated; the atlas "
         "records their counts and does not re-classify the variants. A named curator approves "
         "each finding before publication; findings awaiting approval are counted, not shown. "
-        "A review mark says a finding's source disagrees with its paper (pending review) or "
-        "could not be read (source not accessible).</p>"
+        "A review mark flags an open question for an expert (pending review) or a source "
+        "that could not be read (source not accessible).</p>"
         "<p>The gene card counts approved findings by paper and never sums carriers across "
         "papers, because cohorts can overlap. It names each paper's study design. "
         '"Lesions studied" counts the lesions a paper studied: for a screen with no carrier, '
@@ -1270,4 +1270,4 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
         "open for an expert.</p>"
     )
     words = len(re.sub(r"<[^>]+>", "", _section(page, "literature")).split())
-    assert words == 250  # tags stripped unspaced, so the heading fuses with the first word
+    assert words == 252  # tags stripped unspaced, so the heading fuses with the first word
