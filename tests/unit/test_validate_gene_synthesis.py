@@ -13,7 +13,7 @@ from chd_atlas.corpus import Corpus
 from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.models.assertion import LesionAssertion
 from chd_atlas.models.gene_literature import GeneLiteratureFile, synthesis_digest
-from chd_atlas.validate.gene_synthesis import validate_gene_synthesis
+from chd_atlas.validate.gene_synthesis import _first_number, validate_gene_synthesis
 from tests.unit._stamp import stamped
 from tests.unit.test_validate_gene_literature import F1, F2, OTHER, TBX5, _base
 
@@ -182,13 +182,44 @@ def test_a_number_digit_or_word_is_syn002_naming_the_token(text: str) -> None:
         "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
         "eighteen", "nineteen", "twenty", "dozen", "hundred", "half", "majority", "most",
         "dozens", "hundreds", "halves", "majorities",
+        "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
+        "thousand", "thousands", "million", "millions", "percent", "twice", "thrice",
+        "quarter", "quarters",
     ],
 )  # fmt: skip
 def test_every_listed_number_word_is_syn002(word: str) -> None:
-    """A literal list of the 29 words, not `NUMBER_WORDS`, so a removed word fails."""
+    """A literal list of the 45 words, not `NUMBER_WORDS`, so a removed word fails."""
     issues = _run(_synthesis((f"Seen in {word} families.", [F1])))
     assert _codes(issues) == ["SYN002"]
     assert f"'{word}'" in issues[0].message
+
+
+@pytest.mark.parametrize(
+    ("text", "token"),
+    [
+        ("A small per cent of carriers.", "per cent"),
+        ("A twofold enrichment.", "twofold"),
+        ("A Tenfold enrichment.", "Tenfold"),
+        ("A twentyfold enrichment.", "twentyfold"),
+        ("A hundredfold enrichment.", "hundredfold"),
+        ("A thousandfold enrichment.", "thousandfold"),
+        ("The 3rd family.", "3rd"),
+        ("Below the 10th percentile.", "10th"),
+        ("The 1st report.", "1st"),
+        ("A 3x enrichment.", "3x"),
+        ("A 10x enrichment.", "10x"),
+        ("A 3X enrichment.", "3X"),
+        ("Reported in the 1990s.", "1990s"),
+        ("Reported since the 2000s.", "2000s"),
+        ("Reported in the mid-2000s.", "2000s"),
+        ("A ½ share.", "½"),
+        ("Exon ³ is affected.", "³"),
+        ("Type Ⅳ is affected.", "Ⅳ"),
+    ],
+)
+def test_syn002_refuses_every_written_form_of_a_number(text: str, token: str) -> None:
+    """X-3: forms the word list and the digit run alone let through, each named."""
+    assert _first_number(text) == token
 
 
 @pytest.mark.parametrize(
@@ -202,16 +233,24 @@ def test_syn002_names_the_offending_token(text: str, token: str) -> None:
 @pytest.mark.parametrize(
     "text",
     [
+        "The variant c.76A>T recurs.",
+        "The variant c.2T>C recurs.",
+        "The variant p.Gly80Arg recurs.",
         "NKX2-5 variants occur.",
         "A 22q11.2 deletion is syndromic.",
-        "The variant p.Gly80Arg recurs.",
-        "The variant c.2T>C recurs.",
+        "TBX5 variants occur.",
         "The term HP:0001631 applies.",
+        "Carriers had double outlet right ventricle.",
+        "Their first-degree relatives were screened.",
+        "Down syndrome was excluded.",
+        "Turner syndrome was excluded.",
         "Someone mostly agrees, and the honest answer is none.",
     ],
 )
 def test_mixed_letter_digit_tokens_and_embedded_words_are_not_numbers(text: str) -> None:
-    assert _run(_synthesis((text, [F1]))) == []
+    """Names, variants and words holding a number word inside them pass, the refused
+    forms of `test_syn002_refuses_every_written_form_of_a_number` notwithstanding."""
+    assert _first_number(text) is None
 
 
 def test_more_than_120_words_is_syn003_and_exactly_120_is_not() -> None:

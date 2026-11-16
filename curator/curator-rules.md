@@ -154,22 +154,29 @@ convention only a person can check.
 An optional `synthesis` block in a gene's literature file: the "In short" paragraph of
 its page.
 
-- Reader: a clinical geneticist. Cover the lesion spectrum, inheritance, mechanism,
-  syndromic features, genotype–phenotype observations, and how much rests on abstracts
-  alone. It synthesises this gene's approved findings and lesion assertions only. It
-  does not restate the validity grade or the burden results; the card states them above
-  it.
+- Reader: a clinical geneticist. Cover the lesion spectrum, inheritance, syndromic
+  features, genotype–phenotype observations, and how much rests on abstracts alone. It
+  synthesises this gene's approved findings and lesion assertions only. The card states
+  the validity grade, the burden results and the curated mechanism above it; the
+  synthesis does not restate them.
 - Sources: atlas records only. Every sentence rests on a record published on the same
   page: an approved finding of this file or a lesion assertion of this gene.
 - Every sentence cites at least one such record in `cites`. A cite that is not an
   approved finding of this file or a lesion assertion of this gene is `SYN001`.
-- No numbers: no digit run, no number word (one to twenty, dozen, hundred, half,
-  majority, most, and their plurals dozens, hundreds, halves, majorities), and no
-  `>` or `<` before a digit. Gene names, ontology ids and variants such as NKX2-5,
-  22q11.2, HP:0001631 and p.Gly80Arg are fine. Counts live in the card's literature
-  line (`SYN002`). Terms that trip it: "half-sibling" (write "a sibling sharing one
-  parent"), "trisomy 21" ("Down syndrome"), "45,X" ("Turner syndrome") and an en dash
-  in a gene name ("NKX2–5": use a hyphen).
+- No numbers (`SYN002`); counts live in the card's literature line. It refuses a
+  standalone digit run; a number word (one to twenty, the tens from thirty to ninety,
+  dozen, hundred, thousand, million, half, quarter, majority, most, twice, thrice,
+  percent, per cent, and dozens, hundreds, thousands, millions, halves, quarters,
+  majorities), alone or glued to "fold" ("twofold"); a digit run read as an ordinal
+  ("3rd"), a decade ("1990s", "mid-2000s") or a multiple ("3x"); a numeric symbol
+  ("½", "³"); and `>` or `<` before a digit. Gene names, ontology ids and variants such
+  as NKX2-5, 22q11.2, HP:0001631 and p.Gly80Arg pass. Terms that trip it, and what to
+  write instead: "half-sibling" ("a sibling sharing only the mother", or "only the
+  father"), "trisomy 21" ("Down syndrome"), "45,X" ("Turner syndrome"), "46,XX" ("an
+  XX karyotype"), a numbered subtype ("Noonan syndrome 1": name the syndrome without
+  its number), "one" as a pronoun ("one of the reports": rephrase), a frameshift with
+  its terminal count ("p.Gly35Argfs*75": name the variant class), a transcript id
+  ("NM_181486.4": omit it) and an en dash in a gene name ("NKX2–5": use a hyphen).
 - One to five sentences, and at most 120 words in all (`SYN003` is the 120 words; the
   sentence count is the model's rule).
 - `drafted_by` is `agent:<skill>/<model>`. An agent only drafts. `approved_by` is a
@@ -192,7 +199,7 @@ its page.
 ```yaml
 synthesis:
   sentences:
-    - text: Septal defects are the usual presentation.
+    - text: Reported lesions include atrial and ventricular septal defects.
       cites: [CHDA:LIT:0000001, CHDA:AST:0000001]
   drafted_by: agent:gene-synthesis/model
 ```

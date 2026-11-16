@@ -1700,8 +1700,10 @@ TBX5's, abridged:
   "drafted_by", "approved_by", "approved_on" }`, one to five sentences, with
   `approved_on` an ISO date. `cites` lists record ids in the curator's order,
   each a `literature.findings[].id` or an id of one of the gene's lesion
-  assertions. The validator refuses a standalone digit run and a fixed list of
-  number words in a sentence's text; counts are in `tallies` and the findings.
+  assertions. The validator refuses a number in a sentence's text: a standalone
+  digit run, a digit run read as an ordinal, a decade or a multiple ("3rd",
+  "1990s", "3x"), a numeric symbol such as "½", and a fixed list of number words,
+  alone or glued to "fold"; counts are in `tallies` and the findings.
 
 The gene page renders this as its Literature section, right after the atlas's
 curated evidence (on a gene with none, after the validity table) and before the

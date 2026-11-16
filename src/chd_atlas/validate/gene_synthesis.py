@@ -7,9 +7,12 @@ Location format: the file's path with ``:synthesis`` appended, plus
 - SYN001 (error): a sentence cites an id that is neither an approved finding
   (``approved_by`` set) of the same file nor a lesion assertion whose ``gene``
   equals the file's gene. One issue per bad cite.
-- SYN002 (error): a sentence's text holds a number, a standalone digit run or a
-  word from `NUMBER_WORDS`. One issue per sentence, naming the first token found
-  (a digit run is checked before the word list).
+- SYN002 (error): a sentence's text holds a number: a standalone digit run; a
+  digit run read as an ordinal ("3rd"), a decade ("1990s") or a multiple ("3x");
+  a non-ASCII character with a Unicode numeric value ("½", "³", "Ⅳ"); "per
+  cent"; or a word from `NUMBER_WORDS`, alone or glued to "fold" ("twofold").
+  One issue per sentence, naming the first token found, the forms checked in
+  that order.
 - SYN003 (error): more than `MAX_WORDS` words across all sentences; a word is a
   whitespace-separated token containing a letter or a digit.
 - SYN004 (warning): the synthesis is approved and its ``approved_digest`` differs
@@ -24,6 +27,7 @@ approval-field arity; this module checks what a model cannot see.
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from chd_atlas.corpus import Corpus
 from chd_atlas.issues import Severity, ValidationIssue
@@ -61,22 +65,70 @@ NUMBER_WORDS = [
     "hundreds",
     "halves",
     "majorities",
+    "thirty",
+    "forty",
+    "fifty",
+    "sixty",
+    "seventy",
+    "eighty",
+    "ninety",
+    "thousand",
+    "thousands",
+    "million",
+    "millions",
+    "percent",
+    "twice",
+    "thrice",
+    "quarter",
+    "quarters",
 ]
 
 # A digit run not glued to a letter, digit, dot, hyphen or colon on its left,
 # nor to a letter or digit on its right: NKX2-5, 22q11.2, p.Gly80Arg, c.2T>C and
 # HP:0001631 pass; "3-generation", "in 2003", ">50" and "p>0.05" do not.
 _DIGITS = re.compile(r"(?<![A-Za-z0-9.\-:])\d+(?:[.,]\d+)*(?![A-Za-z0-9])")
-_WORDS = re.compile(r"(?<![A-Za-z0-9])(" + "|".join(NUMBER_WORDS) + r")(?![A-Za-z0-9])", re.I)
+# A digit run glued to an ordinal suffix ("3rd", "10th"), a decade's "s" ("1990s",
+# "mid-2000s") or a standalone multiplier ("3x", "3X"). None matches a digit run
+# followed by another letter, so c.76A>T, p.Gly80Arg, NKX2-5 and 22q11.2 pass.
+_SUFFIXED = (
+    re.compile(r"\d+(?:st|nd|rd|th)\b"),
+    re.compile(r"\d+s\b"),
+    re.compile(r"\b\d+[xX]\b"),
+)
+_PER_CENT = re.compile(r"(?<![A-Za-z0-9])per\s+cent(?![A-Za-z0-9])", re.I)
+# A number word alone, or glued to "fold" ("twofold", "Tenfold", "hundredfold").
+_WORDS = re.compile(
+    r"(?<![A-Za-z0-9])(?:" + "|".join(NUMBER_WORDS) + r")(?:fold)?(?![A-Za-z0-9])", re.I
+)
 _WORDLIKE = re.compile(r"[A-Za-z0-9]")
 
 
+def _numeric_symbol(text: str) -> str | None:
+    """The first non-ASCII character with a Unicode numeric value ("½", "³", "Ⅳ")."""
+    return next(
+        (c for c in text if not c.isascii() and unicodedata.numeric(c, None) is not None), None
+    )
+
+
 def _first_number(text: str) -> str | None:
-    digits = _DIGITS.search(text)
-    if digits:
-        return digits.group(0)
-    word = _WORDS.search(text)
-    return word.group(0) if word else None
+    """The token SYN002 names, or `None`: each form in turn, the first match of the first
+    form that matches (a digit run, then a suffixed digit run, a numeric symbol, "per
+    cent", a number word)."""
+    found = _DIGITS.search(text)
+    if found:
+        return found.group(0)
+    for pattern in _SUFFIXED:
+        found = pattern.search(text)
+        if found:
+            return found.group(0)
+    symbol = _numeric_symbol(text)
+    if symbol is not None:
+        return symbol
+    for pattern in (_PER_CENT, _WORDS):
+        found = pattern.search(text)
+        if found:
+            return found.group(0)
+    return None
 
 
 def validate_gene_synthesis(corpus: Corpus) -> list[ValidationIssue]:
