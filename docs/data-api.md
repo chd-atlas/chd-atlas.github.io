@@ -1665,7 +1665,9 @@ it reads "searched" and that search's date; with several it reads "N searches,
 latest" and the latest date, and counts the papers "in all". Beneath it, a timeline draws one mark per publication that
 has an approved finding, placed by year; the mark's shape is the paper's design,
 a ring means the paper reports several designs, and papers of the same year are
-stacked. A fold lists the same publications, one entry each, opening to that
+stacked. A fold lists the same publications, one entry each, and each fold entry and
+timeline mark names its paper by first author and year, with its PMID where two
+registered papers share both; an entry opens to that
 paper's findings with each finding's design, methods, counts with their unit,
 carriers by origin, result (the comparator for a rare-variant association, and
 the stored p-value and odds ratio), lesion groups, independence (cohorts, and
@@ -1822,7 +1824,8 @@ follows it with the curated evidence — a line saying each assertion is this
 atlas's own curation and changes no classification above, linking
 [`methods.html#curated-evidence`](#methodshtml); then each assertion and its
 evidence items, each with its class, strength and summary and the paper it
-cites, named by first author and year, linked to PubMed, its title on hover.
+cites, named by first author and year (and by its PMID too where two registered
+papers share both), linked to PubMed, its title on hover.
 The Literature section follows on every gene page.
 
 The rare-variant section opens with one line attributing every count and

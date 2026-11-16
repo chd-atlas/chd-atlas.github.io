@@ -68,6 +68,7 @@ from __future__ import annotations
 import html
 import math
 import re
+import unicodedata
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from typing import Final, NamedTuple
 from urllib.parse import quote
@@ -2199,8 +2200,35 @@ def _paper_link(pmid: str, publications: Mapping[str, Publication]) -> Markup:
     )
 
 
+def _author_key(author: str) -> str:
+    """The comparison key for a first author: what a reader cannot tell apart.
+
+    Unicode NFC, whitespace runs (no-break space included) collapsed to one
+    space, trailing full stops (and a space before them) removed, then
+    casefolded. An author with no other character keys to "", which collides
+    with nothing (`_study_label`).
+    """
+    text = " ".join(unicodedata.normalize("NFC", author).split())
+    return text.rstrip(".").rstrip().casefold()
+
+
 def _study_label(pmid: str, publications: Mapping[str, Publication]) -> str:
     """ "Audain et al. 2026", or the bare PMID when the record is missing.
+
+    Where another publication in `publications` has the same stripped first
+    author and the same year, compared on `_author_key` (NFC, collapsed
+    whitespace, no trailing full stop, casefolded; the label text itself stays
+    as stored), the label gains the PMID as stored --
+    "Baban A et al. 2014 (PMID:25263169)" -- so two papers shown on one page
+    cannot read as one. The check runs over the whole mapping, so every caller
+    gets it with no call-site change. The gene pages pass the full curation
+    registry (runner.py), papers withheld from publications.json included, so a
+    withheld paper sharing a label also gives a published one its PMID. A
+    fallback label (missing record, blank first author) is a bare PMID already
+    and never gets a suffix. Measured
+    2026-11-15 by comparing (stripped first author, year) over the publications
+    registry at c7c21a6: one collision, PMID:25263169 and PMID:24664498
+    ("Baban A et al. 2014"), both TBX5 literature papers.
 
     The fallback is a guard on a bypassed gate -- BUR010 reports a burden row
     citing an unregistered study and `build_site` refuses on it -- and it renders
@@ -2218,7 +2246,19 @@ def _study_label(pmid: str, publications: Mapping[str, Publication]) -> str:
     author = publication.authors[0].strip()
     if not author:
         return pmid
-    return f"{author} et al. {publication.year}"
+    label = f"{author} et al. {publication.year}"
+    key = _author_key(author)
+    if not key:
+        return label
+    for other_pmid, other in publications.items():
+        if (
+            other_pmid != pmid
+            and other.year == publication.year
+            and other.authors
+            and _author_key(other.authors[0]) == key
+        ):
+            return f"{label} ({pmid})"
+    return label
 
 
 def _study_anchor(study: str) -> str:
@@ -6600,7 +6640,10 @@ def _literature_timeline(
             f"{_words(str(f['design']))}: {_finding_counts(f)}" for f in group.findings
         )
         label = _study_label(group.pmid, publications) + _own_lab_mark(group.publication)
-        hover = " · ".join([label, group.pmid, group.publication.title, clauses])
+        # A colliding label already names its PMID (`_study_label`); print it once.
+        named = f"({group.pmid})" in _study_label(group.pmid, publications)
+        head = [label] if named else [label, group.pmid]
+        hover = " · ".join([*head, group.publication.title, clauses])
         marks.append(glyph(x_of(year), baseline - _TL_STACK * k, shape=shape, title=hover))
     body = (
         f'<line class="chart-axis" x1="{coordinate(_TL_PAD)}" y1="{coordinate(axis_y)}" '

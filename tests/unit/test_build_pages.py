@@ -43,6 +43,7 @@ from chd_atlas.build.pages import (
     _PaperGroup,
     _phase_strip,
     _study_finding_summary,
+    _study_label,
     _tissue_percentile,
     build_gene_index_page,
     build_gene_pages,
@@ -10893,6 +10894,93 @@ def _fold_block(fold: str, pmid: str) -> str:
     blocks = [b for b in fold.split('<details class="lit-paper">')[1:] if f">{pmid}</a>" in b]
     assert len(blocks) == 1
     return blocks[0]
+
+
+def _label_pubs() -> dict[str, Publication]:
+    def pub(pmid: str, author: str, year: int) -> Publication:
+        return _LIT_PUBLICATION.model_copy(update={"id": pmid, "authors": [author], "year": year})
+
+    return {
+        "PMID:11": pub("PMID:11", "Baban A", 2014),
+        "PMID:12": pub("PMID:12", " Baban A ", 2014),  # same paper-label once stripped
+        "PMID:13": pub("PMID:13", "Baban A", 2016),  # same author, another year
+        "PMID:14": pub("PMID:14", "Nemer M", 2014),  # same year, another author
+        "PMID:15": pub("PMID:15", "   ", 2014),  # blank first author: bare PMID
+    }
+
+
+def test_a_label_gains_its_pmid_only_where_author_and_year_both_collide() -> None:
+    pubs = _label_pubs()
+    assert [_study_label(p, pubs) for p in ("PMID:11", "PMID:12")] == [
+        "Baban A et al. 2014 (PMID:11)",
+        "Baban A et al. 2014 (PMID:12)",
+    ]
+    assert _study_label("PMID:13", pubs) == "Baban A et al. 2016"
+    assert _study_label("PMID:14", pubs) == "Nemer M et al. 2014"
+    # fallbacks stay bare, and a blank author never collides with another blank one
+    assert _study_label("PMID:15", pubs) == "PMID:15"
+    assert _study_label("PMID:99", pubs) == "PMID:99"
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ("Baban A", "Baban  A"),  # a doubled space, which HTML collapses
+        ("Baban A", "Baban\u00a0A"),  # a no-break space
+        ("M\u00fcller K", "Mu\u0308ller K"),  # NFC against NFD
+        ("Baban A", "BABAN A"),  # case
+        ("Baban A", "Baban A."),  # a trailing full stop
+    ],
+)
+def test_first_authors_that_render_alike_collide(first: str, second: str) -> None:
+    """Each pair differs only in what the key ignores (whitespace, Unicode form, case, a
+    trailing full stop); the label text stays as stored."""
+    pubs = {
+        pmid: _LIT_PUBLICATION.model_copy(update={"id": pmid, "authors": [a], "year": 2014})
+        for pmid, a in (("PMID:21", first), ("PMID:22", second), ("PMID:23", "Nemer M"))
+    }
+    assert _study_label("PMID:21", pubs) == f"{first} et al. 2014 (PMID:21)"
+    assert _study_label("PMID:22", pubs) == f"{second.strip()} et al. 2014 (PMID:22)"
+    assert _study_label("PMID:23", pubs) == "Nemer M et al. 2014"
+    other_year = {**pubs, "PMID:22": pubs["PMID:22"].model_copy(update={"year": 2015})}
+    assert _study_label("PMID:21", other_year) == f"{first} et al. 2014"
+
+
+def test_a_first_author_with_nothing_but_full_stops_collides_with_nothing() -> None:
+    """Such an author keys to "", which would otherwise match every other one like it."""
+    pubs = {
+        pmid: _LIT_PUBLICATION.model_copy(update={"id": pmid, "authors": [a], "year": 2014})
+        for pmid, a in (("PMID:31", "."), ("PMID:32", ".."))
+    }
+    assert _study_label("PMID:31", pubs) == ". et al. 2014"
+    assert _study_label("PMID:32", pubs) == ".. et al. 2014"
+
+
+def test_a_colliding_paper_names_its_pmid_once_in_its_hover_and_its_fold_summary() -> None:
+    pubs = _label_pubs()
+    pubs = {k: pubs[k] for k in ("PMID:11", "PMID:12", "PMID:13")}
+    findings = [
+        _lit_finding(id=f"CHDA:LIT:{i:07d}", publication=pmid)
+        for i, pmid in enumerate(pubs, start=1)
+    ]
+    groups = _paper_groups(findings, pubs)
+    titles = re.findall(
+        r"<title>(.*?)</title>", g_part(_literature_timeline(groups, pubs), "lit-marks")
+    )
+    first = [t for t in titles if t.startswith("Baban A et al. 2014 (PMID:11)")]
+    assert len(first) == 1
+    assert first[0].startswith(
+        "Baban A et al. 2014 (PMID:11) · Mutations in human TBX5 cause limb and cardiac "
+    )
+    assert first[0].count("PMID:11") == 1
+    plain = [t for t in titles if t.startswith("Baban A et al. 2016")]
+    assert len(plain) == 1 and plain[0].startswith("Baban A et al. 2016 · PMID:13 · ")
+
+    fold = _literature_publications(groups, pubs)
+    summaries = re.findall(r"<summary>(.*?)</summary>", fold)
+    assert summaries[1].startswith("Baban A et al. 2014 (PMID:11) · Nature genetics · ")
+    assert summaries[2].startswith("Baban A et al. 2014 (PMID:12) · Nature genetics · ")
+    assert summaries[3].startswith("Baban A et al. 2016 · Nature genetics · ")
 
 
 def test_an_atlas_authors_paper_declares_itself_in_the_fold_and_the_timeline() -> None:
