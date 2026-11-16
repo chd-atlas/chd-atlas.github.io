@@ -148,3 +148,59 @@ convention only a person can check.
 - Approval is not dated before the search that found the paper (`LIT008`).
 - A review mark (`pending_review` or `not_accessible`, with its `review_note`) is
   published with the finding. It does not withdraw an approval.
+
+## Synthesis
+
+An optional `synthesis` block in a gene's literature file: the "In short" paragraph of
+its page.
+
+- Reader: a clinical geneticist. Cover the lesion spectrum, inheritance, syndromic
+  features, genotype–phenotype observations, and how much rests on abstracts alone. It
+  synthesises this gene's approved findings and lesion assertions only. The card states
+  the validity grade, the burden results and the curated mechanism above it; the
+  synthesis does not restate them.
+- Sources: atlas records only. Every sentence rests on a record published on the same
+  page: an approved finding of this file or a lesion assertion of this gene.
+- Every sentence cites at least one such record in `cites`. A cite that is not an
+  approved finding of this file or a lesion assertion of this gene is `SYN001`.
+- No numbers (`SYN002`); counts live in the card's literature line. It refuses a
+  standalone digit run; a number word (one to twenty, the tens from thirty to ninety,
+  dozen, hundred, thousand, million, half, quarter, majority, most, twice, thrice,
+  percent, per cent, and dozens, hundreds, thousands, millions, halves, quarters,
+  majorities), alone or glued to "fold" ("twofold"); a digit run read as an ordinal
+  ("3rd"), a decade ("1990s", "mid-2000s") or a multiple ("3x"); a numeric symbol
+  ("½", "³"); and `>` or `<` before a digit. Gene names, ontology ids and variants such
+  as NKX2-5, 22q11.2, HP:0001631 and p.Gly80Arg pass. Terms that trip it, and what to
+  write instead: "half-sibling" ("a sibling sharing only the mother", or "only the
+  father"), "trisomy 21" ("Down syndrome"), "45,X" ("Turner syndrome"), "46,XX" ("an
+  XX karyotype"), a numbered subtype ("Noonan syndrome 1": name the syndrome without
+  its number), "one" as a pronoun ("one of the reports": rephrase), a frameshift with
+  its terminal count ("p.Gly35Argfs*75": name the variant class), a transcript id
+  ("NM_181486.4": omit it) and an en dash in a gene name ("NKX2–5": use a hyphen).
+- One to five sentences, and at most 120 words in all (`SYN003` is the 120 words; the
+  sentence count is the model's rule).
+- `drafted_by` is `agent:<skill>/<model>`; the model enforces it (a name without the `agent:`
+  prefix is a schema error in `validate`). An agent only drafts. `approved_by` is a
+  person's name, and `approved_by`, `approved_on` and `approved_digest` are set together.
+- The approval covers the text and its cites, `drafted_by`, every approved finding of
+  the file (its content, its review mark and its approval: marking it `pending_review`
+  or `not_accessible`, or re-approving it, voids the synthesis's approval), which
+  findings are approved, and every lesion assertion of the gene. Changing any of them
+  makes the validator report `SYN004`, and the synthesis is not published until a
+  person approves it again.
+- Withdrawing the approval of a finding a sentence cites, or deleting a cited
+  assertion, is `SYN001`, an error: the build refuses until the finding is approved
+  again or the sentence stops citing it.
+- A person lists the gene with `chd-atlas literature review <SYMBOL>`, which shows the
+  text, what each sentence cites and the command that approves it, with the digest of
+  what was listed: `chd-atlas literature review <SYMBOL> --approve-synthesis --by <name>
+  --digest <digest>`. It refuses a synthesis that changed since the listing, and any
+  approved finding of the file that fails `LIT015`.
+
+```yaml
+synthesis:
+  sentences:
+    - text: Reported lesions include atrial and ventricular septal defects.
+      cites: [CHDA:LIT:0000001, CHDA:AST:0000001]
+  drafted_by: agent:gene-synthesis/model
+```

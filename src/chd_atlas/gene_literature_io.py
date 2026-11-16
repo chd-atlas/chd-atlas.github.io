@@ -29,6 +29,7 @@ file as it was.
 from __future__ import annotations
 
 import copy
+from collections.abc import Mapping
 from datetime import date
 from io import BytesIO
 from pathlib import Path
@@ -39,7 +40,7 @@ from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 from chd_atlas.duplicates import duplicates
-from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile
+from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile, Synthesis
 
 
 class LiteratureFileError(Exception):
@@ -162,6 +163,48 @@ def _carry_trailing_comment(entry: CommentedMap, new_last: str) -> None:
     entry.ca.items[new_last] = [None, None, moved, None]
 
 
+def _set_fields(entry: CommentedMap, fields: dict[str, Any], order: list[str]) -> None:
+    """Set `fields` on one round-tripped mapping, keeping `order` for new keys.
+
+    A field already present keeps its place; a new one goes right after the
+    last present field that precedes it in `order`. A date is copied per call,
+    never shared. A key appended after the old last one carries the old last
+    one's trailing comment or blank line with it (`_carry_trailing_comment`).
+    """
+    for name, value in fields.items():
+        if isinstance(value, date):
+            # One shared date object would be dumped once as a YAML anchor
+            # and aliased (`*id001`) in every other record it was set on.
+            value = date(value.year, value.month, value.day)
+        if name in entry:
+            entry[name] = value
+            continue
+        before = [k for k in entry if k in order and order.index(k) < order.index(name)]
+        position = max((list(entry).index(k) for k in before), default=-1) + 1
+        last = list(entry)[-1] if position == len(entry) else None
+        entry.insert(position, name, value)
+        if last is not None:
+            _carry_trailing_comment(entry, name)
+
+
+def with_synthesis_approval(existing: bytes, approval: Mapping[str, Any]) -> bytes:
+    """The file's new content with the synthesis block's approval fields set.
+
+    `approval` maps `approved_by`, `approved_on` and `approved_digest` to their
+    values. Nothing else is touched, and the result is checked through
+    `GeneLiteratureFile` like `with_findings_updated`. A file with no
+    `synthesis` block is refused.
+    """
+    data = load_round_trip(existing)
+    block = data.get("synthesis")
+    if not isinstance(block, CommentedMap):
+        raise LiteratureFileError("the file has no synthesis block")
+    _set_fields(block, dict(approval), list(Synthesis.model_fields))
+    content = dump_bytes(data)
+    parse_literature(content)
+    return content
+
+
 def with_findings_updated(existing: bytes, updates: dict[str, dict[str, Any]]) -> bytes:
     """The file's new content with fields set on the named findings.
 
@@ -178,23 +221,8 @@ def with_findings_updated(existing: bytes, updates: dict[str, dict[str, Any]]) -
     missing = sorted(set(updates) - set(entries))
     if missing:
         raise LiteratureFileError(f"no such finding: {', '.join(missing)}")
-    order = list(Finding.model_fields)
     for finding_id, fields in updates.items():
-        entry = entries[finding_id]
-        for name, value in fields.items():
-            if isinstance(value, date):
-                # One shared date object would be dumped once as a YAML anchor
-                # and aliased (`*id001`) in every other finding it was set on.
-                value = date(value.year, value.month, value.day)
-            if name in entry:
-                entry[name] = value
-                continue
-            before = [k for k in entry if k in order and order.index(k) < order.index(name)]
-            position = max((list(entry).index(k) for k in before), default=-1) + 1
-            last = list(entry)[-1] if position == len(entry) else None
-            entry.insert(position, name, value)
-            if last is not None:
-                _carry_trailing_comment(entry, name)
+        _set_fields(entries[finding_id], fields, list(Finding.model_fields))
     content = dump_bytes(data)
     parse_literature(content)
     return content

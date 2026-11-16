@@ -68,6 +68,7 @@ from __future__ import annotations
 import html
 import math
 import re
+import unicodedata
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from typing import Final, NamedTuple
 from urllib.parse import quote
@@ -96,6 +97,8 @@ from chd_atlas.build.emit import Emitter, Json
 from chd_atlas.build.gene_literature import (
     EMPTY_GENE_LITERATURE,
     GeneLiterature,
+    LiteratureTallies,
+    PublishedSynthesis,
     SearchRecord,
     pmid_number,
 )
@@ -1812,6 +1815,185 @@ def _card_scope(
     return f'<p class="card-scope">{html.escape(sentence)}</p>'
 
 
+# The card's literature line: papers, never carriers summed across papers.
+_CARD_MENDELIAN_DESIGNS: Final = (
+    ("family_segregation", "family segregation"),
+    ("cohort_screen", "cohort screens"),
+    ("case_report", "case reports"),
+    ("rare_variant_association", "rare-variant association"),
+)
+# `LesionGroup` order is the tie-break order; `other` is last whatever its count.
+_CARD_LESION_LABELS: Final = (
+    ("conotruncal", "conotruncal"),
+    ("septal", "septal"),
+    ("lvoto", "LVOTO"),
+    ("rvoto", "RVOTO"),
+    ("avsd", "AVSD"),
+    ("heterotaxy", "heterotaxy"),
+    ("anomalous_venous_return", "anomalous venous return"),
+    ("complex", "complex"),
+    ("other", "other"),
+)
+
+
+def _upper_first(text: str) -> str:
+    return text[:1].upper() + text[1:]
+
+
+def _papers(n: int) -> str:
+    return f"{n} paper" if n == 1 else f"{n} papers"
+
+
+def _card_literature(tallies: LiteratureTallies) -> str:
+    """The card's literature line: what the approved findings amount to, by paper.
+
+    Every count is of distinct papers (`literature_tallies`), so no figure here
+    sums carriers across papers: those cohorts may overlap and the atlas publishes
+    no pooled statistic. The lesion counts are the lesions each paper's findings
+    name, which for a screen that found no carrier, an association study, or a
+    paper that never states the carriers' lesions, are the cohort's lesions
+    rather than carriers'; the label says "studied". `""`
+    when the gene has no approved paper. A common-variant association is named
+    apart from the Mendelian designs and says so, because a
+    reader must not add it to rare-variant evidence.
+    """
+    if tallies["papers"] == 0:
+        return ""
+    first, last = tallies["first_year"], tallies["last_year"]
+    span = f"{first}" if first == last else f"{first} to {last}"
+    designs = tallies["designs"]
+    clauses = [
+        f"{label} in {_papers(designs[key])}"
+        for key, label in _CARD_MENDELIAN_DESIGNS
+        if designs.get(key)
+    ]
+    text = f"Papers from {span}, by design: " + ", ".join(clauses)
+    common = designs.get("common_variant_association", 0)
+    if common:
+        text += "; " if clauses else ""
+        text += f"common-variant association in {_papers(common)}, not Mendelian evidence"
+    sentences = [text + "."]
+    groups = tallies["lesion_groups"]
+    order = {key: index for index, (key, _) in enumerate(_CARD_LESION_LABELS)}
+    labels = dict(_CARD_LESION_LABELS)
+    present = sorted(
+        (key for key in groups if groups[key] > 0 and key != "other"),
+        key=lambda key: (-groups[key], order[key]),
+    )
+    if groups.get("other"):
+        present.append("other")
+    if present:
+        sentences.append(
+            "Lesions studied, by paper: "
+            + ", ".join(f"{labels[key]} {groups[key]}" for key in present)
+            + "."
+        )
+    origin = [
+        f"{label} carriers in {_papers(count)}"
+        for label, count in (
+            ("de novo", tallies["de_novo_papers"]),
+            ("inherited", tallies["inherited_papers"]),
+        )
+        if count
+    ]
+    if origin:
+        sentences.append(_upper_first("; ".join(origin)) + ".")
+    basis = [
+        f"{label}: {_papers(count)}"
+        for label, count in (
+            ("from the abstract only", tallies["abstract_only_papers"]),
+            ("pending review", tallies["pending_review_papers"]),
+        )
+        if count
+    ]
+    if basis:
+        sentences.append(_upper_first("; ".join(basis)) + ".")
+    return f'<p class="card-literature">{html.escape(" ".join(sentences))}</p>'
+
+
+def _card_mechanism(mechanisms: Sequence[str]) -> str:
+    """The card's mechanism sentence, from the gene's curated lesion assertions.
+
+    `""` when there are none. Distinct values, sorted: a gene whose assertions
+    record two mechanisms names both.
+    """
+    if not mechanisms:
+        return ""
+    labels = ", ".join(sorted({value.replace("_", " ") for value in mechanisms}))
+    return (
+        f'<p class="card-mechanism">'
+        f"{html.escape(f'Mechanism, as curated by the atlas: {labels}.')}</p>"
+    )
+
+
+def _assertion_anchor(assertion_id: str) -> str:
+    """`chda-ast-0000001`: the `id` of an assertion's heading, and the card's link to it.
+
+    The id lowercased with ":" as "-". One function for both ends, as
+    `_study_anchor` is, so the heading and the link cannot be spelled two ways.
+    """
+    return assertion_id.lower().replace(":", "-")
+
+
+def _card_synthesis(
+    synthesis: PublishedSynthesis | None,
+    findings: Sequence[Mapping[str, Json]],
+    publications: Mapping[str, Publication],
+    assertions: Collection[str],
+) -> str:
+    """The card's "In short" narrative, or `""` when the gene publishes none.
+
+    `synthesis` is `None` (so nothing renders) when the gene has no synthesis,
+    it is unapproved, or its approval no longer matches the records it covers
+    (`gene_literature._published_synthesis`). Each sentence's cites follow it in
+    parentheses, before its final ".", "?" or "!" when it ends in one, which is
+    kept. A cited finding renders as its paper's link (`_paper_link`), once per
+    sentence in first-cite order however many of that paper's findings it cites;
+    an id in `assertions` (the gene's assertions whose headings this page
+    carries) as a link to that heading (`_assertion_anchor`); any other id as its
+    escaped id -- a citation is never dropped. The provenance line names who
+    drafted and who approved.
+    """
+    if synthesis is None:
+        return ""
+    paper_of = {str(finding["id"]): str(finding["publication"]) for finding in findings}
+    sentences: list[str] = []
+    for sentence in synthesis["sentences"]:
+        seen: set[str] = set()
+        cites: list[str] = []
+        for cite in sentence["cites"]:
+            cite_id = str(cite)
+            pmid = paper_of.get(cite_id)
+            key = cite_id if pmid is None else pmid
+            if key in seen:
+                continue
+            seen.add(key)
+            if pmid is not None:
+                cites.append(_paper_link(pmid, publications).html)
+            elif cite_id in assertions:
+                cites.append(
+                    f'<a href="#{html.escape(_assertion_anchor(cite_id))}">'
+                    f"{html.escape(cite_id)}</a>"
+                )
+            else:
+                cites.append(html.escape(cite_id))
+        text = str(sentence["text"])
+        joined = "; ".join(cites)
+        if text.endswith((".", "?", "!")):
+            sentences.append(f"{html.escape(text[:-1])} ({joined}){text[-1]}")
+        else:
+            sentences.append(f"{html.escape(text)} ({joined})")
+    provenance = (
+        f"Drafted by {html.escape(synthesis['drafted_by'])} from the records cited; "
+        f"approved by {html.escape(synthesis['approved_by'])} "
+        f"on {html.escape(synthesis['approved_on'])}."
+    )
+    return (
+        '<div class="card-synthesis"><p><strong>In short.</strong> '
+        f'{" ".join(sentences)}</p><p class="card-provenance">{provenance}</p></div>'
+    )
+
+
 def _rail(
     gene: str,
     symbol: str,
@@ -1826,6 +2008,8 @@ def _rail(
     scope_terms: Mapping[str, ScopeEntry] | None = None,
     panel_graders: Mapping[tuple[str, str], tuple[str, ...]] | None = None,
     literature: GeneLiterature = EMPTY_GENE_LITERATURE,
+    mechanisms: tuple[str, ...] = (),
+    anchored_assertions: tuple[str, ...] = (),
 ) -> str:
     """The clinician card: the summary column, for every gene whether curated here or not.
 
@@ -1836,7 +2020,12 @@ def _rail(
     no-association line (`_card_no_association`, R6); the Orphanet line
     (`_card_scope`); the rare-variant results that survive their own
     study's correction (`_card_rare_variants`, D56), each linking to its
-    study's block; the atlas-curation sentence (`_card_curation`); and a last
+    study's block; the atlas-curation sentence (`_card_curation`); the
+    mechanism sentence (`_card_mechanism`, from the gene's lesion assertions);
+    the literature line (`_card_literature`, papers by design, lesion group,
+    carrier origin and review state); the approved "In short" narrative
+    (`_card_synthesis`, when the gene has a current approved one, linking each
+    cited assertion in `anchored_assertions` to its heading); and a last
     line linking the top of `methods.html` as "How to read this page" (P1,
     2026-10-26) beside the gene's JSON. The nav's link to the same file reads
     "How to read this atlas"; from the card the question is about this page.
@@ -1913,6 +2102,9 @@ def _rail(
             + "</p>"
         )
     bundle = gene_bundle_path(HgncId(gene))
+    synthesis = _card_synthesis(
+        literature["synthesis"], literature["findings"], publications or {}, anchored_assertions
+    )
     # `html.escape` here rather than a `render.py` primitive: these three, and
     # the identity block above, are bare interpolations into markup this
     # function assembles. The card's rows go through `definition_list`, which
@@ -1928,6 +2120,9 @@ def _rail(
         f"{_card_scope(fact, gene_validity, warrants or {}, scope_terms, panel_graders)}"
         f"{_card_rare_variants(rows, families, publications or {})}"
         f"{_card_curation(fact, literature)}"
+        f"{_card_mechanism(mechanisms)}"
+        f"{_card_literature(literature['tallies'])}"
+        f"{synthesis}"
         '<p><a href="../methods.html">How to read this page</a> &middot; '
         f'<a href="../{html.escape(bundle)}">this gene as JSON</a></p></aside>'
     )
@@ -2144,7 +2339,9 @@ def _evidence_section(
     sections name theirs. A "Publications" table listing the cited papers by id,
     title and year followed this section until the owner removed it
     (2026-11-09): it repeated what the rows linked, and the Literature section
-    takes its place on the page.
+    takes its place on the page. Each assertion's `<h3>` carries the `id`
+    `_assertion_anchor` gives, which the card's "In short" paragraph links when
+    a sentence cites that assertion.
     """
     blocks: list[str] = []
     for assertion in records:
@@ -2167,9 +2364,11 @@ def _evidence_section(
             )
             for item in assertion.evidence
         ]
-        blocks.append(
-            f"<h3>{html.escape(assertion.id)}</h3>{summary}{data_table(_EVIDENCE_HEADERS, items)}"
+        heading = (
+            f'<h3 id="{html.escape(_assertion_anchor(assertion.id))}">'
+            f"{html.escape(assertion.id)}</h3>"
         )
+        blocks.append(f"{heading}{summary}{data_table(_EVIDENCE_HEADERS, items)}")
     # The section's link to `methods.html#curated-evidence` (owner decision
     # 2026-10-26, E3), in the pattern of the other sections' one-line intros.
     # "above" is true in this position: the validity table renders first.
@@ -2199,8 +2398,35 @@ def _paper_link(pmid: str, publications: Mapping[str, Publication]) -> Markup:
     )
 
 
+def _author_key(author: str) -> str:
+    """The comparison key for a first author: what a reader cannot tell apart.
+
+    Unicode NFC, whitespace runs (no-break space included) collapsed to one
+    space, trailing full stops (and a space before them) removed, then
+    casefolded. An author with no other character keys to "", which collides
+    with nothing (`_study_label`).
+    """
+    text = " ".join(unicodedata.normalize("NFC", author).split())
+    return text.rstrip(".").rstrip().casefold()
+
+
 def _study_label(pmid: str, publications: Mapping[str, Publication]) -> str:
     """ "Audain et al. 2026", or the bare PMID when the record is missing.
+
+    Where another publication in `publications` has the same stripped first
+    author and the same year, compared on `_author_key` (NFC, collapsed
+    whitespace, no trailing full stop, casefolded; the label text itself stays
+    as stored), the label gains the PMID as stored --
+    "Baban A et al. 2014 (PMID:25263169)" -- so two papers shown on one page
+    cannot read as one. The check runs over the whole mapping, so every caller
+    gets it with no call-site change. The gene pages pass the full curation
+    registry (runner.py), papers withheld from publications.json included, so a
+    withheld paper sharing a label also gives a published one its PMID. A
+    fallback label (missing record, blank first author) is a bare PMID already
+    and never gets a suffix. Measured
+    2026-11-15 by comparing (stripped first author, year) over the publications
+    registry at c7c21a6: one collision, PMID:25263169 and PMID:24664498
+    ("Baban A et al. 2014"), both TBX5 literature papers.
 
     The fallback is a guard on a bypassed gate -- BUR010 reports a burden row
     citing an unregistered study and `build_site` refuses on it -- and it renders
@@ -2218,7 +2444,19 @@ def _study_label(pmid: str, publications: Mapping[str, Publication]) -> str:
     author = publication.authors[0].strip()
     if not author:
         return pmid
-    return f"{author} et al. {publication.year}"
+    label = f"{author} et al. {publication.year}"
+    key = _author_key(author)
+    if not key:
+        return label
+    for other_pmid, other in publications.items():
+        if (
+            other_pmid != pmid
+            and other.year == publication.year
+            and other.authors
+            and _author_key(other.authors[0]) == key
+        ):
+            return f"{label} ({pmid})"
+    return label
 
 
 def _study_anchor(study: str) -> str:
@@ -6600,7 +6838,10 @@ def _literature_timeline(
             f"{_words(str(f['design']))}: {_finding_counts(f)}" for f in group.findings
         )
         label = _study_label(group.pmid, publications) + _own_lab_mark(group.publication)
-        hover = " · ".join([label, group.pmid, group.publication.title, clauses])
+        # A colliding label already names its PMID (`_study_label`); print it once.
+        named = f"({group.pmid})" in _study_label(group.pmid, publications)
+        head = [label] if named else [label, group.pmid]
+        hover = " · ".join([*head, group.publication.title, clauses])
         marks.append(glyph(x_of(year), baseline - _TL_STACK * k, shape=shape, title=hover))
     body = (
         f'<line class="chart-axis" x1="{coordinate(_TL_PAD)}" y1="{coordinate(axis_y)}" '
@@ -6864,6 +7105,7 @@ def build_gene_pages(
         gene_validity = validity.get(gene, uncurated())
         identity = None if identities is None else identities.get(gene, EMPTY_IDENTITY)
         gene_literature_bundle = literature.get(gene, EMPTY_GENE_LITERATURE)
+        curated = fact.atlas_curation is AtlasCuration.CURATED
         body = (
             '<div class="layout">'
             + _rail(
@@ -6879,6 +7121,10 @@ def build_gene_pages(
                 scope_terms=scope_terms,
                 panel_graders=graders,
                 literature=gene_literature_bundle,
+                mechanisms=tuple(record.mechanism.value for record in records),
+                # Only the assertions whose headings `_evidence_section` renders
+                # below, so every link the card makes lands on this page.
+                anchored_assertions=tuple(record.id for record in records) if curated else (),
             )
             + "<div>"
             + _SCOPE_SHORT
@@ -6897,11 +7143,7 @@ def build_gene_pages(
             # the main-column notice that sat in this slot until 2026-10-26 is
             # the sentence the card now carries, and a page stating it twice is
             # a page whose two copies can drift apart.
-            + (
-                _evidence_section(records, publications)
-                if fact.atlas_curation is AtlasCuration.CURATED
-                else ""
-            )
+            + (_evidence_section(records, publications) if curated else "")
             # The atlas's literature beside its lesion assertions (owner,
             # 2026-11-09), on every page, "Not yet curated." included: both are
             # the atlas's own curation, so they sit together after the mirrored

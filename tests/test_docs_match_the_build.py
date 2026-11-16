@@ -1613,7 +1613,10 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
     empty = next(b for b in bundles if not b["literature"]["searches"])
 
     doc = DOC.read_text()
-    heading = "### The bundle's `literature` object: searches, a triage tally and approved findings"
+    heading = (
+        "### The bundle's `literature` object: searches, a triage tally, "
+        "paper tallies, approved findings and the synthesis"
+    )
     assert heading in doc
     section = doc[doc.index(heading) + len(heading) :]
     section = re.split(r"\n#{2,3} ", section)[0]

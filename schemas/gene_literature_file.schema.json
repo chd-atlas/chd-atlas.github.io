@@ -561,6 +561,105 @@
       "title": "SyndromicStatus",
       "type": "string"
     },
+    "Synthesis": {
+      "additionalProperties": false,
+      "description": "A gene's \"In short\" narrative: one to five sentences, each citing records.\n\nDrafted by an agent and approved by a named person; the approval is bound to\n`synthesis_digest`, so it is void after a change to the text or the cites, to\n`drafted_by`, to any approved finding of the file (its content, review mark or\napproval, so re-approving one too), to which findings are approved, or to any\nlesion assertion of the gene.",
+      "properties": {
+        "approved_by": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved By"
+        },
+        "approved_digest": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved Digest"
+        },
+        "approved_on": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved On"
+        },
+        "drafted_by": {
+          "minLength": 1,
+          "title": "Drafted By",
+          "type": "string"
+        },
+        "sentences": {
+          "items": {
+            "$ref": "#/$defs/SynthesisSentence"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Sentences",
+          "type": "array"
+        }
+      },
+      "required": [
+        "sentences",
+        "drafted_by"
+      ],
+      "title": "Synthesis",
+      "type": "object"
+    },
+    "SynthesisSentence": {
+      "additionalProperties": false,
+      "description": "One sentence of a gene's synthesis and the records it rests on.",
+      "properties": {
+        "cites": {
+          "items": {
+            "anyOf": [
+              {
+                "pattern": "^CHDA:LIT:\\d{7}$",
+                "type": "string"
+              },
+              {
+                "pattern": "^CHDA:AST:\\d{7}$",
+                "type": "string"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Cites",
+          "type": "array"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "cites"
+      ],
+      "title": "SynthesisSentence",
+      "type": "object"
+    },
     "TriageDecision": {
       "description": "What was decided about one PubMed hit.",
       "enum": [
@@ -657,6 +756,17 @@
       "minItems": 1,
       "title": "Searches",
       "type": "array"
+    },
+    "synthesis": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Synthesis"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "triage": {
       "items": {

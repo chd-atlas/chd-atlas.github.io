@@ -511,7 +511,14 @@ from chd_atlas.corpus import Corpus
 # gains `package`: `null` when the source's rows were not ingested from a
 # package, which is every source in 2.22 and, for good, a source no mirror
 # table holds rows from, such as `hpo`.
-SCHEMA_VERSION: Final = "2.22"
+#
+# 2.23 (gene synthesis card). MINOR, additive: every gene bundle's `literature`
+# object gains `tallies`, the approved findings counted by paper (design,
+# lesion group, carrier origin, review state) and the years the papers span.
+# `{"papers": 0, ...}` with empty maps where the gene has no approved finding.
+# It also gains `synthesis`: the gene's "In short" narrative, `null` unless it is
+# approved and its approval is current.
+SCHEMA_VERSION: Final = "2.23"
 
 # What `status` publishes today. A literal rather than something derived from
 # the corpus, unlike every field in `counts`: there is no measurement of "is

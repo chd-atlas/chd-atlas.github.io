@@ -288,6 +288,87 @@ def test_tbx5_summary_line_on_the_real_build(site: Path) -> None:
     )
 
 
+def _card(page: str) -> str:
+    """The `<aside class="rail">` element of a gene page, and nothing outside it."""
+    start = page.index('<aside class="rail">')
+    return page[start : page.index("</aside>", start)]
+
+
+@pytest.mark.parametrize(
+    ("gene", "curation", "mechanism", "line"),
+    [
+        pytest.param(
+            "HGNC_11604",
+            "Curated by the atlas: 1 lesion assertion (septal) and 73 findings from 66 papers.",
+            "haploinsufficiency",
+            "Papers from 2003 to 2026, by design: family segregation in 20 papers, cohort "
+            "screens in 23 papers, case reports in 20 papers; common-variant association in "
+            "6 papers, not Mendelian evidence. Lesions studied, by paper: septal 48, "
+            "conotruncal 10, LVOTO 9, AVSD 9, RVOTO 4, anomalous venous return 3, complex 2, "
+            "other 28. "
+            "De novo carriers in 11 papers; inherited carriers in 24 papers. "
+            "From the abstract only: 21 papers; pending review: 3 papers.",
+            id="TBX5",
+        ),
+        pytest.param(
+            "HGNC_7976",
+            "Curated by the atlas: 1 lesion assertion (avsd, heterotaxy, lvoto, septal) "
+            "and 21 findings from 13 papers.",
+            "loss of function",
+            "Papers from 2007 to 2023, by design: family segregation in 3 papers, cohort "
+            "screens in 7 papers, case reports in 8 papers, rare-variant association in "
+            "1 paper. Lesions studied, by paper: septal 9, LVOTO 8, conotruncal 2, AVSD 2, "
+            "RVOTO 1, other 3. De novo carriers in 9 papers; inherited carriers in 4 papers. "
+            "From the abstract only: 4 papers; pending review: 2 papers.",
+            id="NR2F2",
+        ),
+    ],
+)
+def test_the_card_states_a_curated_genes_literature_by_paper_and_its_mechanism(
+    site: Path, gene: str, curation: str, mechanism: str, line: str
+) -> None:
+    """Pins the wiring on real data: the tallies and the assertions' mechanism reach the card.
+
+    Literals measured on a build of the committed corpus (2026-11-14) by an
+    independent script over the gene bundles. Sliced to the card, so a copy of
+    either sentence elsewhere on the page cannot satisfy it, and so deleting the
+    `mechanisms=` argument or the `_card_literature` call fails here. The three
+    paragraphs are asserted as one contiguous run, so reordering them or
+    interposing an element between them fails too.
+    """
+    card = html.unescape(_card((site / "genes" / f"{gene}.html").read_text(encoding="utf-8")))
+    assert (
+        f'<p class="card-curation">{curation}</p>'
+        f'<p class="card-mechanism">Mechanism, as curated by the atlas: {mechanism}.</p>'
+        f'<p class="card-literature">{line}</p>'
+    ) in card
+
+
+def test_no_literature_line_sums_carriers_across_papers(site: Path) -> None:
+    """The overlap rule (D33), checked on every gene page's `card-literature` paragraph.
+
+    Structural, not a phrase list: no number directly qualifies "carriers" (so
+    "40 carriers" and "12 de novo carriers" both fail), and every "carriers" is
+    followed by "in N paper(s)". The slice is the paragraph alone, because the
+    NR2F2 card says "counts every carrier" elsewhere.
+    """
+    pages = sorted((site / "genes").glob("HGNC_*.html"))
+    assert len(pages) > 1, "the build published no gene pages; the fixture is broken"
+    seen = 0
+    for page in pages:
+        card = _card(page.read_text(encoding="utf-8"))
+        if '<p class="card-literature">' not in card:
+            continue
+        start = card.index('<p class="card-literature">')
+        line = card[start : card.index("</p>", start)]
+        seen += 1
+        assert re.findall(r"\d[\d,]*\s+(?:de novo |inherited )?carriers?", line) == []
+        assert len(re.findall(r"carriers?", line)) == len(
+            re.findall(r"carriers in \d+ papers?", line)
+        )
+    assert seen >= 2, "no gene page carried a literature line; the test checked nothing"
+
+
 def _burden_rows(gene: str, bundle: dict[str, Any]) -> list[BurdenRow]:
     """A bundle's published burden rows as the `BurdenRow`s the renderers read."""
     return [

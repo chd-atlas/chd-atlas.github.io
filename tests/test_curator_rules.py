@@ -26,9 +26,17 @@ from ruamel.yaml import YAML
 from chd_atlas import vocab
 from chd_atlas.cli import app
 from chd_atlas.models.assertion import InTextLocator, SupplementaryLocator
-from chd_atlas.models.gene_literature import Carriers, Finding, Search, TriageEntry
+from chd_atlas.models.gene_literature import (
+    Carriers,
+    Finding,
+    Search,
+    Synthesis,
+    SynthesisSentence,
+    TriageEntry,
+)
 from chd_atlas.models.literature import Publication
 from chd_atlas.models.review import ReviewStatus
+from chd_atlas.validate.gene_synthesis import _first_number
 
 REPO = Path(__file__).parent.parent
 CURATOR = REPO / "curator"
@@ -67,7 +75,9 @@ def _model_fields() -> set[str]:
         | set(Publication.model_fields)
         | set(InTextLocator.model_fields)
         | set(SupplementaryLocator.model_fields)
-        | {"findings", "triage", "searches", "gene"}
+        | set(Synthesis.model_fields)
+        | set(SynthesisSentence.model_fields)
+        | {"findings", "triage", "searches", "gene", "synthesis"}
     )
 
 
@@ -182,6 +192,35 @@ def test_the_rules_state_the_verified_rulings_literally() -> None:
     assert "`chd-curator add-publication`" in rules
     assert not re.search(r"NCBI_API_KEY\s*=\s*\S", rules)
     assert not re.search(r"api_key\s*[=:]\s*\S", rules)
+
+
+def test_the_rules_number_examples_hold_against_syn002() -> None:
+    """X-4: the rules prescribed "a sibling sharing one parent", which SYN002 refuses.
+
+    Each quoted example the no-numbers bullet says SYN002 refuses is refused,
+    and each rewording it offers, and each name it says passes, passes: measured
+    with the validator's own `_first_number`, against literals the rules must
+    carry.
+    """
+    rules = " ".join(_text(RULES).split())
+    refused = [
+        "twofold", "3rd", "1990s", "mid-2000s", "3x", "½", "³",
+        "half-sibling", "trisomy 21", "45,X", "46,XX", "Noonan syndrome 1",
+        "one of the reports", "p.Gly35Argfs*75", "NM_181486.4", "NKX2–5",
+    ]  # fmt: skip
+    for term in refused:
+        assert f'"{term}"' in rules, term
+        assert _first_number(term) is not None, term
+    rewordings = [
+        "a sibling sharing only the mother", "only the father", "Down syndrome",
+        "Turner syndrome", "an XX karyotype",
+    ]  # fmt: skip
+    for term in rewordings:
+        assert f'"{term}"' in rules, term
+        assert _first_number(term) is None, term
+    for name in ("NKX2-5", "22q11.2", "HP:0001631", "p.Gly80Arg"):
+        assert f" {name}" in rules, name
+        assert _first_number(name) is None, name
 
 
 def test_the_readme_points_at_curator() -> None:

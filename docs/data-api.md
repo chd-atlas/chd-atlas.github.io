@@ -59,7 +59,7 @@ What the build produced, and a checksum for every file in it.
     "genes/index.json": "sha256:<64 hex>",
     "publications.json": "sha256:<64 hex>"
   },
-  "schema_version": "2.22",
+  "schema_version": "2.23",
   "source_commit": "<40-hex commit sha, or null outside a git checkout>",
   "status": "in-development"
 }
@@ -135,7 +135,7 @@ wrong by the next one.
   - `cell_type_datasets` (since `2.20`) is the number of cell-type datasets
     those bundles name.
   - `literature_genes` (since `2.21`) is the number of published genes whose
-    [`literature`](#the-bundles-literature-object-searches-a-triage-tally-and-approved-findings)
+    [`literature`](#the-bundles-literature-object-searches-a-triage-tally-paper-tallies-approved-findings-and-the-synthesis)
     records at least one search.
   - `literature_findings` (since `2.21`) is the number of approved findings in
     those bundles. Today two genes carry a literature record, NR2F2 and TBX5, with
@@ -297,7 +297,7 @@ wrong by the next one.
   `[]` on every design but the new `"cell_type_profile"`, and the archive
   `"ucsc_cell_browser"`, whose datasets are named by a lowercase slug (`hoc`)
   rather than an accession, so a dataset id may now be one. Additive.
-  `2.21` added [`literature`](#the-bundles-literature-object-searches-a-triage-tally-and-approved-findings)
+  `2.21` added [`literature`](#the-bundles-literature-object-searches-a-triage-tally-paper-tallies-approved-findings-and-the-synthesis)
   to every gene bundle, `{"searches": [], …}` where the gene has no literature
   record, and `literature_genes` and `literature_findings` to `counts`. It also
   widened the `study_type` of [`publications.json`](#publicationsjson) records by
@@ -307,6 +307,11 @@ wrong by the next one.
   when the source's rows were not ingested from a data package, which is every
   source as of `2.22`, and for good a source no mirror table holds rows from,
   such as `hpo`. Additive.
+  `2.23` added `tallies` and `synthesis` to every gene bundle's `literature`
+  object: the approved findings counted by paper, and the gene's approved "In
+  short" narrative, `null` where the gene has none, or its approval is missing
+  or stale (see each field's own description). The gene page card reads from
+  both. Additive.
 - `status` is the atlas's own readiness, so a program can read it without
   scraping `index.html`'s prose. Today it is always `"in-development"` — one
   curated gene-disease assertion alongside mirrored ClinGen/GenCC validity for
@@ -442,8 +447,9 @@ and each carries an `id`, so a page can link the paragraph it shortens.
   terms and the names of the gene's in-scope diseases, preprints and reviews
   excluded), that every paper a search returns gets a decision and only human
   genetics is kept, how a finding is classified and what its counts are counted
-  in, that a named curator approves each finding before it is published, and
-  what the two review marks mean.
+  in, that a named curator approves each finding before it is published, what
+  the two review marks mean, what the gene card's literature line counts, and
+  what its "In short" paragraph rests on and when it is published or withheld.
 
 Like the other pages it is for people: its markup is not a contract, and no
 payload depends on it.
@@ -765,7 +771,15 @@ abridged, and each is documented in full further down.
                 "pending": 0 },
     "pending_approval": 0,
     "findings": [ { "id": "CHDA:LIT:0000015", "publication": "PMID:12789647",
-                    "design": "cohort_screen", … }, … ]
+                    "design": "cohort_screen", … }, … ],
+    "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
+                 "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
+                 "de_novo_papers": 11, "inherited_papers": 24,
+                 "abstract_only_papers": 21, "pending_review_papers": 3 },
+    "synthesis": { "sentences": [ { "text": "Carriers' lesions include atrial and ventricular septal defects, double outlet right ventricle, hypoplastic left heart syndrome, anomalous pulmonary venous return and patent ductus arteriosus; tetralogy of Fallot, coarctation and atrioventricular septal defect rest on papers read from the abstract only.",
+                                    "cites": [ "CHDA:LIT:0000056", … ] }, … ],
+                   "drafted_by": "agent:gene-synthesis/claude-opus-5-5",
+                   "approved_by": "E.A.M", "approved_on": "2026-11-16" }
   }
 }
 ```
@@ -1607,7 +1621,7 @@ abridged:
     …]}]}
 ```
 
-### The bundle's `literature` object: searches, a triage tally and approved findings
+### The bundle's `literature` object: searches, a triage tally, paper tallies, approved findings and the synthesis
 
 On every gene bundle (since `2.21`). Always present; a gene with no
 `curation/literature` file carries exactly the empty shape below, as 117 of the
@@ -1615,7 +1629,11 @@ On every gene bundle (since `2.21`). Always present; a gene with no
 
 ```json
 { "searches": [], "triage": { "included": 0, "excluded": {}, "pending": 0 },
-  "pending_approval": 0, "findings": [] }
+  "pending_approval": 0, "findings": [],
+  "tallies": { "papers": 0, "first_year": null, "last_year": null, "designs": {},
+               "lesion_groups": {}, "de_novo_papers": 0, "inherited_papers": 0,
+               "abstract_only_papers": 0, "pending_review_papers": 0 },
+  "synthesis": null }
 ```
 
 TBX5's, abridged:
@@ -1627,7 +1645,15 @@ TBX5's, abridged:
   "pending_approval": 0,
   "findings": [ { "id": "CHDA:LIT:0000015", "publication": "PMID:12789647", "design": "cohort_screen",
                   "count_unit": "probands", "screened": 49,
-                  "carriers": { "de_novo": 0, "inherited": 9, "origin_unknown": 8 }, … }, … ] }
+                  "carriers": { "de_novo": 0, "inherited": 9, "origin_unknown": 8 }, … }, … ],
+  "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
+               "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
+               "de_novo_papers": 11, "inherited_papers": 24,
+               "abstract_only_papers": 21, "pending_review_papers": 3 },
+  "synthesis": { "sentences": [ { "text": "Carriers' lesions include atrial and ventricular septal defects, double outlet right ventricle, hypoplastic left heart syndrome, anomalous pulmonary venous return and patent ductus arteriosus; tetralogy of Fallot, coarctation and atrioventricular septal defect rest on papers read from the abstract only.",
+                                  "cites": [ "CHDA:LIT:0000056", … ] }, … ],
+                 "drafted_by": "agent:gene-synthesis/claude-opus-5-5",
+                 "approved_by": "E.A.M", "approved_on": "2026-11-16" } }
 ```
 
 - `searches` lists each recorded PubMed search: `source`, `query`, `run_on` (an
@@ -1655,6 +1681,36 @@ TBX5's, abridged:
   not yet approved, which is then in no bundle, so the id resolves nowhere in the
   published data. `carriers` and `screened` are counted in `count_unit`: with
   `families`, `screened` is families and each origin count is carrier families.
+- `tallies` (since `2.23`) counts the approved findings by paper (distinct `publication`), never
+  carriers: papers may share probands, so no carrier total across papers is
+  published. A paper with several findings counts once in each category, so the
+  categories need not sum to `papers`. `designs` and `lesion_groups` map a value
+  to its papers and hold only values with at least one paper. `lesion_groups`
+  counts papers by each approved finding's lesion groups, which for a screen that
+  found no carrier, an association study, or a paper that never states the carriers'
+  lesions, are the cohort's lesions rather than carriers'.
+  `de_novo_papers` and `inherited_papers` count papers with at least one finding
+  carrying such a carrier; `abstract_only_papers` and `pending_review_papers`
+  count papers with at least one finding whose `review_status` is
+  `not_accessible` (read from the abstract only) or `pending_review`
+  respectively. `first_year` and `last_year` span the papers' years, `null`
+  with no approved finding.
+- `synthesis` (since `2.23`) is the gene's "In short" narrative. It is `null` when
+  the gene has none, it is unapproved, or its approval no longer matches: the
+  approved digest differs from one computed over the sentences, `drafted_by`, the
+  approved findings (each with its review mark and its approval) and the gene's
+  own lesion assertions. So editing the text or its cites, changing `drafted_by`,
+  approving a further finding, changing an approved finding's content, review mark
+  or approval (re-approving it included), or changing, adding or removing a lesion
+  assertion of the gene withholds it until a person approves it again. Otherwise
+  it is `{ "sentences": [ { "text", "cites" } ],
+  "drafted_by", "approved_by", "approved_on" }`, one to five sentences, with
+  `approved_on` an ISO date. `cites` lists record ids in the curator's order,
+  each a `literature.findings[].id` or an id of one of the gene's lesion
+  assertions. The validator refuses a number in a sentence's text: a standalone
+  digit run, a digit run read as an ordinal, a decade or a multiple ("3rd",
+  "1990s", "3x"), a numeric symbol such as "½", and a fixed list of number words,
+  alone or glued to "fold"; counts are in `tallies` and the findings.
 
 The gene page renders this as its Literature section, right after the atlas's
 curated evidence (on a gene with none, after the validity table) and before the
@@ -1665,7 +1721,9 @@ it reads "searched" and that search's date; with several it reads "N searches,
 latest" and the latest date, and counts the papers "in all". Beneath it, a timeline draws one mark per publication that
 has an approved finding, placed by year; the mark's shape is the paper's design,
 a ring means the paper reports several designs, and papers of the same year are
-stacked. A fold lists the same publications, one entry each, opening to that
+stacked. A fold lists the same publications, one entry each, and each fold entry and
+timeline mark names its paper by first author and year, with its PMID where two
+registered papers share both; an entry opens to that
 paper's findings with each finding's design, methods, counts with their unit,
 carriers by origin, result (the comparator for a rare-variant association, and
 the stored p-value and odds ratio), lesion groups, independence (cohorts, and
@@ -1791,7 +1849,10 @@ Top to bottom:
    published." With no row at
    all, that no rare-variant study here reports a result. The power caveat — no enrichment at these cohort sizes is not
    evidence against a gene — follows whenever the gene has rows.
-7. One sentence saying what the atlas itself has curated (below).
+7. One sentence saying what the atlas itself has curated, then, where a curated
+   lesion assertion exists, a mechanism sentence and, where approved findings
+   exist, a literature line and, where an approved synthesis is current, the
+   "In short" paragraph (all described below).
 8. *How to read this page*, a link to the top of [`methods.html`](#methodshtml),
    and a link to the gene's own JSON.
 
@@ -1822,7 +1883,8 @@ follows it with the curated evidence — a line saying each assertion is this
 atlas's own curation and changes no classification above, linking
 [`methods.html#curated-evidence`](#methodshtml); then each assertion and its
 evidence items, each with its class, strength and summary and the paper it
-cites, named by first author and year, linked to PubMed, its title on hover.
+cites, named by first author and year (and by its PMID too where two registered
+papers share both), linked to PubMed, its title on hover.
 The Literature section follows on every gene page.
 
 The rare-variant section opens with one line attributing every count and
@@ -1969,6 +2031,28 @@ and a gene with only those still reads "Not yet curated by the atlas". The
 JSON field is unchanged: `atlas_curation` stays derived from lesion assertions
 alone, so such a gene is `not_yet_curated` in its bundle and curated on its
 card. The `literature` key carries the findings the card counts.
+
+Two more lines sit under the curation sentence. On every gene with a curated
+lesion assertion, "Mechanism, as curated by the atlas: haploinsufficiency."
+names the assertions' distinct mechanisms, sorted, `unknown` included; a gene
+with no assertion has no such line. Where a gene has approved literature, a literature
+line states it by paper from `literature.tallies`: the years the papers span,
+then the study designs, the lesion groups ("Lesions studied, by paper": the
+lesions each paper's findings name, which for a screen that found no carrier, an
+association study, or a paper that never states the carriers' lesions, are the
+cohort's lesions rather than carriers'), the
+papers reporting de novo and inherited carriers, and the papers read from the
+abstract only or pending review. Every figure counts papers. The card never
+states a carrier count summed across papers, because those cohorts may overlap, and it names a common-variant
+association apart from the Mendelian designs ("not Mendelian evidence").
+
+Where `literature.synthesis` is not `null`, an "In short" paragraph follows
+the literature line: each sentence with its cited papers in parentheses before
+its closing period, question mark or exclamation mark ("Basson CT et al. 1997",
+linked to PubMed, once per sentence however many of that paper's findings it
+cites; an assertion appears as its id, linked to its heading under Curated
+evidence), then "Drafted by … from the records cited; approved by … on …". A
+withheld synthesis renders nothing.
 
 Read the uncurated sentences precisely, because they are narrower than they first appear. **A lesion
 assertion**, or an approved literature finding, is what decides which sentence the card shows, not
@@ -2225,7 +2309,7 @@ The committed corpus curates no variants, so the real index is empty:
 A paper is left out of this file while literature findings cite it and none of them
 is approved, unless an assertion, functional record, featured entry, dataset or
 burden row also cites it; a record no finding cites is published as before
-(see [`pending_approval`](#the-bundles-literature-object-searches-a-triage-tally-and-approved-findings)).
+(see [`pending_approval`](#the-bundles-literature-object-searches-a-triage-tally-paper-tallies-approved-findings-and-the-synthesis)).
 
 `summary_caveat` is one curated sentence (at most 240 characters) saying what
 a reader must know to read the study's counts — that PMID:34324492's cases were

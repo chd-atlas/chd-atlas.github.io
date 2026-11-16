@@ -576,7 +576,7 @@ def test_approve_defaults_the_date_to_today_and_takes_several_ids(
         ),
         (
             ["--approve", "CHDA:LIT:0000002", "--pending-review", "CHDA:LIT:0000001", "--by", "A"],
-            "not both",
+            "separate actions; use only one of them",
         ),
         (["--pending-review", "CHDA:LIT:0000001"], "--note"),
         (["--pending-review", "CHDA:LIT:0000001", "--note", "  "], "--note"),
@@ -902,3 +902,463 @@ def test_target_refusals_exit_2_and_name_the_cause(
     result = _target(root, symbol)
     assert result.exit_code == 2
     assert message in result.output
+
+
+# --------------------------------------------------------------------------
+# --approve-synthesis and the synthesis listing (gene synthesis, Task 6)
+# --------------------------------------------------------------------------
+
+ASSERTION_FILE = """\
+assertions:
+  - id: CHDA:AST:0000001
+    gene: HGNC:11604
+    phenotypes:
+      - HP:0001631
+      - HP:0001629
+    lesion_groups:
+      - septal
+      - conotruncal
+    inheritance:
+      - AD
+    mechanism: haploinsufficiency
+    syndromic: isolated
+    evidence:
+      - publication: PMID:222
+        evidence_class: genetic_case
+        locator:
+          kind: in_text
+          element: Abstract
+        summary: A nonsense variant.
+        strength: strong
+      - publication: PMID:111
+        evidence_class: genetic_case
+        locator:
+          kind: in_text
+          element: Figure 2
+        summary: A segregating missense variant.
+        strength: moderate
+    curator: Dr. Curator
+    curated_on: 2026-07-01
+    last_reviewed: 2026-07-01
+  - id: CHDA:AST:0000002
+    gene: HGNC:4173
+    phenotypes:
+      - HP:0001629
+    lesion_groups:
+      - conotruncal
+    inheritance:
+      - AD
+    mechanism: dominant_negative
+    syndromic: isolated
+    evidence:
+      - publication: PMID:111
+        evidence_class: genetic_case
+        locator:
+          kind: in_text
+          element: Abstract
+        summary: A missense variant in another gene.
+        strength: moderate
+    curator: Dr. Other
+    curated_on: 2026-07-02
+    last_reviewed: 2026-07-02
+"""
+
+SYNTHESIS = """\
+synthesis:
+  sentences:
+    - text: Septal defects are the usual presentation.
+      cites:
+        - CHDA:LIT:0000003
+    - text: A lesion record backs the inheritance pattern.
+      cites:
+        - CHDA:AST:0000001
+  drafted_by: agent:gene-synthesis/test
+"""
+
+
+def _with_synthesis(root: Path, lit_path: Path, block: str = SYNTHESIS) -> str:
+    """Write the assertions (TBX5's and GATA4's) and append `block` to the literature file."""
+    (root / "curation" / "assertions").mkdir(exist_ok=True)
+    (root / "curation" / "assertions" / "TBX5.yaml").write_text(ASSERTION_FILE)
+    lit_path.write_text(lit_path.read_text() + block)
+    return lit_path.read_text()
+
+
+def _current_digest(root: Path, lit_path: Path) -> str:
+    from chd_atlas.corpus import load_curation
+    from chd_atlas.gene_literature_io import parse_literature
+    from chd_atlas.models.gene_literature import synthesis_digest
+
+    record = parse_literature(lit_path.read_bytes())
+    assert record.synthesis is not None
+    own = [a for a in load_curation(root)[0].assertions if str(a.gene) == str(record.gene)]
+    return synthesis_digest(record.synthesis, record.findings, own)
+
+
+def _listed(root: Path, lit_path: Path) -> str:
+    """The `--digest` value the listing prints: the current digest's first 12 hex characters."""
+    return _current_digest(root, lit_path).removeprefix("sha256:")[:12]
+
+
+def _approve_synthesis(root: Path, lit_path: Path, *args: str) -> Any:
+    """`--approve-synthesis` with the digest the listing would print now."""
+    return _review(root, "--approve-synthesis", *args, "--digest", _listed(root, lit_path))
+
+
+def _approve_in_text(text: str, finding_id: str, by: str, on: str) -> str:
+    """`text` with the named finding approved, its digest computed from `text`, not typed."""
+    block = _blocks(text)[finding_id]  # the last finding's block runs to the end of the file
+    anchor = "    extracted_by: agent:extract/test\n"
+    approval = (
+        f"    approved_by: {by}\n    approved_on: {on}\n"
+        f"    approved_digest: {_digest_in(text, finding_id)}\n"
+    )
+    approved = block.replace(anchor, anchor + approval, 1)
+    assert approved != block and text.count(block) == 1
+    return text.replace(block, approved)
+
+
+def test_approve_synthesis_stamps_three_fields_and_changes_no_other_byte(
+    root: Path, lit_path: Path
+) -> None:
+    before = _with_synthesis(root, lit_path)
+    result = _approve_synthesis(root, lit_path, "--by", "Dr. Grace Hopper", "--on", "2026-11-03")
+
+    assert result.exit_code == 0, result.stdout
+    assert result.stdout == "approved synthesis (Dr. Grace Hopper, 2026-11-03)\n"
+    digest = _current_digest(root, lit_path)
+    assert lit_path.read_text() == before + (
+        f"  approved_by: Dr. Grace Hopper\n  approved_on: 2026-11-03\n  approved_digest: {digest}\n"
+    )
+    # the digest is the one the validator recomputes: no SYN004 afterwards
+    from chd_atlas.validate.runner import validate_repository
+
+    assert not [i for i in validate_repository(root).issues if i.code.startswith("SYN")]
+
+
+def test_a_stale_approval_is_re_approved_and_a_current_one_is_never_overwritten(
+    root: Path, lit_path: Path
+) -> None:
+    _with_synthesis(
+        root,
+        lit_path,
+        SYNTHESIS
+        + "  approved_by: Dr. First Approver\n  approved_on: 2026-10-05\n"
+        + "  approved_digest: sha256:stale\n",
+    )
+    stale = _approve_synthesis(root, lit_path, "--by", "Dr. Second", "--on", "2026-11-04")
+    assert stale.exit_code == 0, stale.stdout
+    after = lit_path.read_text()
+    assert "approved_by: Dr. Second\n  approved_on: 2026-11-04\n" in after
+    assert "Dr. First Approver" not in after
+    assert f"approved_digest: {_current_digest(root, lit_path)}\n" in after
+    from chd_atlas.validate.runner import validate_repository
+
+    assert not [i for i in validate_repository(root).issues if i.code.startswith("SYN")]
+
+    again = _approve_synthesis(root, lit_path, "--by", "Dr. Third")
+    assert again.exit_code == 2
+    assert "already approved by Dr. Second; approving again would erase who approved it" in (
+        again.stdout
+    )
+    assert lit_path.read_text() == after
+
+
+@pytest.mark.parametrize(
+    ("block", "args", "needle"),
+    [
+        (None, ["--by", "A"], "no synthesis"),
+        (SYNTHESIS, [], "--by"),
+        (SYNTHESIS, ["--by", "agent:x"], "agent"),
+        (SYNTHESIS, ["--by", "A", "--on", "2999-01-01"], "future"),
+        (SYNTHESIS, ["--by", "A", "--allow-unverified"], "--allow-unverified"),
+        (
+            SYNTHESIS,
+            ["--by", "A", "--approve", "CHDA:LIT:0000002"],
+            "--approve, --pending-review and --approve-synthesis are separate actions; "
+            "use only one of them",
+        ),
+        (SYNTHESIS, ["--by", "A", "--pending-review", "CHDA:LIT:0000001"], "separate actions"),
+        (
+            SYNTHESIS,
+            ["--by", "A", "--against", "x.yaml"],
+            "--against only applies to the listing, not to an action",
+        ),
+        (
+            SYNTHESIS,
+            ["--by", "A", "--on", "2026-09-30"],
+            "--on 2026-09-30 is before 2026-10-01, when a finding this synthesis covers was "
+            "approved; an approval cannot predate what it covers",
+        ),
+        (SYNTHESIS.replace("usual presentation", "usual in 12 families"), ["--by", "A"], "SYN002"),
+        (
+            SYNTHESIS.replace("usual presentation", "usual " + "word " * 120),
+            ["--by", "A"],
+            "SYN003",
+        ),
+        (SYNTHESIS.replace("CHDA:LIT:0000003", "CHDA:LIT:0000004"), ["--by", "A"], "SYN001"),
+    ],
+)
+def test_every_synthesis_refusal_exits_two_and_writes_nothing(
+    root: Path, lit_path: Path, block: str | None, args: list[str], needle: str
+) -> None:
+    """Each row passes the digest the listing would print, so the refusal is its own."""
+    digest = "0" * 12
+    if block is not None:
+        _with_synthesis(root, lit_path, block)
+        digest = _listed(root, lit_path)
+    before = lit_path.read_bytes()
+    result = _review(root, "--approve-synthesis", *args, "--digest", digest)
+    assert result.exit_code == 2, result.stdout
+    assert needle in result.stdout
+    assert lit_path.read_bytes() == before
+
+
+def test_approve_synthesis_requires_the_digest_the_listing_printed(
+    root: Path, lit_path: Path
+) -> None:
+    """K-3: the person approves the text they listed, not whatever is on disk by then."""
+    _with_synthesis(root, lit_path)
+    listed = _current_digest(root, lit_path).removeprefix("sha256:")
+    before = lit_path.read_bytes()
+
+    def refused(*args: str) -> str:
+        result = _review(root, "--approve-synthesis", "--by", "Dr. A", *args)
+        assert result.exit_code == 2, result.stdout
+        assert lit_path.read_bytes() == before
+        return str(result.stdout)
+
+    assert refused() == (
+        "error: --digest is required with --approve-synthesis: run "
+        "`chd-atlas literature review TBX5` and copy the command it prints\n"
+    )
+    not_listed = (
+        f"error: the synthesis is not the one listed (its digest is {listed[:12]}); "
+        "list it again before approving\n"
+    )
+    assert refused("--digest", listed[:11]) == not_listed  # a true prefix, but too short
+    assert refused("--digest", "f" * 12) == not_listed
+    assert refused("--digest", "sha256:" + listed) == not_listed
+    # an agent redrafts between the listing and the approval: the listed digest no longer fits
+    lit_path.write_text(lit_path.read_text().replace("usual presentation", "usual finding"))
+    before = lit_path.read_bytes()
+    moved = _current_digest(root, lit_path).removeprefix("sha256:")
+    assert refused("--digest", listed[:12]) == (
+        f"error: the synthesis is not the one listed (its digest is {moved[:12]}); "
+        "list it again before approving\n"
+    )
+    # `--digest` is an option of the action, like `--note`
+    plain = _review(root, "--digest", moved[:12])
+    assert plain.exit_code == 2
+    assert plain.stdout == "error: --digest only applies with --approve-synthesis\n"
+    # the whole digest, or any prefix of at least 12, is accepted
+    whole = _review(root, "--approve-synthesis", "--by", "Dr. A", "--digest", moved)
+    assert whole.exit_code == 0, whole.stdout
+
+
+def test_approve_synthesis_refuses_while_an_approved_finding_fails_lit015(
+    root: Path, lit_path: Path
+) -> None:
+    """X-1a: an approval over a finding whose own approval is void is refused, and marked.
+
+    Finding 3 is cited and finding 4 is not: the guard covers every approved
+    finding of the file, as the synthesis digest does. Their approval dates
+    differ (2026-10-01, 2026-10-15), so the listing's mark is per finding.
+    """
+    _with_synthesis(
+        root,
+        lit_path,
+        SYNTHESIS.replace(
+            "        - CHDA:LIT:0000003\n",
+            "        - CHDA:LIT:0000003\n        - CHDA:LIT:0000002\n",
+        ),
+    )
+    text = _approve_in_text(lit_path.read_text(), "CHDA:LIT:0000004", "Dr. Bee", "2026-10-15")
+    text = _approve_in_text(text, "CHDA:LIT:0000002", "Dr. Cee", "2026-10-16")
+    lit_path.write_text(text)
+    clean = _approve_synthesis(root, lit_path, "--by", "Dr. A", "--on", "2026-11-03")
+    assert clean.exit_code == 0, clean.stdout  # the fixture approves cleanly before the edits
+    lit_path.write_text(text)
+
+    edited = text.replace("summary: A proband.\n", "summary: An edited proband.\n").replace(
+        "summary: Another proband.\n", "summary: Another, edited.\n"
+    )
+    lit_path.write_text(edited)
+    result = _approve_synthesis(root, lit_path, "--by", "Dr. A", "--on", "2026-11-03")
+    assert result.exit_code == 2, result.stdout
+    assert result.stdout == (
+        "error: cannot approve the synthesis: CHDA:LIT:0000003, CHDA:LIT:0000004 fail(s) "
+        "LIT015 (approved content changed since approval); re-approve or correct them first\n"
+    )
+    assert lit_path.read_text() == edited
+
+    # the listing marks the void approval, ahead of a review mark; a current one shows none
+    marked = edited.replace(
+        "summary: An edited proband.\n",
+        "summary: An edited proband.\n    review_status: pending_review\n"
+        "    review_note: The table disagrees.\n",
+    )
+    lit_path.write_text(marked)
+    out = _review(root).stdout
+    assert "     CHDA:LIT:0000003: An edited proband. [approval void: LIT015]\n" in out
+    assert "     CHDA:LIT:0000002: A GWAS hit.\n" in out
+
+
+def test_a_synthesis_approval_may_not_predate_the_latest_finding_approval(
+    root: Path, lit_path: Path
+) -> None:
+    """Two approval dates are needed: with one, the earliest and latest are the same date,
+    so `min` and `max` in the guard cannot be told apart."""
+    from chd_atlas.gene_literature_io import parse_literature
+
+    _with_synthesis(root, lit_path)
+    lit_path.write_text(
+        _approve_in_text(lit_path.read_text(), "CHDA:LIT:0000004", "Dr. Later", "2026-10-20")
+    )
+    assert parse_literature(lit_path.read_bytes()).findings  # the edit is still a valid file
+
+    before = lit_path.read_bytes()
+    early = _approve_synthesis(root, lit_path, "--by", "Dr. Grace Hopper", "--on", "2026-10-10")
+    assert early.exit_code == 2, early.stdout
+    assert (
+        "--on 2026-10-10 is before 2026-10-20, when a finding this synthesis covers was "
+        "approved; an approval cannot predate what it covers"
+    ) in early.stdout
+    assert lit_path.read_bytes() == before
+
+    equal = _approve_synthesis(root, lit_path, "--by", "Dr. Grace Hopper", "--on", "2026-10-20")
+    assert equal.exit_code == 0, equal.stdout
+    assert equal.stdout == "approved synthesis (Dr. Grace Hopper, 2026-10-20)\n"
+
+
+@pytest.mark.parametrize(
+    ("args", "builder"),
+    [
+        (["--approve", "CHDA:LIT:0000002", "--by", "Dr. A"], "with_findings_updated"),
+        (["--pending-review", "CHDA:LIT:0000003", "--note", "Unclear."], "with_findings_updated"),
+        (["--approve-synthesis", "--by", "Dr. A"], "with_synthesis_approval"),
+    ],
+)
+def test_a_write_racing_another_writer_is_refused_and_keeps_its_bytes(
+    root: Path, lit_path: Path, monkeypatch: pytest.MonkeyPatch, args: list[str], builder: str
+) -> None:
+    """K-1: the file changes after it was read, while the new content is built.
+
+    The other writer lands inside the call that builds the bytes to write, the
+    last step before the write, so a check made any earlier cannot see it.
+    """
+    import chd_atlas.cli as cli
+
+    _with_synthesis(root, lit_path)
+    if "--approve-synthesis" in args:
+        args = [*args, "--digest", _listed(root, lit_path)]
+    theirs = lit_path.read_bytes() + b"# another writer's line\n"
+    original = getattr(cli, builder)
+
+    def racing(*a: Any, **k: Any) -> bytes:
+        content: bytes = original(*a, **k)
+        lit_path.write_bytes(theirs)
+        return content
+
+    monkeypatch.setattr(cli, builder, racing)
+    result = _review(root, *args)
+    assert result.exit_code == 2, result.stdout
+    assert result.stdout == f"error: {lit_path} changed since it was read; nothing was written\n"
+    assert lit_path.read_bytes() == theirs
+
+
+def test_the_listing_prints_the_synthesis_state_sentences_and_what_each_cites(
+    root: Path, lit_path: Path
+) -> None:
+    plain = _review(root)
+    assert "synthesis" not in plain.stdout  # a file with none prints nothing about one
+
+    _with_synthesis(
+        root,
+        lit_path,
+        SYNTHESIS.replace(
+            "        - CHDA:LIT:0000003\n",
+            "        - CHDA:LIT:0000003\n        - CHDA:LIT:0000009\n",
+        ),
+    )
+    tail = _review(root).stdout.split("synthesis: ", 1)[1]
+    assert tail == (
+        "unapproved\n"
+        "  approve with: chd-atlas literature review TBX5 --approve-synthesis --by <name> "
+        f"--digest {_listed(root, lit_path)}\n"
+        "  1. Septal defects are the usual presentation.\n"
+        "     CHDA:LIT:0000003: A proband.\n"
+        "     CHDA:LIT:0000009: (not found)\n"
+        "  2. A lesion record backs the inheritance pattern.\n"
+        "     CHDA:AST:0000001: lesion assertion for HGNC:11604\n"
+        "       lesion groups: septal, conotruncal\n"
+        "       phenotypes: HP:0001631, HP:0001629\n"
+        "       evidence: PMID:222 — A nonsense variant.\n"
+        "       evidence: PMID:111 — A segregating missense variant.\n"
+    )
+    # the approved symbol, whichever name the person typed
+    alias = runner.invoke(app, ["literature", "review", "HOS", "--root", str(root)])
+    assert "  approve with: chd-atlas literature review TBX5 --approve-synthesis" in alias.stdout
+    # an unapproved finding's summary is shown too, so the approver sees what is cited
+    lit_path.write_text(lit_path.read_text().replace("- CHDA:LIT:0000009", "- CHDA:LIT:0000004"))
+    assert "     CHDA:LIT:0000004: Another proband. [unapproved]\n" in _review(root).stdout
+
+    both = "        - CHDA:LIT:0000003\n        - CHDA:LIT:0000004\n"
+    lit_path.write_text(lit_path.read_text().replace(both, "        - CHDA:LIT:0000003\n"))
+    done = _approve_synthesis(root, lit_path, "--by", "Dr. A", "--on", "2026-11-03")
+    assert done.exit_code == 0, done.stdout
+    current = _review(root).stdout
+    assert "synthesis: approved by Dr. A on 2026-11-03\n  1. Septal" in current
+    assert "approve with" not in current  # nothing to approve
+    # a changed covered record voids the approval: STALE, with who and when
+    lit_path.write_text(lit_path.read_text().replace("A proband.", "A different proband."))
+    assert (
+        "synthesis: STALE (approved by Dr. A on 2026-11-03; "
+        "the synthesis or the records it covers changed since)\n"
+        "  approve with: chd-atlas literature review TBX5 --approve-synthesis --by <name> "
+        f"--digest {_listed(root, lit_path)}\n" in _review(root).stdout
+    )
+
+
+def test_a_synthesis_write_the_model_would_refuse_is_never_made(lit_path: Path) -> None:
+    from chd_atlas.gene_literature_io import LiteratureFileError, with_synthesis_approval
+
+    approval = {"approved_by": "Dr. A", "approved_on": date(2026, 11, 2), "approved_digest": "d"}
+    with pytest.raises(LiteratureFileError, match="no synthesis block"):
+        with_synthesis_approval(lit_path.read_bytes(), approval)
+    with_block = lit_path.read_bytes() + SYNTHESIS.encode()
+    with pytest.raises(LiteratureFileError):
+        with_synthesis_approval(with_block, {**approval, "approved_by": "agent:x"})
+    with pytest.raises(LiteratureFileError):
+        with_synthesis_approval(with_block, {"approved_by": "Dr. A"})
+
+
+def test_the_listing_marks_a_cited_findings_review_state(root: Path, lit_path: Path) -> None:
+    """A cited finding shows `[pending_review]` or `[not_accessible]`; a plain one shows nothing."""
+    block = SYNTHESIS.replace(
+        "        - CHDA:LIT:0000003\n",
+        "        - CHDA:LIT:0000003\n        - CHDA:LIT:0000004\n",
+    )
+    _with_synthesis(root, lit_path, block)
+    marked = lit_path.read_text().replace(
+        "    summary: A proband.\n",
+        "    summary: A proband.\n    review_status: pending_review\n"
+        "    review_note: The table disagrees.\n",
+    )
+    lit_path.write_text(marked)
+    out = _review(root).stdout
+    assert "     CHDA:LIT:0000003: A proband. [pending_review]\n" in out
+    assert "     CHDA:LIT:0000004: Another proband. [unapproved]\n" in out
+    lit_path.write_text(
+        marked.replace("review_status: pending_review", "review_status: not_accessible")
+    )
+    assert "     CHDA:LIT:0000003: A proband. [not_accessible]\n" in _review(root).stdout
+
+
+def test_approval_flags_without_an_approval_are_refused(root: Path, lit_path: Path) -> None:
+    result = _review(root, "--by", "A")
+    assert result.exit_code == 2
+    assert (
+        "--by and --on only apply with --approve or --approve-synthesis, "
+        "and --allow-unverified only with --approve"
+    ) in result.stdout

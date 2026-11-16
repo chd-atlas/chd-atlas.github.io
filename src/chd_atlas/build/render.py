@@ -956,7 +956,9 @@ def review_status_label(status: ReviewStatus) -> str:
 
     One place, so the label after a description and the methods page's
     sentence saying what each label marks (`methods._review_key`) cannot come
-    to name a status differently. Exhaustive: a status added to the vocabulary
+    to name a status differently. The gene card's literature line counts papers
+    under its own labels ("from the abstract only", "pending review"), pinned by
+    the card's tests, and does not go through here. Exhaustive: a status added to the vocabulary
     and not here fails `mypy --strict` rather than rendering as nothing.
     """
     match status:

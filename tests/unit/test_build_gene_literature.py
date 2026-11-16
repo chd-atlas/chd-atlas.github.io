@@ -11,6 +11,8 @@ literal.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -23,9 +25,15 @@ from chd_atlas.build.gene_literature import (
     LiteratureCensus,
     gene_literature,
     literature_census,
+    literature_tallies,
 )
 from chd_atlas.corpus import Corpus
-from chd_atlas.models.gene_literature import GeneLiteratureFile
+from chd_atlas.models.assertion import LesionAssertion
+from chd_atlas.models.gene_literature import (
+    Finding,
+    GeneLiteratureFile,
+    synthesis_digest,
+)
 from chd_atlas.models.literature import Publication
 from tests.unit._stamp import stamped
 
@@ -220,6 +228,18 @@ def test_the_empty_shape_is_literally_the_documented_one() -> None:
         "triage": {"included": 0, "excluded": {}, "pending": 0},
         "pending_approval": 0,
         "findings": [],
+        "synthesis": None,
+        "tallies": {
+            "papers": 0,
+            "first_year": None,
+            "last_year": None,
+            "designs": {},
+            "lesion_groups": {},
+            "de_novo_papers": 0,
+            "inherited_papers": 0,
+            "abstract_only_papers": 0,
+            "pending_review_papers": 0,
+        },
     }
 
 
@@ -251,3 +271,197 @@ def test_the_census_counts_published_genes_with_a_search_and_their_approved_find
         genes=3, findings=8
     )
     assert literature_census({}, {TBX5}) == LiteratureCensus(genes=0, findings=0)
+
+
+def _f(number: int, pmid: str, **changes: Any) -> Finding:
+    return Finding.model_validate(_finding(number, pmid, **changes))
+
+
+_YEARS = {"PMID:9": 2003, "PMID:10": 2026, "PMID:11": 2010}
+
+
+def test_tallies_count_papers_not_findings() -> None:
+    """Four findings in two papers (two cohort screens in one): each category counts papers."""
+    case = {
+        "design": "case_report",
+        "screened": 1,
+        "carriers": {"de_novo": 1, "inherited": 0, "origin_unknown": 0},
+    }
+    tallies = literature_tallies(
+        [
+            _f(1, "PMID:9", lesion_groups=["septal", "avsd"]),
+            _f(2, "PMID:9", **case, lesion_groups=["septal"]),
+            _f(3, "PMID:10", lesion_groups=["septal"]),
+            _f(4, "PMID:9", lesion_groups=["avsd"]),
+        ],
+        _YEARS,
+    )
+    assert tallies["papers"] == 2
+    assert tallies["designs"] == {"case_report": 1, "cohort_screen": 2}
+    assert tallies["lesion_groups"] == {"avsd": 1, "septal": 2}
+    assert list(tallies["designs"]) == ["case_report", "cohort_screen"]
+
+
+def test_tallies_read_null_carriers_as_none() -> None:
+    common = {
+        "design": "common_variant_association",
+        "carriers": None,
+        "screened": None,
+        "count_unit": None,
+        "cases": 40,
+        "controls": 90,
+        "variant_classes": [],
+        "methods": ["exome"],
+    }
+    tallies = literature_tallies([_f(1, "PMID:9", **common)], _YEARS)
+    assert tallies["papers"] == 1
+    assert tallies["de_novo_papers"] == tallies["inherited_papers"] == 0
+
+
+def test_tallies_count_carrier_origin_and_review_marks_by_paper() -> None:
+    mark = {"review_note": "n"}
+    tallies = literature_tallies(
+        [
+            _f(1, "PMID:9", review_status="not_accessible", **mark),
+            _f(2, "PMID:9", review_status="not_accessible", **mark),
+            _f(3, "PMID:10", review_status="pending_review", **mark),
+            _f(
+                4,
+                "PMID:11",
+                carriers={"de_novo": 0, "inherited": 4, "origin_unknown": 1},
+                review_status="not_accessible",
+                **mark,
+            ),
+        ],
+        _YEARS,
+    )
+    assert tallies["abstract_only_papers"] == 2  # PMID:9 (twice) and PMID:11
+    assert tallies["pending_review_papers"] == 1
+    # PMID:9 and :10 carry de novo 2 each; PMID:11 has none but inherited 4.
+    assert tallies["de_novo_papers"] == 2
+    assert tallies["inherited_papers"] == 3
+
+
+def test_tallies_span_the_publication_years() -> None:
+    tallies = literature_tallies([_f(1, "PMID:10"), _f(2, "PMID:9"), _f(3, "PMID:11")], _YEARS)
+    assert (tallies["first_year"], tallies["last_year"]) == (2003, 2026)
+
+
+def test_a_gene_with_no_approved_finding_publishes_empty_tallies() -> None:
+    raw = _file().model_dump(mode="json")
+    for finding in raw["findings"]:
+        finding.update(approved_by=None, approved_on=None, approved_digest=None)
+    entry = gene_literature(_corpus(GeneLiteratureFile.model_validate(raw)))[TBX5]
+    assert entry["findings"] == []
+    assert entry["tallies"] == EMPTY_GENE_LITERATURE["tallies"]
+    assert entry["tallies"]["first_year"] is None
+    assert entry["tallies"]["last_year"] is None
+
+
+OWN_AST = "CHDA:AST:0000001"
+OTHER_AST = "CHDA:AST:0000002"
+
+
+def _assertion(
+    identifier: str, gene: str, mechanism: str = "haploinsufficiency"
+) -> LesionAssertion:
+    return LesionAssertion.model_validate(
+        {
+            "id": identifier,
+            "gene": gene,
+            "phenotypes": ["HP:0001631"],
+            "lesion_groups": ["septal"],
+            "inheritance": ["AD"],
+            "mechanism": mechanism,
+            "syndromic": "isolated",
+            "evidence": [
+                {
+                    "publication": "PMID:8988165",
+                    "evidence_class": "genetic_case",
+                    "locator": {"kind": "in_text", "element": "Figure 1"},
+                    "summary": "s",
+                    "strength": "strong",
+                }
+            ],
+            "curator": "c",
+            "curated_on": date(2026, 7, 1),
+            "last_reviewed": date(2026, 7, 1),
+        }
+    )
+
+
+def _synthesis_file(
+    approved: bool = True, text: str = "Variants cause septal defects."
+) -> tuple[GeneLiteratureFile, Corpus]:
+    """TBX5's file with a two-sentence synthesis citing findings 5 and 2 and its assertion."""
+    base = _file()
+    raw = base.model_dump(mode="json")
+    raw["synthesis"] = {
+        "sentences": [
+            {"text": text, "cites": ["CHDA:LIT:0000005", "CHDA:LIT:0000002"]},
+            {"text": "Loss of function is the mechanism.", "cites": [OWN_AST]},
+        ],
+        "drafted_by": "agent:gene-synthesis/test",
+    }
+    file = GeneLiteratureFile.model_validate(raw)
+    assert file.synthesis is not None
+    if approved:
+        digest = synthesis_digest(file.synthesis, file.findings, [_assertion(OWN_AST, TBX5)])
+        raw["synthesis"].update(
+            approved_by="B. Person", approved_on="2026-11-12", approved_digest=digest
+        )
+        file = GeneLiteratureFile.model_validate(raw)
+    return file, _corpus(file)
+
+
+def _with_assertions(corpus: Corpus, *assertions: LesionAssertion) -> Corpus:
+    return replace(corpus, assertions=assertions)
+
+
+def test_a_current_approved_synthesis_is_published_and_withheld_when_stale_or_unapproved() -> None:
+    """Four outcomes of one fixture: current, unapproved, text edited, no synthesis."""
+    own = _assertion(OWN_AST, TBX5)
+    file, corpus = _synthesis_file()
+    published = gene_literature(_with_assertions(corpus, own))[TBX5]["synthesis"]
+    assert published == {
+        "sentences": [
+            {
+                "text": "Variants cause septal defects.",
+                "cites": ["CHDA:LIT:0000005", "CHDA:LIT:0000002"],
+            },
+            {"text": "Loss of function is the mechanism.", "cites": [OWN_AST]},
+        ],
+        "drafted_by": "agent:gene-synthesis/test",
+        "approved_by": "B. Person",
+        "approved_on": "2026-11-12",
+    }
+
+    _, unapproved = _synthesis_file(approved=False)
+    assert gene_literature(_with_assertions(unapproved, own))[TBX5]["synthesis"] is None
+
+    # An edit to the text after approval: re-use the old digest on new text.
+    assert file.synthesis is not None
+    edited_raw = file.model_dump(mode="json")
+    edited_raw["synthesis"]["sentences"][0]["text"] = "Edited after approval."
+    edited = GeneLiteratureFile.model_validate(edited_raw)
+    assert edited.synthesis is not None
+    assert edited.synthesis.approved_digest == file.synthesis.approved_digest
+    assert gene_literature(_with_assertions(_corpus(edited), own))[TBX5]["synthesis"] is None
+
+    assert gene_literature(_corpus(_file()))[TBX5]["synthesis"] is None
+
+
+def test_a_synthesis_goes_stale_through_its_genes_assertions_only() -> None:
+    """Editing the gene's own assertion withholds it; editing another gene's does not."""
+    _, corpus = _synthesis_file()
+    own = _assertion(OWN_AST, TBX5)
+    other = _assertion(OTHER_AST, GATA4)
+    assert gene_literature(_with_assertions(corpus, own, other))[TBX5]["synthesis"] is not None
+
+    edited_own = _assertion(OWN_AST, TBX5, mechanism="dominant_negative")
+    assert gene_literature(_with_assertions(corpus, edited_own, other))[TBX5]["synthesis"] is None
+
+    edited_other = _assertion(OTHER_AST, GATA4, mechanism="dominant_negative")
+    assert (
+        gene_literature(_with_assertions(corpus, own, edited_other))[TBX5]["synthesis"] is not None
+    )

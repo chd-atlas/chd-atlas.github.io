@@ -23,13 +23,21 @@ from chd_atlas.build.cell_types import CellTypeExpression
 from chd_atlas.build.concordance import cohort_families, evidence_axes, gene_concordance
 from chd_atlas.build.derive import GeneFacts
 from chd_atlas.build.emit import Emitter
-from chd_atlas.build.gene_literature import GeneLiterature
+from chd_atlas.build.gene_literature import (
+    EMPTY_GENE_LITERATURE,
+    GeneLiterature,
+    LiteratureTallies,
+    PublishedSynthesis,
+)
 from chd_atlas.build.identity import GeneIdentity
 from chd_atlas.build.pages import (
     _DESIGN_SHAPES,
     _EM_DASH,
     _SEVERAL_DESIGNS,
     _analysis_label,
+    _card_literature,
+    _card_mechanism,
+    _card_synthesis,
     _chd_only,
     _count,
     _date,
@@ -43,6 +51,7 @@ from chd_atlas.build.pages import (
     _PaperGroup,
     _phase_strip,
     _study_finding_summary,
+    _study_label,
     _tissue_percentile,
     build_gene_index_page,
     build_gene_pages,
@@ -9858,6 +9867,8 @@ def _approved(*pmids: str) -> GeneLiterature:
         triage={"included": 0, "excluded": {}, "pending": 0},
         pending_approval=0,
         findings=[{"id": f"F{n}", "publication": pmid} for n, pmid in enumerate(pmids)],
+        tallies=EMPTY_GENE_LITERATURE["tallies"],
+        synthesis=None,
     )
 
 
@@ -9926,6 +9937,8 @@ def test_a_gene_whose_findings_all_await_approval_is_not_yet_curated(tmp_path: P
         triage={"included": 0, "excluded": {}, "pending": 0},
         pending_approval=2,
         findings=[],
+        tallies=EMPTY_GENE_LITERATURE["tallies"],
+        synthesis=None,
     )
     build_gene_pages(
         {GATA4: _facts(GATA4, AtlasCuration.NOT_YET_CURATED)},
@@ -9962,6 +9975,8 @@ def test_the_card_counts_the_approved_findings_and_not_those_awaiting_approval(
         triage={"included": 0, "excluded": {}, "pending": 0},
         pending_approval=4,
         findings=[{"id": "F0", "publication": "PMID:1"}, {"id": "F1", "publication": "PMID:2"}],
+        tallies=EMPTY_GENE_LITERATURE["tallies"],
+        synthesis=None,
     )
     build_gene_pages(
         {GATA4: _facts(GATA4, AtlasCuration.NOT_YET_CURATED)},
@@ -10290,6 +10305,8 @@ def _lit(
         },
         pending_approval=waiting,
         findings=findings or [],
+        tallies=EMPTY_GENE_LITERATURE["tallies"],
+        synthesis=None,
     )
 
 
@@ -10895,6 +10912,93 @@ def _fold_block(fold: str, pmid: str) -> str:
     return blocks[0]
 
 
+def _label_pubs() -> dict[str, Publication]:
+    def pub(pmid: str, author: str, year: int) -> Publication:
+        return _LIT_PUBLICATION.model_copy(update={"id": pmid, "authors": [author], "year": year})
+
+    return {
+        "PMID:11": pub("PMID:11", "Baban A", 2014),
+        "PMID:12": pub("PMID:12", " Baban A ", 2014),  # same paper-label once stripped
+        "PMID:13": pub("PMID:13", "Baban A", 2016),  # same author, another year
+        "PMID:14": pub("PMID:14", "Nemer M", 2014),  # same year, another author
+        "PMID:15": pub("PMID:15", "   ", 2014),  # blank first author: bare PMID
+    }
+
+
+def test_a_label_gains_its_pmid_only_where_author_and_year_both_collide() -> None:
+    pubs = _label_pubs()
+    assert [_study_label(p, pubs) for p in ("PMID:11", "PMID:12")] == [
+        "Baban A et al. 2014 (PMID:11)",
+        "Baban A et al. 2014 (PMID:12)",
+    ]
+    assert _study_label("PMID:13", pubs) == "Baban A et al. 2016"
+    assert _study_label("PMID:14", pubs) == "Nemer M et al. 2014"
+    # fallbacks stay bare, and a blank author never collides with another blank one
+    assert _study_label("PMID:15", pubs) == "PMID:15"
+    assert _study_label("PMID:99", pubs) == "PMID:99"
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ("Baban A", "Baban  A"),  # a doubled space, which HTML collapses
+        ("Baban A", "Baban\u00a0A"),  # a no-break space
+        ("M\u00fcller K", "Mu\u0308ller K"),  # NFC against NFD
+        ("Baban A", "BABAN A"),  # case
+        ("Baban A", "Baban A."),  # a trailing full stop
+    ],
+)
+def test_first_authors_that_render_alike_collide(first: str, second: str) -> None:
+    """Each pair differs only in what the key ignores (whitespace, Unicode form, case, a
+    trailing full stop); the label text stays as stored."""
+    pubs = {
+        pmid: _LIT_PUBLICATION.model_copy(update={"id": pmid, "authors": [a], "year": 2014})
+        for pmid, a in (("PMID:21", first), ("PMID:22", second), ("PMID:23", "Nemer M"))
+    }
+    assert _study_label("PMID:21", pubs) == f"{first} et al. 2014 (PMID:21)"
+    assert _study_label("PMID:22", pubs) == f"{second.strip()} et al. 2014 (PMID:22)"
+    assert _study_label("PMID:23", pubs) == "Nemer M et al. 2014"
+    other_year = {**pubs, "PMID:22": pubs["PMID:22"].model_copy(update={"year": 2015})}
+    assert _study_label("PMID:21", other_year) == f"{first} et al. 2014"
+
+
+def test_a_first_author_with_nothing_but_full_stops_collides_with_nothing() -> None:
+    """Such an author keys to "", which would otherwise match every other one like it."""
+    pubs = {
+        pmid: _LIT_PUBLICATION.model_copy(update={"id": pmid, "authors": [a], "year": 2014})
+        for pmid, a in (("PMID:31", "."), ("PMID:32", ".."))
+    }
+    assert _study_label("PMID:31", pubs) == ". et al. 2014"
+    assert _study_label("PMID:32", pubs) == ".. et al. 2014"
+
+
+def test_a_colliding_paper_names_its_pmid_once_in_its_hover_and_its_fold_summary() -> None:
+    pubs = _label_pubs()
+    pubs = {k: pubs[k] for k in ("PMID:11", "PMID:12", "PMID:13")}
+    findings = [
+        _lit_finding(id=f"CHDA:LIT:{i:07d}", publication=pmid)
+        for i, pmid in enumerate(pubs, start=1)
+    ]
+    groups = _paper_groups(findings, pubs)
+    titles = re.findall(
+        r"<title>(.*?)</title>", g_part(_literature_timeline(groups, pubs), "lit-marks")
+    )
+    first = [t for t in titles if t.startswith("Baban A et al. 2014 (PMID:11)")]
+    assert len(first) == 1
+    assert first[0].startswith(
+        "Baban A et al. 2014 (PMID:11) · Mutations in human TBX5 cause limb and cardiac "
+    )
+    assert first[0].count("PMID:11") == 1
+    plain = [t for t in titles if t.startswith("Baban A et al. 2016")]
+    assert len(plain) == 1 and plain[0].startswith("Baban A et al. 2016 · PMID:13 · ")
+
+    fold = _literature_publications(groups, pubs)
+    summaries = re.findall(r"<summary>(.*?)</summary>", fold)
+    assert summaries[1].startswith("Baban A et al. 2014 (PMID:11) · Nature genetics · ")
+    assert summaries[2].startswith("Baban A et al. 2014 (PMID:12) · Nature genetics · ")
+    assert summaries[3].startswith("Baban A et al. 2016 · Nature genetics · ")
+
+
 def test_an_atlas_authors_paper_declares_itself_in_the_fold_and_the_timeline() -> None:
     pubs = {
         "PMID:8988165": _LIT_PUBLICATION.model_copy(update={"own_lab": True}),
@@ -10923,3 +11027,269 @@ def test_an_atlas_authors_paper_declares_itself_in_the_fold_and_the_timeline() -
         "Basson CT et al. 1997 · study by an atlas author · PMID:8988165 · "
     )
     assert len(other_title) == 1 and "study by an atlas author" not in other_title[0]
+
+
+def _tallies(**changes: object) -> LiteratureTallies:
+    base = LiteratureTallies(
+        papers=5,
+        first_year=2003,
+        last_year=2026,
+        designs={"family_segregation": 2, "cohort_screen": 3, "common_variant_association": 1},
+        lesion_groups={"septal": 4, "lvoto": 2, "avsd": 2, "other": 3},
+        de_novo_papers=1,
+        inherited_papers=3,
+        abstract_only_papers=4,
+        pending_review_papers=0,
+    )
+    return LiteratureTallies(**{**base, **changes})  # type: ignore[typeddict-item]
+
+
+def _card_text(fragment: str) -> str:
+    return html.unescape(re.sub(r"<[^>]+>", "", fragment))
+
+
+def test_the_literature_line_reads_exactly() -> None:
+    fragment = _card_literature(_tallies())
+    assert fragment.startswith('<p class="card-literature">')
+    assert _card_text(fragment) == (
+        "Papers from 2003 to 2026, by design: family segregation in 2 papers, cohort screens "
+        "in 3 papers; common-variant association in 1 paper, not Mendelian evidence. "
+        "Lesions studied, by paper: septal 4, LVOTO 2, AVSD 2, other 3. "
+        "De novo carriers in 1 paper; inherited carriers in 3 papers. "
+        "From the abstract only: 4 papers."
+    )
+
+
+def test_the_literature_line_orders_ties_by_lesion_group_and_puts_other_last() -> None:
+    fragment = _card_literature(
+        _tallies(
+            lesion_groups={"avsd": 2, "other": 9, "conotruncal": 2, "rvoto": 1, "lvoto": 2},
+            de_novo_papers=0,
+            inherited_papers=0,
+            abstract_only_papers=0,
+            pending_review_papers=2,
+            first_year=2010,
+            last_year=2010,
+        )
+    )
+    assert _card_text(fragment) == (
+        "Papers from 2010, by design: family segregation in 2 papers, cohort screens "
+        "in 3 papers; common-variant association in 1 paper, not Mendelian evidence. "
+        "Lesions studied, by paper: conotruncal 2, LVOTO 2, AVSD 2, RVOTO 1, other 9. "
+        "Pending review: 2 papers."
+    )
+
+
+def test_common_variant_alone_has_no_leading_semicolon() -> None:
+    fragment = _card_literature(_tallies(designs={"common_variant_association": 4}))
+    assert _card_text(fragment).startswith(
+        "Papers from 2003 to 2026, by design: common-variant association in 4 papers, "
+        "not Mendelian evidence. "
+    )
+
+
+def test_the_literature_line_has_a_label_for_every_design_and_lesion_group() -> None:
+    """A sixth `FindingDesign` or a tenth `LesionGroup` must not vanish from the line silently."""
+    from chd_atlas.build.pages import _CARD_LESION_LABELS, _CARD_MENDELIAN_DESIGNS
+    from chd_atlas.vocab import FindingDesign, LesionGroup
+
+    named = {key for key, _ in _CARD_MENDELIAN_DESIGNS} | {"common_variant_association"}
+    assert named == {d.value for d in FindingDesign}
+    assert [key for key, _ in _CARD_LESION_LABELS] == [g.value for g in LesionGroup]
+
+
+def test_no_line_without_papers() -> None:
+    assert _card_literature(EMPTY_GENE_LITERATURE["tallies"]) == ""
+
+
+def test_the_mechanism_sentence_reads_exactly() -> None:
+    assert _card_mechanism(()) == ""
+    assert _card_text(_card_mechanism(("haploinsufficiency",))) == (
+        "Mechanism, as curated by the atlas: haploinsufficiency."
+    )
+    assert _card_text(
+        _card_mechanism(("loss_of_function", "dominant_negative", "loss_of_function"))
+    ) == ("Mechanism, as curated by the atlas: dominant negative, loss of function.")
+
+
+_SYN_FINDINGS = [
+    {"id": "CHDA:LIT:0000001", "publication": "PMID:1"},
+    {"id": "CHDA:LIT:0000002", "publication": "PMID:1"},
+    {"id": "CHDA:LIT:0000003", "publication": "PMID:2"},
+]
+
+
+def _synthesis(*sentences: tuple[str, list[str]]) -> PublishedSynthesis:
+    """Drafter, approver and date are three distinct strings (section 4.30)."""
+    return PublishedSynthesis(
+        sentences=[{"text": text, "cites": cites} for text, cites in sentences],
+        drafted_by="agent:draft/x",
+        approved_by="B. Person",
+        approved_on="2026-11-12",
+    )
+
+
+def _syn_pubs() -> dict[str, Publication]:
+    return {
+        "PMID:1": _LIT_PUBLICATION.model_copy(update={"id": "PMID:1", "title": "T1"}),
+        "PMID:2": _LIT_PUBLICATION.model_copy(
+            update={"id": "PMID:2", "year": 2005, "authors": ["Other X"], "title": "T2"}
+        ),
+    }
+
+
+_SYN_ASSERTIONS = ("CHDA:AST:0000001",)
+
+
+def test_the_synthesis_renders_exactly() -> None:
+    """Sentence one cites two findings of one paper (one link); two, a finding and an
+    assertion of the gene, which links to its heading in the curated evidence."""
+    synthesis = _synthesis(
+        ("Variants cause septal defects.", ["CHDA:LIT:0000001", "CHDA:LIT:0000002"]),
+        ("Loss of function is the mechanism", ["CHDA:LIT:0000003", "CHDA:AST:0000001"]),
+    )
+    assert _card_synthesis(synthesis, _SYN_FINDINGS, _syn_pubs(), _SYN_ASSERTIONS) == (
+        '<div class="card-synthesis"><p><strong>In short.</strong> '
+        "Variants cause septal defects "
+        '(<a href="https://pubmed.ncbi.nlm.nih.gov/1/" title="T1">Basson CT et al. 1997</a>). '
+        "Loss of function is the mechanism "
+        '(<a href="https://pubmed.ncbi.nlm.nih.gov/2/" title="T2">Other X et al. 2005</a>; '
+        '<a href="#chda-ast-0000001">CHDA:AST:0000001</a>)</p>'
+        '<p class="card-provenance">Drafted by agent:draft/x from the records cited; '
+        "approved by B. Person on 2026-11-12.</p></div>"
+    )
+
+
+def test_a_cite_neither_a_published_finding_nor_the_genes_assertion_renders_as_its_id() -> None:
+    """Never dropped, never linked to an anchor the page does not carry."""
+    synthesis = _synthesis(("Text.", ["CHDA:LIT:0000099", "CHDA:AST:0000009"]))
+    paragraph = _card_synthesis(synthesis, _SYN_FINDINGS, _syn_pubs(), _SYN_ASSERTIONS)
+    assert "Text (CHDA:LIT:0000099; CHDA:AST:0000009).</p>" in paragraph
+
+
+@pytest.mark.parametrize(
+    ("text", "rendered"),
+    [
+        ("Is it syndromic.", "Is it syndromic (CHDA:AST:0000009)."),
+        ("Is it syndromic?", "Is it syndromic (CHDA:AST:0000009)?"),
+        ("Is it syndromic!", "Is it syndromic (CHDA:AST:0000009)!"),
+        ("Is it syndromic", "Is it syndromic (CHDA:AST:0000009)"),
+    ],
+)
+def test_the_cites_go_before_a_sentences_final_mark_which_is_kept(text: str, rendered: str) -> None:
+    """X-7: a question or an exclamation kept its mark, with the cites after it."""
+    fragment = _card_synthesis(_synthesis((text, ["CHDA:AST:0000009"])), [], {}, ())
+    assert f"<strong>In short.</strong> {rendered}</p>" in fragment
+
+
+def test_synthesis_text_and_provenance_are_escaped() -> None:
+    synthesis = PublishedSynthesis(
+        sentences=[{"text": "A <b>bold</b> claim.", "cites": ["CHDA:AST:0000001"]}],
+        drafted_by="agent:<i>x</i>",
+        approved_by="B & C",
+        approved_on="2026-11-12",
+    )
+    fragment = _card_synthesis(synthesis, [], {}, ())
+    assert "A &lt;b&gt;bold&lt;/b&gt; claim (CHDA:AST:0000001)." in fragment
+    assert "Drafted by agent:&lt;i&gt;x&lt;/i&gt; " in fragment
+    assert "approved by B &amp; C on" in fragment
+    assert "<b>" not in fragment
+    assert "<i>" not in fragment
+
+
+def test_a_sentence_without_a_final_mark_is_escaped_too() -> None:
+    """The branch for a sentence not ending in ".", "?" or "!" is a different line of code."""
+    synthesis = _synthesis(("Does <i>TBX5</i> & GATA4 interact", ["CHDA:AST:0000001"]))
+    fragment = _card_synthesis(synthesis, [], {}, ())
+    paragraph = fragment.split('<p class="card-provenance">', 1)[0]
+    assert paragraph.endswith(
+        "Does &lt;i&gt;TBX5&lt;/i&gt; &amp; GATA4 interact (CHDA:AST:0000001)</p>"
+    )
+    assert "<i>" not in paragraph
+
+
+def test_no_synthesis_renders_nothing() -> None:
+    assert _card_synthesis(None, _SYN_FINDINGS, _syn_pubs(), _SYN_ASSERTIONS) == ""
+
+
+def test_the_card_puts_the_synthesis_right_after_the_literature_line(tmp_path: Path) -> None:
+    """Wiring: the rail renders it, after `card-literature`, and withholds it when `None`."""
+    base = _lit([_lit_finding(id="CHDA:LIT:0000003")])
+    base["tallies"] = _tallies()
+    with_synthesis = GeneLiterature(
+        **{**base, "synthesis": _synthesis(("Text.", ["CHDA:LIT:0000003"]))}  # type: ignore[typeddict-item]
+    )
+    rail = _rail_of(
+        _expression_page(
+            tmp_path,
+            {},
+            literature={GATA4: with_synthesis},
+            publications={"PMID:8988165": _LIT_PUBLICATION},
+        )
+    )
+    literature_end = rail.index('<p class="card-literature">')
+    after = rail[rail.index("</p>", literature_end) + len("</p>") :]
+    assert after.startswith('<div class="card-synthesis"><p><strong>In short.</strong> Text (')
+
+    without = _rail_of(
+        _expression_page(
+            tmp_path / "w",
+            {},
+            literature={GATA4: base},
+            publications={"PMID:8988165": _LIT_PUBLICATION},
+        )
+    )
+    assert "card-synthesis" not in without
+
+
+def test_a_cited_assertion_links_to_its_heading_on_the_same_page(
+    tmp_path: Path,
+    assertions: dict[str, list[LesionAssertion]],
+    publications: dict[str, Publication],
+) -> None:
+    """Wiring (B10): the card's link lands on the curated-evidence heading its page carries.
+
+    TBX5's synthesis also cites GATA4's assertion, which must render as its bare
+    id: a link built from every assertion in the build rather than the gene's
+    own fails here (section 4.30). GATA4's page shows no curated evidence (its
+    facts say uncurated), so its own assertion has no heading to link to and
+    renders bare too.
+    """
+    other = assertions[TBX5][0].model_copy(update={"id": "CHDA:AST:0000002", "gene": GATA4})
+
+    def literature(*cites: str) -> GeneLiterature:
+        return GeneLiterature(
+            **{**_lit(), "tallies": _tallies(), "synthesis": _synthesis(("Septal.", list(cites)))}  # type: ignore[typeddict-item]
+        )
+
+    build_gene_pages(
+        {
+            TBX5: _facts(TBX5, AtlasCuration.CURATED, groups=(LesionGroup.SEPTAL,)),
+            GATA4: _facts(GATA4, AtlasCuration.NOT_YET_CURATED),
+        },
+        Emitter(root=tmp_path),
+        symbols={TBX5: "TBX5", GATA4: "GATA4"},
+        validity={TBX5: _validity(), GATA4: _validity("structural congenital heart disease")},
+        assertions={TBX5: assertions[TBX5], GATA4: [other]},
+        publications=publications,
+        burden={},
+        cohorts={},
+        cell_types={},
+        literature={
+            TBX5: literature("CHDA:AST:0000001", "CHDA:AST:0000002"),
+            GATA4: literature("CHDA:AST:0000002"),
+        },
+    )
+    page = _page(tmp_path, "HGNC_11604.html")
+    card = _slice_between(_rail_of(page), '<div class="card-synthesis">', ("</div>",))
+    assert card.startswith(
+        '<p><strong>In short.</strong> Septal (<a href="#chda-ast-0000001">CHDA:AST:0000001</a>; '
+        "CHDA:AST:0000002).</p>"
+    )
+    section = page[page.index("<h2>Curated evidence</h2>") : page.index("<h2>Literature</h2>")]
+    assert '<h3 id="chda-ast-0000001">CHDA:AST:0000001</h3>' in section
+    assert page.count('id="chda-ast-0000001"') == 1
+
+    gata4 = _page(tmp_path, "HGNC_4173.html")
+    assert "<strong>In short.</strong> Septal (CHDA:AST:0000002).</p>" in _rail_of(gata4)
+    assert 'id="chda-ast-0000002"' not in gata4

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from datetime import date
 from typing import Annotated, Final, Literal
 
@@ -23,13 +24,14 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 
 from chd_atlas.duplicates import duplicates
 from chd_atlas.identifiers import (
+    AssertionId,
     CohortId,
     HgncId,
     LiteratureFindingId,
     PhenotypeId,
     Pmid,
 )
-from chd_atlas.models.assertion import Locator
+from chd_atlas.models.assertion import LesionAssertion, Locator
 from chd_atlas.models.review import ReviewStatus, check_review
 from chd_atlas.vocab import (
     BurdenComparator,
@@ -265,6 +267,116 @@ def finding_digest(finding: Finding) -> str:
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+class SynthesisSentence(BaseModel):
+    """One sentence of a gene's synthesis and the records it rests on."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: _NonBlankStr
+    cites: list[LiteratureFindingId | AssertionId] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def cites_are_distinct(self) -> SynthesisSentence:
+        repeated = duplicates(self.cites)
+        if repeated:
+            raise ValueError(f"a sentence cites the same record twice: {repeated}")
+        return self
+
+
+class Synthesis(BaseModel):
+    """A gene's "In short" narrative: one to five sentences, each citing records.
+
+    Drafted by an agent and approved by a named person; the approval is bound to
+    `synthesis_digest`, so it is void after a change to the text or the cites, to
+    `drafted_by`, to any approved finding of the file (its content, review mark or
+    approval, so re-approving one too), to which findings are approved, or to any
+    lesion assertion of the gene.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    sentences: list[SynthesisSentence] = Field(min_length=1, max_length=5)
+    drafted_by: _NonBlankStr
+    approved_by: _NonBlankStr | None = None
+    approved_on: date | None = None
+    approved_digest: _NonBlankStr | None = None
+
+    @model_validator(mode="after")
+    def approval_is_a_named_person(self) -> Synthesis:
+        approval = (self.approved_by, self.approved_on, self.approved_digest)
+        if any(part is None for part in approval) and any(part is not None for part in approval):
+            raise ValueError(
+                "synthesis: approved_by, approved_on and approved_digest are set together "
+                "or not at all"
+            )
+        if self.approved_by is not None and self.approved_by.strip().lower().startswith(
+            _AGENT_PREFIX
+        ):
+            raise ValueError("synthesis: approved_by names an agent; a person must approve")
+        if not self.drafted_by.strip().lower().startswith(_AGENT_PREFIX):
+            raise ValueError(
+                "synthesis: drafted_by must name the drafting agent (agent:<skill>/<model>); "
+                "a person approves, an agent drafts"
+            )
+        return self
+
+
+def _canonical_digest(content: object) -> str:
+    canonical = json.dumps(content, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _covered_finding(finding: Finding) -> str:
+    """A finding's digest plus what `finding_digest` leaves out and a synthesis rests on.
+
+    The review mark, and the approval itself (`approved_by`, `approved_on` as an
+    ISO date, `approved_digest`): a re-approved finding, even with unchanged
+    content, withholds the synthesis until it is approved again (GS5).
+    `verified_by` stays out, as it does of the finding's own digest.
+    """
+    return _canonical_digest(
+        {
+            "finding": finding_digest(finding),
+            "review_status": finding.review_status.value if finding.review_status else None,
+            "review_note": finding.review_note or None,
+            "approved_by": finding.approved_by,
+            "approved_on": finding.approved_on.isoformat() if finding.approved_on else None,
+            "approved_digest": finding.approved_digest,
+        }
+    )
+
+
+def synthesis_digest(
+    synthesis: Synthesis,
+    findings: Sequence[Finding],
+    assertions: Sequence[LesionAssertion],
+) -> str:
+    """`sha256:` and the hex digest of what a synthesis says and rests on.
+
+    Canonical JSON (as `finding_digest`) of the sentences' `text` and `cites`
+    (in order), `drafted_by` (the card prints it as the drafter), the sorted
+    `_covered_finding` digest of every finding in `findings` with `approved_by`
+    set (its `finding_digest`, its review mark and its approval), and the sorted
+    digests of `assertions`, each the canonical JSON of
+    `model_dump(mode="json", exclude_defaults=True)`. Only the synthesis's own
+    approval fields are not covered. Findings are filtered here, so the caller
+    passes all of the file's; assertions are NOT filtered by gene, so the caller
+    passes the gene's own lesion assertions. Input order does not matter.
+    Editing the text, the cites or `drafted_by`, editing an approved finding,
+    marking it for review, re-approving it, approving another finding, or
+    editing, adding or removing an assertion voids a standing approval.
+    """
+    content = {
+        "sentences": [{"text": s.text, "cites": list(s.cites)} for s in synthesis.sentences],
+        "drafted_by": synthesis.drafted_by,
+        "findings": sorted(_covered_finding(f) for f in findings if f.approved_by is not None),
+        "assertions": sorted(
+            _canonical_digest(a.model_dump(mode="json", exclude_defaults=True)) for a in assertions
+        ),
+    }
+    return _canonical_digest(content)
+
+
 class GeneLiteratureFile(BaseModel):
     """``curation/literature/<SYMBOL>.yaml`` -- one gene's searches, triage and findings."""
 
@@ -274,6 +386,7 @@ class GeneLiteratureFile(BaseModel):
     searches: list[Search] = Field(min_length=1)
     triage: list[TriageEntry] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
+    synthesis: Synthesis | None = None
 
     @model_validator(mode="after")
     def ids_are_unique(self) -> GeneLiteratureFile:

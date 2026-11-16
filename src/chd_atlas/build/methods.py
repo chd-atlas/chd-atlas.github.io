@@ -49,7 +49,8 @@ here, and "this page" here names a page with no gene on it.
   keeps the notes of its own cohorts, folded, and links here (P4).
 * `#literature` was written new (2026-11-02): what a gene page's literature
   section records and how it was searched; each clause was read off the code,
-  and it names no count.
+  and it names no measured count. Two paragraphs since say what the card's
+  literature line counts and what its "In short" paragraph is (2026-11-16).
 * `#expression` is both (2026-10-26): two paragraphs moved off the gene pages
   (the folded reading notes: the placement note from every page with data,
   the comparability notice from every page that laid out more than one
@@ -501,8 +502,16 @@ _RARE_VARIANTS: Final = (
 # two review marks off `models.review.ReviewStatus` (labels in
 # `render.review_status_note`). The Finding model has no field defining a
 # carrier, so the section says the atlas records the authors' counts, not a
-# definition. It names no count. 156 words counting the heading, 155 by the
-# test's count (`test_literature_states_how_it_was_searched_and_who_approves`).
+# definition. It names no measured count. The second paragraph says what the gene card's
+# literature line counts (`pages._card_literature`). The third says what the card's "In
+# short" paragraph is (`pages._card_synthesis`): "one to five sentences" is
+# `Synthesis.sentences`; the drafter is `Synthesis.drafted_by`, printed in the provenance
+# line, which `Synthesis` requires to be `agent:<skill>/<model>`;
+# "approved findings and lesion assertions only" is SYN001; "no figures" is SYN002;
+# the withholding is `synthesis_digest` (`gene_literature._published_synthesis`).
+# 329 words with tags read as spaces (heading 1, paragraphs 157, 96 and 75), 326 by the
+# test's count
+# (`test_literature_states_how_it_was_searched_and_who_approves`).
 _LITERATURE: Final = (
     '<h2 id="literature">Literature</h2>'
     "<p>For a gene with a literature record, the atlas keeps each PubMed search it ran, "
@@ -515,8 +524,23 @@ _LITERATURE: Final = (
     "whatever the authors counted as one, in people or families as stated; the atlas "
     "records their counts and does not re-classify the variants. A named curator approves "
     "each finding before publication; findings awaiting approval are counted, not shown. "
-    "A review mark says a finding's source disagrees with its paper (pending review) or "
-    "could not be read (source not accessible).</p>"
+    "A review mark flags an open question for an expert (pending review) or a source "
+    "that could not be read (source not accessible).</p>"
+    "<p>The gene card counts approved findings by paper and never sums carriers across "
+    "papers, because cohorts can overlap. It names each paper's study design. "
+    '"Lesions studied" counts the lesions a paper studied: for a screen with no carrier, '
+    "an association study, or a paper that does not state the carriers' lesions, these "
+    "are the cohort's lesions. A common-variant association is never Mendelian "
+    'evidence. "From the abstract only" counts papers with a finding whose source '
+    "could not be read in "
+    'full; "pending review" counts papers with a finding that carries a question left open '
+    "for an expert.</p>"
+    '<p>A gene card may also carry an "In short" paragraph of one to five sentences. '
+    "An AI model drafts it, and its provenance line names the model. It draws only on "
+    "the atlas's approved findings and the gene's lesion assertions, and each sentence "
+    "cites the records it rests on. It states no figures. It is published only after a "
+    "named person approves it. When anything it rests on changes, it is withheld until "
+    "approved again.</p>"
 )
 
 
