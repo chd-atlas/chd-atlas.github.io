@@ -59,7 +59,7 @@ What the build produced, and a checksum for every file in it.
     "genes/index.json": "sha256:<64 hex>",
     "publications.json": "sha256:<64 hex>"
   },
-  "schema_version": "2.22",
+  "schema_version": "2.23",
   "source_commit": "<40-hex commit sha, or null outside a git checkout>",
   "status": "in-development"
 }
@@ -307,6 +307,9 @@ wrong by the next one.
   when the source's rows were not ingested from a data package, which is every
   source as of `2.22`, and for good a source no mirror table holds rows from,
   such as `hpo`. Additive.
+  `2.23` added `tallies` to every gene bundle's `literature` object: the
+  approved findings counted by paper (see the field's own description). The gene
+  page card now reads from it. Additive.
 - `status` is the atlas's own readiness, so a program can read it without
   scraping `index.html`'s prose. Today it is always `"in-development"` — one
   curated gene-disease assertion alongside mirrored ClinGen/GenCC validity for
@@ -765,7 +768,11 @@ abridged, and each is documented in full further down.
                 "pending": 0 },
     "pending_approval": 0,
     "findings": [ { "id": "CHDA:LIT:0000015", "publication": "PMID:12789647",
-                    "design": "cohort_screen", … }, … ]
+                    "design": "cohort_screen", … }, … ],
+    "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
+                 "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
+                 "de_novo_papers": 11, "inherited_papers": 24,
+                 "abstract_only_papers": 21, "pending_review_papers": 3 }
   }
 }
 ```
@@ -1607,7 +1614,7 @@ abridged:
     …]}]}
 ```
 
-### The bundle's `literature` object: searches, a triage tally and approved findings
+### The bundle's `literature` object: searches, a triage tally, paper tallies and approved findings
 
 On every gene bundle (since `2.21`). Always present; a gene with no
 `curation/literature` file carries exactly the empty shape below, as 117 of the
@@ -1615,7 +1622,10 @@ On every gene bundle (since `2.21`). Always present; a gene with no
 
 ```json
 { "searches": [], "triage": { "included": 0, "excluded": {}, "pending": 0 },
-  "pending_approval": 0, "findings": [] }
+  "pending_approval": 0, "findings": [],
+  "tallies": { "papers": 0, "first_year": null, "last_year": null, "designs": {},
+               "lesion_groups": {}, "de_novo_papers": 0, "inherited_papers": 0,
+               "abstract_only_papers": 0, "pending_review_papers": 0 } }
 ```
 
 TBX5's, abridged:
@@ -1627,7 +1637,11 @@ TBX5's, abridged:
   "pending_approval": 0,
   "findings": [ { "id": "CHDA:LIT:0000015", "publication": "PMID:12789647", "design": "cohort_screen",
                   "count_unit": "probands", "screened": 49,
-                  "carriers": { "de_novo": 0, "inherited": 9, "origin_unknown": 8 }, … }, … ] }
+                  "carriers": { "de_novo": 0, "inherited": 9, "origin_unknown": 8 }, … }, … ],
+  "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
+               "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
+               "de_novo_papers": 11, "inherited_papers": 24,
+               "abstract_only_papers": 21, "pending_review_papers": 3 } }
 ```
 
 - `searches` lists each recorded PubMed search: `source`, `query`, `run_on` (an
@@ -1655,6 +1669,20 @@ TBX5's, abridged:
   not yet approved, which is then in no bundle, so the id resolves nowhere in the
   published data. `carriers` and `screened` are counted in `count_unit`: with
   `families`, `screened` is families and each origin count is carrier families.
+- `tallies` (since `2.23`) counts the approved findings by paper (distinct `publication`), never
+  carriers: papers may share probands, so no carrier total across papers is
+  published. A paper with several findings counts once in each category, so the
+  categories need not sum to `papers`. `designs` and `lesion_groups` map a value
+  to its papers and hold only values with at least one paper. `lesion_groups`
+  counts papers by each approved finding's lesion groups, which for a screen that
+  found no carrier, an association study, or a paper that never states the carriers'
+  lesions, are the cohort's lesions rather than carriers'.
+  `de_novo_papers` and `inherited_papers` count papers with at least one finding
+  carrying such a carrier; `abstract_only_papers` and `pending_review_papers`
+  count papers with at least one finding whose `review_status` is
+  `not_accessible` (read from the abstract only) or `pending_review`
+  respectively. `first_year` and `last_year` span the papers' years, `null`
+  with no approved finding.
 
 The gene page renders this as its Literature section, right after the atlas's
 curated evidence (on a gene with none, after the validity table) and before the
@@ -1793,7 +1821,9 @@ Top to bottom:
    published." With no row at
    all, that no rare-variant study here reports a result. The power caveat — no enrichment at these cohort sizes is not
    evidence against a gene — follows whenever the gene has rows.
-7. One sentence saying what the atlas itself has curated (below).
+7. One sentence saying what the atlas itself has curated, then, where a curated
+   lesion assertion exists, a mechanism sentence and, where approved findings
+   exist, a literature line (both described below).
 8. *How to read this page*, a link to the top of [`methods.html`](#methodshtml),
    and a link to the gene's own JSON.
 
@@ -1972,6 +2002,20 @@ and a gene with only those still reads "Not yet curated by the atlas". The
 JSON field is unchanged: `atlas_curation` stays derived from lesion assertions
 alone, so such a gene is `not_yet_curated` in its bundle and curated on its
 card. The `literature` key carries the findings the card counts.
+
+Two more lines sit under the curation sentence. On every gene with a curated
+lesion assertion, "Mechanism, as curated by the atlas: haploinsufficiency."
+names the assertions' distinct mechanisms, sorted, `unknown` included; a gene
+with no assertion has no such line. Where a gene has approved literature, a literature
+line states it by paper from `literature.tallies`: the years the papers span,
+then the study designs, the lesion groups ("Lesions studied, by paper": the
+lesions each paper's findings name, which for a screen that found no carrier, an
+association study, or a paper that never states the carriers' lesions, are the
+cohort's lesions rather than carriers'), the
+papers reporting de novo and inherited carriers, and the papers read from the
+abstract only or pending review. Every figure counts papers. The card never
+states a carrier count summed across papers, because those cohorts may overlap, and it names a common-variant
+association apart from the Mendelian designs ("not Mendelian evidence").
 
 Read the uncurated sentences precisely, because they are narrower than they first appear. **A lesion
 assertion**, or an approved literature finding, is what decides which sentence the card shows, not

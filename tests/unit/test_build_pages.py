@@ -23,13 +23,19 @@ from chd_atlas.build.cell_types import CellTypeExpression
 from chd_atlas.build.concordance import cohort_families, evidence_axes, gene_concordance
 from chd_atlas.build.derive import GeneFacts
 from chd_atlas.build.emit import Emitter
-from chd_atlas.build.gene_literature import GeneLiterature
+from chd_atlas.build.gene_literature import (
+    EMPTY_GENE_LITERATURE,
+    GeneLiterature,
+    LiteratureTallies,
+)
 from chd_atlas.build.identity import GeneIdentity
 from chd_atlas.build.pages import (
     _DESIGN_SHAPES,
     _EM_DASH,
     _SEVERAL_DESIGNS,
     _analysis_label,
+    _card_literature,
+    _card_mechanism,
     _chd_only,
     _count,
     _date,
@@ -9859,6 +9865,7 @@ def _approved(*pmids: str) -> GeneLiterature:
         triage={"included": 0, "excluded": {}, "pending": 0},
         pending_approval=0,
         findings=[{"id": f"F{n}", "publication": pmid} for n, pmid in enumerate(pmids)],
+        tallies=EMPTY_GENE_LITERATURE["tallies"],
     )
 
 
@@ -9927,6 +9934,7 @@ def test_a_gene_whose_findings_all_await_approval_is_not_yet_curated(tmp_path: P
         triage={"included": 0, "excluded": {}, "pending": 0},
         pending_approval=2,
         findings=[],
+        tallies=EMPTY_GENE_LITERATURE["tallies"],
     )
     build_gene_pages(
         {GATA4: _facts(GATA4, AtlasCuration.NOT_YET_CURATED)},
@@ -9963,6 +9971,7 @@ def test_the_card_counts_the_approved_findings_and_not_those_awaiting_approval(
         triage={"included": 0, "excluded": {}, "pending": 0},
         pending_approval=4,
         findings=[{"id": "F0", "publication": "PMID:1"}, {"id": "F1", "publication": "PMID:2"}],
+        tallies=EMPTY_GENE_LITERATURE["tallies"],
     )
     build_gene_pages(
         {GATA4: _facts(GATA4, AtlasCuration.NOT_YET_CURATED)},
@@ -10291,6 +10300,7 @@ def _lit(
         },
         pending_approval=waiting,
         findings=findings or [],
+        tallies=EMPTY_GENE_LITERATURE["tallies"],
     )
 
 
@@ -11011,3 +11021,86 @@ def test_an_atlas_authors_paper_declares_itself_in_the_fold_and_the_timeline() -
         "Basson CT et al. 1997 · study by an atlas author · PMID:8988165 · "
     )
     assert len(other_title) == 1 and "study by an atlas author" not in other_title[0]
+
+
+def _tallies(**changes: object) -> LiteratureTallies:
+    base = LiteratureTallies(
+        papers=5,
+        first_year=2003,
+        last_year=2026,
+        designs={"family_segregation": 2, "cohort_screen": 3, "common_variant_association": 1},
+        lesion_groups={"septal": 4, "lvoto": 2, "avsd": 2, "other": 3},
+        de_novo_papers=1,
+        inherited_papers=3,
+        abstract_only_papers=4,
+        pending_review_papers=0,
+    )
+    return LiteratureTallies(**{**base, **changes})  # type: ignore[typeddict-item]
+
+
+def _card_text(fragment: str) -> str:
+    return html.unescape(re.sub(r"<[^>]+>", "", fragment))
+
+
+def test_the_literature_line_reads_exactly() -> None:
+    fragment = _card_literature(_tallies())
+    assert fragment.startswith('<p class="card-literature">')
+    assert _card_text(fragment) == (
+        "Papers from 2003 to 2026, by design: family segregation in 2 papers, cohort screens "
+        "in 3 papers; common-variant association in 1 paper, not Mendelian evidence. "
+        "Lesions studied, by paper: septal 4, LVOTO 2, AVSD 2, other 3. "
+        "De novo carriers in 1 paper; inherited carriers in 3 papers. "
+        "From the abstract only: 4 papers."
+    )
+
+
+def test_the_literature_line_orders_ties_by_lesion_group_and_puts_other_last() -> None:
+    fragment = _card_literature(
+        _tallies(
+            lesion_groups={"avsd": 2, "other": 9, "conotruncal": 2, "rvoto": 1, "lvoto": 2},
+            de_novo_papers=0,
+            inherited_papers=0,
+            abstract_only_papers=0,
+            pending_review_papers=2,
+            first_year=2010,
+            last_year=2010,
+        )
+    )
+    assert _card_text(fragment) == (
+        "Papers from 2010, by design: family segregation in 2 papers, cohort screens "
+        "in 3 papers; common-variant association in 1 paper, not Mendelian evidence. "
+        "Lesions studied, by paper: conotruncal 2, LVOTO 2, AVSD 2, RVOTO 1, other 9. "
+        "Pending review: 2 papers."
+    )
+
+
+def test_common_variant_alone_has_no_leading_semicolon() -> None:
+    fragment = _card_literature(_tallies(designs={"common_variant_association": 4}))
+    assert _card_text(fragment).startswith(
+        "Papers from 2003 to 2026, by design: common-variant association in 4 papers, "
+        "not Mendelian evidence. "
+    )
+
+
+def test_the_literature_line_has_a_label_for_every_design_and_lesion_group() -> None:
+    """A sixth `FindingDesign` or a tenth `LesionGroup` must not vanish from the line silently."""
+    from chd_atlas.build.pages import _CARD_LESION_LABELS, _CARD_MENDELIAN_DESIGNS
+    from chd_atlas.vocab import FindingDesign, LesionGroup
+
+    named = {key for key, _ in _CARD_MENDELIAN_DESIGNS} | {"common_variant_association"}
+    assert named == {d.value for d in FindingDesign}
+    assert [key for key, _ in _CARD_LESION_LABELS] == [g.value for g in LesionGroup]
+
+
+def test_no_line_without_papers() -> None:
+    assert _card_literature(EMPTY_GENE_LITERATURE["tallies"]) == ""
+
+
+def test_the_mechanism_sentence_reads_exactly() -> None:
+    assert _card_mechanism(()) == ""
+    assert _card_text(_card_mechanism(("haploinsufficiency",))) == (
+        "Mechanism, as curated by the atlas: haploinsufficiency."
+    )
+    assert _card_text(
+        _card_mechanism(("loss_of_function", "dominant_negative", "loss_of_function"))
+    ) == ("Mechanism, as curated by the atlas: dominant negative, loss of function.")

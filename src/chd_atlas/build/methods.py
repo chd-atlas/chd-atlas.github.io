@@ -501,7 +501,8 @@ _RARE_VARIANTS: Final = (
 # two review marks off `models.review.ReviewStatus` (labels in
 # `render.review_status_note`). The Finding model has no field defining a
 # carrier, so the section says the atlas records the authors' counts, not a
-# definition. It names no count. 156 words counting the heading, 155 by the
+# definition. It names no count. The second paragraph says what the gene card's
+# literature line counts (`pages._card_literature`). 253 words counting the heading, 252 by the
 # test's count (`test_literature_states_how_it_was_searched_and_who_approves`).
 _LITERATURE: Final = (
     '<h2 id="literature">Literature</h2>'
@@ -515,8 +516,17 @@ _LITERATURE: Final = (
     "whatever the authors counted as one, in people or families as stated; the atlas "
     "records their counts and does not re-classify the variants. A named curator approves "
     "each finding before publication; findings awaiting approval are counted, not shown. "
-    "A review mark says a finding's source disagrees with its paper (pending review) or "
-    "could not be read (source not accessible).</p>"
+    "A review mark flags an open question for an expert (pending review) or a source "
+    "that could not be read (source not accessible).</p>"
+    "<p>The gene card counts approved findings by paper and never sums carriers across "
+    "papers, because cohorts can overlap. It names each paper's study design. "
+    '"Lesions studied" counts the lesions a paper studied: for a screen with no carrier, '
+    "an association study, or a paper that does not state the carriers' lesions, these "
+    "are the cohort's lesions. A common-variant association is never Mendelian "
+    'evidence. "From the abstract only" counts papers with a finding whose source '
+    "could not be read in "
+    'full; "pending review" counts papers with a finding that carries a question left open '
+    "for an expert.</p>"
 )
 
 
