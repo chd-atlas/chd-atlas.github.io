@@ -3271,27 +3271,28 @@ findings:
     review_note: Only the PubMed abstract was read; the full text was not.
 synthesis:
   sentences:
-    - text: Carriers' lesions include atrial, ventricular and atrioventricular septal defects, double outlet right ventricle, hypoplastic left heart syndrome, anomalous pulmonary venous return and patent ductus arteriosus; tetralogy of Fallot, coarctation and tricuspid atresia rest on abstracts alone.
+    - text: Carriers' lesions include atrial and ventricular septal defects, double outlet right ventricle, hypoplastic left heart syndrome, anomalous pulmonary venous return and patent ductus arteriosus; tetralogy of Fallot, coarctation and atrioventricular septal defect rest on papers read from the abstract only.
       cites:
-        - CHDA:AST:0000001
-        - CHDA:LIT:0000021
-        - CHDA:LIT:0000075
         - CHDA:LIT:0000056
+        - CHDA:LIT:0000075
+        - CHDA:LIT:0000016
+        - CHDA:LIT:0000021
         - CHDA:LIT:0000069
         - CHDA:LIT:0000088
         - CHDA:LIT:0000086
-        - CHDA:LIT:0000089
+        - CHDA:LIT:0000098
     - text: Carriers with a heart defect can also have atrioventricular block or atrial fibrillation.
       cites:
         - CHDA:LIT:0000016
         - CHDA:LIT:0000052
         - CHDA:LIT:0000048
-    - text: Carriers present with Holt-Oram syndrome, upper-limb malformation with a heart defect, or isolated heart disease; a report cautions subtle limb anomalies may have been missed.
+    - text: Carriers present with Holt-Oram syndrome or isolated heart disease; reports caution subtle limb anomalies may be missed, and a family's isolated disease was rediagnosed as Holt-Oram syndrome.
       cites:
         - CHDA:AST:0000001
-        - CHDA:LIT:0000050
+        - CHDA:LIT:0000016
         - CHDA:LIT:0000069
         - CHDA:LIT:0000072
+        - CHDA:LIT:0000056
     - text: Variants arose de novo or segregated with disease in families, where carriers can differ in lesion or have arrhythmia without a reported structural defect.
       cites:
         - CHDA:LIT:0000016
@@ -3300,7 +3301,7 @@ synthesis:
         - CHDA:LIT:0000056
         - CHDA:LIT:0000059
         - CHDA:LIT:0000031
-    - text: Reported variants include nonsense, frameshift, splice-site and missense changes, a deletion of the whole coding sequence and partial duplications.
+    - text: Variants include nonsense, frameshift, splice-site and missense changes, a whole coding-sequence deletion and partial duplications.
       cites:
         - CHDA:LIT:0000056
         - CHDA:LIT:0000076
