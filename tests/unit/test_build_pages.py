@@ -11050,27 +11050,48 @@ def _syn_pubs() -> dict[str, Publication]:
     }
 
 
+_SYN_ASSERTIONS = ("CHDA:AST:0000001",)
+
+
 def test_the_synthesis_renders_exactly() -> None:
-    """Sentence one cites two findings of one paper (one link); two, a finding and an assertion."""
+    """Sentence one cites two findings of one paper (one link); two, a finding and an
+    assertion of the gene, which links to its heading in the curated evidence."""
     synthesis = _synthesis(
         ("Variants cause septal defects.", ["CHDA:LIT:0000001", "CHDA:LIT:0000002"]),
         ("Loss of function is the mechanism", ["CHDA:LIT:0000003", "CHDA:AST:0000001"]),
     )
-    assert _card_synthesis(synthesis, _SYN_FINDINGS, _syn_pubs()) == (
+    assert _card_synthesis(synthesis, _SYN_FINDINGS, _syn_pubs(), _SYN_ASSERTIONS) == (
         '<div class="card-synthesis"><p><strong>In short.</strong> '
         "Variants cause septal defects "
         '(<a href="https://pubmed.ncbi.nlm.nih.gov/1/" title="T1">Basson CT et al. 1997</a>). '
         "Loss of function is the mechanism "
         '(<a href="https://pubmed.ncbi.nlm.nih.gov/2/" title="T2">Other X et al. 2005</a>; '
-        "CHDA:AST:0000001)</p>"
+        '<a href="#chda-ast-0000001">CHDA:AST:0000001</a>)</p>'
         '<p class="card-provenance">Drafted by agent:draft/x from the records cited; '
         "approved by B. Person on 2026-11-12.</p></div>"
     )
 
 
-def test_a_finding_the_bundle_lacks_renders_as_its_id_not_nothing() -> None:
-    synthesis = _synthesis(("Text.", ["CHDA:LIT:0000099"]))
-    assert "Text (CHDA:LIT:0000099)." in _card_synthesis(synthesis, _SYN_FINDINGS, _syn_pubs())
+def test_a_cite_neither_a_published_finding_nor_the_genes_assertion_renders_as_its_id() -> None:
+    """Never dropped, never linked to an anchor the page does not carry."""
+    synthesis = _synthesis(("Text.", ["CHDA:LIT:0000099", "CHDA:AST:0000009"]))
+    paragraph = _card_synthesis(synthesis, _SYN_FINDINGS, _syn_pubs(), _SYN_ASSERTIONS)
+    assert "Text (CHDA:LIT:0000099; CHDA:AST:0000009).</p>" in paragraph
+
+
+@pytest.mark.parametrize(
+    ("text", "rendered"),
+    [
+        ("Is it syndromic.", "Is it syndromic (CHDA:AST:0000009)."),
+        ("Is it syndromic?", "Is it syndromic (CHDA:AST:0000009)?"),
+        ("Is it syndromic!", "Is it syndromic (CHDA:AST:0000009)!"),
+        ("Is it syndromic", "Is it syndromic (CHDA:AST:0000009)"),
+    ],
+)
+def test_the_cites_go_before_a_sentences_final_mark_which_is_kept(text: str, rendered: str) -> None:
+    """X-7: a question or an exclamation kept its mark, with the cites after it."""
+    fragment = _card_synthesis(_synthesis((text, ["CHDA:AST:0000009"])), [], {}, ())
+    assert f"<strong>In short.</strong> {rendered}</p>" in fragment
 
 
 def test_synthesis_text_and_provenance_are_escaped() -> None:
@@ -11080,7 +11101,7 @@ def test_synthesis_text_and_provenance_are_escaped() -> None:
         approved_by="B & C",
         approved_on="2026-11-12",
     )
-    fragment = _card_synthesis(synthesis, [], {})
+    fragment = _card_synthesis(synthesis, [], {}, ())
     assert "A &lt;b&gt;bold&lt;/b&gt; claim (CHDA:AST:0000001)." in fragment
     assert "Drafted by agent:&lt;i&gt;x&lt;/i&gt; " in fragment
     assert "approved by B &amp; C on" in fragment
@@ -11088,19 +11109,19 @@ def test_synthesis_text_and_provenance_are_escaped() -> None:
     assert "<i>" not in fragment
 
 
-def test_a_sentence_without_a_final_period_is_escaped_too() -> None:
-    """The branch for a sentence not ending in "." is a different line of code."""
-    synthesis = _synthesis(("Does <i>TBX5</i> & GATA4 interact?", ["CHDA:AST:0000001"]))
-    fragment = _card_synthesis(synthesis, [], {})
+def test_a_sentence_without_a_final_mark_is_escaped_too() -> None:
+    """The branch for a sentence not ending in ".", "?" or "!" is a different line of code."""
+    synthesis = _synthesis(("Does <i>TBX5</i> & GATA4 interact", ["CHDA:AST:0000001"]))
+    fragment = _card_synthesis(synthesis, [], {}, ())
     paragraph = fragment.split('<p class="card-provenance">', 1)[0]
     assert paragraph.endswith(
-        "Does &lt;i&gt;TBX5&lt;/i&gt; &amp; GATA4 interact? (CHDA:AST:0000001)</p>"
+        "Does &lt;i&gt;TBX5&lt;/i&gt; &amp; GATA4 interact (CHDA:AST:0000001)</p>"
     )
     assert "<i>" not in paragraph
 
 
 def test_no_synthesis_renders_nothing() -> None:
-    assert _card_synthesis(None, _SYN_FINDINGS, _syn_pubs()) == ""
+    assert _card_synthesis(None, _SYN_FINDINGS, _syn_pubs(), _SYN_ASSERTIONS) == ""
 
 
 def test_the_card_puts_the_synthesis_right_after_the_literature_line(tmp_path: Path) -> None:
@@ -11131,3 +11152,56 @@ def test_the_card_puts_the_synthesis_right_after_the_literature_line(tmp_path: P
         )
     )
     assert "card-synthesis" not in without
+
+
+def test_a_cited_assertion_links_to_its_heading_on_the_same_page(
+    tmp_path: Path,
+    assertions: dict[str, list[LesionAssertion]],
+    publications: dict[str, Publication],
+) -> None:
+    """Wiring (B10): the card's link lands on the curated-evidence heading its page carries.
+
+    TBX5's synthesis also cites GATA4's assertion, which must render as its bare
+    id: a link built from every assertion in the build rather than the gene's
+    own fails here (section 4.30). GATA4's page shows no curated evidence (its
+    facts say uncurated), so its own assertion has no heading to link to and
+    renders bare too.
+    """
+    other = assertions[TBX5][0].model_copy(update={"id": "CHDA:AST:0000002", "gene": GATA4})
+
+    def literature(*cites: str) -> GeneLiterature:
+        return GeneLiterature(
+            **{**_lit(), "tallies": _tallies(), "synthesis": _synthesis(("Septal.", list(cites)))}  # type: ignore[typeddict-item]
+        )
+
+    build_gene_pages(
+        {
+            TBX5: _facts(TBX5, AtlasCuration.CURATED, groups=(LesionGroup.SEPTAL,)),
+            GATA4: _facts(GATA4, AtlasCuration.NOT_YET_CURATED),
+        },
+        Emitter(root=tmp_path),
+        symbols={TBX5: "TBX5", GATA4: "GATA4"},
+        validity={TBX5: _validity(), GATA4: _validity("structural congenital heart disease")},
+        assertions={TBX5: assertions[TBX5], GATA4: [other]},
+        publications=publications,
+        burden={},
+        cohorts={},
+        cell_types={},
+        literature={
+            TBX5: literature("CHDA:AST:0000001", "CHDA:AST:0000002"),
+            GATA4: literature("CHDA:AST:0000002"),
+        },
+    )
+    page = _page(tmp_path, "HGNC_11604.html")
+    card = _slice_between(_rail_of(page), '<div class="card-synthesis">', ("</div>",))
+    assert card.startswith(
+        '<p><strong>In short.</strong> Septal (<a href="#chda-ast-0000001">CHDA:AST:0000001</a>; '
+        "CHDA:AST:0000002).</p>"
+    )
+    section = page[page.index("<h2>Curated evidence</h2>") : page.index("<h2>Literature</h2>")]
+    assert '<h3 id="chda-ast-0000001">CHDA:AST:0000001</h3>' in section
+    assert page.count('id="chda-ast-0000001"') == 1
+
+    gata4 = _page(tmp_path, "HGNC_4173.html")
+    assert "<strong>In short.</strong> Septal (CHDA:AST:0000002).</p>" in _rail_of(gata4)
+    assert 'id="chda-ast-0000002"' not in gata4

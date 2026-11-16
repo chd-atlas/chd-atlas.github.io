@@ -2038,10 +2038,11 @@ association apart from the Mendelian designs ("not Mendelian evidence").
 
 Where `literature.synthesis` is not `null`, an "In short" paragraph follows
 the literature line: each sentence with its cited papers in parentheses before
-its closing period ("Basson CT et al. 1997", linked to PubMed, once per sentence
-however many of that paper's findings it cites; an assertion appears as its id),
-then "Drafted by … from the records cited; approved by … on …". A withheld
-synthesis renders nothing.
+its closing period, question mark or exclamation mark ("Basson CT et al. 1997",
+linked to PubMed, once per sentence however many of that paper's findings it
+cites; an assertion appears as its id, linked to its heading under Curated
+evidence), then "Drafted by … from the records cited; approved by … on …". A
+withheld synthesis renders nothing.
 
 Read the uncurated sentences precisely, because they are narrower than they first appear. **A lesion
 assertion**, or an approved literature finding, is what decides which sentence the card shows, not
