@@ -668,3 +668,6 @@ synthesis:
         - CHDA:LIT:0000101
         - CHDA:LIT:0000102
   drafted_by: agent:gene-synthesis/claude-opus-5-5
+  approved_by: E.A.M
+  approved_on: 2026-11-16
+  approved_digest: sha256:cfe85ab728c854274039bdfb071bc95b4bfc8242fa4fd4ac7a6b1e44e7527f28
