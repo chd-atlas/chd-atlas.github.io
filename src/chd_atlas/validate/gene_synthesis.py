@@ -13,8 +13,9 @@ Location format: the file's path with ``:synthesis`` appended, plus
 - SYN003 (error): more than `MAX_WORDS` words across all sentences; a word is a
   whitespace-separated token containing a letter or a digit.
 - SYN004 (warning): the synthesis is approved and its ``approved_digest`` differs
-  from `synthesis_digest` recomputed over the file's findings and the gene's own
-  lesion assertions. An unapproved synthesis raises nothing: it is not published.
+  from `synthesis_digest` recomputed over the synthesis, the file's findings and
+  the gene's own lesion assertions. An unapproved synthesis raises nothing: it is
+  not published.
 
 Pure functions over the loaded corpus. The model enforces sentence count and
 approval-field arity; this module checks what a model cannot see.
@@ -133,10 +134,10 @@ def validate_gene_synthesis(corpus: Corpus) -> list[ValidationIssue]:
                     "SYN004",
                     Severity.WARNING,
                     f"{path}:synthesis",
-                    "approval is stale: the text, an approved finding or a lesion assertion "
-                    f"of {literature.gene} changed since it was approved; re-approve with "
-                    f"`chd-atlas literature review {path.stem} --approve-synthesis "
-                    "--by <name>`",
+                    "approval is stale: the text, its cites or drafted_by, the approved "
+                    "findings (content, review mark or approval) or a lesion assertion of "
+                    f"{literature.gene} changed since it was approved; re-approve with the "
+                    f"command `chd-atlas literature review {path.stem}` prints",
                 )
             )
     return issues

@@ -287,8 +287,10 @@ class Synthesis(BaseModel):
     """A gene's "In short" narrative: one to five sentences, each citing records.
 
     Drafted by an agent and approved by a named person; the approval is bound to
-    `synthesis_digest`, so an edit to the text, to an approved finding of the gene
-    (its review mark included) or to a lesion assertion of the gene voids it.
+    `synthesis_digest`, so it is void after a change to the text or the cites, to
+    `drafted_by`, to any approved finding of the file (its content, review mark or
+    approval, so re-approving one too), to which findings are approved, or to any
+    lesion assertion of the gene.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -320,12 +322,21 @@ def _canonical_digest(content: object) -> str:
 
 
 def _covered_finding(finding: Finding) -> str:
-    """A finding's digest plus its review mark, which `finding_digest` leaves out."""
+    """A finding's digest plus what `finding_digest` leaves out and a synthesis rests on.
+
+    The review mark, and the approval itself (`approved_by`, `approved_on` as an
+    ISO date, `approved_digest`): a re-approved finding, even with unchanged
+    content, withholds the synthesis until it is approved again (GS5).
+    `verified_by` stays out, as it does of the finding's own digest.
+    """
     return _canonical_digest(
         {
             "finding": finding_digest(finding),
             "review_status": finding.review_status.value if finding.review_status else None,
             "review_note": finding.review_note or None,
+            "approved_by": finding.approved_by,
+            "approved_on": finding.approved_on.isoformat() if finding.approved_on else None,
+            "approved_digest": finding.approved_digest,
         }
     )
 
@@ -338,19 +349,21 @@ def synthesis_digest(
     """`sha256:` and the hex digest of what a synthesis says and rests on.
 
     Canonical JSON (as `finding_digest`) of the sentences' `text` and `cites`
-    (in order), the sorted digest of every finding in `findings` with
-    `approved_by` set (its `finding_digest` and its review mark, which the
-    finding's own digest leaves out), and the sorted digests of `assertions`, each the
-    canonical JSON of `model_dump(mode="json", exclude_defaults=True)`. The
-    synthesis's own approval fields and `drafted_by` are not covered. Findings
-    are filtered here, so the caller passes all of the file's; assertions are
-    NOT filtered by gene, so the caller passes the gene's own lesion assertions.
-    Input order does not matter. Editing a covered record, marking an approved
-    finding for review, approving another finding or adding an assertion voids a
-    standing approval.
+    (in order), `drafted_by` (the card prints it as the drafter), the sorted
+    `_covered_finding` digest of every finding in `findings` with `approved_by`
+    set (its `finding_digest`, its review mark and its approval), and the sorted
+    digests of `assertions`, each the canonical JSON of
+    `model_dump(mode="json", exclude_defaults=True)`. Only the synthesis's own
+    approval fields are not covered. Findings are filtered here, so the caller
+    passes all of the file's; assertions are NOT filtered by gene, so the caller
+    passes the gene's own lesion assertions. Input order does not matter.
+    Editing the text, the cites or `drafted_by`, editing an approved finding,
+    marking it for review, re-approving it, approving another finding, or
+    editing, adding or removing an assertion voids a standing approval.
     """
     content = {
         "sentences": [{"text": s.text, "cites": list(s.cites)} for s in synthesis.sentences],
+        "drafted_by": synthesis.drafted_by,
         "findings": sorted(_covered_finding(f) for f in findings if f.approved_by is not None),
         "assertions": sorted(
             _canonical_digest(a.model_dump(mode="json", exclude_defaults=True)) for a in assertions

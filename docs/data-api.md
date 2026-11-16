@@ -1690,10 +1690,12 @@ TBX5's, abridged:
   with no approved finding.
 - `synthesis` (since `2.23`) is the gene's "In short" narrative. It is `null` when
   the gene has none, it is unapproved, or its approval no longer matches: the
-  approved digest differs from one computed over the sentences, the approved
-  findings (each with its review mark) and the gene's own lesion assertions, so
-  editing the text, changing any approved finding (marking it for review
-  included) or changing a lesion assertion of the gene withholds it. Otherwise
+  approved digest differs from one computed over the sentences, `drafted_by`, the
+  approved findings (each with its review mark and its approval) and the gene's
+  own lesion assertions. So editing the text or its cites, changing `drafted_by`,
+  approving a further finding, changing an approved finding's content, review mark
+  or approval (re-approving it included), or changing, adding or removing a lesion
+  assertion of the gene withholds it until a person approves it again. Otherwise
   it is `{ "sentences": [ { "text", "cites" } ],
   "drafted_by", "approved_by", "approved_on" }`, one to five sentences, with
   `approved_on` an ISO date. `cites` lists record ids in the curator's order,

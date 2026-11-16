@@ -238,9 +238,9 @@ def test_a_stale_approval_is_a_syn004_warning_naming_the_review_command() -> Non
     assert issues[0].severity is Severity.WARNING
     assert issues[0].location == f"{PATH}:synthesis"
     assert issues[0].message == (
-        "approval is stale: the text, an approved finding or a lesion assertion of "
-        f"{TBX5} changed since it was approved; re-approve with "
-        "`chd-atlas literature review TBX5 --approve-synthesis --by <name>`"
+        "approval is stale: the text, its cites or drafted_by, the approved findings (content, "
+        f"review mark or approval) or a lesion assertion of {TBX5} changed since it was "
+        "approved; re-approve with the command `chd-atlas literature review TBX5` prints"
     )
 
 

@@ -174,15 +174,20 @@ its page.
   sentence count is the model's rule).
 - `drafted_by` is `agent:<skill>/<model>`. An agent only drafts. `approved_by` is a
   person's name, and `approved_by`, `approved_on` and `approved_digest` are set together.
-- The approval covers the text, every approved finding of the file (its review mark
-  included: marking an approved finding `pending_review` or `not_accessible` voids it)
-  and every lesion assertion of the gene. Changing any of them makes the validator
-  report `SYN004`, and the synthesis is not published until a person approves it again.
+- The approval covers the text and its cites, `drafted_by`, every approved finding of
+  the file (its content, its review mark and its approval: marking it `pending_review`
+  or `not_accessible`, or re-approving it, voids the synthesis's approval), which
+  findings are approved, and every lesion assertion of the gene. Changing any of them
+  makes the validator report `SYN004`, and the synthesis is not published until a
+  person approves it again.
 - Withdrawing the approval of a finding a sentence cites, or deleting a cited
   assertion, is `SYN001`, an error: the build refuses until the finding is approved
   again or the sentence stops citing it.
-- A person approves with `chd-atlas literature review <SYMBOL> --approve-synthesis --by <name>`;
-  the listing (no flags) shows the text and what each sentence cites first.
+- A person lists the gene with `chd-atlas literature review <SYMBOL>`, which shows the
+  text, what each sentence cites and the command that approves it, with the digest of
+  what was listed: `chd-atlas literature review <SYMBOL> --approve-synthesis --by <name>
+  --digest <digest>`. It refuses a synthesis that changed since the listing, and any
+  approved finding of the file that fails `LIT015`.
 
 ```yaml
 synthesis:

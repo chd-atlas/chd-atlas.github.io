@@ -175,8 +175,8 @@ def _published_synthesis(
     """The file's synthesis if it is approved and its approval is current, else ``None``.
 
     Withheld when there is none, when ``approved_by`` is unset, or when
-    ``approved_digest`` differs from ``synthesis_digest`` over the file's findings
-    and ``assertions`` (the gene's own). The last case is validation's SYN004, a
+    ``approved_digest`` differs from ``synthesis_digest`` over the synthesis, the
+    file's findings and ``assertions`` (the gene's own). The last case is validation's SYN004, a
     warning, so the build can reach it and must not publish an edited text under an
     old approval.
     """
@@ -211,7 +211,7 @@ def gene_literature(corpus: Corpus) -> dict[str, GeneLiterature]:
     ``-O`` strips it.
 
     ``synthesis`` is published only for an approved synthesis whose digest still
-    matches the file's findings and the gene's own assertions
+    matches the synthesis, the file's findings and the gene's own assertions
     (``_published_synthesis``); otherwise it is ``None``.
     """
     years = {str(publication.id): publication.year for publication in corpus.publications}

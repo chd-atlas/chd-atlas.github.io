@@ -225,14 +225,50 @@ def test_the_synthesis_digest_moves_with_an_approved_finding_and_an_assertion() 
     assert synthesis_digest(syn, [first, second], [other, assertion]) == synthesis_digest(
         syn, [first, second], [assertion, other]
     )
-    # the approval itself and the drafter are not
+    # the synthesis's own approval is not covered; its drafter is (the card prints it)
     approved = Synthesis.model_validate(
         {
             **syn.model_dump(mode="json"),
-            "drafted_by": "agent:other",
             "approved_by": "A. Curator",
             "approved_on": "2026-11-05",
             "approved_digest": base,
         }
     )
     assert synthesis_digest(approved, [first, second], [assertion]) == base
+    redrafted = Synthesis.model_validate({**syn.model_dump(mode="json"), "drafted_by": "E.A.M"})
+    assert synthesis_digest(redrafted, [first, second], [assertion]) != base
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"approved_by": "C. Third"},
+        {"approved_on": "2026-11-20"},
+        {"approved_digest": "sha256:" + "f" * 64},
+    ],
+)
+def test_re_approving_a_finding_moves_the_synthesis_digest_and_not_the_findings_own(
+    change: dict[str, str],
+) -> None:
+    """GS5: a re-approved finding withholds the synthesis, even with unchanged content.
+
+    Each approval field changes alone, so a digest that dropped any one of the
+    three leaves its row equal to the base. The two findings carry different
+    approvers and dates (section 4.30), so a digest reading one finding's
+    approval for both cannot pass either.
+    """
+    first = Finding.model_validate(_raw())
+    second = Finding.model_validate(
+        _raw(
+            id="CHDA:LIT:0000002",
+            summary="Another.",
+            approved_by="B. Other",
+            approved_on="2026-11-07",
+        )
+    )
+    syn = _synthesis()
+    base = synthesis_digest(syn, [first, second], [])
+    for target, untouched in ((first, second), (second, first)):
+        again = Finding.model_validate({**target.model_dump(mode="json"), **change})
+        assert finding_digest(again) == finding_digest(target)
+        assert synthesis_digest(syn, [again, untouched], []) != base

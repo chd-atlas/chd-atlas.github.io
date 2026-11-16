@@ -579,42 +579,94 @@ def _own_assertions(curation: Any, record: GeneLiteratureFile) -> list[Any]:
     return [a for a in curation.assertions if str(a.gene) == str(record.gene)]
 
 
+def _approval_void(finding: Finding) -> bool:
+    """The LIT015 rule: an approved finding whose content no longer matches its approval."""
+    return finding.approved_by is not None and finding.approved_digest != finding_digest(finding)
+
+
 def _cited_state(finding: Finding) -> str:
-    """` [unapproved]` or ` [<review mark>]` after a cited finding, else nothing."""
+    """The mark after a cited finding: ` [unapproved]`, ` [approval void: LIT015]`, or
+    ` [<review mark>]`, in that precedence, else nothing."""
     if finding.approved_by is None:
         return " [unapproved]"
+    if _approval_void(finding):
+        return " [approval void: LIT015]"
     if finding.review_status is not None:
         return f" [{finding.review_status.value}]"
     return ""
 
 
-def _synthesis_listing(record: GeneLiteratureFile, assertions: Sequence[Any]) -> list[str]:
-    """The synthesis's approval state, its sentences and what each cites."""
+# Hex characters of the synthesis digest the listing prints; `--digest` must give
+# at least this many, each matching.
+_LISTED_HEX: Final = 12
+
+
+def _listed_digest(digest: str) -> str:
+    """What the listing prints for `--digest`: the digest's first `_LISTED_HEX` hex characters."""
+    return digest.removeprefix("sha256:")[:_LISTED_HEX]
+
+
+def _synthesis_listing(
+    symbol: str, record: GeneLiteratureFile, assertions: Sequence[Any]
+) -> list[str]:
+    """The synthesis's approval state, its sentences and what each cites.
+
+    An unapproved or stale synthesis is followed by the command that approves
+    it, carrying the digest of what is listed (`--digest`). A cited assertion
+    is shown with its lesion groups, phenotypes and evidence, so the person
+    approving reads what the sentence rests on.
+    """
     synthesis = record.synthesis
     if synthesis is None:
         return []
+    digest = synthesis_digest(synthesis, record.findings, assertions)
+    approve = (
+        f"  approve with: chd-atlas literature review {symbol} --approve-synthesis "
+        f"--by <name> --digest {_listed_digest(digest)}"
+    )
     if synthesis.approved_by is None:
-        state = "unapproved"
+        lines = ["synthesis: unapproved", approve]
     else:
         who = f"approved by {synthesis.approved_by} on {synthesis.approved_on}"
-        if synthesis.approved_digest == synthesis_digest(synthesis, record.findings, assertions):
-            state = who
+        if synthesis.approved_digest == digest:
+            lines = [f"synthesis: {who}"]
         else:
-            state = f"STALE ({who}; the text or the records it covers changed since)"
+            lines = [
+                f"synthesis: STALE ({who}; the synthesis or the records it covers changed since)",
+                approve,
+            ]
     findings: dict[str, Finding] = {f.id: f for f in record.findings}
-    assertion_genes: dict[str, str] = {a.id: str(a.gene) for a in assertions}
-    lines = [f"synthesis: {state}"]
+    own: dict[str, Any] = {a.id: a for a in assertions}
     for number, sentence in enumerate(synthesis.sentences, 1):
         lines.append(f"  {number}. {sentence.text}")
         for cite in sentence.cites:
             if cite in findings:
                 cited = findings[cite]
                 lines.append(f"     {cite}: {cited.summary}{_cited_state(cited)}")
-            elif cite in assertion_genes:
-                lines.append(f"     {cite}: lesion assertion for {assertion_genes[cite]}")
+            elif cite in own:
+                assertion = own[cite]
+                lines.append(f"     {cite}: lesion assertion for {assertion.gene}")
+                groups = ", ".join(g.value for g in assertion.lesion_groups)
+                lines.append(f"       lesion groups: {groups}")
+                lines.append(f"       phenotypes: {', '.join(assertion.phenotypes)}")
+                for item in assertion.evidence:
+                    lines.append(f"       evidence: {item.publication} — {item.summary}")
             else:
                 lines.append(f"     {cite}: (not found)")
     return lines
+
+
+def _write_unless_changed(path: Path, read: bytes, content: bytes) -> None:
+    """Write `content` unless the file's bytes differ from `read`, those this command read.
+
+    Re-read immediately before the write: another writer (a person approving, an
+    agent redrafting) whose bytes landed since would otherwise be overwritten
+    with both commands reporting success (K-1). The window left is the one
+    between this read and the rename.
+    """
+    if path.read_bytes() != read:
+        raise _fail(f"{path} changed since it was read; nothing was written", 2)
+    write_bytes_atomically(path, content)
 
 
 @literature_app.command("review")
@@ -641,15 +693,24 @@ def literature_review(
         "--approve-synthesis",
         help="Approve the gene's synthesis (a stale approval is re-approved).",
     ),
+    digest: str = typer.Option(
+        "",
+        "--digest",
+        help="With --approve-synthesis: the digest the listing printed (12 or more hex digits).",
+    ),
     note: str = typer.Option("", "--note", help="The measured disagreement, for --pending-review."),
     root: Path = typer.Option(Path("."), help="Repository root."),
 ) -> None:
     """List the findings awaiting approval (and the synthesis, if any), approve some, or mark one.
 
     `--approve-synthesis` approves the gene's synthesis, or re-approves a stale
-    one. A review mark is published with the finding; it does not withdraw an
-    approval, and a marked finding can still be approved. A finding carries one
-    mark: a second is refused rather than overwriting the first note.
+    one, only with `--digest` matching the synthesis now on disk: the listing
+    prints the command with it, so the person approves the text they read. It is
+    refused while any approved finding of the file fails LIT015. A review mark is
+    published with the finding; it does not withdraw an approval, and a marked
+    finding can still be approved. A finding carries one mark: a second is
+    refused rather than overwriting the first note. Every write is refused if the
+    file changed since this command read it.
     """
     _require_root(root)
     if sum(bool(a) for a in (approve, pending_review, approve_synthesis)) > 1:
@@ -668,6 +729,8 @@ def literature_review(
         )
     if not pending_review and note:
         raise _fail("--note only applies with --pending-review", 2)
+    if not approve_synthesis and digest:
+        raise _fail("--digest only applies with --approve-synthesis", 2)
     if against is not None and (approve or pending_review or approve_synthesis):
         raise _fail("--against only applies to the listing, not to an action", 2)
     if approve or approve_synthesis:
@@ -682,6 +745,12 @@ def literature_review(
             raise _fail(f"--on {on!r} is not a YYYY-MM-DD date", 2) from None
         if when > _today():
             raise _fail(f"--on {when.isoformat()} is in the future", 2)
+    if approve_synthesis and not digest.strip():
+        raise _fail(
+            "--digest is required with --approve-synthesis: run "
+            f"`chd-atlas literature review {symbol}` and copy the command it prints",
+            2,
+        )
     if pending_review and not note.strip():
         raise _fail("--note (the measured disagreement) is required with --pending-review", 2)
 
@@ -724,7 +793,8 @@ def literature_review(
                     )
             typer.echo("")
         if record.synthesis is not None:
-            for line in _synthesis_listing(record, _own_assertions(curation, record)):
+            own = _own_assertions(curation, record)
+            for line in _synthesis_listing(approved_symbol, record, own):
                 typer.echo(line)
         return
 
@@ -733,11 +803,25 @@ def literature_review(
         if synthesis is None:
             raise _fail(f"{path} has no synthesis to approve", 2)
         own = _own_assertions(load_curation(root)[0], record)
-        digest = synthesis_digest(synthesis, record.findings, own)
-        if synthesis.approved_by is not None and synthesis.approved_digest == digest:
+        current = synthesis_digest(synthesis, record.findings, own)
+        if synthesis.approved_by is not None and synthesis.approved_digest == current:
             raise _fail(
                 f"the synthesis is already approved by {synthesis.approved_by}; "
                 f"approving again would erase who approved it",
+                2,
+            )
+        given = digest.strip()
+        if len(given) < _LISTED_HEX or not current.removeprefix("sha256:").startswith(given):
+            raise _fail(
+                f"the synthesis is not the one listed (its digest is {_listed_digest(current)}); "
+                "list it again before approving",
+                2,
+            )
+        void = sorted(f.id for f in record.findings if _approval_void(f))
+        if void:
+            raise _fail(
+                f"cannot approve the synthesis: {', '.join(void)} fail(s) LIT015 "
+                "(approved content changed since approval); re-approve or correct them first",
                 2,
             )
         errors = sorted(
@@ -766,11 +850,11 @@ def literature_review(
         try:
             content = with_synthesis_approval(
                 raw,
-                {"approved_by": by.strip(), "approved_on": when, "approved_digest": digest},
+                {"approved_by": by.strip(), "approved_on": when, "approved_digest": current},
             )
         except LiteratureFileError as exc:
             raise _fail(str(exc), 1) from None
-        write_bytes_atomically(path, content)
+        _write_unless_changed(path, raw, content)
         typer.echo(f"approved synthesis ({by.strip()}, {when.isoformat()})")
         return
 
@@ -829,6 +913,6 @@ def literature_review(
         content = with_findings_updated(raw, updates)
     except LiteratureFileError as exc:
         raise _fail(str(exc), 1) from None
-    write_bytes_atomically(path, content)
+    _write_unless_changed(path, raw, content)
     for message in messages:
         typer.echo(message)
