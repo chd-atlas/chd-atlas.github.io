@@ -1614,7 +1614,7 @@ abridged:
     …]}]}
 ```
 
-### The bundle's `literature` object: searches, a triage tally and approved findings
+### The bundle's `literature` object: searches, a triage tally, paper tallies and approved findings
 
 On every gene bundle (since `2.21`). Always present; a gene with no
 `curation/literature` file carries exactly the empty shape below, as 117 of the
@@ -1675,8 +1675,8 @@ TBX5's, abridged:
   categories need not sum to `papers`. `designs` and `lesion_groups` map a value
   to its papers and hold only values with at least one paper. `lesion_groups`
   counts papers by each approved finding's lesion groups, which for a screen that
-  found no carrier, or an association study, are the cohort's lesions rather than
-  carriers'.
+  found no carrier, an association study, or a paper that never states the carriers'
+  lesions, are the cohort's lesions rather than carriers'.
   `de_novo_papers` and `inherited_papers` count papers with at least one finding
   carrying such a carrier; `abstract_only_papers` and `pending_review_papers`
   count papers with at least one finding whose `review_status` is
@@ -2006,8 +2006,9 @@ names the assertions' distinct mechanisms, sorted, `unknown` included; a gene
 with no assertion has no such line. Where a gene has approved literature, a literature
 line states it by paper from `literature.tallies`: the years the papers span,
 then the study designs, the lesion groups ("Lesions studied, by paper": the
-lesions each paper's findings name, which for a screen that found no carrier, or
-an association study, are the cohort's lesions rather than carriers'), the
+lesions each paper's findings name, which for a screen that found no carrier, an
+association study, or a paper that never states the carriers' lesions, are the
+cohort's lesions rather than carriers'), the
 papers reporting de novo and inherited carriers, and the papers read from the
 abstract only or pending review. Every figure counts papers. The card never
 states a carrier count summed across papers, because those cohorts may overlap, and it names a common-variant

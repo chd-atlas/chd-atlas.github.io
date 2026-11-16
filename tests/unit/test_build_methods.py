@@ -1238,9 +1238,11 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
     decisions `vocab.TriageDecision` names, the two axes are `FindingDesign`
     and `DetectionMethod`, the carrier's unit is `Finding.count_unit`, approval
     is a named person (`Finding.approved_by`) and the two marks are
-    `ReviewStatus`. Measured: 156 words counting the heading as a word of its own
-    and 155 by the assertion below (tags removed unspaced, so the heading fuses
-    with the first word), under the 160 the plan allows. The wording awaits the owner's
+    `ReviewStatus`. Measured: 248 words counting the heading as a word of its own
+    and 247 by the assertion below (tags removed unspaced, so the heading fuses
+    with the first word); the first paragraph alone was 156 and 155, under the 160 the
+    plan allowed, and the second paragraph (the gene card's literature line, added
+    2026-11-16) is the rest. The wording awaits the owner's
     approval (ruling R15).
     """
     assert _section(page, "literature") == (
@@ -1257,6 +1259,15 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
         "each finding before publication; findings awaiting approval are counted, not shown. "
         "A review mark says a finding's source disagrees with its paper (pending review) or "
         "could not be read (source not accessible).</p>"
+        "<p>The gene card counts approved findings by paper and never sums carriers across "
+        "papers, because cohorts can overlap. It names each paper's study design. "
+        '"Lesions studied" counts the lesions a paper studied: for a screen with no carrier, '
+        "an association study, or a paper that does not state the carriers' lesions, these "
+        "are the cohort's lesions. A common-variant association is never Mendelian "
+        'evidence. "From the abstract only" counts papers with a finding whose source '
+        "could not be read in "
+        'full; "pending review" counts papers with a finding whose source '
+        "disagrees with the paper.</p>"
     )
     words = len(re.sub(r"<[^>]+>", "", _section(page, "literature")).split())
-    assert words == 155  # tags stripped unspaced, so the heading fuses with the first word
+    assert words == 247  # tags stripped unspaced, so the heading fuses with the first word

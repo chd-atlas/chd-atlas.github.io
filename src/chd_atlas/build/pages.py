@@ -1848,8 +1848,9 @@ def _card_literature(tallies: LiteratureTallies) -> str:
     Every count is of distinct papers (`literature_tallies`), so no figure here
     sums carriers across papers: those cohorts may overlap and the atlas publishes
     no pooled statistic. The lesion counts are the lesions each paper's findings
-    name, which for a screen that found no carrier, or an association study, are
-    the cohort's lesions rather than carriers'; the label says "studied". `""`
+    name, which for a screen that found no carrier, an association study, or a
+    paper that never states the carriers' lesions, are the cohort's lesions
+    rather than carriers'; the label says "studied". `""`
     when the gene has no approved paper. A common-variant association is named
     apart from the Mendelian designs and says so, because a
     reader must not add it to rare-variant evidence.

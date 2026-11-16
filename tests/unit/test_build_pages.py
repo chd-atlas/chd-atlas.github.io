@@ -10995,7 +10995,7 @@ def test_common_variant_alone_has_no_leading_semicolon() -> None:
 
 
 def test_the_literature_line_has_a_label_for_every_design_and_lesion_group() -> None:
-    """A sixth `FindingDesign` or `LesionGroup` must not vanish from the line silently."""
+    """A sixth `FindingDesign` or a tenth `LesionGroup` must not vanish from the line silently."""
     from chd_atlas.build.pages import _CARD_LESION_LABELS, _CARD_MENDELIAN_DESIGNS
     from chd_atlas.vocab import FindingDesign, LesionGroup
 
