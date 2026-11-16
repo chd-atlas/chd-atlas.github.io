@@ -235,7 +235,9 @@ def test_the_synthesis_digest_moves_with_an_approved_finding_and_an_assertion() 
         }
     )
     assert synthesis_digest(approved, [first, second], [assertion]) == base
-    redrafted = Synthesis.model_validate({**syn.model_dump(mode="json"), "drafted_by": "E.A.M"})
+    redrafted = Synthesis.model_validate(
+        {**syn.model_dump(mode="json"), "drafted_by": "agent:other/model"}
+    )
     assert synthesis_digest(redrafted, [first, second], [assertion]) != base
 
 

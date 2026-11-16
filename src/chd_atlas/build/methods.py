@@ -506,11 +506,11 @@ _RARE_VARIANTS: Final = (
 # literature line counts (`pages._card_literature`). The third says what the card's "In
 # short" paragraph is (`pages._card_synthesis`): "one to five sentences" is
 # `Synthesis.sentences`; the drafter is `Synthesis.drafted_by`, printed in the provenance
-# line, which curator-rules.md asks to be `agent:<skill>/<model>` and nothing enforces;
-# "approved findings and lesion assertions only" is SYN001; "no figures" is SYN002; the
-# grade, burden and mechanism clause is a curator rule, not a check; the withholding is
-# `synthesis_digest` (`gene_literature._published_synthesis`). 352 words with tags read as
-# spaces (heading 1, paragraphs 157, 96 and 98), 349 by the test's count
+# line, which `Synthesis` requires to be `agent:<skill>/<model>`;
+# "approved findings and lesion assertions only" is SYN001; "no figures" is SYN002;
+# the withholding is `synthesis_digest` (`gene_literature._published_synthesis`).
+# 329 words with tags read as spaces (heading 1, paragraphs 157, 96 and 75), 326 by the
+# test's count
 # (`test_literature_states_how_it_was_searched_and_who_approves`).
 _LITERATURE: Final = (
     '<h2 id="literature">Literature</h2>'
@@ -538,10 +538,9 @@ _LITERATURE: Final = (
     '<p>A gene card may also carry an "In short" paragraph of one to five sentences. '
     "An AI model drafts it, and its provenance line names the model. It draws only on "
     "the atlas's approved findings and the gene's lesion assertions, and each sentence "
-    "cites the records it rests on. It states no figures, because the counts are in the "
-    "line above it, and it does not restate the validity grade, the burden results or "
-    "the mechanism. It is published only after a named person approves it. When "
-    "anything it rests on changes, it is withheld until approved again.</p>"
+    "cites the records it rests on. It states no figures. It is published only after a "
+    "named person approves it. When anything it rests on changes, it is withheld until "
+    "approved again.</p>"
 )
 
 

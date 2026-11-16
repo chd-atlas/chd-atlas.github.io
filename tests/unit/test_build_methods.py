@@ -1238,8 +1238,8 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
     decisions `vocab.TriageDecision` names, the two axes are `FindingDesign`
     and `DetectionMethod`, the carrier's unit is `Finding.count_unit`, approval
     is a named person (`Finding.approved_by`) and the two marks are
-    `ReviewStatus`. Measured 2026-11-16: 352 words with each tag replaced by a
-    space (the heading 1, the paragraphs 157, 96 and 98) and 349 by the assertion
+    `ReviewStatus`. Measured 2026-11-16: 329 words with each tag replaced by a
+    space (the heading 1, the paragraphs 157, 96 and 75) and 326 by the assertion
     below (tags removed unspaced, so the heading and the first word of each later
     paragraph fuse with the word before). The first paragraph, at 157, is under the
     160 the plan allowed; the second (the gene card's literature line) and the third
@@ -1272,10 +1272,9 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
         '<p>A gene card may also carry an "In short" paragraph of one to five sentences. '
         "An AI model drafts it, and its provenance line names the model. It draws only on "
         "the atlas's approved findings and the gene's lesion assertions, and each sentence "
-        "cites the records it rests on. It states no figures, because the counts are in the "
-        "line above it, and it does not restate the validity grade, the burden results or "
-        "the mechanism. It is published only after a named person approves it. When "
-        "anything it rests on changes, it is withheld until approved again.</p>"
+        "cites the records it rests on. It states no figures. It is published only after a "
+        "named person approves it. When anything it rests on changes, it is withheld until "
+        "approved again.</p>"
     )
     words = len(re.sub(r"<[^>]+>", "", _section(page, "literature")).split())
-    assert words == 349  # tags stripped unspaced, so the heading fuses with the first word
+    assert words == 326  # tags stripped unspaced, so the heading fuses with the first word

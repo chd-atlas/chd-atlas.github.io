@@ -62,6 +62,7 @@ NUMBER_WORDS = [
     "majority",
     "most",
     "dozens",
+    "tens",
     "hundreds",
     "halves",
     "majorities",

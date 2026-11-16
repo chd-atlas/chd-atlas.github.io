@@ -164,6 +164,7 @@ def test_a_finding_that_exists_only_in_another_genes_file_is_syn001() -> None:
         "in 2003",
         "most carriers",
         "one of twenty",
+        "tens of families",
         "seen in >50 families",
         "not significant (p>0.05)",
     ],
@@ -181,14 +182,14 @@ def test_a_number_digit_or_word_is_syn002_naming_the_token(text: str) -> None:
         "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
         "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
         "eighteen", "nineteen", "twenty", "dozen", "hundred", "half", "majority", "most",
-        "dozens", "hundreds", "halves", "majorities",
+        "dozens", "hundreds", "halves", "majorities", "tens",
         "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
         "thousand", "thousands", "million", "millions", "percent", "twice", "thrice",
         "quarter", "quarters",
     ],
 )  # fmt: skip
 def test_every_listed_number_word_is_syn002(word: str) -> None:
-    """A literal list of the 45 words, not `NUMBER_WORDS`, so a removed word fails."""
+    """A literal list of the 46 words, not `NUMBER_WORDS`, so a removed word fails."""
     issues = _run(_synthesis((f"Seen in {word} families.", [F1])))
     assert _codes(issues) == ["SYN002"]
     assert f"'{word}'" in issues[0].message
@@ -245,6 +246,7 @@ def test_syn002_names_the_offending_token(text: str, token: str) -> None:
         "Down syndrome was excluded.",
         "Turner syndrome was excluded.",
         "Someone mostly agrees, and the honest answer is none.",
+        "LOD scores were reported.",
     ],
 )
 def test_mixed_letter_digit_tokens_and_embedded_words_are_not_numbers(text: str) -> None:

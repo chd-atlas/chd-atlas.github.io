@@ -313,6 +313,11 @@ class Synthesis(BaseModel):
             _AGENT_PREFIX
         ):
             raise ValueError("synthesis: approved_by names an agent; a person must approve")
+        if not self.drafted_by.strip().lower().startswith(_AGENT_PREFIX):
+            raise ValueError(
+                "synthesis: drafted_by must name the drafting agent (agent:<skill>/<model>); "
+                "a person approves, an agent drafts"
+            )
         return self
 
 

@@ -331,6 +331,17 @@ def test_a_synthesis_may_cite_findings_and_assertions_and_have_five_sentences() 
     assert len(Synthesis.model_validate(_synthesis(sentences=five)).sentences) == 5
 
 
+def test_a_synthesis_is_drafted_by_an_agent_and_a_person_is_refused() -> None:
+    with pytest.raises(
+        ValidationError,
+        match=r"synthesis: drafted_by must name the drafting agent \(agent:<skill>/<model>\); "
+        "a person approves, an agent drafts",
+    ):
+        Synthesis.model_validate(_synthesis(drafted_by="A. Curator"))
+    assert Synthesis.model_validate(_synthesis(drafted_by=" Agent:gene-synthesis/x")).drafted_by
+    assert Synthesis.model_validate(_synthesis(drafted_by="agent:gene-synthesis/x"))
+
+
 def test_a_synthesis_approval_names_a_person_with_the_findings_messages() -> None:
     with pytest.raises(
         ValidationError,

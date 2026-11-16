@@ -179,7 +179,8 @@ its page.
   ("NM_181486.4": omit it) and an en dash in a gene name ("NKX2–5": use a hyphen).
 - One to five sentences, and at most 120 words in all (`SYN003` is the 120 words; the
   sentence count is the model's rule).
-- `drafted_by` is `agent:<skill>/<model>`. An agent only drafts. `approved_by` is a
+- `drafted_by` is `agent:<skill>/<model>`; the model enforces it (a name without the `agent:`
+  prefix is a schema error in `validate`). An agent only drafts. `approved_by` is a
   person's name, and `approved_by`, `approved_on` and `approved_digest` are set together.
 - The approval covers the text and its cites, `drafted_by`, every approved finding of
   the file (its content, its review mark and its approval: marking it `pending_review`
