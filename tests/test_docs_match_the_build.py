@@ -1615,7 +1615,7 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
     doc = DOC.read_text()
     heading = (
         "### The bundle's `literature` object: searches, a triage tally, "
-        "paper tallies and approved findings"
+        "paper tallies, approved findings and the synthesis"
     )
     assert heading in doc
     section = doc[doc.index(heading) + len(heading) :]

@@ -135,7 +135,7 @@ wrong by the next one.
   - `cell_type_datasets` (since `2.20`) is the number of cell-type datasets
     those bundles name.
   - `literature_genes` (since `2.21`) is the number of published genes whose
-    [`literature`](#the-bundles-literature-object-searches-a-triage-tally-and-approved-findings)
+    [`literature`](#the-bundles-literature-object-searches-a-triage-tally-paper-tallies-approved-findings-and-the-synthesis)
     records at least one search.
   - `literature_findings` (since `2.21`) is the number of approved findings in
     those bundles. Today two genes carry a literature record, NR2F2 and TBX5, with
@@ -297,7 +297,7 @@ wrong by the next one.
   `[]` on every design but the new `"cell_type_profile"`, and the archive
   `"ucsc_cell_browser"`, whose datasets are named by a lowercase slug (`hoc`)
   rather than an accession, so a dataset id may now be one. Additive.
-  `2.21` added [`literature`](#the-bundles-literature-object-searches-a-triage-tally-and-approved-findings)
+  `2.21` added [`literature`](#the-bundles-literature-object-searches-a-triage-tally-paper-tallies-approved-findings-and-the-synthesis)
   to every gene bundle, `{"searches": [], …}` where the gene has no literature
   record, and `literature_genes` and `literature_findings` to `counts`. It also
   widened the `study_type` of [`publications.json`](#publicationsjson) records by
@@ -447,8 +447,9 @@ and each carries an `id`, so a page can link the paragraph it shortens.
   terms and the names of the gene's in-scope diseases, preprints and reviews
   excluded), that every paper a search returns gets a decision and only human
   genetics is kept, how a finding is classified and what its counts are counted
-  in, that a named curator approves each finding before it is published, and
-  what the two review marks mean.
+  in, that a named curator approves each finding before it is published, what
+  the two review marks mean, what the gene card's literature line counts, and
+  what its "In short" paragraph rests on and when it is published or withheld.
 
 Like the other pages it is for people: its markup is not a contract, and no
 payload depends on it.
@@ -1617,7 +1618,7 @@ abridged:
     …]}]}
 ```
 
-### The bundle's `literature` object: searches, a triage tally, paper tallies and approved findings
+### The bundle's `literature` object: searches, a triage tally, paper tallies, approved findings and the synthesis
 
 On every gene bundle (since `2.21`). Always present; a gene with no
 `curation/literature` file carries exactly the empty shape below, as 117 of the
@@ -2299,7 +2300,7 @@ The committed corpus curates no variants, so the real index is empty:
 A paper is left out of this file while literature findings cite it and none of them
 is approved, unless an assertion, functional record, featured entry, dataset or
 burden row also cites it; a record no finding cites is published as before
-(see [`pending_approval`](#the-bundles-literature-object-searches-a-triage-tally-and-approved-findings)).
+(see [`pending_approval`](#the-bundles-literature-object-searches-a-triage-tally-paper-tallies-approved-findings-and-the-synthesis)).
 
 `summary_caveat` is one curated sentence (at most 240 characters) saying what
 a reader must know to read the study's counts — that PMID:34324492's cases were
