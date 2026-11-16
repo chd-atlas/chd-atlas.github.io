@@ -98,6 +98,7 @@ from chd_atlas.build.gene_literature import (
     EMPTY_GENE_LITERATURE,
     GeneLiterature,
     LiteratureTallies,
+    PublishedSynthesis,
     SearchRecord,
     pmid_number,
 )
@@ -1925,6 +1926,74 @@ def _card_mechanism(mechanisms: Sequence[str]) -> str:
     )
 
 
+def _assertion_anchor(assertion_id: str) -> str:
+    """`chda-ast-0000001`: the `id` of an assertion's heading, and the card's link to it.
+
+    The id lowercased with ":" as "-". One function for both ends, as
+    `_study_anchor` is, so the heading and the link cannot be spelled two ways.
+    """
+    return assertion_id.lower().replace(":", "-")
+
+
+def _card_synthesis(
+    synthesis: PublishedSynthesis | None,
+    findings: Sequence[Mapping[str, Json]],
+    publications: Mapping[str, Publication],
+    assertions: Collection[str],
+) -> str:
+    """The card's "In short" narrative, or `""` when the gene publishes none.
+
+    `synthesis` is `None` (so nothing renders) when the gene has no synthesis,
+    it is unapproved, or its approval no longer matches the records it covers
+    (`gene_literature._published_synthesis`). Each sentence's cites follow it in
+    parentheses, before its final ".", "?" or "!" when it ends in one, which is
+    kept. A cited finding renders as its paper's link (`_paper_link`), once per
+    sentence in first-cite order however many of that paper's findings it cites;
+    an id in `assertions` (the gene's assertions whose headings this page
+    carries) as a link to that heading (`_assertion_anchor`); any other id as its
+    escaped id -- a citation is never dropped. The provenance line names who
+    drafted and who approved.
+    """
+    if synthesis is None:
+        return ""
+    paper_of = {str(finding["id"]): str(finding["publication"]) for finding in findings}
+    sentences: list[str] = []
+    for sentence in synthesis["sentences"]:
+        seen: set[str] = set()
+        cites: list[str] = []
+        for cite in sentence["cites"]:
+            cite_id = str(cite)
+            pmid = paper_of.get(cite_id)
+            key = cite_id if pmid is None else pmid
+            if key in seen:
+                continue
+            seen.add(key)
+            if pmid is not None:
+                cites.append(_paper_link(pmid, publications).html)
+            elif cite_id in assertions:
+                cites.append(
+                    f'<a href="#{html.escape(_assertion_anchor(cite_id))}">'
+                    f"{html.escape(cite_id)}</a>"
+                )
+            else:
+                cites.append(html.escape(cite_id))
+        text = str(sentence["text"])
+        joined = "; ".join(cites)
+        if text.endswith((".", "?", "!")):
+            sentences.append(f"{html.escape(text[:-1])} ({joined}){text[-1]}")
+        else:
+            sentences.append(f"{html.escape(text)} ({joined})")
+    provenance = (
+        f"Drafted by {html.escape(synthesis['drafted_by'])} from the records cited; "
+        f"approved by {html.escape(synthesis['approved_by'])} "
+        f"on {html.escape(synthesis['approved_on'])}."
+    )
+    return (
+        '<div class="card-synthesis"><p><strong>In short.</strong> '
+        f'{" ".join(sentences)}</p><p class="card-provenance">{provenance}</p></div>'
+    )
+
+
 def _rail(
     gene: str,
     symbol: str,
@@ -1940,6 +2009,7 @@ def _rail(
     panel_graders: Mapping[tuple[str, str], tuple[str, ...]] | None = None,
     literature: GeneLiterature = EMPTY_GENE_LITERATURE,
     mechanisms: tuple[str, ...] = (),
+    anchored_assertions: tuple[str, ...] = (),
 ) -> str:
     """The clinician card: the summary column, for every gene whether curated here or not.
 
@@ -1953,7 +2023,9 @@ def _rail(
     study's block; the atlas-curation sentence (`_card_curation`); the
     mechanism sentence (`_card_mechanism`, from the gene's lesion assertions);
     the literature line (`_card_literature`, papers by design, lesion group,
-    carrier origin and review state); and a last
+    carrier origin and review state); the approved "In short" narrative
+    (`_card_synthesis`, when the gene has a current approved one, linking each
+    cited assertion in `anchored_assertions` to its heading); and a last
     line linking the top of `methods.html` as "How to read this page" (P1,
     2026-10-26) beside the gene's JSON. The nav's link to the same file reads
     "How to read this atlas"; from the card the question is about this page.
@@ -2030,6 +2102,9 @@ def _rail(
             + "</p>"
         )
     bundle = gene_bundle_path(HgncId(gene))
+    synthesis = _card_synthesis(
+        literature["synthesis"], literature["findings"], publications or {}, anchored_assertions
+    )
     # `html.escape` here rather than a `render.py` primitive: these three, and
     # the identity block above, are bare interpolations into markup this
     # function assembles. The card's rows go through `definition_list`, which
@@ -2047,6 +2122,7 @@ def _rail(
         f"{_card_curation(fact, literature)}"
         f"{_card_mechanism(mechanisms)}"
         f"{_card_literature(literature['tallies'])}"
+        f"{synthesis}"
         '<p><a href="../methods.html">How to read this page</a> &middot; '
         f'<a href="../{html.escape(bundle)}">this gene as JSON</a></p></aside>'
     )
@@ -2263,7 +2339,9 @@ def _evidence_section(
     sections name theirs. A "Publications" table listing the cited papers by id,
     title and year followed this section until the owner removed it
     (2026-11-09): it repeated what the rows linked, and the Literature section
-    takes its place on the page.
+    takes its place on the page. Each assertion's `<h3>` carries the `id`
+    `_assertion_anchor` gives, which the card's "In short" paragraph links when
+    a sentence cites that assertion.
     """
     blocks: list[str] = []
     for assertion in records:
@@ -2286,9 +2364,11 @@ def _evidence_section(
             )
             for item in assertion.evidence
         ]
-        blocks.append(
-            f"<h3>{html.escape(assertion.id)}</h3>{summary}{data_table(_EVIDENCE_HEADERS, items)}"
+        heading = (
+            f'<h3 id="{html.escape(_assertion_anchor(assertion.id))}">'
+            f"{html.escape(assertion.id)}</h3>"
         )
+        blocks.append(f"{heading}{summary}{data_table(_EVIDENCE_HEADERS, items)}")
     # The section's link to `methods.html#curated-evidence` (owner decision
     # 2026-10-26, E3), in the pattern of the other sections' one-line intros.
     # "above" is true in this position: the validity table renders first.
@@ -7025,6 +7105,7 @@ def build_gene_pages(
         gene_validity = validity.get(gene, uncurated())
         identity = None if identities is None else identities.get(gene, EMPTY_IDENTITY)
         gene_literature_bundle = literature.get(gene, EMPTY_GENE_LITERATURE)
+        curated = fact.atlas_curation is AtlasCuration.CURATED
         body = (
             '<div class="layout">'
             + _rail(
@@ -7041,6 +7122,9 @@ def build_gene_pages(
                 panel_graders=graders,
                 literature=gene_literature_bundle,
                 mechanisms=tuple(record.mechanism.value for record in records),
+                # Only the assertions whose headings `_evidence_section` renders
+                # below, so every link the card makes lands on this page.
+                anchored_assertions=tuple(record.id for record in records) if curated else (),
             )
             + "<div>"
             + _SCOPE_SHORT
@@ -7059,11 +7143,7 @@ def build_gene_pages(
             # the main-column notice that sat in this slot until 2026-10-26 is
             # the sentence the card now carries, and a page stating it twice is
             # a page whose two copies can drift apart.
-            + (
-                _evidence_section(records, publications)
-                if fact.atlas_curation is AtlasCuration.CURATED
-                else ""
-            )
+            + (_evidence_section(records, publications) if curated else "")
             # The atlas's literature beside its lesion assertions (owner,
             # 2026-11-09), on every page, "Not yet curated." included: both are
             # the atlas's own curation, so they sit together after the mirrored

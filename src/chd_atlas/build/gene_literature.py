@@ -39,7 +39,8 @@ from collections.abc import Collection, Mapping, Sequence
 from typing import Any, Final, NamedTuple, TypedDict
 
 from chd_atlas.corpus import Corpus
-from chd_atlas.models.gene_literature import Finding
+from chd_atlas.models.assertion import LesionAssertion
+from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile, synthesis_digest
 from chd_atlas.models.review import ReviewStatus
 from chd_atlas.vocab import TriageDecision
 
@@ -80,14 +81,33 @@ class LiteratureTallies(TypedDict):
     pending_review_papers: int
 
 
+class PublishedSynthesis(TypedDict):
+    """A gene's approved "In short" narrative as published.
+
+    ``sentences`` items are ``{"text": ..., "cites": [...]}`` with the cites in the
+    curator's order; ``approved_on`` is ISO ``YYYY-MM-DD``. The approval digest is
+    not published (as for findings), and no figure is computed here.
+    """
+
+    sentences: list[dict[str, Any]]
+    drafted_by: str
+    approved_by: str
+    approved_on: str
+
+
 class GeneLiterature(TypedDict):
-    """The ``literature`` key of a gene bundle."""
+    """The ``literature`` key of a gene bundle.
+
+    ``synthesis`` is ``None`` when the gene has no synthesis, its synthesis is
+    unapproved, or its approval no longer matches ``synthesis_digest``.
+    """
 
     searches: list[SearchRecord]
     triage: TriageTally
     pending_approval: int
     findings: list[dict[str, Any]]
     tallies: LiteratureTallies
+    synthesis: PublishedSynthesis | None
 
 
 class LiteratureCensus(NamedTuple):
@@ -141,11 +161,41 @@ EMPTY_GENE_LITERATURE: Final[GeneLiterature] = GeneLiterature(
     pending_approval=0,
     findings=[],
     tallies=literature_tallies([], {}),
+    synthesis=None,
 )
 
 
 def pmid_number(pmid: str) -> int:
     return int(pmid.removeprefix("PMID:"))
+
+
+def _published_synthesis(
+    file: GeneLiteratureFile, assertions: Sequence[LesionAssertion]
+) -> PublishedSynthesis | None:
+    """The file's synthesis if it is approved and its approval is current, else ``None``.
+
+    Withheld when there is none, when ``approved_by`` is unset, or when
+    ``approved_digest`` differs from ``synthesis_digest`` over the synthesis, the
+    file's findings and ``assertions`` (the gene's own). The last case is validation's SYN004, a
+    warning, so the build can reach it and must not publish an edited text under an
+    old approval.
+    """
+    synthesis = file.synthesis
+    if (
+        synthesis is None
+        or synthesis.approved_by is None
+        or synthesis.approved_on is None
+        or synthesis.approved_digest != synthesis_digest(synthesis, file.findings, assertions)
+    ):
+        return None
+    return PublishedSynthesis(
+        sentences=[
+            {"text": s.text, "cites": [str(c) for c in s.cites]} for s in synthesis.sentences
+        ],
+        drafted_by=synthesis.drafted_by,
+        approved_by=synthesis.approved_by,
+        approved_on=synthesis.approved_on.isoformat(),
+    )
 
 
 def gene_literature(corpus: Corpus) -> dict[str, GeneLiterature]:
@@ -159,6 +209,10 @@ def gene_literature(corpus: Corpus) -> dict[str, GeneLiterature]:
     not registered. Both are refused by validation first (LIT009, LIT011); the
     guard is for a bypassed gate, and ``raise`` rather than ``assert`` because
     ``-O`` strips it.
+
+    ``synthesis`` is published only for an approved synthesis whose digest still
+    matches the synthesis, the file's findings and the gene's own assertions
+    (``_published_synthesis``); otherwise it is ``None``.
     """
     years = {str(publication.id): publication.year for publication in corpus.publications}
     result: dict[str, GeneLiterature] = {}
@@ -212,6 +266,9 @@ def gene_literature(corpus: Corpus) -> dict[str, GeneLiterature]:
                 finding.model_dump(mode="json", exclude={"approved_digest"}) for finding in approved
             ],
             tallies=literature_tallies(approved, years),
+            synthesis=_published_synthesis(
+                file, [a for a in corpus.assertions if str(a.gene) == gene]
+            ),
         )
     return result
 

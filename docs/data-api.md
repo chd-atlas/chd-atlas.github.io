@@ -135,7 +135,7 @@ wrong by the next one.
   - `cell_type_datasets` (since `2.20`) is the number of cell-type datasets
     those bundles name.
   - `literature_genes` (since `2.21`) is the number of published genes whose
-    [`literature`](#the-bundles-literature-object-searches-a-triage-tally-and-approved-findings)
+    [`literature`](#the-bundles-literature-object-searches-a-triage-tally-paper-tallies-approved-findings-and-the-synthesis)
     records at least one search.
   - `literature_findings` (since `2.21`) is the number of approved findings in
     those bundles. Today two genes carry a literature record, NR2F2 and TBX5, with
@@ -297,7 +297,7 @@ wrong by the next one.
   `[]` on every design but the new `"cell_type_profile"`, and the archive
   `"ucsc_cell_browser"`, whose datasets are named by a lowercase slug (`hoc`)
   rather than an accession, so a dataset id may now be one. Additive.
-  `2.21` added [`literature`](#the-bundles-literature-object-searches-a-triage-tally-and-approved-findings)
+  `2.21` added [`literature`](#the-bundles-literature-object-searches-a-triage-tally-paper-tallies-approved-findings-and-the-synthesis)
   to every gene bundle, `{"searches": [], …}` where the gene has no literature
   record, and `literature_genes` and `literature_findings` to `counts`. It also
   widened the `study_type` of [`publications.json`](#publicationsjson) records by
@@ -307,9 +307,11 @@ wrong by the next one.
   when the source's rows were not ingested from a data package, which is every
   source as of `2.22`, and for good a source no mirror table holds rows from,
   such as `hpo`. Additive.
-  `2.23` added `tallies` to every gene bundle's `literature` object: the
-  approved findings counted by paper (see the field's own description). The gene
-  page card now reads from it. Additive.
+  `2.23` added `tallies` and `synthesis` to every gene bundle's `literature`
+  object: the approved findings counted by paper, and the gene's approved "In
+  short" narrative, `null` where the gene has none, or its approval is missing
+  or stale (see each field's own description). The gene page card reads from
+  both. Additive.
 - `status` is the atlas's own readiness, so a program can read it without
   scraping `index.html`'s prose. Today it is always `"in-development"` — one
   curated gene-disease assertion alongside mirrored ClinGen/GenCC validity for
@@ -445,8 +447,9 @@ and each carries an `id`, so a page can link the paragraph it shortens.
   terms and the names of the gene's in-scope diseases, preprints and reviews
   excluded), that every paper a search returns gets a decision and only human
   genetics is kept, how a finding is classified and what its counts are counted
-  in, that a named curator approves each finding before it is published, and
-  what the two review marks mean.
+  in, that a named curator approves each finding before it is published, what
+  the two review marks mean, what the gene card's literature line counts, and
+  what its "In short" paragraph rests on and when it is published or withheld.
 
 Like the other pages it is for people: its markup is not a contract, and no
 payload depends on it.
@@ -772,7 +775,8 @@ abridged, and each is documented in full further down.
     "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
                  "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
                  "de_novo_papers": 11, "inherited_papers": 24,
-                 "abstract_only_papers": 21, "pending_review_papers": 3 }
+                 "abstract_only_papers": 21, "pending_review_papers": 3 },
+    "synthesis": null
   }
 }
 ```
@@ -1614,7 +1618,7 @@ abridged:
     …]}]}
 ```
 
-### The bundle's `literature` object: searches, a triage tally, paper tallies and approved findings
+### The bundle's `literature` object: searches, a triage tally, paper tallies, approved findings and the synthesis
 
 On every gene bundle (since `2.21`). Always present; a gene with no
 `curation/literature` file carries exactly the empty shape below, as 117 of the
@@ -1625,7 +1629,8 @@ On every gene bundle (since `2.21`). Always present; a gene with no
   "pending_approval": 0, "findings": [],
   "tallies": { "papers": 0, "first_year": null, "last_year": null, "designs": {},
                "lesion_groups": {}, "de_novo_papers": 0, "inherited_papers": 0,
-               "abstract_only_papers": 0, "pending_review_papers": 0 } }
+               "abstract_only_papers": 0, "pending_review_papers": 0 },
+  "synthesis": null }
 ```
 
 TBX5's, abridged:
@@ -1641,7 +1646,8 @@ TBX5's, abridged:
   "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
                "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
                "de_novo_papers": 11, "inherited_papers": 24,
-               "abstract_only_papers": 21, "pending_review_papers": 3 } }
+               "abstract_only_papers": 21, "pending_review_papers": 3 },
+  "synthesis": null }
 ```
 
 - `searches` lists each recorded PubMed search: `source`, `query`, `run_on` (an
@@ -1683,6 +1689,22 @@ TBX5's, abridged:
   `not_accessible` (read from the abstract only) or `pending_review`
   respectively. `first_year` and `last_year` span the papers' years, `null`
   with no approved finding.
+- `synthesis` (since `2.23`) is the gene's "In short" narrative. It is `null` when
+  the gene has none, it is unapproved, or its approval no longer matches: the
+  approved digest differs from one computed over the sentences, `drafted_by`, the
+  approved findings (each with its review mark and its approval) and the gene's
+  own lesion assertions. So editing the text or its cites, changing `drafted_by`,
+  approving a further finding, changing an approved finding's content, review mark
+  or approval (re-approving it included), or changing, adding or removing a lesion
+  assertion of the gene withholds it until a person approves it again. Otherwise
+  it is `{ "sentences": [ { "text", "cites" } ],
+  "drafted_by", "approved_by", "approved_on" }`, one to five sentences, with
+  `approved_on` an ISO date. `cites` lists record ids in the curator's order,
+  each a `literature.findings[].id` or an id of one of the gene's lesion
+  assertions. The validator refuses a number in a sentence's text: a standalone
+  digit run, a digit run read as an ordinal, a decade or a multiple ("3rd",
+  "1990s", "3x"), a numeric symbol such as "½", and a fixed list of number words,
+  alone or glued to "fold"; counts are in `tallies` and the findings.
 
 The gene page renders this as its Literature section, right after the atlas's
 curated evidence (on a gene with none, after the validity table) and before the
@@ -1823,7 +1845,8 @@ Top to bottom:
    evidence against a gene — follows whenever the gene has rows.
 7. One sentence saying what the atlas itself has curated, then, where a curated
    lesion assertion exists, a mechanism sentence and, where approved findings
-   exist, a literature line (both described below).
+   exist, a literature line and, where an approved synthesis is current, the
+   "In short" paragraph (all described below).
 8. *How to read this page*, a link to the top of [`methods.html`](#methodshtml),
    and a link to the gene's own JSON.
 
@@ -2016,6 +2039,14 @@ papers reporting de novo and inherited carriers, and the papers read from the
 abstract only or pending review. Every figure counts papers. The card never
 states a carrier count summed across papers, because those cohorts may overlap, and it names a common-variant
 association apart from the Mendelian designs ("not Mendelian evidence").
+
+Where `literature.synthesis` is not `null`, an "In short" paragraph follows
+the literature line: each sentence with its cited papers in parentheses before
+its closing period, question mark or exclamation mark ("Basson CT et al. 1997",
+linked to PubMed, once per sentence however many of that paper's findings it
+cites; an assertion appears as its id, linked to its heading under Curated
+evidence), then "Drafted by … from the records cited; approved by … on …". A
+withheld synthesis renders nothing.
 
 Read the uncurated sentences precisely, because they are narrower than they first appear. **A lesion
 assertion**, or an approved literature finding, is what decides which sentence the card shows, not
@@ -2272,7 +2303,7 @@ The committed corpus curates no variants, so the real index is empty:
 A paper is left out of this file while literature findings cite it and none of them
 is approved, unless an assertion, functional record, featured entry, dataset or
 burden row also cites it; a record no finding cites is published as before
-(see [`pending_approval`](#the-bundles-literature-object-searches-a-triage-tally-and-approved-findings)).
+(see [`pending_approval`](#the-bundles-literature-object-searches-a-triage-tally-paper-tallies-approved-findings-and-the-synthesis)).
 
 `summary_caveat` is one curated sentence (at most 240 characters) saying what
 a reader must know to read the study's counts — that PMID:34324492's cases were

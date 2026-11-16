@@ -38,6 +38,7 @@ from chd_atlas.validate.burden import (
 )
 from chd_atlas.validate.cell_types import validate_cell_type_profiles
 from chd_atlas.validate.gene_literature import validate_gene_literature
+from chd_atlas.validate.gene_synthesis import validate_gene_synthesis
 from chd_atlas.validate.genes import (
     validate_identity_ids,
     validate_mirror_symbols,
@@ -839,6 +840,8 @@ def validate_repository(root: Path) -> ValidationReport:
                 published_genes=published or None,
             )
         )
+        # SYN001-SYN004: same branch, same corpus; needs no registry, so no skip.
+        issues.extend(validate_gene_synthesis(corpus))
         issues.extend(
             validate_profile_references(
                 root,
