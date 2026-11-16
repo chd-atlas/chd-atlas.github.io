@@ -10922,6 +10922,29 @@ def test_a_label_gains_its_pmid_only_where_author_and_year_both_collide() -> Non
     assert _study_label("PMID:99", pubs) == "PMID:99"
 
 
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ("Baban A", "Baban  A"),  # a doubled space, which HTML collapses
+        ("Baban A", "Baban\u00a0A"),  # a no-break space
+        ("M\u00fcller K", "Mu\u0308ller K"),  # NFC against NFD
+        ("Baban A", "BABAN A"),  # case
+        ("Baban A", "Baban A."),  # a trailing full stop
+    ],
+)
+def test_first_authors_that_render_alike_collide(first: str, second: str) -> None:
+    """Each pair differs only in what a reader cannot see; the label text stays as stored."""
+    pubs = {
+        pmid: _LIT_PUBLICATION.model_copy(update={"id": pmid, "authors": [a], "year": 2014})
+        for pmid, a in (("PMID:21", first), ("PMID:22", second), ("PMID:23", "Nemer M"))
+    }
+    assert _study_label("PMID:21", pubs) == f"{first} et al. 2014 (PMID:21)"
+    assert _study_label("PMID:22", pubs) == f"{second.strip()} et al. 2014 (PMID:22)"
+    assert _study_label("PMID:23", pubs) == "Nemer M et al. 2014"
+    other_year = {**pubs, "PMID:22": pubs["PMID:22"].model_copy(update={"year": 2015})}
+    assert _study_label("PMID:21", other_year) == f"{first} et al. 2014"
+
+
 def test_a_colliding_paper_names_its_pmid_once_in_its_hover_and_its_fold_summary() -> None:
     pubs = _label_pubs()
     pubs = {k: pubs[k] for k in ("PMID:11", "PMID:12", "PMID:13")}

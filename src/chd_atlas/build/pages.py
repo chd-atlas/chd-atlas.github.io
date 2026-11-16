@@ -68,6 +68,7 @@ from __future__ import annotations
 import html
 import math
 import re
+import unicodedata
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from typing import Final, NamedTuple
 from urllib.parse import quote
@@ -2199,11 +2200,23 @@ def _paper_link(pmid: str, publications: Mapping[str, Publication]) -> Markup:
     )
 
 
+def _author_key(author: str) -> str:
+    """The comparison key for a first author: what a reader cannot tell apart.
+
+    Unicode NFC, whitespace runs (no-break space included) collapsed to one
+    space, a trailing full stop removed, then casefolded.
+    """
+    text = " ".join(unicodedata.normalize("NFC", author).split())
+    return text.rstrip(".").rstrip().casefold()
+
+
 def _study_label(pmid: str, publications: Mapping[str, Publication]) -> str:
     """ "Audain et al. 2026", or the bare PMID when the record is missing.
 
     Where another publication in `publications` has the same stripped first
-    author and the same year, the label gains the PMID as stored --
+    author and the same year, compared on `_author_key` (NFC, collapsed
+    whitespace, no trailing full stop, casefolded; the label text itself stays
+    as stored), the label gains the PMID as stored --
     "Baban A et al. 2014 (PMID:25263169)" -- so two papers shown on one page
     cannot read as one. The check runs over the whole mapping, so every caller
     gets it with no call-site change. The gene pages pass the full curation
@@ -2232,12 +2245,13 @@ def _study_label(pmid: str, publications: Mapping[str, Publication]) -> str:
     if not author:
         return pmid
     label = f"{author} et al. {publication.year}"
+    key = _author_key(author)
     for other_pmid, other in publications.items():
         if (
             other_pmid != pmid
             and other.year == publication.year
             and other.authors
-            and other.authors[0].strip() == author
+            and _author_key(other.authors[0]) == key
         ):
             return f"{label} ({pmid})"
     return label
