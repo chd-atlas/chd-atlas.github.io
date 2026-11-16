@@ -502,7 +502,7 @@ _RARE_VARIANTS: Final = (
 # `render.review_status_note`). The Finding model has no field defining a
 # carrier, so the section says the atlas records the authors' counts, not a
 # definition. It names no count. The second paragraph says what the gene card's
-# literature line counts (`pages._card_literature`). 248 words counting the heading, 247 by the
+# literature line counts (`pages._card_literature`). 251 words counting the heading, 250 by the
 # test's count (`test_literature_states_how_it_was_searched_and_who_approves`).
 _LITERATURE: Final = (
     '<h2 id="literature">Literature</h2>'
@@ -525,7 +525,8 @@ _LITERATURE: Final = (
     "are the cohort's lesions. A common-variant association is never Mendelian "
     'evidence. "From the abstract only" counts papers with a finding whose source '
     "could not be read in "
-    'full; "pending review" counts papers with a finding whose source disagrees with the paper.</p>'
+    'full; "pending review" counts papers with a finding that carries a question left open '
+    "for an expert.</p>"
 )
 
 

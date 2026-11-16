@@ -1238,8 +1238,8 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
     decisions `vocab.TriageDecision` names, the two axes are `FindingDesign`
     and `DetectionMethod`, the carrier's unit is `Finding.count_unit`, approval
     is a named person (`Finding.approved_by`) and the two marks are
-    `ReviewStatus`. Measured: 248 words counting the heading as a word of its own
-    and 247 by the assertion below (tags removed unspaced, so the heading fuses
+    `ReviewStatus`. Measured: 251 words counting the heading as a word of its own
+    and 250 by the assertion below (tags removed unspaced, so the heading fuses
     with the first word); the first paragraph alone was 156 and 155, under the 160 the
     plan allowed, and the second paragraph (the gene card's literature line, added
     2026-11-16) is the rest. The wording awaits the owner's
@@ -1266,8 +1266,8 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
         "are the cohort's lesions. A common-variant association is never Mendelian "
         'evidence. "From the abstract only" counts papers with a finding whose source '
         "could not be read in "
-        'full; "pending review" counts papers with a finding whose source '
-        "disagrees with the paper.</p>"
+        'full; "pending review" counts papers with a finding that carries a question left '
+        "open for an expert.</p>"
     )
     words = len(re.sub(r"<[^>]+>", "", _section(page, "literature")).split())
-    assert words == 247  # tags stripped unspaced, so the heading fuses with the first word
+    assert words == 250  # tags stripped unspaced, so the heading fuses with the first word
