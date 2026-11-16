@@ -2204,7 +2204,9 @@ def _author_key(author: str) -> str:
     """The comparison key for a first author: what a reader cannot tell apart.
 
     Unicode NFC, whitespace runs (no-break space included) collapsed to one
-    space, a trailing full stop removed, then casefolded.
+    space, trailing full stops (and a space before them) removed, then
+    casefolded. An author with no other character keys to "", which collides
+    with nothing (`_study_label`).
     """
     text = " ".join(unicodedata.normalize("NFC", author).split())
     return text.rstrip(".").rstrip().casefold()
@@ -2246,6 +2248,8 @@ def _study_label(pmid: str, publications: Mapping[str, Publication]) -> str:
         return pmid
     label = f"{author} et al. {publication.year}"
     key = _author_key(author)
+    if not key:
+        return label
     for other_pmid, other in publications.items():
         if (
             other_pmid != pmid

@@ -10933,7 +10933,8 @@ def test_a_label_gains_its_pmid_only_where_author_and_year_both_collide() -> Non
     ],
 )
 def test_first_authors_that_render_alike_collide(first: str, second: str) -> None:
-    """Each pair differs only in what a reader cannot see; the label text stays as stored."""
+    """Each pair differs only in what the key ignores (whitespace, Unicode form, case, a
+    trailing full stop); the label text stays as stored."""
     pubs = {
         pmid: _LIT_PUBLICATION.model_copy(update={"id": pmid, "authors": [a], "year": 2014})
         for pmid, a in (("PMID:21", first), ("PMID:22", second), ("PMID:23", "Nemer M"))
@@ -10943,6 +10944,16 @@ def test_first_authors_that_render_alike_collide(first: str, second: str) -> Non
     assert _study_label("PMID:23", pubs) == "Nemer M et al. 2014"
     other_year = {**pubs, "PMID:22": pubs["PMID:22"].model_copy(update={"year": 2015})}
     assert _study_label("PMID:21", other_year) == f"{first} et al. 2014"
+
+
+def test_a_first_author_with_nothing_but_full_stops_collides_with_nothing() -> None:
+    """Such an author keys to "", which would otherwise match every other one like it."""
+    pubs = {
+        pmid: _LIT_PUBLICATION.model_copy(update={"id": pmid, "authors": [a], "year": 2014})
+        for pmid, a in (("PMID:31", "."), ("PMID:32", ".."))
+    }
+    assert _study_label("PMID:31", pubs) == ". et al. 2014"
+    assert _study_label("PMID:32", pubs) == ".. et al. 2014"
 
 
 def test_a_colliding_paper_names_its_pmid_once_in_its_hover_and_its_fold_summary() -> None:
