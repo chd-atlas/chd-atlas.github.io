@@ -228,9 +228,10 @@ def test_core_slicing_follows_each_exons_own_flanks(tmp_path: Path) -> None:
         "HGNC:90010", "NM_900010.1", "MKTAYIAKQRQISFVKSHFSRQ", "1", "+", (30, 40, 26),
         (1000, 1200, 1500), seed=5, flanks=((20, 50), (50, 7), (33, 33)),
     )  # fmt: skip
-    assert [(x["window_start"] - x["genomic_start"], x["window_end"] - x["genomic_end"]) for x in e] == [
-        (-20, 50), (-50, 7), (-33, 33),
-    ]  # fmt: skip
+    flanks = [
+        (x["genomic_start"] - x["window_start"], x["window_end"] - x["genomic_end"]) for x in e
+    ]
+    assert flanks == [(20, 50), (50, 7), (33, 33)]
     assert validate_mane(_frame(tmp_path, ([t], e)), genes_frame([t]), tmp_path) == []
 
 
