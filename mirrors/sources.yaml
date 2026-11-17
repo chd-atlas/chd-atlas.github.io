@@ -310,3 +310,24 @@ sources:
     package:
       version: 19a1d496
       manifest_sha256: ad8f372cbde022101e860b8a85a45506f0073a952a9928e9e2a57eecb39862ce
+  - id: mane_select
+    name: >-
+      MANE (Matched Annotation from NCBI and EMBL-EBI) v1.5, MANE Select
+      transcripts (summary, GTF, RNA and protein FASTA) with the GRCh38.p14
+      genome (GCF_000001405.40) that the exon windows are cut from
+    # `mirrors/mane_transcripts.tsv` and `mirrors/mane_exons.tsv` are written by
+    # `chd-atlas ingest mane_select` from the chd-atlas/feeds package
+    # `mane_select` 1.5 (recipe `sources/mane_select`; the pin below).
+    version: "MANE v1.5 (NCBI RefSeq Annotation Release GCF_000001405.40-RS_2025_08, Ensembl 116)"
+    retrieved_on: 2026-11-17
+    url: https://ftp.ncbi.nlm.nih.gov/refseq/MANE/MANE_human/release_1.5/
+    # NCBI's data policy (https://www.ncbi.nlm.nih.gov/home/about/policies/):
+    # "NCBI itself places no restrictions on the use or distribution of the data
+    # contained therein", while "some submitters of the original data ... may
+    # claim patent, copyright, or other intellectual property rights". MANE's
+    # own README states no licence terms. Owner decision: attributable.
+    licence: NCBI data policy, no NCBI restrictions; submitters may claim rights
+    redistribution: permitted_with_attribution
+    package:
+      version: '1.5'
+      manifest_sha256: 5a52a7662b892134fc1773799e71413c478a00eedb5c1a48a202c67187ce8dcd
