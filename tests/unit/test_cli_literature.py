@@ -1,5 +1,5 @@
 # tests/unit/test_cli_literature.py
-"""`chd-atlas literature review | target`.
+"""`chd-atlas literature review | target | frame`.
 
 The repository under test is a tmp directory: a four-gene registry, two
 published genes (TBX5, GATA4 -- different diseases, so a label cannot pass by
@@ -24,6 +24,7 @@ from typer.testing import CliRunner
 from chd_atlas.cli import app
 from chd_atlas.models.gene_literature import Finding, finding_digest
 from tests.unit._stamp import stamped_yaml
+from tests.unit.mane_fixtures import synthetic_rows, write_mane_mirrors
 
 REPO = Path(__file__).resolve().parents[2]
 runner = CliRunner()
@@ -902,6 +903,69 @@ def test_target_refusals_exit_2_and_name_the_cause(
     result = _target(root, symbol)
     assert result.exit_code == 2
     assert message in result.output
+
+
+# --------------------------------------------------------------------------
+# `literature frame`
+# --------------------------------------------------------------------------
+
+FRAME_GENES = (
+    "HGNC:90001\tFRAMEPLUS\tsynthetic plus\tFPALIAS\t\t\t\t\t\tNM_900001.1\n"
+    "HGNC:90002\tFRAMEMINUS\tsynthetic minus\t\t\t\t\t\t\tNM_900002.3\n"
+    "HGNC:90003\tFRAMEABSENT\tin genes, not in the frame\t\t\t\t\t\t\t\n"
+)
+
+
+def _frame(root: Path, *args: str) -> Any:
+    return runner.invoke(app, ["literature", "frame", *args, "--root", str(root)])
+
+
+@pytest.fixture
+def frame_root(root: Path) -> Path:
+    with (root / "mirrors" / "genes.tsv").open("a") as handle:
+        handle.write(FRAME_GENES)
+    transcripts, exons = synthetic_rows()
+    write_mane_mirrors(root, transcripts, exons)
+    return root
+
+
+def test_frame_prints_the_pinned_transcript_and_protein(frame_root: Path) -> None:
+    result = _frame(frame_root, "FRAMEMINUS")
+    assert result.exit_code == 0
+    assert result.output.splitlines() == [
+        '{"chrom": "2", "format": 1, "gene": "HGNC:90002", "protein": "NP_900002.3", '
+        '"strand": "-", "symbol": "FRAMEMINUS", "transcript": "NM_900002.3"}'
+    ]
+    plus = json.loads(_frame(frame_root, "FRAMEPLUS").output)
+    assert plus["strand"] == "+" and plus["chrom"] == "1"
+    assert plus["transcript"] == "NM_900001.1" and plus["protein"] == "NP_900001.1"
+    assert (
+        json.loads(_frame(frame_root, "FPALIAS").output) == plus
+    )  # an alias answers as the approved symbol
+    assert plus["format"] == 1 and plus["format"] is not True
+
+
+@pytest.mark.parametrize(
+    ("symbol", "damage", "message"),
+    [
+        ("NOPE", None, "is not a known gene symbol"),
+        ("MADH7", None, "HGNC:6772, HGNC:6773"),
+        ("FRAMEPLUS", "no_mirror", "no MANE mirror"),
+        ("FRAMEPLUS", "unreadable", "the MANE mirror is unreadable: "),
+        ("FRAMEABSENT", None, "HGNC:90003 (FRAMEABSENT) has no row in the MANE mirror"),
+    ],
+)
+def test_frame_refusals_exit_2_and_name_the_cause(
+    frame_root: Path, symbol: str, damage: str | None, message: str
+) -> None:
+    if damage == "no_mirror":
+        (frame_root / "mirrors" / "mane_exons.tsv").unlink()
+    elif damage == "unreadable":
+        (frame_root / "mirrors" / "mane_transcripts.tsv").write_text("not\ta\tmirror\n")
+    result = _frame(frame_root, symbol)
+    assert result.exit_code == 2
+    assert message in result.output
+    assert "{" not in result.output
 
 
 # --------------------------------------------------------------------------

@@ -101,8 +101,8 @@ def test_curator_holds_only_the_rules_file() -> None:
     assert sorted(p.name for p in CURATOR.iterdir()) == ["curator-rules.md"]
 
 
-def test_the_literature_commands_are_review_and_target() -> None:
-    assert set(_literature_commands()) == {"review", "target"}
+def test_the_literature_commands_are_review_target_and_frame() -> None:
+    assert set(_literature_commands()) == {"review", "target", "frame"}
 
 
 def test_every_atlas_command_and_option_the_rules_name_exists() -> None:

@@ -17,10 +17,12 @@ from typing import Final
 
 from chd_atlas.build.validity import gene_validity
 from chd_atlas.corpus import load_curation
+from chd_atlas.mane import read_mane_frame
 from chd_atlas.tables import TABLE_SCHEMAS, read_table
 from chd_atlas.validate.runner import _gate_published_genes, _symbol_registry
 
 TARGET_FORMAT: Final = 1
+FRAME_FORMAT: Final = 1
 
 
 class TargetError(Exception):
@@ -148,4 +150,52 @@ def literature_target(root: Path, symbol: str) -> LiteratureTarget:
         symbol=approved,
         published=gene in published_genes,
         query=build_query(approved, previous, diseases),
+    )
+
+
+@dataclass(frozen=True)
+class LiteratureFrame:
+    """A gene's pinned MANE Select transcript and protein, as RefSeq accession.versions."""
+
+    gene: str
+    symbol: str
+    transcript: str
+    protein: str
+    chrom: str
+    strand: str
+
+    def as_json(self) -> dict[str, object]:
+        return {
+            "format": FRAME_FORMAT,
+            "gene": self.gene,
+            "symbol": self.symbol,
+            "transcript": self.transcript,
+            "protein": self.protein,
+            "chrom": self.chrom,
+            "strand": self.strand,
+        }
+
+
+def literature_frame(root: Path, symbol: str) -> LiteratureFrame:
+    """Resolve `symbol` and answer its pinned MANE Select transcript and protein.
+
+    Reads the mirror but does not re-run MAN001-MAN004; that is `chd-atlas
+    validate`'s job.
+    """
+    gene, approved, _ = resolve_symbol(root, symbol)
+    frame, issues = read_mane_frame(root)
+    if frame is None:
+        if issues:
+            raise TargetError(f"the MANE mirror is unreadable: {issues[0].message}")
+        raise TargetError("no MANE mirror in mirrors/")
+    transcript = frame.get(gene)
+    if transcript is None:
+        raise TargetError(f"{gene} ({approved}) has no row in the MANE mirror")
+    return LiteratureFrame(
+        gene=gene,
+        symbol=approved,
+        transcript=transcript.transcript,
+        protein=transcript.protein,
+        chrom=transcript.chrom,
+        strand=transcript.strand,
     )

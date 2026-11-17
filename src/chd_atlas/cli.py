@@ -33,7 +33,12 @@ from chd_atlas.ingest.apply import (
 )
 from chd_atlas.ingest.package import IngestRefused
 from chd_atlas.issues import ValidationIssue
-from chd_atlas.literature_query import TargetError, literature_target, resolve_symbol
+from chd_atlas.literature_query import (
+    TargetError,
+    literature_frame,
+    literature_target,
+    resolve_symbol,
+)
 from chd_atlas.models.assertion import InTextLocator, Locator
 from chd_atlas.models.gene_literature import (
     Finding,
@@ -468,6 +473,20 @@ def literature_target_command(
     except TargetError as exc:
         raise _fail(str(exc), 2) from None
     typer.echo(json.dumps(target.as_json(), sort_keys=True, ensure_ascii=False))
+
+
+@literature_app.command("frame")
+def literature_frame_command(
+    symbol: str = typer.Argument(..., help="Gene symbol (approved, alias or previous)."),
+    root: Path = typer.Option(Path("."), help="Repository root."),
+) -> None:
+    """Print a gene's pinned MANE Select transcript and protein as one JSON line."""
+    _require_root(root)
+    try:
+        frame = literature_frame(root, symbol)
+    except TargetError as exc:
+        raise _fail(str(exc), 2) from None
+    typer.echo(json.dumps(frame.as_json(), sort_keys=True, ensure_ascii=False))
 
 
 def _require_literature_file(root: Path, symbol: str) -> tuple[str, Path]:
