@@ -26,7 +26,8 @@ def test_read_mane_frame_orders_exons_by_transcript_and_returns_none_when_absent
     assert read_mane_frame(tmp_path) == (None, [])
 
     # Written in descending exon order: the reader must sort by exon number, not
-    # trust file order. On `-` that is also descending genomic order.
+    # trust file order. On `-` exon 1 holds the highest genomic coordinates, so
+    # exon-number order is descending genomic order there.
     write_mane_mirrors(tmp_path, transcripts, list(reversed(exons)))
     frame, issues = read_mane_frame(tmp_path)
     assert issues == []
@@ -93,3 +94,22 @@ def test_exon_rows_that_cannot_be_attached_are_reported_not_dropped(tmp_path: Pa
     # None of the three reached the frame: exon 1 of the first gene is gone, so
     # the validator will see a gap rather than a wrong exon.
     assert [e.number for e in frame[GENE_PLUS].exons] == [2, 3]
+
+
+def test_a_gene_listed_twice_in_mane_transcripts_is_reported_and_the_first_row_wins(
+    tmp_path: Path,
+) -> None:
+    transcripts, exons = synthetic_rows()
+    second = dict(transcripts[0], refseq_transcript="NM_900001.9", refseq_protein="NP_555555.1")
+    write_mane_mirrors(tmp_path, [transcripts[0], second, transcripts[1]], exons)
+    frame, issues = read_mane_frame(tmp_path)
+    assert frame is not None
+    assert [(i.code, i.message) for i in issues] == [
+        ("MAN001", "HGNC:90001 appears in mane_transcripts more than once")
+    ]
+    # The first row answers, for the frame and for the exons matched against it.
+    assert (frame[GENE_PLUS].transcript, frame[GENE_PLUS].protein) == (
+        "NM_900001.1",
+        "NP_211112.9",
+    )
+    assert [e.number for e in frame[GENE_PLUS].exons] == [1, 2, 3]

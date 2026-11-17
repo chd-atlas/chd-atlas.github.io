@@ -1857,16 +1857,31 @@ def test_the_runner_reports_synthesis_issues(tmp_path: Path) -> None:
     assert "SYN002" in _codes_of(root)
 
 
+def test_the_runner_checks_the_mane_frame_when_the_corpus_loads(tmp_path: Path) -> None:
+    """The MAN call site on the branch where the corpus loads (§4.34)."""
+    root = _real_repo(tmp_path)
+    transcripts, exons = synthetic_rows()
+    transcripts[0]["protein_sequence"] = "G" + transcripts[0]["protein_sequence"][1:]
+    write_mane_mirrors(root, transcripts, exons)
+    codes = _codes_of(root)
+    assert "CORPUS001" not in codes
+    assert "MAN002" in codes
+
+
 def _mane_codes(root: Path) -> list[str]:
     return sorted(i.code for i in validate_repository(root).issues if i.code.startswith("MAN"))
 
 
 def test_the_runner_reads_the_mane_frame_once_and_does_not_double_report(tmp_path: Path) -> None:
-    """No MANE mirror is no issue; a present one is checked on every path.
+    """No MANE mirror is no issue; a present one is checked.
 
-    Called on the branch where `genes.tsv` is absent too (MAN003/MAN004 skipped,
-    TBL008 reports the cause) and where it is present. An unreadable exon file is
-    TBL000 from `validate_table` alone: the reader's copy of it is discarded.
+    The repositories here have no curation, so they fail corpus loading
+    (measured codes for the no-genes.tsv one: CORPUS001, ID001, ONT000, REF000,
+    SRC000, SRC001) and reach only that branch;
+    `test_the_runner_checks_the_mane_frame_when_the_corpus_loads` reaches the
+    other. An unreadable exon file is TBL000 from `validate_table` alone: the
+    reader's copy of it is discarded. This test does not measure how many times
+    the mirrors are read.
     """
     assert _mane_codes(_repo_with_no_profiles(tmp_path / "none")) == []
 

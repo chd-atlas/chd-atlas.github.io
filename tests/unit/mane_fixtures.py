@@ -76,6 +76,8 @@ def make_gene(
     utr5: int = 12,
     utr3: int = 15,
     codon_overrides: dict[int, str] | None = None,
+    refseq_protein: str | None = None,
+    flanks: tuple[tuple[int, int], ...] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """One transcript row and its exon rows (exons in transcript order).
 
@@ -84,9 +86,15 @@ def make_gene(
     transcript length (`utr5 + 3 * (len(protein) + 1) + utr3`).
     `codon_overrides` maps a 0-based residue index to the codon to use there
     instead of the default (a non-ATG start, or TGA for a selenocysteine).
+    `refseq_protein` defaults to an accession whose number is unrelated to the
+    transcript's, as in real MANE rows. `flanks[i]` is exon i+1's
+    `(left, right)` flank in bases; the default is FLANK on both sides.
     """
     rng = random.Random(seed)
     overrides = codon_overrides or {}
+    if refseq_protein is None:
+        refseq_protein = f"NP_{(int(transcript[3:].split('.')[0]) + 111111) % 900000 + 100000}.9"
+    sides = flanks or ((FLANK, FLANK),) * len(exon_lengths)
     cds = (
         "".join(overrides[i] if i in overrides else _CODON[r] for i, r in enumerate(protein))
         + _CODON["*"]
@@ -94,12 +102,12 @@ def make_gene(
     sequence = _filler(rng, utr5) + cds + _filler(rng, utr3)
     if sum(exon_lengths) != len(sequence):
         raise ValueError(f"exon lengths sum to {sum(exon_lengths)}, transcript is {len(sequence)}")
-    genome_length = max(exon_genomic_starts) + max(exon_lengths) + FLANK + 100
+    genome_length = max(exon_genomic_starts) + max(exon_lengths) + 2 * FLANK + 100
     genome = list(_filler(rng, genome_length))  # 1-based positions: genome[p - 1]
     exons: list[dict[str, Any]] = []
     cursor = 1
-    for number, (length, g_start) in enumerate(
-        zip(exon_lengths, exon_genomic_starts, strict=True), start=1
+    for number, (length, g_start, (left, right)) in enumerate(
+        zip(exon_lengths, exon_genomic_starts, sides, strict=True), start=1
     ):
         piece = sequence[cursor - 1 : cursor - 1 + length]
         forward = _revcomp(piece) if strand == "-" else piece
@@ -113,8 +121,8 @@ def make_gene(
                 "transcript_end": cursor + length - 1,
                 "genomic_start": g_start,
                 "genomic_end": g_start + length - 1,
-                "window_start": g_start - FLANK,
-                "window_end": g_start + length - 1 + FLANK,
+                "window_start": g_start - left,
+                "window_end": g_start + length - 1 + right,
                 "source": "synthetic",
             }
         )
@@ -125,7 +133,7 @@ def make_gene(
     transcript_row = {
         "hgnc_id": hgnc_id,
         "refseq_transcript": transcript,
-        "refseq_protein": transcript.replace("NM_", "NP_"),
+        "refseq_protein": refseq_protein,
         "ensembl_transcript": f"ENST{hgnc_id[5:].zfill(11)}.1",
         "ensembl_protein": f"ENSP{hgnc_id[5:].zfill(11)}.1",
         "chrom": chrom,

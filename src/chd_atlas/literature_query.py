@@ -186,8 +186,13 @@ def literature_frame(root: Path, symbol: str) -> LiteratureFrame:
     frame, issues = read_mane_frame(root)
     if frame is None:
         if issues:
-            raise TargetError(f"the MANE mirror is unreadable: {issues[0].message}")
-        raise TargetError("no MANE mirror in mirrors/")
+            raise TargetError(
+                f"the MANE mirror is unreadable: {issues[0].location}: {issues[0].message}"
+            )
+        raise TargetError(
+            "the MANE mirror is missing or incomplete in mirrors/ "
+            "(needs mane_transcripts.tsv and mane_exons.tsv)"
+        )
     transcript = frame.get(gene)
     if transcript is None:
         raise TargetError(f"{gene} ({approved}) has no row in the MANE mirror")

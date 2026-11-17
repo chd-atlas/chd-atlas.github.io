@@ -1002,8 +1002,8 @@ MANE_TRANSCRIPTS = TableSchema(
     sort_key=("hgnc_id",),
 )
 # One row per exon of that transcript. `window_start`..`window_end` is a
-# forward-strand genome window of the exon plus 50 bp on each side, and
-# `window_sequence` is its sequence.
+# forward-strand genome window of the exon plus its flank (50 bp on each side in
+# mane_select/1.5), and `window_sequence` is its sequence.
 MANE_EXONS = TableSchema(
     name="mane_exons",
     columns=(

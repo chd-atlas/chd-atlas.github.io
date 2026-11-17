@@ -1,9 +1,12 @@
 """MAN001-MAN004: the MANE frame against itself and against `mirrors/genes.tsv`.
 
 Reports; never raises. MAN001 and MAN002 read the frame alone. MAN003 and MAN004
-compare it with the gene registry and run only when one is supplied: an absent or
-unreadable `genes.tsv` is reported once, elsewhere (TBL008), and must not cascade
-into one MAN004 per gene.
+compare it with the gene registry and run only when one is supplied. A `genes.tsv`
+that is present but unreadable is TBL000/TBL001 for the file, and TBL008 reports an
+absent one when the corpus loads; neither may cascade into one MAN004 per gene. A
+genes frame lacking `hgnc_id` or `mane_select` is skipped for the same reason
+(TBL001 reports the column), and a row whose `hgnc_id` is null is skipped (TBL003
+reports it).
 
 Issues come back sorted, never in dict or set iteration order.
 """
@@ -147,6 +150,8 @@ def _against_registry(
 ) -> Iterable[ValidationIssue]:
     for row in genes.sort("hgnc_id").iter_rows(named=True):
         hgnc_id = row["hgnc_id"]
+        if hgnc_id is None:
+            continue
         declared = row.get("mane_select")
         t = frame.get(hgnc_id)
         if t is None:

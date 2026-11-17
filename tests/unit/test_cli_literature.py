@@ -916,6 +916,12 @@ FRAME_GENES = (
 )
 
 
+MISSING_MIRROR = (
+    "the MANE mirror is missing or incomplete in mirrors/ "
+    "(needs mane_transcripts.tsv and mane_exons.tsv)"
+)
+
+
 def _frame(root: Path, *args: str) -> Any:
     return runner.invoke(app, ["literature", "frame", *args, "--root", str(root)])
 
@@ -933,12 +939,12 @@ def test_frame_prints_the_pinned_transcript_and_protein(frame_root: Path) -> Non
     result = _frame(frame_root, "FRAMEMINUS")
     assert result.exit_code == 0
     assert result.output.splitlines() == [
-        '{"chrom": "2", "format": 1, "gene": "HGNC:90002", "protein": "NP_900002.3", '
+        '{"chrom": "2", "format": 1, "gene": "HGNC:90002", "protein": "NP_211113.9", '
         '"strand": "-", "symbol": "FRAMEMINUS", "transcript": "NM_900002.3"}'
     ]
     plus = json.loads(_frame(frame_root, "FRAMEPLUS").output)
     assert plus["strand"] == "+" and plus["chrom"] == "1"
-    assert plus["transcript"] == "NM_900001.1" and plus["protein"] == "NP_900001.1"
+    assert plus["transcript"] == "NM_900001.1" and plus["protein"] == "NP_211112.9"
     assert (
         json.loads(_frame(frame_root, "FPALIAS").output) == plus
     )  # an alias answers as the approved symbol
@@ -950,7 +956,8 @@ def test_frame_prints_the_pinned_transcript_and_protein(frame_root: Path) -> Non
     [
         ("NOPE", None, "is not a known gene symbol"),
         ("MADH7", None, "HGNC:6772, HGNC:6773"),
-        ("FRAMEPLUS", "no_mirror", "no MANE mirror"),
+        ("FRAMEPLUS", "no_exons", MISSING_MIRROR),
+        ("FRAMEPLUS", "no_transcripts", MISSING_MIRROR),
         ("FRAMEPLUS", "unreadable", "the MANE mirror is unreadable: "),
         ("FRAMEABSENT", None, "HGNC:90003 (FRAMEABSENT) has no row in the MANE mirror"),
     ],
@@ -958,13 +965,17 @@ def test_frame_prints_the_pinned_transcript_and_protein(frame_root: Path) -> Non
 def test_frame_refusals_exit_2_and_name_the_cause(
     frame_root: Path, symbol: str, damage: str | None, message: str
 ) -> None:
-    if damage == "no_mirror":
+    if damage == "no_exons":
         (frame_root / "mirrors" / "mane_exons.tsv").unlink()
+    elif damage == "no_transcripts":
+        (frame_root / "mirrors" / "mane_transcripts.tsv").unlink()
     elif damage == "unreadable":
         (frame_root / "mirrors" / "mane_transcripts.tsv").write_text("not\ta\tmirror\n")
     result = _frame(frame_root, symbol)
     assert result.exit_code == 2
     assert message in result.output
+    if damage == "unreadable":
+        assert "mane_transcripts.tsv" in result.output  # the file is named
     assert "{" not in result.output
 
 

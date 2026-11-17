@@ -74,6 +74,25 @@ def _change_a_residue(rows: Rows) -> pl.DataFrame:
     return genes_frame(rows[0])
 
 
+def _cds_start_after_cds_end(rows: Rows) -> pl.DataFrame:
+    rows[0][0]["cds_start"], rows[0][0]["cds_end"] = 10, 5
+    return genes_frame(rows[0])
+
+
+def _exon_outside_its_window(rows: Rows) -> pl.DataFrame:
+    # Cut exon 1's right flank and its last core base (51 bases) from the window,
+    # sequence and coordinate together, so the length check passes and only containment is violated.
+    exon = rows[1][0]
+    exon["window_end"] -= 51
+    exon["window_sequence"] = exon["window_sequence"][:-51]
+    return genes_frame(rows[0])
+
+
+def _last_exon_missing(rows: Rows) -> pl.DataFrame:
+    rows[1][:] = [e for e in rows[1] if not (e["hgnc_id"] == GENE_PLUS and e["exon"] == 3)]
+    return genes_frame(rows[0])
+
+
 def _version_mismatch(rows: Rows) -> pl.DataFrame:
     genes = genes_frame(rows[0])
     return genes.with_columns(
@@ -113,6 +132,11 @@ def _registry_gene_without_a_row(rows: Rows) -> pl.DataFrame:
             "in the genome",
             id="span-mismatch",
         ),
+        pytest.param(_exon_outside_its_window, {"MAN001"}, "lies outside its window", id="outside"),
+        pytest.param(
+            _last_exon_missing, {"MAN001"}, "exons end at transcript position 70", id="short-exons"
+        ),
+        pytest.param(_cds_start_after_cds_end, {"MAN002"}, "is not inside", id="cds-bounds"),
         pytest.param(_change_a_residue, {"MAN002"}, "residue 5", id="changed-residue"),
         pytest.param(_cds_not_a_multiple_of_three, {"MAN002"}, "multiple of 3", id="cds-length"),
         pytest.param(_cds_without_its_stop, {"MAN002"}, "stop codon", id="no-stop"),
@@ -180,6 +204,8 @@ def _one_gene(overrides: dict[int, str], protein: str) -> Rows:
         pytest.param({4: "TGA"}, "MKTACIAKQRQISFVKSHFSRQ", {"MAN002"}, id="TGA-against-C"),
         pytest.param({3: "CTG"}, "MKTMYIAKQRQISFVKSHFSRQ", {"MAN002"}, id="M-allowance-only-at-1"),
         pytest.param({4: "TAA"}, "MKTAYIAKQRQISFVKSHFSRQ", {"MAN002"}, id="internal-stop"),
+        pytest.param({4: "TAT"}, "MKTAUIAKQRQISFVKSHFSRQ", {"MAN002"}, id="U-needs-TGA"),
+        pytest.param({0: "CTG"}, "KKTAYIAKQRQISFVKSHFSRQ", {"MAN002"}, id="M-needs-a-M-protein"),
     ],
 )
 def test_the_two_translation_allowances_are_exactly_two(
@@ -196,12 +222,47 @@ def test_the_codon_table_is_the_standard_genetic_code() -> None:
     assert len(CODON_TABLE) == 64 and sum(a == "*" for a in CODON_TABLE.values()) == 3
 
 
+def test_core_slicing_follows_each_exons_own_flanks(tmp_path: Path) -> None:
+    """Flanks of 20/50, 50/7 and 33/33 bases: a fixed-width flank would misplace the core."""
+    t, e = make_gene(
+        "HGNC:90010", "NM_900010.1", "MKTAYIAKQRQISFVKSHFSRQ", "1", "+", (30, 40, 26),
+        (1000, 1200, 1500), seed=5, flanks=((20, 50), (50, 7), (33, 33)),
+    )  # fmt: skip
+    assert [(x["window_start"] - x["genomic_start"], x["window_end"] - x["genomic_end"]) for x in e] == [
+        (-20, 50), (-50, 7), (-33, 33),
+    ]  # fmt: skip
+    assert validate_mane(_frame(tmp_path, ([t], e)), genes_frame([t]), tmp_path) == []
+
+
+def test_a_null_hgnc_id_in_genes_is_left_to_tbl003(tmp_path: Path) -> None:
+    rows = synthetic_rows()
+    genes = pl.concat(
+        [
+            genes_frame(rows[0]),
+            pl.DataFrame(
+                {"hgnc_id": [None], "mane_select": ["NM_1.1"]},
+                schema={"hgnc_id": pl.String, "mane_select": pl.String},
+            ),
+        ]
+    )
+    assert validate_mane(_frame(tmp_path, rows), genes, tmp_path) == []
+
+
 @pytest.mark.parametrize("missing", ["hgnc_id", "mane_select"])
 def test_a_genes_frame_missing_a_needed_column_is_skipped_not_raised(
     tmp_path: Path, missing: str
 ) -> None:
-    """TBL001 reports the column; MAN003/MAN004 must neither raise nor cascade."""
+    """TBL001 reports the column. The frame's own checks still run; MAN003/MAN004 do not."""
     rows = synthetic_rows()
+    _flip_exon_base(rows)  # MAN001
+    rows[0][1]["protein_sequence"] = "G" + rows[0][1]["protein_sequence"][1:]  # MAN002
     frame = _frame(tmp_path, rows)
-    genes = genes_frame(rows[0]).drop(missing)
-    assert validate_mane(frame, genes, tmp_path) == []
+    # A registry gene with no frame row and a wrong mane_select would be MAN004 and
+    # MAN003 if the comparison ran.
+    genes = pl.concat(
+        [
+            genes_frame(rows[0]).with_columns(mane_select=pl.lit("NM_1.1")),
+            pl.DataFrame({"hgnc_id": ["HGNC:90099"], "mane_select": ["NM_2.1"]}),
+        ]
+    ).drop(missing)
+    assert {i.code for i in validate_mane(frame, genes, tmp_path)} == {"MAN001", "MAN002"}

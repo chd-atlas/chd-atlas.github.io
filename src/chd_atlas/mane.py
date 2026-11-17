@@ -35,7 +35,9 @@ class Exon:
     """One exon. All coordinates are 1-based and inclusive.
 
     `transcript_*` are positions in the transcript sequence, `genomic_*` on the
-    forward strand of the chromosome. `window_sequence` is the forward-strand
+    forward strand of the chromosome. On `-`, `transcript_start` pairs with
+    `genomic_end` (the exon's 5' base is its highest genomic coordinate) and
+    `transcript_end` with `genomic_start`. `window_sequence` is the forward-strand
     genome from `window_start` to `window_end`: the exon plus its flank.
     """
 
@@ -51,8 +53,9 @@ class Exon:
 
 @dataclass(frozen=True)
 class ManeTranscript:
-    """A MANE Select transcript. `exons` are in transcript order: on `-`, exon 1
-    holds the highest genomic coordinates. `cds_start` is the first base of the
+    """A MANE Select transcript. `exons` are in exon-number order, which MAN001
+    checks is transcript order (on `-`, exon 1 then holds the highest genomic
+    coordinates). `cds_start` is the first base of the
     start codon and `cds_end` the last base of the stop codon."""
 
     hgnc_id: str
@@ -105,9 +108,11 @@ def read_mane_frame(root: Path) -> tuple[ManeFrame | None, list[ValidationIssue]
 
     issues: list[ValidationIssue] = []
     exons_by_gene: dict[str, dict[int, Exon]] = {}
-    transcript_name = {
-        r["hgnc_id"]: r["refseq_transcript"] for r in transcripts.iter_rows(named=True)
-    }
+    # First row wins, as it does for `frame_out` below, so an exon is matched
+    # against the transcript the frame will hold.
+    transcript_name: dict[str, str] = {}
+    for r in transcripts.iter_rows(named=True):
+        transcript_name.setdefault(r["hgnc_id"], r["refseq_transcript"])
     for r in exon_rows.iter_rows(named=True):
         gene, number = r["hgnc_id"], r["exon"]
         if gene not in transcript_name:
