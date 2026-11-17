@@ -194,3 +194,14 @@ def test_the_codon_table_is_the_standard_genetic_code() -> None:
     known = {"ATG": "M", "TGG": "W", "TAA": "*", "TAG": "*", "TGA": "*", "TTT": "F", "GCC": "A"}
     assert all(CODON_TABLE[c] == a for c, a in known.items())
     assert len(CODON_TABLE) == 64 and sum(a == "*" for a in CODON_TABLE.values()) == 3
+
+
+@pytest.mark.parametrize("missing", ["hgnc_id", "mane_select"])
+def test_a_genes_frame_missing_a_needed_column_is_skipped_not_raised(
+    tmp_path: Path, missing: str
+) -> None:
+    """TBL001 reports the column; MAN003/MAN004 must neither raise nor cascade."""
+    rows = synthetic_rows()
+    frame = _frame(tmp_path, rows)
+    genes = genes_frame(rows[0]).drop(missing)
+    assert validate_mane(frame, genes, tmp_path) == []

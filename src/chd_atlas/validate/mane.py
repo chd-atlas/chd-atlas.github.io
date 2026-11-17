@@ -135,7 +135,9 @@ def validate_mane(
                     f"{hgnc_id} {t.transcript}: {cds_fault}",
                 )
             )
-    if registry_genes is not None:
+    # A genes frame without the two columns is unusable, not empty: TBL001 reports
+    # it, and comparing against it would raise or call every gene a mismatch.
+    if registry_genes is not None and {"hgnc_id", "mane_select"} <= set(registry_genes.columns):
         issues.extend(_against_registry(frame, registry_genes, mirrors / "genes.tsv"))
     return sorted(issues)
 
