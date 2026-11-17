@@ -980,6 +980,47 @@ MONDO_XREFS = TableSchema(
     ),
     sort_key=("mondo", "target"),
 )
+# One row per gene: its MANE Select transcript. `cds_start` and `cds_end` are
+# 1-based transcript positions of the start codon's first base and the stop
+# codon's last base.
+MANE_TRANSCRIPTS = TableSchema(
+    name="mane_transcripts",
+    columns=(
+        Column("hgnc_id", pl.String, pattern=HGNC_PATTERN),
+        Column("refseq_transcript", pl.String, pattern=r"^NM_\d+\.\d+$"),
+        Column("refseq_protein", pl.String, pattern=r"^NP_\d+\.\d+$"),
+        Column("ensembl_transcript", pl.String, pattern=r"^ENST\d{11}\.\d+$"),
+        Column("ensembl_protein", pl.String, pattern=r"^ENSP\d{11}\.\d+$"),
+        Column("chrom", pl.String, allowed=_CHROMOSOME_SET),
+        Column("strand", pl.String, allowed=frozenset({"+", "-"})),
+        Column("cds_start", pl.Int64, minimum=1),
+        Column("cds_end", pl.Int64, minimum=1),
+        Column("transcript_sequence", pl.String, pattern=r"^[ACGT]+$"),
+        Column("protein_sequence", pl.String, pattern=r"^[ACDEFGHIKLMNPQRSTVWYU]+$"),
+        Column("source", pl.String),
+    ),
+    sort_key=("hgnc_id",),
+)
+# One row per exon of that transcript. `window_start`..`window_end` is a
+# forward-strand genome window of the exon plus 50 bp on each side, and
+# `window_sequence` is its sequence.
+MANE_EXONS = TableSchema(
+    name="mane_exons",
+    columns=(
+        Column("hgnc_id", pl.String, pattern=HGNC_PATTERN),
+        Column("refseq_transcript", pl.String, pattern=r"^NM_\d+\.\d+$"),
+        Column("exon", pl.Int64, minimum=1),
+        Column("transcript_start", pl.Int64, minimum=1),
+        Column("transcript_end", pl.Int64, minimum=1),
+        Column("genomic_start", pl.Int64, minimum=1),
+        Column("genomic_end", pl.Int64, minimum=1),
+        Column("window_start", pl.Int64, minimum=1),
+        Column("window_end", pl.Int64, minimum=1),
+        Column("window_sequence", pl.String, pattern=r"^[ACGTN]+$"),
+        Column("source", pl.String),
+    ),
+    sort_key=("hgnc_id", "exon"),
+)
 
 TABLE_SCHEMAS: Final[dict[str, TableSchema]] = {
     schema.name: schema
@@ -1000,6 +1041,8 @@ TABLE_SCHEMAS: Final[dict[str, TableSchema]] = {
         ORPHANET_PHENOTYPES,
         ORPHANET_OMIM,
         MONDO_XREFS,
+        MANE_TRANSCRIPTS,
+        MANE_EXONS,
     )
 }
 
@@ -1029,6 +1072,8 @@ FLAT_TABLES: Final[dict[str, str]] = {
     "orphanet_phenotypes": "orphanet_phenotypes.tsv",
     "orphanet_omim": "orphanet_omim.tsv",
     "mondo_xrefs": "mondo_xrefs.tsv",
+    "mane_transcripts": "mane_transcripts.tsv",
+    "mane_exons": "mane_exons.tsv",
 }
 
 

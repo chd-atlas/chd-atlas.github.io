@@ -16,6 +16,8 @@ from chd_atlas.tables import (
     CLINGEN_VALIDITY,
     FLAT_TABLES,
     GENCC_SUBMISSIONS,
+    MANE_EXONS,
+    MANE_TRANSCRIPTS,
     SHARDED_TABLES,
     TABLE_SCHEMAS,
     Column,
@@ -23,6 +25,7 @@ from chd_atlas.tables import (
     _row_issues,
     mirror_paths,
     read_table,
+    table_layout,
     unexpected_mirror_entries,
     validate_table,
 )
@@ -166,7 +169,46 @@ def test_registry_covers_every_mirror_table() -> None:
         "orphanet_phenotypes",
         "orphanet_omim",
         "mondo_xrefs",
+        "mane_transcripts",
+        "mane_exons",
     }
+
+
+def test_the_mane_tables_are_flat_and_keyed_on_hgnc_id() -> None:
+    assert table_layout("mane_transcripts") == ("flat", "mane_transcripts.tsv")
+    assert table_layout("mane_exons") == ("flat", "mane_exons.tsv")
+    for schema in (MANE_TRANSCRIPTS, MANE_EXONS):
+        assert schema.gene_column == "hgnc_id"
+        assert schema.source_column == "source"
+    assert MANE_TRANSCRIPTS.sort_key == ("hgnc_id",)
+    assert MANE_EXONS.sort_key == ("hgnc_id", "exon")
+    assert MANE_TRANSCRIPTS.column_names == (
+        "hgnc_id",
+        "refseq_transcript",
+        "refseq_protein",
+        "ensembl_transcript",
+        "ensembl_protein",
+        "chrom",
+        "strand",
+        "cds_start",
+        "cds_end",
+        "transcript_sequence",
+        "protein_sequence",
+        "source",
+    )
+    assert MANE_EXONS.column_names == (
+        "hgnc_id",
+        "refseq_transcript",
+        "exon",
+        "transcript_start",
+        "transcript_end",
+        "genomic_start",
+        "genomic_end",
+        "window_start",
+        "window_end",
+        "window_sequence",
+        "source",
+    )
 
 
 def test_a_combined_row_is_keyed_on_the_burden_partition_minus_what_its_arms_span() -> None:
@@ -1024,6 +1066,14 @@ def test_polars_pattern_engine_agrees_with_python_re(tmp_path: Path) -> None:
         r"^OMIM:\d+$",
         r"^HP:\d{7}$",
         r"^(ORPHA|OMIM):\d+$",
+        # The MANE coordinate frame.
+        r"^NM_\d+\.\d+$",
+        r"^NP_\d+\.\d+$",
+        r"^ENST\d{11}\.\d+$",
+        r"^ENSP\d{11}\.\d+$",
+        r"^[ACGT]+$",
+        r"^[ACDEFGHIKLMNPQRSTVWYU]+$",
+        r"^[ACGTN]+$",
     }
 
     adversarial = [
