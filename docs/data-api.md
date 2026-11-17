@@ -2757,6 +2757,12 @@ attribution notice to redistribute their content, though GenCC's terms
 *request* one. This file is where that distinction is recorded, rather than
 assumed from the presence of a `validity` object.
 
+The registry also carries `mane_select`, MANE Select v1.5 (NCBI and EMBL-EBI),
+recorded `"redistribution": "permitted_with_attribution"` under NCBI's data policy
+(no NCBI restrictions; submitters may claim rights). The build checks each
+gene's `mane_select` identity field against it; no published bundle or page
+carries a value taken from its two mirror tables.
+
 **`scope.json` republishes Orphanet content, and that content requires
 attribution.** Each Orphanet-path term's `orphanet` object carries Orphanet's
 disorder code and name, its OMIM reference and its phenotype frequency bands,

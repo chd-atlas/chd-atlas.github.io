@@ -348,6 +348,10 @@ def _render(
     # et al. 2024's cell-type data carry no licence of their own (the UCSC Cell
     # Browser states none; owner decision 2026-11-02), so the sentence names
     # whom they are attributed to and states no licence for them. The
+    # MANE Select v1.5 is attributable (owner decision) under NCBI's data policy;
+    # the sentence states only what the build does with it, which is to check
+    # `genes.tsv`'s `mane_select` against it (MAN003); no variant is placed on
+    # it yet. The
     # Orphadata citation is Orphadata's own requested form, its "Data version"
     # each file's own header (R11, `_orphadata_version`).
     orphadata = _orphadata_version(sources)
@@ -422,7 +426,8 @@ def _render(
     <a href="http://sciences.orphadata.com/">http://sciences.orphadata.com/</a>.{orphadata}</em>
     Developmental expression is the <strong>EMBL-EBI Expression Atlas</strong>'s
     (E-MTAB-6814), under EMBL-EBI's Terms of Use. Cell-type expression is the UCSC Cell
-    Browser data of Farah et al. 2024. Rare-variant results come from the
+    Browser data of Farah et al. 2024. Each gene's MANE Select transcript is checked against
+    MANE v1.5 (NCBI and EMBL-EBI), under NCBI's data policy. Rare-variant results come from the
     supplements of Audain et al. 2026 and Sierant et al. 2025, both CC BY 4.0, and of
     Audain et al. 2021, CC0. <a href="sources.json">sources.json</a> identifies each
     mirrored file and its licence terms.</p>
