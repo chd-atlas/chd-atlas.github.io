@@ -14,6 +14,7 @@ from chd_atlas.build.validity import gene_validity, published_genes
 from chd_atlas.corpus import Corpus, load_curation, unexpected_curation_entries
 from chd_atlas.genes import GeneRegistry
 from chd_atlas.issues import Severity, ValidationIssue
+from chd_atlas.mane import read_mane_frame
 from chd_atlas.models.dataset import Dataset
 from chd_atlas.orphanet_scope import load_orphanet_tables, pinned_structural_phenotypes
 from chd_atlas.registry import ABSENT_MIRROR, RegistryUnavailable, derive_registry
@@ -46,6 +47,7 @@ from chd_atlas.validate.genes import (
     validate_registry_is_current,
 )
 from chd_atlas.validate.ids import load_id_registry, validate_ids
+from chd_atlas.validate.mane import validate_mane
 from chd_atlas.validate.ontology import (
     OntologyRegistry,
     validate_labels,
@@ -653,6 +655,16 @@ def validate_repository(root: Path) -> ValidationReport:
     genes_frame = (
         read_table(genes_path, TABLE_SCHEMAS["genes"])[0] if genes_path.is_file() else None
     )
+
+    # Read once, unconditionally, and not inside the corpus branch below: MAN001-004
+    # read only the two MANE mirrors and genes.tsv. The reader's TBL000/TBL001 are
+    # discarded because `validate_table` above already reported the same defect
+    # (as `genes_frame` does); its MAN001 reports of unattachable exon rows are kept.
+    # The frame stays in a local for the later MANE checks (Task 10).
+    mane_frame, mane_read_issues = read_mane_frame(root)
+    issues.extend(i for i in mane_read_issues if i.code.startswith("MAN"))
+    if mane_frame is not None:
+        issues.extend(validate_mane(mane_frame, genes_frame, root))
 
     # TBL014: exactly one validity mirror is absent. One call site, before the
     # `if corpus_issues` / `else`, so it is reached on every path (CLAUDE.md

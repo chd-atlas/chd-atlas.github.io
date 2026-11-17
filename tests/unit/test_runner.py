@@ -12,6 +12,7 @@ from chd_atlas.tables import TABLE_SCHEMAS
 from chd_atlas.validate.genes import validate_registry_is_current
 from chd_atlas.validate.runner import ValidationReport, validate_repository
 from tests.unit._stamp import stamped
+from tests.unit.mane_fixtures import genes_frame, synthetic_rows, write_mane_mirrors
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 
@@ -1854,3 +1855,51 @@ def test_the_runner_reports_synthesis_issues(tmp_path: Path) -> None:
         },
     )
     assert "SYN002" in _codes_of(root)
+
+
+def _mane_codes(root: Path) -> list[str]:
+    return sorted(i.code for i in validate_repository(root).issues if i.code.startswith("MAN"))
+
+
+def test_the_runner_reads_the_mane_frame_once_and_does_not_double_report(tmp_path: Path) -> None:
+    """No MANE mirror is no issue; a present one is checked on every path.
+
+    Called on the branch where `genes.tsv` is absent too (MAN003/MAN004 skipped,
+    TBL008 reports the cause) and where it is present. An unreadable exon file is
+    TBL000 from `validate_table` alone: the reader's copy of it is discarded.
+    """
+    assert _mane_codes(_repo_with_no_profiles(tmp_path / "none")) == []
+
+    transcripts, exons = synthetic_rows()
+    root = tmp_path / "frame"
+    write_mane_mirrors(root, transcripts, exons)
+    assert _mane_codes(root) == []  # no genes.tsv: registry checks skipped
+
+    genes_frame(transcripts).write_csv(root / "mirrors" / "genes.tsv", separator="\t")
+    assert _mane_codes(root) == []
+
+    genes_frame(transcripts).head(1).write_csv(root / "mirrors" / "genes.tsv", separator="\t")
+    assert _mane_codes(root) == []  # one registry gene, and it matches
+    genes_frame(transcripts).with_columns(mane_select=pl.lit("NM_900001.7")).write_csv(
+        root / "mirrors" / "genes.tsv", separator="\t"
+    )
+    assert _mane_codes(root) == ["MAN003", "MAN003"]
+
+    broken = tmp_path / "broken"
+    transcripts[0]["protein_sequence"] = "G" + transcripts[0]["protein_sequence"][1:]
+    write_mane_mirrors(broken, transcripts, exons)
+    assert _mane_codes(broken) == ["MAN002"]
+
+    # An exon row naming a gene with no transcript is the reader's MAN001, kept.
+    orphan = tmp_path / "orphan"
+    stray = dict(exons[0], hgnc_id="HGNC:90077")
+    write_mane_mirrors(orphan, *synthetic_rows())
+    write_mane_mirrors(orphan, synthetic_rows()[0], [*synthetic_rows()[1], stray])
+    assert _mane_codes(orphan) == ["MAN001"]
+
+    unreadable = tmp_path / "unreadable"
+    write_mane_mirrors(unreadable, *synthetic_rows())
+    (unreadable / "mirrors" / "mane_exons.tsv").write_bytes(b"")
+    report = validate_repository(unreadable)
+    tbl000 = [i for i in report.issues if i.code == "TBL000" and "mane_exons" in i.location]
+    assert len(tbl000) == 1
