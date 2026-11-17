@@ -1,6 +1,7 @@
 """MAN001-MAN004, each fired by its own corruption and by nothing else."""
 
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -220,6 +221,46 @@ def test_the_codon_table_is_the_standard_genetic_code() -> None:
     known = {"ATG": "M", "TGG": "W", "TAA": "*", "TAG": "*", "TGA": "*", "TTT": "F", "GCC": "A"}
     assert all(CODON_TABLE[c] == a for c, a in known.items())
     assert len(CODON_TABLE) == 64 and sum(a == "*" for a in CODON_TABLE.values()) == 3
+
+
+def test_cds_faults_that_the_schema_would_not_let_through_are_still_reported(
+    tmp_path: Path,
+) -> None:
+    """An ambiguous base is refused by the transcript_sequence pattern
+    (`^[ACGT]+$`), so that check is reached only on a frame built directly; the
+    residue-count check is exercised the same way for symmetry."""
+    frame = _frame(tmp_path, synthetic_rows())
+    t = frame[GENE_PLUS]
+    cds_at = t.cds_start - 1
+    ambiguous = replace(t, sequence=t.sequence[: cds_at + 3] + "N" + t.sequence[cds_at + 4 :])
+    longer = replace(t, protein_sequence=t.protein_sequence + "K")
+    shorter = replace(t, protein_sequence=t.protein_sequence[:-1])
+    for variant, fragment in (
+        (ambiguous, "ambiguous base"),
+        (longer, "cds encodes 22 residues but the protein has 23"),
+        (shorter, "cds encodes 22 residues but the protein has 21"),
+    ):
+        issues = [
+            i for i in validate_mane({GENE_PLUS: variant}, None, tmp_path) if i.code == "MAN002"
+        ]
+        assert len(issues) == 1 and fragment in issues[0].message
+
+
+def test_issues_come_back_sorted_across_genes(tmp_path: Path) -> None:
+    """Gene 1 breaks MAN002 and gene 2 breaks MAN001: visiting genes in id order
+    yields MAN002 first, so only the final sort puts MAN001 before it."""
+    rows = synthetic_rows()
+    rows[0][0]["protein_sequence"] = "G" + rows[0][0]["protein_sequence"][1:]
+    exon = next(e for e in rows[1] if e["hgnc_id"] == GENE_MINUS and e["exon"] == 1)
+    exon["transcript_end"] += 1
+    frame = _frame(tmp_path, rows)
+    issues = validate_mane(frame, None, tmp_path)
+    assert [(i.code, GENE_PLUS in i.message) for i in issues] == [
+        ("MAN001", False),
+        ("MAN002", True),
+    ]
+    reversed_frame = dict(reversed(list(frame.items())))
+    assert validate_mane(reversed_frame, None, tmp_path) == issues
 
 
 def test_core_slicing_follows_each_exons_own_flanks(tmp_path: Path) -> None:
