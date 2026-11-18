@@ -372,7 +372,7 @@ output, so it is verifiable output.
 "How to read this atlas": the explanation every gene page assumes, written once
 at the site root rather than repeated on each page (design decision D50), and
 linked from the navigation bar on every page and from the foot of every gene
-page's card, as *How to read this page*. It has seven sections, in this order,
+page's card, as *How to read this page*. It has eight sections, in this order,
 and each carries an `id`, so a page can link the paragraph it shortens.
 
 - `#scope` states in full the rule that admits a gene to this atlas and the rule
@@ -453,6 +453,13 @@ and each carries an `id`, so a page can link the paragraph it shortens.
   in, that a named curator approves each finding before it is published, what
   the two review marks mean, what the gene card's literature line counts, and
   what its "In short" paragraph rests on and when it is published or withheld.
+- `#literature-variants` says how the variants a finding names are placed and
+  checked: on the gene's MANE Select transcript (MANE v1.5) and GRCh38, or on
+  its protein alone; checked offline against the atlas's copy of the
+  transcript, the protein and the genome within 50 bases of each exon; and
+  listed as reported, without coordinates, when beyond that region, structural,
+  or failing the check (then flagged for review). The variant table on a gene
+  page links here.
 
 Like the other pages it is for people: its markup is not a contract, and no
 payload depends on it.
@@ -1769,7 +1776,15 @@ the stored p-value and odds ratio), lesion groups, independence (cohorts, and
 whether its probands are shared), summary with any review mark, and the person
 who approved it. A gene with a search and no approved finding says "No approved
 findings yet." and draws no timeline. Folded after those are the exclusion tally
-by reason and every search with its date, hits and exact query.
+by reason and every search with its date, hits and exact query. Last, on a gene
+whose approved findings name a variant, *Reported variants*: a table with one
+row per placed variant (its `c.` and `p.` names and how many papers report it)
+and, under it, one line per finding with the paper, design, that finding's own
+carriers by origin, zygosity or partner, and the carriers' heart defects as HPO
+labels. No line or row sums carriers across findings. After it come the variants
+listed as reported (outside the checked region, then with no position), and how
+many findings report carriers but name no variant. A paper's fold says, for a
+finding whose variants name only some of its carriers, how many.
 
 ## `genes/<slug>.html`
 

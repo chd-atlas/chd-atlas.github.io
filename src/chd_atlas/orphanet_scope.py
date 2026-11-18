@@ -112,11 +112,12 @@ VALIDATED: Final = "Validated"
 
 @dataclass(frozen=True)
 class _Obo:
-    """What `_read_obo` takes from an OBO file: each term's children and alt ids, every id."""
+    """What `_read_obo` takes from an OBO file: each term's children, alt ids and name, every id."""
 
     children: dict[str, set[str]]
     alternates: dict[str, set[str]]
     known: frozenset[str]
+    names: dict[str, str]
 
     def closure(self, *roots: str) -> set[str]:
         """``roots`` and every term under one of them by `is_a`; alt ids not included."""
@@ -133,7 +134,7 @@ class _Obo:
 
 
 def _read_obo(obo: Path) -> _Obo:
-    """The one line reader of an OBO file, shared by `structural_phenotypes` and `hpo_release`.
+    """The one line reader of an OBO file: `structural_phenotypes`, `hpo_release`, `pinned_hpo`.
 
     A line reader of the pinned OBO rather than pronto. The build does not load
     pronto, which costs 1.6 s per load, and pronto resolves no alt ids
@@ -145,6 +146,7 @@ def _read_obo(obo: Path) -> _Obo:
     children: dict[str, set[str]] = defaultdict(set)
     alternates: dict[str, set[str]] = defaultdict(set)
     known: set[str] = set()
+    names: dict[str, str] = {}
     current: str | None = None
     in_term = False
     with obo.open(encoding="utf-8") as handle:
@@ -158,13 +160,22 @@ def _read_obo(obo: Path) -> _Obo:
             elif line.startswith("id: "):
                 current = line[4:].strip()
                 known.add(current)
+            elif current is not None and line.startswith("name: "):
+                names[current] = line[6:].strip()
             elif current is not None and line.startswith("is_a: "):
                 children[line[6:].split(" ", 1)[0]].add(current)
             elif current is not None and line.startswith("alt_id: "):
                 alternate = line[8:].strip()
                 alternates[current].add(alternate)
                 known.add(alternate)
-    return _Obo(dict(children), dict(alternates), frozenset(known))
+    return _Obo(dict(children), dict(alternates), frozenset(known), names)
+
+
+def _structural(release: _Obo) -> frozenset[str]:
+    terms = (release.closure(STRUCTURAL_ROOT) - release.closure(*EXCLUDED_BRANCHES)) | (
+        release.closure(*ADDED_BRANCHES)
+    )
+    return release.with_alternates(terms)
 
 
 def structural_phenotypes(obo: Path) -> frozenset[str]:
@@ -172,11 +183,7 @@ def structural_phenotypes(obo: Path) -> frozenset[str]:
 
     Read by `_read_obo` (why a line reader, and why only `[Term]` stanzas).
     """
-    release = _read_obo(obo)
-    terms = (release.closure(STRUCTURAL_ROOT) - release.closure(*EXCLUDED_BRANCHES)) | (
-        release.closure(*ADDED_BRANCHES)
-    )
-    return release.with_alternates(terms)
+    return _structural(_read_obo(obo))
 
 
 @dataclass(frozen=True)
@@ -199,22 +206,48 @@ def hpo_release(obo: Path) -> HpoRelease:
     )
 
 
-def pinned_structural_phenotypes(root: Path, pinned: Mapping[str, str]) -> frozenset[str] | None:
-    """`structural_phenotypes` over the HPO release `sources.yaml` pins, or None if unreadable.
+@dataclass(frozen=True)
+class PinnedHpo:
+    """What the build reads of the pinned HPO release, in one pass of `_read_obo`."""
 
-    None rather than an empty set, for the reason `load_orphanet_tables` returns
-    None: an empty set would make every Orphanet-scoped term look unwarranted.
-    An unpinned or unreadable release is already reported (ONT003/ONT004), so
-    SCP006/SCP008 name the consequence and not the cause. Shared by the validator
-    and the build so both read the same release the same way.
+    # `structural_phenotypes` of the release.
+    structural: frozenset[str]
+    # Every `[Term]`'s `name`, keyed by its `id`; a gene page labels a variant's
+    # heart defects with it. Alt ids are not keys, and need not be: of the
+    # release's 3,964 alt ids, pronto resolves 519, each to an obsolete stanza of
+    # its own (ONT002), and none of the rest (ONT001) -- measured 2026-11-18 on
+    # hp-2026-06-23 -- so no id that validates is missing here.
+    labels: dict[str, str]
+
+
+def pinned_hpo(root: Path, pinned: Mapping[str, str]) -> PinnedHpo | None:
+    """The HPO release `sources.yaml` pins, read once, or None if unpinned or unreadable.
+
+    None rather than an empty reading, for the reason `load_orphanet_tables`
+    returns None: an empty structural set would make every Orphanet-scoped term
+    look unwarranted. An unpinned or unreadable release is already reported
+    (ONT003/ONT004), so SCP006/SCP008 name the consequence and not the cause.
+    The build reads the file once here for the scope warrants and the gene
+    pages' phenotype labels.
     """
     relative = pinned.get("HP")
     if relative is None or not (root / relative).is_file():
         return None
     try:
-        return structural_phenotypes(root / relative)
+        release = _read_obo(root / relative)
     except (OSError, UnicodeDecodeError):
         return None
+    return PinnedHpo(structural=_structural(release), labels=dict(release.names))
+
+
+def pinned_structural_phenotypes(root: Path, pinned: Mapping[str, str]) -> frozenset[str] | None:
+    """`structural_phenotypes` over the HPO release `sources.yaml` pins, or None (`pinned_hpo`).
+
+    Shared by the validator and the build so both read the same release the
+    same way.
+    """
+    release = pinned_hpo(root, pinned)
+    return None if release is None else release.structural
 
 
 def pinned_hpo_release(root: Path, pinned: Mapping[str, str]) -> HpoRelease | None:

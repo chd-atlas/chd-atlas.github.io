@@ -70,7 +70,7 @@ import math
 import re
 import unicodedata
 from collections.abc import Collection, Iterable, Mapping, Sequence
-from typing import Final, NamedTuple
+from typing import Any, Final, NamedTuple
 from urllib.parse import quote
 
 from chd_atlas.build.burden import BurdenRow, CombinedRow, Overlap, _sort_key, shared_cohorts
@@ -97,10 +97,15 @@ from chd_atlas.build.emit import Emitter, Json
 from chd_atlas.build.gene_literature import (
     EMPTY_GENE_LITERATURE,
     GeneLiterature,
+    ListedVariant,
     LiteratureTallies,
     PublishedSynthesis,
     SearchRecord,
+    VariantReport,
+    VariantRow,
+    VariantTable,
     pmid_number,
+    variant_table,
 )
 from chd_atlas.build.identity import EMPTY_IDENTITY, GeneIdentity, external_links
 from chd_atlas.build.paths import GENE_INDEX_PAGE, gene_bundle_path, gene_page_path
@@ -6892,11 +6897,63 @@ def _literature_timeline(
 _PAPER_FINDING_HEADERS: Final = _FINDING_HEADERS[2:]
 
 
+def _named_carriers(finding: Mapping[str, Any]) -> int:
+    """The carriers a finding's variants name, each `with` group counted once (spec 7.2).
+
+    Linked entries are the same people (LIT022 holds every entry of a group at one
+    total), so a group adds its total once; LIT023 counts the same way. A variant
+    with no carriers on a finding that counts them means LIT022 was bypassed, and
+    that raises rather than counting nobody.
+    """
+    variants: Sequence[Mapping[str, Any]] = finding["variants"]
+    parent = {v["id"]: v["id"] for v in variants}
+
+    def root(i: int) -> int:
+        while parent[i] != i:
+            i = parent[i]
+        return i
+
+    for v in variants:
+        for other in v["with"]:
+            if other in parent:
+                parent[root(v["id"])] = root(other)
+    named: dict[int, int] = {}
+    for v in variants:
+        if v["carriers"] is None:
+            raise ValueError(f"{finding['id']}: variant {v['id']} has no carriers")
+        group = root(v["id"])
+        named[group] = max(named.get(group, 0), sum(v["carriers"].values()))
+    return sum(named.values())
+
+
+def _named_share(finding: Mapping[str, Any]) -> str:
+    """`" N of M carriers have a named variant."`, or `""` (ruling D14).
+
+    Only for a finding that names at least one variant and whose variants name
+    fewer of its carriers than it counts: a paper read from its abstract, or a
+    screen that lists only its novel variants (spec 7.2). The noun is the unit's
+    (R30: with `families`, a carrier is a carrier family). A finding naming no
+    variant gets no line; the variant section's count of such findings covers it.
+    """
+    carriers = finding["carriers"]
+    if not finding["variants"] or not isinstance(carriers, Mapping):
+        return ""
+    total = sum(carriers.values())
+    named = _named_carriers(finding)
+    if named >= total:
+        return ""
+    unit = finding["count_unit"]
+    _, _, one, many = _UNIT_NOUNS.get(unit, (unit, unit, "carrier", "carriers"))
+    verb = "has" if named == 1 or total == 1 else "have"
+    return f" {named} of {total} {one if total == 1 else many} {verb} a named variant."
+
+
 def _finding_row(finding: Mapping[str, Json]) -> Row:
     """A finding's cells from `design` to `approved by`; the caller adds neither year nor paper.
 
     The review mark (R24) sits beside the summary, so it qualifies the finding
-    and never hides it.
+    and never hides it. `_named_share`'s sentence sits between them, so it reads
+    as a statement about this finding.
     """
     status, note = finding["review_status"], finding["review_note"]
     mark = review_status_note(
@@ -6913,7 +6970,7 @@ def _finding_row(finding: Mapping[str, Json]) -> Row:
             _finding_result(finding),
             ", ".join(_words(str(g)) for g in _as_list(finding["lesion_groups"])),
             _finding_independence(finding),
-            Markup(html.escape(str(finding["summary"])) + mark),
+            Markup(html.escape(str(finding["summary"]) + _named_share(finding)) + mark),
             str(finding["approved_by"]),
         )
     )
@@ -6949,13 +7006,202 @@ def _literature_publications(
     return f"<details><summary>{n} {noun}</summary>{''.join(blocks)}</details>"
 
 
+_VARIANT_HEADERS: Final = (
+    "paper",
+    "design",
+    "carriers in this finding",
+    "zygosity or partner",
+    "heart defects",
+)
+# What a linked sub-row says of its phase (`vocab.Phase`).
+_PHASE_WORDS: Final = {"trans": "in trans", "cis": "in cis", "not_stated": "phase not stated"}
+_ORIGIN_WORDS: Final = (
+    ("de_novo", "de novo"),
+    ("inherited", "inherited"),
+    ("origin_unknown", "origin unknown"),
+)
+# A RefSeq accession before an HGVS name. LIT016 holds every `hgvs_c` and
+# `hgvs_p` on the gene's MANE Select `NM_`/`NP_` accessions (the card names the
+# transcript), so the table drops them.
+_ACCESSION: Final = re.compile(r"N[MP]_[0-9]+(?:\.[0-9]+)?:")
+_RSID: Final = re.compile(r"rs[1-9][0-9]*")
+_DBSNP: Final = "https://www.ncbi.nlm.nih.gov/snp/"
+
+
+def _bare(name: str) -> str:
+    """An HGVS name without its accession: `NM_181486.4:c.835C>T` -> `c.835C>T`."""
+    match = _ACCESSION.match(name)
+    return name[match.end() :] if match else name
+
+
+def _variant_carriers(report: VariantReport) -> str:
+    """One finding's carriers of one variant, by origin, under the unit's carrier noun.
+
+    Never a total across findings (D33): this cell is one report's own count.
+    `association` on a common-variant finding, which counts cases and controls
+    and no carrier. A rare-variant report with no carriers means LIT022 was
+    bypassed, and raises.
+    """
+    carriers = report["carriers"]
+    if report["design"] == "common_variant_association":
+        return "association"
+    if carriers is None:
+        raise ValueError(f"{report['finding']}: a {report['design']} report has no carriers")
+    unit = report["count_unit"]
+    many = _UNIT_NOUNS.get(unit or "", (unit, unit, "carrier", "carriers"))[3]
+    parts = [f"{carriers[origin]} {words}" for origin, words in _ORIGIN_WORDS if carriers[origin]]
+    return f"{many}: {', '.join(parts) or 'none'}"
+
+
+def _variant_partner(report: VariantReport) -> str:
+    """The zygosity, or the partner a linked entry is carried with; `""` if heterozygous alone."""
+    partners = report["with_names"]
+    if partners:
+        phase = _PHASE_WORDS.get(report["phase"] or "")
+        if phase is None:
+            raise ValueError(f"{report['finding']}: a linked variant has phase {report['phase']!r}")
+        return f"with {' and '.join(_bare(name) for name in partners)} ({phase})"
+    if report["zygosity"] == "heterozygous":
+        return ""
+    return _words(report["zygosity"])
+
+
+def _variant_defects(report: VariantReport, labels: Mapping[str, str]) -> str:
+    """The carriers' heart defects as HPO labels, or `not given per carrier`.
+
+    A phenotype with no label raises: LIT024 holds a variant's phenotypes among
+    its finding's, which ONT001/ONT002 resolve in the pinned release, so a
+    missing label means a gate was bypassed or the labels were never passed.
+    """
+    names = []
+    for term in report["phenotypes"]:
+        label = labels.get(term)
+        if label is None:
+            raise ValueError(f"{report['finding']}: phenotype {term} has no label")
+        names.append(label)
+    return ", ".join(names) or "not given per carrier"
+
+
+def _variant_paper(
+    report: VariantReport, row: VariantRow, publications: Mapping[str, Publication]
+) -> str:
+    """The paper's link; this report's own names where they differ from the row's (D13); its flag.
+
+    A row is named by its first report, and a later paper's record may name the
+    same change differently (LIT018 accepts a shifted indel), so that name is
+    shown here rather than dropped.
+    """
+    own = [
+        _bare(name)
+        for name, shown in ((report["hgvs_c"], row["hgvs_c"]), (report["hgvs_p"], row["hgvs_p"]))
+        if name is not None and (shown is None or _bare(name) != _bare(shown))
+    ]
+    status, note = report["review_status"], report["review_note"]
+    return (
+        _paper_link(report["publication"], publications).html
+        + (html.escape(" · recorded as " + " ".join(own)) if own else "")
+        + review_status_note(
+            report["finding"], None if status is None else ReviewStatus(status), note
+        )
+    )
+
+
+def _listed_variant(entry: ListedVariant, publications: Mapping[str, Publication]) -> str:
+    """One listed variant: as reported, its rsID linked to dbSNP, its paper and any flag."""
+    text = html.escape(entry["as_reported"])
+    rsid = entry["rsid"]
+    if rsid is not None and _RSID.fullmatch(rsid):
+        link = f'<a href="{_DBSNP}{rsid}">{rsid}</a>'
+        text, found = re.subn(rf"\b{rsid}\b", link, text, count=1)
+        if not found:
+            text += f" ({link})"
+    status, note = entry["review_status"], entry["review_note"]
+    mark = review_status_note(
+        entry["finding"], None if status is None else ReviewStatus(status), note
+    )
+    return f"<li>{text} · {_paper_link(entry['publication'], publications).html}{mark}</li>"
+
+
+def _variant_section(
+    table: VariantTable,
+    publications: Mapping[str, Publication],
+    labels: Mapping[str, str],
+) -> str:
+    """The variants a gene's approved findings name: a table, two lists and a count.
+
+    `""` unless some approved finding names a variant (ruling D15, spec 7.5: no
+    variants, no table). Each row is one variant, named without accessions, with
+    the number of distinct papers; under it one line per finding that names it,
+    with that finding's own carriers. No row carries a total of carriers: two
+    findings may count the same people (D33). Below the table, the variants
+    outside the checked region, then those with no position (structural, then
+    unplaced), each as reported with its paper; then the findings that count
+    carriers and name no variant.
+    """
+    if not (table["rows"] or table["outside_region"] or table["no_position"]):
+        return ""
+    width = len(_VARIANT_HEADERS)
+    head = "".join(f'<th scope="col">{html.escape(h)}</th>' for h in _VARIANT_HEADERS)
+    groups = []
+    for row in table["rows"]:
+        name = " ".join(_bare(n) for n in (row["hgvs_c"], row["hgvs_p"]) if n is not None)
+        n = row["papers"]
+        lines = [
+            f'<tr><td colspan="{width}"><strong>{html.escape(name)}</strong> \u00b7 '
+            f"{n} {'paper' if n == 1 else 'papers'}</td></tr>"
+        ]
+        for report in row["reports"]:
+            cells = (
+                _variant_paper(report, row, publications),
+                html.escape(_words(report["design"])),
+                html.escape(_variant_carriers(report)),
+                html.escape(_variant_partner(report)),
+                html.escape(_variant_defects(report, labels)),
+            )
+            lines.append("<tr>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>")
+        groups.append(f"<tbody>{''.join(lines)}</tbody>")
+    # The caption describes the table, so it renders only with one (4.27).
+    caption = (
+        "One row per variant and one line per finding that names it. Carriers are never "
+        "summed across findings, because two findings can count the same people. "
+        if groups
+        else ""
+    )
+    parts = [
+        f'<h3>Reported variants</h3><p class="method">{caption}'
+        '<a href="../methods.html#literature-variants">How variants are checked</a>.</p>'
+    ]
+    if groups:
+        parts.append(
+            f'<div class="scroll"><table><thead><tr>{head}</tr></thead>{"".join(groups)}'
+            "</table></div>"
+        )
+    for entries, lead in (
+        (table["outside_region"], "Outside the region the atlas checks, as reported:"),
+        (table["no_position"], "With no position, as reported:"),
+    ):
+        if entries:
+            items = "".join(_listed_variant(entry, publications) for entry in entries)
+            parts.append(f"<p>{lead}</p><ul>{items}</ul>")
+    k = table["findings_naming_no_variant"]
+    if k:
+        parts.append(
+            f"<p>{k} {'finding reports' if k == 1 else 'findings report'} carriers but "
+            f"{'names' if k == 1 else 'name'} no variant.</p>"
+        )
+    return "".join(parts)
+
+
 def _literature_section(
     literature: GeneLiterature,
     publications: Mapping[str, Publication],
+    labels: Mapping[str, str],
 ) -> str:
     """The gene's curated literature, in this order: the summary line, the timeline of
     approved papers and their folded list (or `No approved findings yet.` and no axis),
-    the exclusion tally, every search.
+    the exclusion tally, every search, and the variants the approved findings name
+    (`_variant_section`, under its own heading, so it is last: placed before the two
+    folds, its heading would take them in).
 
     No search recorded: `_NOT_CURATED_LITERATURE` and nothing else. Otherwise a
     visible line counting what the searches returned and what was decided (one
@@ -7003,6 +7249,7 @@ def _literature_section(
         + body
         + _literature_exclusions(triage["excluded"])
         + _literature_searches(searches)
+        + _variant_section(variant_table(findings), publications, labels)
     )
 
 
@@ -7032,6 +7279,7 @@ def build_gene_pages(
     scope_terms: Mapping[str, ScopeEntry] | None = None,
     cell_types: Mapping[str, CellTypeExpression],
     literature: Mapping[str, GeneLiterature],
+    phenotype_labels: Mapping[str, str],
 ) -> None:
     """Emit one HTML page per gene in `facts`.
 
@@ -7086,6 +7334,12 @@ def build_gene_pages(
     default, for the reason `cell_types` is: the committed corpus carries no
     literature file, so a real build cannot tell a dropped mapping from an
     empty one. A caller with no literature passes `{}`.
+
+    `phenotype_labels` is the pinned HPO release's term names
+    (`orphanet_scope.pinned_hpo`), which the variant table labels a variant's
+    heart defects with. Required for the reason `literature` is: the committed
+    corpus names no variant, so only a build that does can tell a dropped
+    mapping from an empty one, and there a phenotype with no label raises.
 
     Sorted, like every loop in this build that iterates a mapping: `sort_keys`
     orders dict keys in a JSON payload and has nothing to say about the order
@@ -7149,7 +7403,7 @@ def build_gene_pages(
             # the atlas's own curation, so they sit together after the mirrored
             # validity they are distinguished from. It was the page's last
             # section until then, appended after expression.
-            + _literature_section(gene_literature_bundle, publications)
+            + _literature_section(gene_literature_bundle, publications, phenotype_labels)
             # After the atlas's own section, not between it and the mirrored
             # validity table, which keeps the atlas's own curation beside the
             # classifications it is distinguished from. The old main-column

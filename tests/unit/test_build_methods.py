@@ -148,8 +148,9 @@ def test_the_page_sits_at_the_site_root_under_its_own_title(page: str) -> None:
         "cohorts",
         "expression",
         "literature",
+        "literature-variants",
     ]
-    assert page.count("<h2") == 7
+    assert page.count("<h2") == 8
     # The page's own account of what it holds (CLAUDE.md section 4.29: a
     # summary that omits what the page publishes passes every other check).
     # The cohort list joined it on 2026-10-26, and the same day it stopped
@@ -1278,3 +1279,30 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
     )
     words = len(re.sub(r"<[^>]+>", "", _section(page, "literature")).split())
     assert words == 326  # tags stripped unspaced, so the heading fuses with the first word
+
+
+def test_variants_states_the_frame_the_check_and_the_two_unplaced_states(page: str) -> None:
+    """`#literature-variants` (plan Task 14), pinned whole against a literal (CLAUDE.md 4.38).
+
+    Each clause was measured against the code (2026-11-18): a `mane` placement holds
+    `hgvs_c` and `grch38` and cites a run whose `tool` is `variantvalidator`; a
+    `protein` one `hgvs_p` alone; LIT016 holds both names on the MANE Select
+    accessions, pinned at MANE v1.5; the checks read only the two MANE mirrors,
+    whose 2,857 exon windows are each the exon's GRCh38 span plus 50 bases either
+    side; `outside_region` and `structural` variants hold no name and are listed
+    as reported; an `unplaced` one must carry a review mark (LIT022). 87 words in
+    the paragraph, at most the 90 the plan allows; the owner approves the wording.
+    """
+    section = _section(page, "literature-variants")
+    assert section == (
+        '<h2 id="literature-variants">Variants in findings</h2>'
+        "<p>A small variant an approved finding names is placed on the gene's MANE Select "
+        "transcript (MANE v1.5) and GRCh38 by VariantValidator, or on its protein alone when "
+        "the paper gives only a protein change. The atlas checks these placements offline "
+        "against its copy of the transcript, the protein and the genome within 50 bases of "
+        "each exon. A variant beyond that region, or a copy-number or chromosomal change, is "
+        "listed as reported, without coordinates; so is one whose names fail the check or "
+        "disagree, flagged for review.</p>"
+    )
+    paragraph = section[section.index("<p>") :]
+    assert len(re.sub(r"<[^>]+>", " ", paragraph).split()) == 87

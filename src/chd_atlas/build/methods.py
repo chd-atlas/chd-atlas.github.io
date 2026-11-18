@@ -544,6 +544,31 @@ _LITERATURE: Final = (
 )
 
 
+# What a gene page's variant table rests on (spec 7.5; plan Task 14), each clause
+# read off the code: a `mane` placement holds an `hgvs_c` and a `grch38` and cites
+# a normalisation run, whose `tool` is `variantvalidator` (`Normalisation.tool`,
+# LIT022); a `protein` placement holds an `hgvs_p` alone; LIT016 holds both names
+# on the gene's MANE Select accessions, pinned at MANE v1.5 (`mane_select` in
+# `mirrors/sources.yaml`); LIT016-LIT021 and LIT025 read only
+# `mirrors/mane_transcripts.tsv` and `mirrors/mane_exons.tsv`, whose windows are
+# each exon's GRCh38 span plus 50 bases either side; an `outside_region` or
+# `structural` variant holds none of the three names and is listed by its
+# `as_reported` (`pages._variant_section`); an `unplaced` one leaves `hgvs_c` and
+# `grch38` null and must carry a review mark (LIT022). "Small" is the
+# `snv_indel` kind, the only one a `mane` or `outside_region` placement takes.
+# 87 words in the paragraph; the owner approves the wording in the PR.
+_LITERATURE_VARIANTS: Final = (
+    '<h2 id="literature-variants">Variants in findings</h2>'
+    "<p>A small variant an approved finding names is placed on the gene's MANE Select "
+    "transcript (MANE v1.5) and GRCh38 by VariantValidator, or on its protein alone when the "
+    "paper gives only a protein change. The atlas checks these placements offline against its "
+    "copy of the transcript, the protein and the genome within 50 bases of each exon. A "
+    "variant beyond that region, or a copy-number or chromosomal change, is listed as "
+    "reported, without coordinates; so is one whose names fail the check or disagree, flagged "
+    "for review.</p>"
+)
+
+
 # Every collection the rare-variant rows cite, with its curated description
 # (P4, 2026-10-26). A gene page folds the notes of only the collections its own
 # rows cite (`pages._cohort_notes`, whose fold ends on a link here) and keeps
@@ -881,6 +906,7 @@ def build_methods(emitter: Emitter, *, cohorts: Mapping[str, Cohort]) -> None:
         + _cohorts(cohorts)
         + _EXPRESSION
         + _LITERATURE
+        + _LITERATURE_VARIANTS
     )
     emitter.write_text(
         METHODS_PAGE,
