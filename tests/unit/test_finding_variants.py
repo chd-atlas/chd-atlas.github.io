@@ -382,6 +382,8 @@ def _sv(vid: int, **fields: Any) -> dict[str, Any]:
         "kind": "snv_indel",
         "carriers": {"de_novo": 1, "inherited": 0, "origin_unknown": 0},
         **_MANE_FIELDS,
+        # one key per variant, or LIT022's one-name-per-finding rule fires
+        "grch38": f"12:{114366300 + vid}:G:A",
     }
     entry.update(fields)
     return entry
@@ -894,3 +896,38 @@ def test_a_groups_surplus_in_one_origin_never_offsets_another_entrys_claim() -> 
     assert [(code, "at least 2 de_novo" in message) for code, _, message in issues] == [
         ("LIT023", True)
     ]
+
+
+_PROTEIN = {"placement": "protein", "hgvs_c": None, "grch38": None, "normalisation": None}
+
+
+@pytest.mark.parametrize("hgvs_p", ["NP_852259.1:p.?", "p.0?", "p.=", "p.0", "NP_852259.1:p.(=)"])
+def test_a_protein_variant_naming_no_residue_is_lit022_and_the_builder_still_refuses_it(
+    hgvs_p: str,
+) -> None:
+    from chd_atlas.build.gene_literature import variant_table
+
+    issues = _shape([_sv(1, **_PROTEIN, hgvs_p=hgvs_p)])
+    assert [(code, vid) for code, vid, _ in issues] == [("LIT022", 1)]
+    assert "unplaced" in issues[0][2]
+    published = _finding([_sv(1, **_PROTEIN, hgvs_p=hgvs_p)]).model_dump(mode="json", by_alias=True)
+    with pytest.raises(ValueError):
+        variant_table([published])
+
+
+def test_an_unreadable_protein_name_is_not_also_lit022() -> None:
+    assert _shape([_sv(1, **_PROTEIN, hgvs_p="not hgvs")]) == []
+
+
+def test_two_variants_with_one_row_key_in_a_finding_are_lit022() -> None:
+    mane = _shape([_sv(1), _sv(2, hgvs_c="NM_181486.4:c.836C>T", grch38="12:114366301:G:A")])
+    assert [(c, v) for c, v, _ in mane] == [("LIT022", 2)]
+    protein = _shape(
+        [
+            _sv(1, **_PROTEIN, hgvs_p="NP_852259.1:p.(Arg279Ter)"),
+            _sv(2, **_PROTEIN, hgvs_p="p.Arg279Ter"),
+        ]
+    )
+    assert [(c, v) for c, v, _ in protein] == [("LIT022", 2)]
+    different = _shape([_sv(1), _sv(2, grch38="12:114366399:G:A")])
+    assert different == []

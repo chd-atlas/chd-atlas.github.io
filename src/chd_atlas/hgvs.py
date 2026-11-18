@@ -242,6 +242,18 @@ def _protein_change(text: str) -> str:
     return body.replace("X", "*")
 
 
+def protein_key(text: str) -> str:
+    """The canonical reading of a `p.` description, for grouping.
+
+    It is the reading `same_protein_change` compares.
+
+    Accession and parentheses dropped, one-letter codes, `*` for every stop. It
+    applies no frameshift equivalence (D5), so two frameshift spellings that
+    compare equal there stay two keys here.
+    """
+    return _protein_change(text)
+
+
 # A frameshift after normalising: reference residue, position, the new residue
 # (empty when the description names none), then the rest.
 _FRAMESHIFT: Final = re.compile(r"([A-Z*])(\d+)([A-Z*]?)fs(.*)")

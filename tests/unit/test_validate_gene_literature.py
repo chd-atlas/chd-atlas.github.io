@@ -486,7 +486,12 @@ def test_a_variant_reaches_the_reference_checks_and_the_shape_checks(mane_frame:
     # A finding-level LIT023 carries no variant in its location.
     raw = _with_variants(*[_variant(i) for i in (1, 2, 3)])
     issues = _run(raw, mane=mane_frame)
-    assert [(i.code, i.location) for i in issues] == [("LIT023", f"{_HERE}:finding {F1}")]
+    # The three copies share one row key, so LIT022 also names variants 2 and 3.
+    assert sorted((i.code, i.location) for i in issues) == [
+        ("LIT022", f"{_HERE}:finding {F1}:variant 2"),
+        ("LIT022", f"{_HERE}:finding {F1}:variant 3"),
+        ("LIT023", f"{_HERE}:finding {F1}"),
+    ]
 
 
 def test_a_missing_frame_skips_the_reference_checks_with_one_error_and_one_warning() -> None:

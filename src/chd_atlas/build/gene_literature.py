@@ -39,7 +39,7 @@ from collections.abc import Collection, Mapping, Sequence
 from typing import Any, Final, NamedTuple, TypedDict
 
 from chd_atlas.corpus import Corpus
-from chd_atlas.hgvs import parse_c, parse_p
+from chd_atlas.hgvs import parse_c, parse_p, protein_key
 from chd_atlas.models.assertion import LesionAssertion
 from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile, synthesis_digest
 from chd_atlas.models.review import ReviewStatus
@@ -313,6 +313,11 @@ def literature_census(
 class VariantReport(TypedDict):
     """One finding's report of a variant. ``carriers`` is that finding's own count.
 
+    ``hgvs_c`` and ``hgvs_p`` are the names this report's variant carries. A row
+    shows its first report's; a paper may name the same key differently (LIT018
+    accepts shifted names), so the page renders a report's name where it differs
+    from the row's.
+
     No count is ever summed across reports: two papers may report the same
     probands (D33), so a row carries reports and no total.
     """
@@ -320,6 +325,8 @@ class VariantReport(TypedDict):
     finding: str
     publication: str
     design: str
+    hgvs_c: str | None
+    hgvs_p: str | None
     count_unit: str | None
     carriers: dict[str, int] | None
     zygosity: str
@@ -393,9 +400,12 @@ def variant_table(findings: Sequence[Mapping[str, Any]]) -> VariantTable:
     ``findings`` are the bundle's ``literature.findings`` (already in (year, PMID,
     finding id) order, which is the order each row's reports keep). A ``mane``
     variant is keyed ``g:<grch38>`` and a ``protein`` one ``p:<hgvs_p>``, so a
-    protein row is never merged into a mane row that shares its p. Variant and
+    protein row is never merged into a mane row that shares its p. A protein key
+    is the canonical reading of its ``hgvs_p`` (``protein_key``): accession and
+    parentheses dropped, ``Ter`` and ``X`` as ``*``, no frameshift equivalence. Variant and
     ``with`` ids are scoped per finding. Raises ``ValueError`` on a variant a
-    validated corpus cannot hold (no key, an unreadable HGVS, a dangling partner).
+    bypassed gate lets through: no key, an unreadable HGVS, a protein ``hgvs_p`` naming
+    no residue (LIT022 refuses it) or a dangling partner.
     """
     rows: dict[str, VariantRow] = {}
     papers: dict[str, set[str]] = {}
@@ -428,7 +438,7 @@ def variant_table(findings: Sequence[Mapping[str, Any]]) -> VariantTable:
                         raise ValueError(
                             f"{finding['id']}: protein variant {variant['id']} has no hgvs_p"
                         )
-                    key = "p:" + variant["hgvs_p"]
+                    key = "p:" + protein_key(variant["hgvs_p"])
                 partners = []
                 for partner in variant["with"]:
                     if partner not in by_id:
@@ -455,6 +465,8 @@ def variant_table(findings: Sequence[Mapping[str, Any]]) -> VariantTable:
                         finding=finding["id"],
                         publication=finding["publication"],
                         design=finding["design"],
+                        hgvs_c=variant["hgvs_c"],
+                        hgvs_p=variant["hgvs_p"],
                         count_unit=finding.get("count_unit"),
                         carriers=None if variant["carriers"] is None else dict(variant["carriers"]),
                         zygosity=variant["zygosity"],

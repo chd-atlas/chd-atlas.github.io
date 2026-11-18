@@ -667,7 +667,7 @@ def test_a_protein_row_is_never_merged_into_a_mane_row_with_the_same_p() -> None
     )
     assert [(r["key"], r["papers"]) for r in table["rows"]] == [
         ("g:1:7:C:T", 1),
-        ("p:p.Arg3Cys", 1),
+        ("p:R3C", 1),
     ]
 
 
@@ -696,11 +696,11 @@ def test_rows_sort_by_transcript_position_with_protein_rows_at_their_codon() -> 
     assert [r["key"] for r in table["rows"]] == [
         "g:1:1:A:G",  # c.-20
         "g:1:2:A:G",  # c.-5
-        "p:p.Arg100Cys",  # c.298
+        "p:R100C",  # c.298
         "g:1:3:A:G",  # c.300-3
         "g:1:4:A:G",  # c.300
         "g:1:5:A:G",  # c.300+5
-        "p:p.Gly101Arg",  # c.301
+        "p:G101R",  # c.301
         "g:1:9:A:G",  # c.*5
     ]
 
@@ -759,3 +759,70 @@ def test_findings_naming_no_variant_counts_only_carrying_non_association_finding
         ]
     )
     assert table["findings_naming_no_variant"] == 2
+
+
+def test_a_report_keeps_its_own_names_when_a_key_is_named_differently() -> None:
+    table = variant_table(
+        [
+            _pub(1, "PMID:1", [_mane(1, "c.12del", "1:1014:GA:G", hgvs_p="p.Arg4fs")]),
+            _pub(2, "PMID:2", [_mane(1, "c.4del", "1:1014:GA:G", hgvs_p="p.Arg4Profs")]),
+        ]
+    )
+    (row,) = table["rows"]
+    assert (row["hgvs_c"], row["hgvs_p"]) == ("c.12del", "p.Arg4fs")
+    assert [(r["hgvs_c"], r["hgvs_p"]) for r in row["reports"]] == [
+        ("c.12del", "p.Arg4fs"),
+        ("c.4del", "p.Arg4Profs"),
+    ]
+
+
+def test_a_protein_key_is_the_canonical_reading_so_spellings_share_a_row() -> None:
+    table = variant_table(
+        [
+            _pub(1, "PMID:1", [_var(1, "protein", hgvs_p="NP_852259.1:p.(Arg279Ter)")]),
+            _pub(2, "PMID:2", [_var(1, "protein", hgvs_p="p.Arg279Ter")]),
+            _pub(3, "PMID:3", [_var(1, "protein", hgvs_p="p.R279X")]),
+        ]
+    )
+    assert [(r["key"], r["papers"]) for r in table["rows"]] == [("p:R279*", 3)]
+    assert table["rows"][0]["hgvs_p"] == "NP_852259.1:p.(Arg279Ter)"
+
+
+def test_the_outside_region_list_keeps_finding_then_variant_order() -> None:
+    table = variant_table(
+        [
+            _pub(
+                2,
+                "PMID:9",
+                [
+                    _var(2, "outside_region", as_reported="b"),
+                    _var(1, "outside_region", as_reported="a"),
+                ],
+            ),
+            _pub(1, "PMID:10", [_var(1, "outside_region", as_reported="c")]),
+        ]
+    )
+    assert [(v["as_reported"], v["finding"]) for v in table["outside_region"]] == [
+        ("b", "CHDA:LIT:0000002"),
+        ("a", "CHDA:LIT:0000002"),
+        ("c", "CHDA:LIT:0000001"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "variants",
+    [
+        [_mane(1, "c.5C>T", "1:5:C:T", **{"with": [9]})],
+        [_var(1, "mane", hgvs_c="c.5C>T")],
+        [_var(1, "protein")],
+        [_var(1, "protein", hgvs_p="NP_852259.1:p.?")],
+        [_mane(1, "not hgvs", "1:5:C:T")],
+        [_var(1, "protein", hgvs_p="not hgvs")],
+    ],
+    ids=["dangling-partner", "no-grch38", "no-hgvs_p", "no-residue", "bad-c", "bad-p"],
+)
+def test_a_variant_a_bypassed_gate_lets_through_raises_rather_than_dropping(
+    variants: list[dict[str, Any]],
+) -> None:
+    with pytest.raises(ValueError):
+        variant_table([_pub(1, "PMID:1", variants)])

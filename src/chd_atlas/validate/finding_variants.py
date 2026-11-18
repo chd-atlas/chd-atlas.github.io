@@ -57,6 +57,7 @@ from chd_atlas.hgvs import (
     parse_c,
     parse_grch38,
     parse_p,
+    protein_key,
     same_protein_change,
 )
 from chd_atlas.mane import ManeTranscript, genome_position, genome_slice, transcript_position
@@ -497,6 +498,13 @@ def _placement_issues(
     if allowed is not None and v.kind not in allowed:
         names = " or ".join(sorted(k.value for k in allowed))
         bad(f"a {placed} variant is kind {names}, not {v.kind.value}")
+    if v.placement is VariantPlacement.PROTEIN and v.hgvs_p is not None:
+        try:
+            residues = parse_p(v.hgvs_p).residues
+        except HgvsUnsupported:
+            residues = ((" ", 0),)  # unreadable: LIT021 says so, once
+        if not residues:
+            bad(f"hgvs_p {v.hgvs_p} names no residue, so it cannot be placed; list it unplaced")
     if v.kind not in finding.variant_classes:
         bad(f"kind {v.kind.value} is not among the finding's variant_classes")
     if v.normalisation is not None and v.normalisation not in normalisation_ids:
@@ -628,6 +636,15 @@ def _carrier_issues(finding: Finding) -> list[ShapeIssue]:
     return out
 
 
+def _row_key(v: Variant) -> str | None:
+    """The key the page groups a variant under (`build.gene_literature`), or None."""
+    if v.placement is VariantPlacement.MANE and v.grch38 is not None:
+        return "g:" + v.grch38
+    if v.placement is VariantPlacement.PROTEIN and v.hgvs_p is not None:
+        return "p:" + protein_key(v.hgvs_p)
+    return None
+
+
 def shape_issues(finding: Finding, normalisation_ids: set[int]) -> list[ShapeIssue]:
     """LIT022-LIT024 for one finding's variants, sorted; each is `(code, variant id, message)`.
 
@@ -639,7 +656,21 @@ def shape_issues(finding: Finding, normalisation_ids: set[int]) -> list[ShapeIss
     out: list[ShapeIssue] = []
     for number in sorted({v.id for v in variants if sum(w.id == v.id for w in variants) > 1}):
         out.append(("LIT022", number, f"variant id {number} is used more than once"))
+    seen: dict[str, int] = {}
     for v in variants:
+        key = _row_key(v)
+        if key is not None:
+            if key in seen and seen[key] != v.id:
+                out.append(
+                    (
+                        "LIT022",
+                        v.id,
+                        f"variant {v.id} repeats variant {seen[key]}'s name ({key[2:]}); "
+                        "name each variant once per finding, with zygosity not_stated "
+                        "when its carriers differ in zygosity",
+                    )
+                )
+            seen.setdefault(key, v.id)
         out += _placement_issues(finding, v, normalisation_ids)
         for pheno in v.phenotypes:
             if pheno not in finding.phenotypes:
