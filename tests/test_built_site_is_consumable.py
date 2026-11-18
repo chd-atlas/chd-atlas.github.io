@@ -2024,6 +2024,8 @@ _ATTRIBUTED_ON_THE_FRONT_PAGE: dict[str, str] = {
     "expression_atlas_e_mtab_6814": "EMBL-EBI Expression Atlas's (E-MTAB-6814), "
     "under EMBL-EBI's Terms of Use",
     "farah2024_hoc": "Cell-type expression is the UCSC Cell Browser data of Farah et al. 2024.",
+    "mane_select": "is checked against MANE v1.5 (NCBI and EMBL-EBI), under NCBI's data policy, "
+    "wherever the atlas's copy of MANE includes that gene.",
     "audain2026_sd3": "Audain et al. 2026 and Sierant et al. 2025, both CC BY 4.0",
     "sierant2025_ds6": "Audain et al. 2026 and Sierant et al. 2025, both CC BY 4.0",
 }
@@ -2040,6 +2042,8 @@ _LICENCE_WORDS: dict[str, str] = {
     "CC-BY-4.0": "CC BY 4.0",
     "CC0-1.0": "CC0",
     "EMBL-EBI Terms of Use": "EMBL-EBI's Terms of Use",
+    "NCBI data policy, no NCBI restrictions; "
+    "submitters may claim rights": "under NCBI's data policy",
     "Not stated by the UCSC Cell Browser; data accompany a CC BY 4.0 article "
     "(PMID:38480880) and are attributed to Farah et al. 2024": "Farah et al. 2024",
 }
@@ -2060,7 +2064,10 @@ def test_the_front_page_names_every_source_that_requires_attribution(site: Path)
     written: 7 such sources. Since the doorway page (2026-10-27) the section is
     "Sources", one paragraph of 118 words (tags deleted outright, the method
     below), and the sentence is three. Farah et al. 2024's cell-type data made it 8
-    sources on 2026-11-02, named in one 13-word sentence. Measured on builds of fe94116, the
+    sources on 2026-11-02, named in one 13-word sentence; MANE Select v1.5 made it 9 on
+    2026-11-18, named in one 26-word sentence (131 words with Farah's, 157 with MANE's,
+    tags deleted outright; 136 and 162 with each tag replaced by a space, measured on a
+    build of this branch by the method below). Measured on builds of fe94116, the
     paragraph's HTML between `<p>` and `</p>` (heading not counted) with entities unescaped and
     split on whitespace: 118 words without the sentence and 131 with it when
     tags are deleted outright, 123 and 136 when each tag is replaced by a

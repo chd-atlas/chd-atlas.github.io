@@ -1868,6 +1868,49 @@ def test_the_runner_checks_the_mane_frame_when_the_corpus_loads(tmp_path: Path) 
     assert "MAN002" in codes
 
 
+@pytest.mark.parametrize(
+    "absent",
+    [
+        ("mane_transcripts.tsv",),
+        ("mane_exons.tsv",),
+        ("mane_transcripts.tsv", "mane_exons.tsv"),
+    ],
+    ids=["transcripts", "exons", "both"],
+)
+def test_a_pinned_mane_source_with_a_missing_mirror_is_an_error(
+    tmp_path: Path, absent: tuple[str, ...]
+) -> None:
+    """MAN005. Measured before it existed: deleting either MANE file left validate
+    at 0 errors, because the reader answers `(None, [])` for an absent file and
+    MAN001-MAN004 never ran. The copy pins `mane_select` (the committed
+    `sources.yaml`); each deletion in turn, and both, must be reported, and the
+    message names exactly the files that are gone."""
+    root = _real_repo(tmp_path)
+    assert "MAN005" not in _codes_of(root)
+    for name in absent:
+        (root / "mirrors" / name).unlink()
+    found = [i for i in validate_repository(root).issues if i.code == "MAN005"]
+    assert len(found) == 1
+    assert found[0].severity is Severity.ERROR
+    for name in ("mane_transcripts.tsv", "mane_exons.tsv"):
+        assert (name in found[0].message) == (name in absent)
+
+
+def test_an_unpinned_mane_source_with_no_mirror_is_not_an_error(tmp_path: Path) -> None:
+    """The other half of MAN005: a repository that never pinned `mane_select`."""
+    root = _real_repo(tmp_path)
+    for name in ("mane_transcripts.tsv", "mane_exons.tsv"):
+        (root / "mirrors" / name).unlink()
+    sources = root / "mirrors" / "sources.yaml"
+    text = sources.read_text(encoding="utf-8")
+    pin = "    package:\n      version: '1.5'\n"
+    start = text.index(pin)
+    assert "  - id: " not in text[start:], "mane_select must be the last entry"
+    sources.write_text(text[:start], encoding="utf-8")
+    assert "mane_select" in text[:start]
+    assert "MAN005" not in _codes_of(root)
+
+
 def _mane_codes(root: Path) -> list[str]:
     return sorted(i.code for i in validate_repository(root).issues if i.code.startswith("MAN"))
 

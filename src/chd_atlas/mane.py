@@ -4,10 +4,11 @@ Reads the two flat mirror tables `mane_transcripts` and `mane_exons` into
 `ManeTranscript` records. This module only reads; `validate/mane.py` checks what
 it returns.
 
-Absent versus unreadable is a distinction the callers rely on: the repository may
-not carry a MANE mirror yet, which is not an error, whereas a present file that
-cannot be read is. `read_mane_frame` therefore returns `(None, [])` for the
-first and `(None, issues)` for the second.
+Absent versus unreadable is a distinction the callers rely on. `read_mane_frame`
+returns `(None, [])` for an absent file and `(None, issues)` for a present one
+that cannot be read. Absence is not an error here, because a repository that has
+not pinned `mane_select` carries no mirror; once `mirrors/sources.yaml` pins it,
+absence is an error, reported by the runner as MAN005, not by this reader.
 
 Exon rows that cannot be attached to a transcript are never silently dropped:
 an exon whose gene has no transcript row, whose `refseq_transcript` differs from

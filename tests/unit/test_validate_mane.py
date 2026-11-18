@@ -160,7 +160,11 @@ def test_each_mane_check_fires_on_its_own_corruption(
     # check firing under the same code would not satisfy the fragment.
     assert len(issues) == 1 and fragment in issues[0].message
     assert issues == sorted(issues)
-    assert all(i.severity.value == "error" for i in issues)
+    # MAN004 alone is a WARNING (owner decision 2026-11-18): a registry gene whose
+    # MANE Select the package drops by design must not stop the build. Pinned
+    # against literals, so a mutant restoring ERROR is killed.
+    severity = "warning" if expected == {"MAN004"} else "error"
+    assert all(i.severity.value == severity for i in issues)
     assert "HGNC:" in issues[0].message
 
 

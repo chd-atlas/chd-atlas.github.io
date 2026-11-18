@@ -1,0 +1,119 @@
+{
+  "built_by": {
+    "host": "workstation",
+    "recipe_commit": "c24c16711f4eb00602855a17741ba954c2c467cf"
+  },
+  "coverage": "every_gene",
+  "dropped": [
+    {
+      "count": 1,
+      "examples": [
+        "HGNC:42967 NM_001424184.1: cds length 659 is not a multiple of 3"
+      ],
+      "reason": "MAN002: the coding sequence does not translate to the protein"
+    },
+    {
+      "count": 70,
+      "examples": [
+        "HGNC:10031 NR_003051.4",
+        "HGNC:10108 NR_004407.1",
+        "HGNC:10120 NR_004430.4",
+        "HGNC:10123 NR_004427.1",
+        "HGNC:10128 NR_004421.1"
+      ],
+      "reason": "MANE Select non-coding transcript (NR_), which has no protein to frame"
+    },
+    {
+      "count": 52,
+      "examples": [
+        "NM_001003799.2 (blank)",
+        "NM_001162371.3 (blank)",
+        "NM_001320038.2 (blank)",
+        "NM_001323075.3 (blank)",
+        "NM_001352000.1 (blank)"
+      ],
+      "reason": "MANE Select transcript of a gene with no HGNC id (the table is keyed by HGNC id)"
+    },
+    {
+      "count": 61,
+      "examples": [
+        "HGNC:10480 NM_012234.7 on NW_011332691.1",
+        "HGNC:10628 NM_021006.6 on NT_187661.1",
+        "HGNC:10631 NM_207007.4 on NT_187661.1",
+        "HGNC:13572 NM_003890.3 on NW_009646206.1",
+        "HGNC:14294 NM_001372044.2 on NW_015148969.2"
+      ],
+      "reason": "MANE Select transcript placed only on an alternate-locus or fix-patch scaffold (NT_/NW_ accession); the atlas's chromosome vocabulary is the primary assembly's 1-22, X, Y, MT"
+    }
+  ],
+  "ids": "hgnc_id",
+  "input_counts": {
+    "rows": 19363
+  },
+  "inputs": [
+    {
+      "name": "MANE.GRCh38.v1.5.summary.txt.gz",
+      "retrieved_on": "2026-11-17",
+      "sha256": "d10ace2720681a3b2e0eefd9da4f551274a6b4141ac9bfd6a2565dfb6e9ad55c",
+      "upstream_release": "1.5",
+      "url": "https://ftp.ncbi.nlm.nih.gov/refseq/MANE/MANE_human/release_1.5/MANE.GRCh38.v1.5.summary.txt.gz"
+    },
+    {
+      "name": "MANE.GRCh38.v1.5.refseq_genomic.gtf.gz",
+      "retrieved_on": "2026-11-17",
+      "sha256": "59e5ff1c794a70de777e553ab67062b316578d41287cd898ee1da2827527969a",
+      "upstream_release": "1.5",
+      "url": "https://ftp.ncbi.nlm.nih.gov/refseq/MANE/MANE_human/release_1.5/MANE.GRCh38.v1.5.refseq_genomic.gtf.gz"
+    },
+    {
+      "name": "MANE.GRCh38.v1.5.refseq_rna.fna.gz",
+      "retrieved_on": "2026-11-17",
+      "sha256": "7280512e57fd8599ab4e3a4a2e809b7f1780c3b9e30a8ca78ca937a7d8dee98c",
+      "upstream_release": "1.5",
+      "url": "https://ftp.ncbi.nlm.nih.gov/refseq/MANE/MANE_human/release_1.5/MANE.GRCh38.v1.5.refseq_rna.fna.gz"
+    },
+    {
+      "name": "MANE.GRCh38.v1.5.refseq_protein.faa.gz",
+      "retrieved_on": "2026-11-17",
+      "sha256": "b12307f98481b6d8c4e17d9ecd1856ee1f64a63db6507ff7529f669e26f6f372",
+      "upstream_release": "1.5",
+      "url": "https://ftp.ncbi.nlm.nih.gov/refseq/MANE/MANE_human/release_1.5/MANE.GRCh38.v1.5.refseq_protein.faa.gz"
+    },
+    {
+      "name": "GCF_000001405.40_GRCh38.p14_genomic.fna.gz",
+      "retrieved_on": "2026-11-17",
+      "sha256": "11912a45a545bf01a10b2a7f10eb7a42924436b4d19b476b1899834fb7ba74a3",
+      "upstream_release": "GCF_000001405.40 (GRCh38.p14)",
+      "url": "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/405/GCF_000001405.40_GRCh38.p14/GCF_000001405.40_GRCh38.p14_genomic.fna.gz"
+    }
+  ],
+  "licence_evidence": "NCBI's data policy (https://www.ncbi.nlm.nih.gov/home/about/policies/) says \"NCBI itself places no restrictions on the use or distribution of the data contained therein.\" and \"However, some submitters of the original data (or the country of origin of such data) may claim patent, copyright, or other intellectual property rights in all or a portion of the data (that has been submitted). NCBI is not in a position to assess the validity of such claims and since there is no transfer of rights from submitters to NCBI, NCBI has no rights to transfer to a third party. Therefore, NCBI cannot provide comment or unrestricted permission concerning the use, copying, or distribution of the information contained in the molecular databases.\" MANE's own README states no licence terms.",
+  "package": "mane_select",
+  "source": {
+    "licence": "NCBI data policy, no NCBI restrictions; submitters may claim rights",
+    "name": "MANE (Matched Annotation from NCBI and EMBL-EBI) v1.5, MANE Select transcripts (summary, GTF, RNA and protein FASTA) with the GRCh38.p14 genome (GCF_000001405.40) that the exon windows are cut from",
+    "redistribution": "permitted_with_attribution",
+    "retrieved_on": "2026-11-17",
+    "url": "https://ftp.ncbi.nlm.nih.gov/refseq/MANE/MANE_human/release_1.5/",
+    "version": "MANE v1.5 (NCBI RefSeq Annotation Release GCF_000001405.40-RS_2025_08, Ensembl 116)"
+  },
+  "tables": [
+    {
+      "file": "mane_exons.tsv.gz",
+      "format_version": 1,
+      "genes": 19179,
+      "name": "mane_exons",
+      "rows": 201933,
+      "sha256": "9db5193f60b0f792ec9ef5a767b926ecc0140a5be7deb5df1355fa496bd3d354"
+    },
+    {
+      "file": "mane_transcripts.tsv.gz",
+      "format_version": 1,
+      "genes": 19179,
+      "name": "mane_transcripts",
+      "rows": 19179,
+      "sha256": "8a6cbd2bd7e030508a1fab6e63b487c3094ce93c17c5f3a0b3a894df6e3bac28"
+    }
+  ],
+  "version": "1.5"
+}

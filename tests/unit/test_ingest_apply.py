@@ -95,21 +95,30 @@ _PIN_BLOCK = re.compile(
 def unpinned(raw: bytes) -> bytes:
     """`sources.yaml` with every `package:` pin removed.
 
-    The committed file pins hgnc, sierant2025_ds6 and farah2024_hoc (since the
-    2026-11-11 ingest); these tests need a repository with no pin, and a pin
-    with no cache is ING017. Measured: the pattern removes exactly the
-    three blocks `chd-atlas ingest` wrote.
+    The committed file pins 12 of its 14 sources (every one but `hpo` and
+    `audain2021_s8`); these tests need a repository with no pin, and a pin
+    with no cache is ING017. Measured 2026-11-18: the pattern removes exactly
+    those 12 blocks, the 12 `package:` keys that `grep` finds at the entry level.
     """
     return _PIN_BLOCK.sub("", raw.decode("utf-8")).encode("utf-8")
 
 
 def copy_repo(target: Path) -> Path:
-    """The committed corpus with every pin and package manifest removed."""
+    """The committed corpus with every pin, package manifest and MANE mirror removed."""
     for item in ("curation", "mirrors", "ontologies"):
         shutil.copytree(REPO_ROOT / item, target / item)
     sources = target / "mirrors" / "sources.yaml"
     sources.write_bytes(unpinned(sources.read_bytes()))
     shutil.rmtree(target / "mirrors" / "packages", ignore_errors=True)
+    # The MANE mirrors are an every-gene package's rows, and this repository has
+    # no `mane_select` pin or cache. The `Repinned` fixtures grow the registry
+    # with SLC11A1 (HGNC:10907), which MAN004 then reports as absent from the
+    # frame; the real `ingest --all` re-filters `mane_select` from its cache, as
+    # it does every every-gene package. These fixtures test validity repins and
+    # carry no `mane_select` pin or cache, so the frame is removed for isolation
+    # (the repin tests also pass without this, now that MAN004 is a warning).
+    for name in ("mane_transcripts.tsv", "mane_exons.tsv"):
+        (target / "mirrors" / name).unlink()
     return target
 
 
@@ -699,7 +708,10 @@ def test_the_committed_sources_yaml_round_trips_byte_for_byte() -> None:
     pin = PackagePin(version="v1", manifest_sha256="cd" * 32)
     tail = f"    package:\n      version: v1\n      manifest_sha256: {'cd' * 32}\n"
 
-    pinned = with_source_entry(raw, "farah2024_hoc", _source_as_package("farah2024_hoc"), pin)
+    # The file's last entry, derived: the pin tail lands at the end of the file.
+    registry_, _ = load_sources(REPO_ROOT)
+    last = registry_.sources[-1].id
+    pinned = with_source_entry(raw, last, _source_as_package(last), pin)
 
     assert pinned == raw + tail.encode()
 
@@ -707,12 +719,12 @@ def test_the_committed_sources_yaml_round_trips_byte_for_byte() -> None:
         citation: str | None = None
 
     source = Wider.model_validate(
-        {**_source_as_package("farah2024_hoc").model_dump(), "citation": "Farah 2024"}
+        {**_source_as_package(last).model_dump(), "citation": "A citation"}
     )
 
-    after = with_source_entry(raw, "farah2024_hoc", source, pin)
+    after = with_source_entry(raw, last, source, pin)
 
-    assert after == raw + ("    citation: Farah 2024\n" + tail).encode()
+    assert after == raw + ("    citation: A citation\n" + tail).encode()
 
 
 # --- what a package may not do: ING013, ING014, and the row accounting ---------

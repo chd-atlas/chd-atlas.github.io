@@ -14,7 +14,7 @@ from chd_atlas.build.validity import gene_validity, published_genes
 from chd_atlas.corpus import Corpus, load_curation, unexpected_curation_entries
 from chd_atlas.genes import GeneRegistry
 from chd_atlas.issues import Severity, ValidationIssue
-from chd_atlas.mane import read_mane_frame
+from chd_atlas.mane import EXONS_FILE, TRANSCRIPTS_FILE, read_mane_frame
 from chd_atlas.models.dataset import Dataset
 from chd_atlas.orphanet_scope import load_orphanet_tables, pinned_structural_phenotypes
 from chd_atlas.registry import ABSENT_MIRROR, RegistryUnavailable, derive_registry
@@ -665,6 +665,28 @@ def validate_repository(root: Path) -> ValidationReport:
     issues.extend(i for i in mane_read_issues if i.code.startswith("MAN"))
     if mane_frame is not None:
         issues.extend(validate_mane(mane_frame, genes_frame, root))
+    # MAN005: a pinned `mane_select` whose mirror is gone. Without it the frame
+    # reader answers `(None, [])` (a repository that never carried MANE), MAN001-004
+    # never run, and every other check stays green. One call site, after the
+    # `if`, so it is reached on every path (section 4.34). A file that is present
+    # but unreadable is TBL000/TBL001, not this.
+    if any(s.id == "mane_select" and s.package is not None for s in registry.sources):
+        absent_mane = [
+            name
+            for name in (TRANSCRIPTS_FILE, EXONS_FILE)
+            if not (root / "mirrors" / name).is_file()
+        ]
+        if absent_mane:
+            issues.append(
+                ValidationIssue(
+                    "MAN005",
+                    Severity.ERROR,
+                    str(root / "mirrors"),
+                    f"mirrors/sources.yaml pins mane_select, but {' and '.join(absent_mane)} "
+                    f"{'is' if len(absent_mane) == 1 else 'are'} missing; "
+                    "MAN001-MAN004 did not run",
+                )
+            )
 
     # TBL014: exactly one validity mirror is absent. One call site, before the
     # `if corpus_issues` / `else`, so it is reached on every path (CLAUDE.md

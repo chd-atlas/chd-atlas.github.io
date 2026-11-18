@@ -1247,7 +1247,12 @@ def test_polars_pattern_engine_agrees_with_python_re(tmp_path: Path) -> None:
     # rows x 2 = +160, gencc_submissions -34 x 4 = -136, mondo_xrefs -20 x 2 =
     # -40, and PLAGL1 entering the registry: genes.tsv +1 x 2, burden.tsv +7 x 4
     # and profiles/E-MTAB-6814.tsv +119.
-    assert total_compared == 224_684
+    #
+    # **224,684 -> 234,557 on 2026-11-18**, when the MANE Select package's first
+    # ingest added `mane_transcripts.tsv` (186 rows x 7 pattern-checked columns
+    # = 1,302) and `mane_exons.tsv` (2,857 rows x 3 = 8,571), the per-column
+    # non-null counts read with `read_table`; 9,873 in all.
+    assert total_compared == 234_557
 
     for pattern in patterns:
         compiled = re.compile(pattern)
