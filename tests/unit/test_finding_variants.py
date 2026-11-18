@@ -966,6 +966,16 @@ def test_one_variant_alone_and_with_a_partner_is_two_entries_but_not_otherwise()
         ]
     )
     assert [(c, v) for c, v, m in twice if "repeats" in m] == [("LIT022", 2)]
+    # Different partners of the same count are still different contexts.
+    apart = _shape(
+        [
+            _linked(1, 3, grch38="12:114366312:G:A"),
+            _linked(2, 4, grch38="12:114366312:G:A"),
+            _linked(3, 1, grch38="12:114366399:G:A"),
+            _linked(4, 2, grch38="12:114366398:G:A"),
+        ]
+    )
+    assert [i for i in apart if "repeats" in i[2]] == []
 
 
 def test_a_variant_naming_zero_carriers_is_lit022() -> None:
