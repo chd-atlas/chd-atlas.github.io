@@ -48,6 +48,7 @@ EXCLUDED_FIELDS: Final = (
     "approved_digest",
     "review_status",
     "review_note",
+    "review_settled_by",
     "locators",
     "shares_probands_with",
 )
@@ -71,6 +72,8 @@ _VARIANT_BOOKKEEPING: Final = (
     "locator",
     "review_status",
     "review_note",
+    "review_settled_by",
+    "unclear",
 )
 
 FieldDifference = tuple[str, Any, Any]

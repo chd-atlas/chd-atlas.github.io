@@ -297,6 +297,17 @@
           "default": null,
           "title": "Review Note"
         },
+        "review_settled_by": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SettledBy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "review_status": {
           "anyOf": [
             {
@@ -511,7 +522,8 @@
       "enum": [
         "trans",
         "cis",
-        "not_stated"
+        "not_stated",
+        "unclear"
       ],
       "title": "Phase",
       "type": "string"
@@ -639,6 +651,17 @@
       ],
       "title": "Search",
       "type": "object"
+    },
+    "SettledBy": {
+      "description": "What would settle an open question a literature record carries.\n\n`FULL_TEXT`: only the abstract was read. `AUTHORS`: the paper contradicts\nitself, or disagrees with the reference sequence. `EXPERT`: it needs a\ndomain judgement the paper cannot supply. `ATLAS_MODEL`: the paper is\nclear and the atlas's record cannot hold it.",
+      "enum": [
+        "full_text",
+        "authors",
+        "expert",
+        "atlas_model"
+      ],
+      "title": "SettledBy",
+      "type": "string"
     },
     "SupplementaryLocator": {
       "additionalProperties": false,
@@ -868,6 +891,26 @@
       "title": "TriageEntry",
       "type": "object"
     },
+    "Unclear": {
+      "additionalProperties": false,
+      "description": "Why a variant's zygosity or phase is `unclear`, and what would settle it.",
+      "properties": {
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "settled_by": {
+          "$ref": "#/$defs/SettledBy"
+        }
+      },
+      "required": [
+        "reason",
+        "settled_by"
+      ],
+      "title": "Unclear",
+      "type": "object"
+    },
     "Variant": {
       "additionalProperties": false,
       "description": "One variant a finding names, placed on the MANE Select frame.\n\nThe YAML key `with` is a Python keyword, so the field is `with_` and is\nread and dumped through its alias. Only the review pairing is checked\nhere; every other rule is a validate code, so one bad variant costs one\nissue and not the file.",
@@ -1009,6 +1052,17 @@
           "default": null,
           "title": "Review Note"
         },
+        "review_settled_by": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SettledBy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "review_status": {
           "anyOf": [
             {
@@ -1019,6 +1073,19 @@
             }
           ],
           "default": null
+        },
+        "unclear": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Unclear"
+          },
+          "propertyNames": {
+            "enum": [
+              "zygosity",
+              "phase"
+            ]
+          },
+          "title": "Unclear",
+          "type": "object"
         },
         "with": {
           "items": {
@@ -1060,7 +1127,8 @@
         "heterozygous",
         "homozygous",
         "hemizygous",
-        "not_stated"
+        "not_stated",
+        "unclear"
       ],
       "title": "VariantZygosity",
       "type": "string"

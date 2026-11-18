@@ -52,6 +52,7 @@ from chd_atlas.models.review import ReviewStatus
 from chd_atlas.schema_export import TABLE_SCHEMA_DIR, export_schemas, export_table_schemas
 from chd_atlas.validate.gene_synthesis import validate_gene_synthesis
 from chd_atlas.validate.runner import validate_repository
+from chd_atlas.vocab import SettledBy
 
 app = typer.Typer(help="CHD Atlas curation tooling.", no_args_is_help=True)
 schemas_app = typer.Typer(help="JSON Schema utilities.", no_args_is_help=True)
@@ -768,6 +769,12 @@ def literature_review(
         help="With --approve-synthesis: the digest the listing printed (12 or more hex digits).",
     ),
     note: str = typer.Option("", "--note", help="The measured disagreement, for --pending-review."),
+    settled_by: SettledBy | None = typer.Option(
+        None,
+        "--settled-by",
+        help="What would settle the question, for --pending-review: "
+        "full_text, authors, expert or atlas_model.",
+    ),
     root: Path = typer.Option(Path("."), help="Repository root."),
 ) -> None:
     """List the findings awaiting approval (and the synthesis, if any), approve some, or mark one.
@@ -800,6 +807,8 @@ def literature_review(
         )
     if not pending_review and note:
         raise _fail("--note only applies with --pending-review", 2)
+    if not pending_review and settled_by is not None:
+        raise _fail("--settled-by only applies with --pending-review", 2)
     if not approve_synthesis and digest:
         raise _fail("--digest only applies with --approve-synthesis", 2)
     if against is not None and (approve or pending_review or approve_synthesis):
@@ -824,6 +833,13 @@ def literature_review(
         )
     if pending_review and not note.strip():
         raise _fail("--note (the measured disagreement) is required with --pending-review", 2)
+    if pending_review and settled_by is None:
+        raise _fail(
+            "--settled-by (what would settle the question: "
+            + ", ".join(v.value for v in SettledBy)
+            + ") is required with --pending-review",
+            2,
+        )
 
     approved_symbol, path = _require_literature_file(root, symbol)
     raw = path.read_bytes()
@@ -946,6 +962,7 @@ def literature_review(
             pending_review: {
                 "review_status": ReviewStatus.PENDING_REVIEW.value,
                 "review_note": note.strip(),
+                "review_settled_by": settled_by.value if settled_by else None,
             }
         }
         messages = [f"marked {pending_review} pending_review"]

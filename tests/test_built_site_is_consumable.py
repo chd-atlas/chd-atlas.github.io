@@ -507,6 +507,7 @@ def variant_site(tmp_path_factory: pytest.TempPathFactory) -> Path:
                     reported={"c": "c.998G>T", "p": "p.D111Y"},
                     review_status="pending_review",
                     review_note="c.998G>T names G where MANE Select has C.",
+                    review_settled_by="authors",
                 )
             ],
         ),

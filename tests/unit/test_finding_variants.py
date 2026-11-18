@@ -377,7 +377,11 @@ _MANE_FIELDS: dict[str, Any] = {
     "grch38": "12:114366312:G:A",
     "normalisation": 1,
 }
-_REVIEW: dict[str, Any] = {"review_status": "pending_review", "review_note": "numbering differs"}
+_REVIEW: dict[str, Any] = {
+    "review_status": "pending_review",
+    "review_note": "numbering differs",
+    "review_settled_by": "authors",
+}
 
 
 def _sv(vid: int, **fields: Any) -> dict[str, Any]:
@@ -1052,6 +1056,7 @@ def test_a_partner_with_no_row_key_is_told_apart_by_what_the_paper_printed() -> 
     unplaced = {"placement": "unplaced", "grch38": None, "hgvs_c": None, "normalisation": None}
     unplaced["review_status"] = "pending_review"
     unplaced["review_note"] = "numbering differs"
+    unplaced["review_settled_by"] = "authors"
     pair = [
         _linked(1, 3, grch38=k),
         _linked(2, 4, grch38=k),

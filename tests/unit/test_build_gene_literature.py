@@ -254,7 +254,11 @@ def test_an_unapproved_findings_normalisation_does_not_publish() -> None:
 
 def test_a_review_mark_is_published_with_an_approved_finding() -> None:
     raw = _file().model_dump(mode="json")
-    raw["findings"][0].update(review_status="pending_review", review_note="Source disagrees.")
+    raw["findings"][0].update(
+        review_status="pending_review",
+        review_note="Source disagrees.",
+        review_settled_by="authors",
+    )
     entry = gene_literature(_corpus(GeneLiteratureFile.model_validate(raw)))[TBX5]
     marked = [f for f in entry["findings"] if f["review_status"] is not None]
     assert [(f["id"], f["review_note"]) for f in marked] == [
@@ -400,7 +404,7 @@ def test_tallies_count_carrier_origin_and_review_marks_by_paper() -> None:
         [
             _f(1, "PMID:9", review_status="not_accessible", **mark),
             _f(2, "PMID:9", review_status="not_accessible", **mark),
-            _f(3, "PMID:10", review_status="pending_review", **mark),
+            _f(3, "PMID:10", review_status="pending_review", review_settled_by="authors", **mark),
             _f(
                 4,
                 "PMID:11",
@@ -744,6 +748,7 @@ def test_the_lists_hold_outside_region_then_structural_then_unplaced_variants() 
                         as_reported="u1",
                         review_status="pending_review",
                         review_note="n",
+                        review_settled_by="authors",
                     ),
                     _var(2, "structural", as_reported="s1"),
                     _var(3, "outside_region", as_reported="o1", reported={"rsid": "rs12"}),

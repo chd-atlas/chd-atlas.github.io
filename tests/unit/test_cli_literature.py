@@ -581,7 +581,10 @@ def test_approve_defaults_the_date_to_today_and_takes_several_ids(
         ),
         (["--pending-review", "CHDA:LIT:0000001"], "--note"),
         (["--pending-review", "CHDA:LIT:0000001", "--note", "  "], "--note"),
-        (["--pending-review", "CHDA:LIT:0000009", "--note", "x"], "CHDA:LIT:0000009"),
+        (
+            ["--pending-review", "CHDA:LIT:0000009", "--note", "x", "--settled-by", "authors"],
+            "CHDA:LIT:0000009",
+        ),
         (["--note", "x"], "--pending-review"),
         (["--by", "A"], "--approve"),
     ],
@@ -614,19 +617,50 @@ def test_approval_on_the_day_of_the_search_is_accepted(root: Path, lit_path: Pat
 def test_pending_review_sets_the_pair_and_nothing_else(root: Path, lit_path: Path) -> None:
     before = _blocks(lit_path.read_text())
     result = _review(
-        root, "--pending-review", "CHDA:LIT:0000003", "--note", "Table 2 says 7; the text says 8."
+        root,
+        "--pending-review",
+        "CHDA:LIT:0000003",
+        "--note",
+        "Table 2 says 7; the text says 8.",
+        "--settled-by",
+        "authors",
     )
 
     assert result.exit_code == 0, result.stdout
     after = _blocks(lit_path.read_text())
     assert after["CHDA:LIT:0000003"] == before["CHDA:LIT:0000003"] + (
         "    review_status: pending_review\n    review_note: Table 2 says 7; the text says 8.\n"
+        "    review_settled_by: authors\n"
     )
     for other in ("head", "CHDA:LIT:0000001", "CHDA:LIT:0000002", "CHDA:LIT:0000004"):
         assert after[other] == before[other]
     # a second mark would overwrite the first note
-    again = _review(root, "--pending-review", "CHDA:LIT:0000003", "--note", "other")
+    again = _review(
+        root, "--pending-review", "CHDA:LIT:0000003", "--note", "other", "--settled-by", "authors"
+    )
     assert again.exit_code == 2 and "already" in again.stdout
+
+
+def test_pending_review_requires_settled_by_and_writes_it(root: Path, lit_path: Path) -> None:
+    before = lit_path.read_bytes()
+    base = ["--pending-review", "CHDA:LIT:0000003", "--note", "Table 2 says 7."]
+    missing = _review(root, *base)
+    assert missing.exit_code == 2 and "--settled-by" in missing.stdout
+    assert lit_path.read_bytes() == before
+    alone = _review(root, "--settled-by", "authors")
+    assert (
+        alone.exit_code == 2 and "--settled-by only applies with --pending-review" in alone.stdout
+    )
+    assert lit_path.read_bytes() == before
+    bad = _review(root, *base, "--settled-by", "nobody")
+    assert bad.exit_code == 2 and lit_path.read_bytes() == before
+    ok = _review(root, *base, "--settled-by", "expert")
+    assert ok.exit_code == 0, ok.stdout
+    block = _blocks(lit_path.read_text())["CHDA:LIT:0000003"]
+    assert block.endswith(
+        "    review_status: pending_review\n    review_note: Table 2 says 7.\n"
+        "    review_settled_by: expert\n"
+    )
 
 
 def test_review_without_a_file_names_the_expected_path(root: Path) -> None:
@@ -778,13 +812,25 @@ def test_pending_review_adds_only_its_lines_whatever_separates_the_findings(
     root: Path, layout: str
 ) -> None:
     path, before = _layout_file(root, layout, verified=False)
-    result = _review(root, "--pending-review", "CHDA:LIT:0000002", "--note", "Table 2 says 7.")
+    result = _review(
+        root,
+        "--pending-review",
+        "CHDA:LIT:0000002",
+        "--note",
+        "Table 2 says 7.",
+        "--settled-by",
+        "authors",
+    )
     assert result.exit_code == 0, result.stdout
     _assert_only_lines_added(
         before,
         path.read_text(),
         "CHDA:LIT:0000002",
-        ["    review_status: pending_review\n", "    review_note: Table 2 says 7.\n"],
+        [
+            "    review_status: pending_review\n",
+            "    review_note: Table 2 says 7.\n",
+            "    review_settled_by: authors\n",
+        ],
     )
 
 
@@ -792,7 +838,15 @@ def test_approving_a_finding_under_review_keeps_the_mark_and_the_note(
     root: Path, lit_path: Path
 ) -> None:
     before = lit_path.read_text()
-    _review(root, "--pending-review", "CHDA:LIT:0000002", "--note", "Table 2 says 7; text says 8.")
+    _review(
+        root,
+        "--pending-review",
+        "CHDA:LIT:0000002",
+        "--note",
+        "Table 2 says 7; text says 8.",
+        "--settled-by",
+        "authors",
+    )
     result = _review(root, "--approve", "CHDA:LIT:0000002", "--by", "Dr. A", "--on", "2026-11-03")
 
     assert result.exit_code == 0, result.stdout
@@ -802,6 +856,7 @@ def test_approving_a_finding_under_review_keeps_the_mark_and_the_note(
         "    approved_by: Dr. A\n    approved_on: 2026-11-03\n"
         f"    approved_digest: {_digest_in(before, 'CHDA:LIT:0000002')}\n"
         "    review_status: pending_review\n    review_note: Table 2 says 7; text says 8.\n"
+        "    review_settled_by: authors\n"
     )
 
 
@@ -1271,7 +1326,7 @@ def test_approve_synthesis_refuses_while_an_approved_finding_fails_lit015(
     marked = edited.replace(
         "summary: An edited proband.\n",
         "summary: An edited proband.\n    review_status: pending_review\n"
-        "    review_note: The table disagrees.\n",
+        "    review_note: The table disagrees.\n    review_settled_by: authors\n",
     )
     lit_path.write_text(marked)
     out = _review(root).stdout
@@ -1310,7 +1365,17 @@ def test_a_synthesis_approval_may_not_predate_the_latest_finding_approval(
     ("args", "builder"),
     [
         (["--approve", "CHDA:LIT:0000002", "--by", "Dr. A"], "with_findings_updated"),
-        (["--pending-review", "CHDA:LIT:0000003", "--note", "Unclear."], "with_findings_updated"),
+        (
+            [
+                "--pending-review",
+                "CHDA:LIT:0000003",
+                "--note",
+                "Unclear.",
+                "--settled-by",
+                "authors",
+            ],
+            "with_findings_updated",
+        ),
         (["--approve-synthesis", "--by", "Dr. A"], "with_synthesis_approval"),
     ],
 )
@@ -1418,14 +1483,16 @@ def test_the_listing_marks_a_cited_findings_review_state(root: Path, lit_path: P
     marked = lit_path.read_text().replace(
         "    summary: A proband.\n",
         "    summary: A proband.\n    review_status: pending_review\n"
-        "    review_note: The table disagrees.\n",
+        "    review_note: The table disagrees.\n    review_settled_by: authors\n",
     )
     lit_path.write_text(marked)
     out = _review(root).stdout
     assert "     CHDA:LIT:0000003: A proband. [pending_review]\n" in out
     assert "     CHDA:LIT:0000004: Another proband. [unapproved]\n" in out
     lit_path.write_text(
-        marked.replace("review_status: pending_review", "review_status: not_accessible")
+        marked.replace("review_status: pending_review", "review_status: not_accessible").replace(
+            "    review_settled_by: authors\n", ""
+        )
     )
     assert "     CHDA:LIT:0000003: A proband. [not_accessible]\n" in _review(root).stdout
 
@@ -1468,6 +1535,7 @@ _TWO_VARIANTS = """\
         carriers: {de_novo: 0, inherited: 2, origin_unknown: 3}
         review_status: pending_review
         review_note: the paper's c. name disagrees
+        review_settled_by: authors
 """
 
 

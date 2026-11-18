@@ -21,6 +21,7 @@ from chd_atlas.models.gene_literature import (
     Finding,
     GeneLiteratureFile,
     Synthesis,
+    _covered_finding,
     finding_digest,
     synthesis_digest,
 )
@@ -64,7 +65,10 @@ def test_the_digest_covers_content_and_not_marks() -> None:
     assert _digest(id="CHDA:LIT:0000002") != base
     assert _digest(locators=[{"kind": "in_text", "element": "Table 3"}]) != base
     assert _digest(verified_by="agent:verify/x") == base
-    assert _digest(review_status="pending_review", review_note="check Table 2") == base
+    marked = _digest(
+        review_status="pending_review", review_note="check Table 2", review_settled_by="authors"
+    )
+    assert marked == base
     assert _digest(approved_by="B. Curator", approved_on="2026-12-01") == base
 
 
@@ -98,7 +102,14 @@ def _edited(tmp_path: Path, **finding: Any) -> Path:
         ({"summary": "Edited after approval."}, True),
         ({"screened": 8}, True),
         ({"locators": [{"kind": "in_text", "element": "Table 3"}]}, True),
-        ({"review_status": "pending_review", "review_note": "look again"}, False),
+        (
+            {
+                "review_status": "pending_review",
+                "review_note": "look again",
+                "review_settled_by": "authors",
+            },
+            False,
+        ),
         ({"verified_by": "agent:verify/later"}, False),
         ({"approved_digest": "sha256:" + "0" * 64}, True),
     ],
@@ -222,7 +233,11 @@ def test_the_synthesis_digest_moves_with_an_approved_finding_and_an_assertion() 
     assert synthesis_digest(edited_text, [first, second], [assertion]) != base
     # an approved finding's review mark is covered by the synthesis digest, and
     # not by the finding's own digest (a mark never voids a finding's approval)
-    marked_raw = _raw(review_status="pending_review", review_note="The paper's table disagrees.")
+    marked_raw = _raw(
+        review_status="pending_review",
+        review_note="The paper's table disagrees.",
+        review_settled_by="authors",
+    )
     marked = Finding.model_validate(marked_raw)
     assert finding_digest(marked) == finding_digest(first)
     with_mark = synthesis_digest(syn, [marked, second], [assertion])
@@ -234,6 +249,7 @@ def test_the_synthesis_digest_moves_with_an_approved_finding_and_an_assertion() 
             **marked_raw,
             "review_status": "not_accessible",
             "review_note": "The paper's table disagrees.",
+            "review_settled_by": None,
         }
     )
     assert synthesis_digest(syn, [not_accessible, second], [assertion]) not in {base, with_mark}
@@ -313,12 +329,20 @@ def test_every_committed_approval_still_matches_its_finding() -> None:
     """The guard that adding variants voided no standing approval.
 
     Reads the real files, so a change to either digest that moves a committed
-    approval fails here before LIT015 or SYN004 report it.
+    approval fails here before LIT015 or SYN004 report it. Every finding approval
+    must match. For syntheses, the genes whose approval no longer matches must be
+    exactly TBX5 and NR2F2: both are stale by design, because the unclear-register
+    fold-in (spec section 5.10) added `review_settled_by` to six marks a synthesis
+    covers, and the build withholds the text until the owner re-approves. The
+    assertion that every OTHER committed synthesis matches is vacuous today (there
+    are none). C0 Task 18's re-approval empties the stale set and moves this
+    assertion back to "none".
     """
     root = Path(__file__).resolve().parents[2] / "curation" / "literature"
     yaml = YAML(typ="safe")
     findings: dict[str, int] = {}
-    syntheses: set[str] = set()
+    approved_syntheses: set[str] = set()
+    stale: set[str] = set()
     for path in sorted(root.glob("*.yaml")):
         file = GeneLiteratureFile.model_validate(yaml.load(path.read_text(encoding="utf-8")))
         for finding in file.findings:
@@ -328,11 +352,13 @@ def test_every_committed_approval_still_matches_its_finding() -> None:
         syn = file.synthesis
         if syn is not None and syn.approved_digest is not None:
             gene_assertions = [a for a in _committed_assertions(root.parent) if a.gene == file.gene]
-            assert syn.approved_digest == synthesis_digest(syn, file.findings, gene_assertions)
-            syntheses.add(path.stem)
+            approved_syntheses.add(path.stem)
+            if syn.approved_digest != synthesis_digest(syn, file.findings, gene_assertions):
+                stale.add(path.stem)
     # floors, not equalities: new approvals grow them (measured 73 and 21)
     assert findings.get("TBX5", 0) >= 73 and findings.get("NR2F2", 0) >= 21
-    assert {"TBX5", "NR2F2"} <= syntheses
+    assert {"TBX5", "NR2F2"} <= approved_syntheses
+    assert stale == {"NR2F2", "TBX5"}
 
 
 def _committed_assertions(curation: Path) -> list[LesionAssertion]:
@@ -352,7 +378,13 @@ def test_adding_a_variant_voids_the_finding_but_marking_it_does_not() -> None:
     # changing the links moves the digest
     assert finding_digest(_with_variants(_variant(**{"with": [3]}))) != one
     marked = finding_digest(
-        _with_variants(_variant(review_status="pending_review", review_note="check the locus"))
+        _with_variants(
+            _variant(
+                review_status="pending_review",
+                review_note="check the locus",
+                review_settled_by="authors",
+            )
+        )
     )
     assert marked == one
     other_status = finding_digest(
@@ -371,6 +403,7 @@ def test_marking_a_variant_voids_the_synthesis_but_not_the_finding() -> None:
             as_reported="c.200C>T",
             review_status="pending_review",
             review_note="locus disagrees",
+            review_settled_by="authors",
             **{"with": []},
         ),
     )
@@ -381,6 +414,7 @@ def test_marking_a_variant_voids_the_synthesis_but_not_the_finding() -> None:
             as_reported="c.200C>T",
             review_status="pending_review",
             review_note="another note",
+            review_settled_by="authors",
             **{"with": []},
         ),
     )
@@ -388,6 +422,7 @@ def test_marking_a_variant_voids_the_synthesis_but_not_the_finding() -> None:
         _variant(
             review_status="pending_review",
             review_note="locus disagrees",
+            review_settled_by="authors",
         ),
         _variant(id=2, as_reported="c.200C>T", **{"with": []}),
     )
@@ -460,3 +495,87 @@ def test_a_variants_links_are_hashed_under_their_yaml_key() -> None:
     assert '"with":[2]' in canonical
     expected = "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     assert finding_digest(Finding.model_validate(raw)) == expected
+
+
+_UNCLEAR = {"reason": "Table 2 and the text disagree.", "settled_by": "atlas_model"}
+
+
+def _unclear_variant(**changes: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {"zygosity": "unclear", "unclear": {"zygosity": _UNCLEAR}, "with": []}
+    return _variant(**{**base, **changes})
+
+
+def test_a_mark_and_its_settler_stay_outside_the_finding_digest() -> None:
+    base = _with_variants(_unclear_variant())
+    reworded = _with_variants(
+        _unclear_variant(unclear={"zygosity": {**_UNCLEAR, "reason": "Another reason."}})
+    )
+    resettled = _with_variants(
+        _unclear_variant(unclear={"zygosity": {**_UNCLEAR, "settled_by": "authors"}})
+    )
+    settled_mark = _with_variants(
+        _unclear_variant(
+            review_status="pending_review", review_note="open", review_settled_by="expert"
+        )
+    )
+    assert finding_digest(reworded) == finding_digest(base)
+    assert finding_digest(resettled) == finding_digest(base)
+    assert finding_digest(settled_mark) == finding_digest(base)
+    on_finding = Finding.model_validate(
+        _raw(review_status="pending_review", review_note="open", review_settled_by="authors")
+    )
+    assert finding_digest(on_finding) == _digest()
+    # the unclear VALUE is content
+    not_stated = _with_variants(_variant(**{"with": []}))
+    assert finding_digest(not_stated) != finding_digest(base)
+
+
+def test_the_synthesis_covers_settlers_and_unclear_reasons_but_only_when_set() -> None:
+    # Pinned before this task: a finding with neither field is byte-identical.
+    assert (
+        _covered_finding(Finding.model_validate(_raw()))
+        == "sha256:275944924cc8b7ac703c41241d39d6380d5e557e0683de8536a0de9c6d713616"
+    )
+    plain = _with_variants(
+        _variant(),
+        _variant(
+            id=2,
+            as_reported="c.200C>T",
+            review_status="not_accessible",
+            review_note="x",
+            **{"with": []},
+        ),
+    )
+    assert (
+        _covered_finding(plain)
+        == "sha256:52f096491d9aec1d43848c6add7fa3afa419f57ddce01aaff016dbb89a76371d"
+    )
+    settled = Finding.model_validate(
+        _raw(review_status="pending_review", review_note="open", review_settled_by="authors")
+    )
+    resettled = Finding.model_validate(
+        _raw(review_status="pending_review", review_note="open", review_settled_by="expert")
+    )
+    unsettled = Finding.model_validate(_raw(review_status="not_accessible", review_note="open"))
+    assert len({_covered_finding(f) for f in (settled, resettled, unsettled)}) == 3
+    base = _with_variants(_unclear_variant())
+    reworded = _with_variants(
+        _unclear_variant(unclear={"zygosity": {**_UNCLEAR, "reason": "Another reason."}})
+    )
+    resettled_entry = _with_variants(
+        _unclear_variant(unclear={"zygosity": {**_UNCLEAR, "settled_by": "authors"}})
+    )
+    marked = _with_variants(
+        _unclear_variant(
+            review_status="pending_review", review_note="open", review_settled_by="expert"
+        )
+    )
+    marked_other = _with_variants(
+        _unclear_variant(
+            review_status="pending_review", review_note="open", review_settled_by="authors"
+        )
+    )
+    covered = [_covered_finding(f) for f in (base, reworded, resettled_entry, marked, marked_other)]
+    assert len(set(covered)) == 5
+    syn = _synthesis()
+    assert len({synthesis_digest(syn, [f], []) for f in (base, reworded, resettled_entry)}) == 3
