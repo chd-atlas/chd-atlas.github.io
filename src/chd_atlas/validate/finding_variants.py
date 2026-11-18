@@ -22,6 +22,11 @@ sequences must be equal; so `c.` named 3'-shifted (as HGVS requires) and a
 left-aligned VCF key agree on an indel in a repeat. The key itself must also be
 minimal and left-aligned: moving an indel one base left must not give the same
 sequence.
+
+LIT025 compares the paper's `p.` with `hgvs_p` only where both number residues
+on the MANE protein: an `hgvs_p` naming no residue (`p.?`, `p.=`, `p.0`) has
+nothing to compare (owner ruling D6), and a short frameshift matches any
+frameshift at its residue (D5, in `same_protein_change`).
 """
 
 from __future__ import annotations
@@ -34,6 +39,7 @@ from chd_atlas.hgvs import (
     CVariant,
     GenomeKey,
     HgvsUnsupported,
+    PVariant,
     parse_c,
     parse_grch38,
     parse_p,
@@ -262,12 +268,12 @@ def _key_issues(text: str, t: ManeTranscript) -> tuple[list[Issue], _Change | No
     return issues, _key_change(key)
 
 
-def _protein_issues(text: str, t: ManeTranscript) -> tuple[list[Issue], bool]:
-    """LIT021/LIT016/LIT019 on `hgvs_p`, and whether it was read on the MANE protein."""
+def _protein_issues(text: str, t: ManeTranscript) -> tuple[list[Issue], PVariant | None]:
+    """LIT021/LIT016/LIT019 on `hgvs_p`, and what it reads as on the MANE protein."""
     try:
         pv = parse_p(text)
     except HgvsUnsupported as error:
-        return [("LIT021", f"hgvs_p: {error}")], False
+        return [("LIT021", f"hgvs_p: {error}")], None
     if pv.accession != t.protein:
         return [
             (
@@ -275,7 +281,7 @@ def _protein_issues(text: str, t: ManeTranscript) -> tuple[list[Issue], bool]:
                 f"hgvs_p {text} is not on {t.protein}, the gene's pinned MANE Select protein "
                 "(re-normalise it on the pinned transcript)",
             )
-        ], False
+        ], None
     issues: list[Issue] = []
     length = len(t.protein_sequence)
     for residue, position in pv.residues:
@@ -297,14 +303,27 @@ def _protein_issues(text: str, t: ManeTranscript) -> tuple[list[Issue], bool]:
                     f"{t.protein_sequence[position - 1]}",
                 )
             )
-    return issues, True
+    return issues, pv
 
 
 def _unversioned(accession: str) -> str:
     return accession.split(".", 1)[0]
 
 
-def _lit025(variant: Variant, t: ManeTranscript, hgvs_p_read: bool) -> list[Issue]:
+def _names_a_residue(text: str) -> bool:
+    """False only for a `p.` that parses and names none (`p.?`, `p.=`, `p.0`)."""
+    try:
+        return bool(parse_p(text).residues)
+    except HgvsUnsupported:
+        return True
+
+
+def _lit025(variant: Variant, t: ManeTranscript, hgvs_p: PVariant | None) -> list[Issue]:
+    """The paper's own `p.` against `hgvs_p`, when both number residues on MANE.
+
+    An `hgvs_p` naming no residue has nothing to compare, so it is exempt (owner
+    ruling D6); an absent one is not, when the paper names a residue.
+    """
     reported = variant.reported
     if reported.p is None:
         return []
@@ -312,8 +331,12 @@ def _lit025(variant: Variant, t: ManeTranscript, hgvs_p_read: bool) -> list[Issu
     if reported.transcript is not None and _unversioned(reported.transcript) not in mane:
         return []  # another transcript may number residues differently
     if variant.hgvs_p is None:
+        if not _names_a_residue(reported.p):
+            return []
         return [("LIT025", f"the paper names {reported.p} but the variant has no hgvs_p")]
-    if hgvs_p_read and not same_protein_change(reported.p, variant.hgvs_p):
+    if hgvs_p is None or not hgvs_p.residues:
+        return []  # unreadable or on another protein (already reported), or no residue named
+    if not same_protein_change(reported.p, variant.hgvs_p):
         return [
             (
                 "LIT025",
@@ -368,9 +391,9 @@ def reference_issues(variant: Variant, frame_entry: ManeTranscript | None) -> li
                     f"changes: applied to GRCh38 they {where}",
                 )
             )
-    hgvs_p_read = False
+    read_p: PVariant | None = None
     if variant.hgvs_p is not None:
-        found, hgvs_p_read = _protein_issues(variant.hgvs_p, t)
+        found, read_p = _protein_issues(variant.hgvs_p, t)
         issues += found
-    issues += _lit025(variant, t, hgvs_p_read)
+    issues += _lit025(variant, t, read_p)
     return sorted(issues)

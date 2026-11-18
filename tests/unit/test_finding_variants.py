@@ -218,6 +218,34 @@ def test_a_variant_on_a_gene_outside_the_frame_is_lit016_until_it_is_unplaced(
         assert reference_issues(_variant(placement=placement, **TBX5_R279X), None) == []
 
 
+@pytest.mark.parametrize(
+    ("hgvs_p", "paper_p", "codes"),
+    [
+        # D6: an hgvs_p naming no residue has nothing to compare with the paper.
+        ("NP_852259.1:p.?", "p.(Arg170_Gln220del)", []),
+        ("NP_852259.1:p.(?)", "p.(Arg170_Gln220del)", []),
+        ("NP_852259.1:p.(=)", "p.R279X", []),
+        ("NP_852259.1:p.0", "p.R279X", []),
+        # An absent hgvs_p is not exempt when the paper names a residue.
+        (None, "p.R279X", ["LIT025"]),
+        (None, "p.?", []),
+        # D5: the paper's short frameshift against VariantValidator's long form.
+        ("NP_852259.1:p.(Arg279GlyfsTer5)", "p.R279fs", []),
+        ("NP_852259.1:p.(Arg279GlyfsTer5)", "p.R280fs", ["LIT025"]),
+    ],
+)
+def test_lit025_compares_only_what_both_names_state(
+    frame: ManeFrame, hgvs_p: str | None, paper_p: str, codes: list[str]
+) -> None:
+    variant = _variant(
+        hgvs_c="NM_181486.4:c.510+1G>A",
+        grch38="12:114398572:C:T",
+        hgvs_p=hgvs_p,
+        reported={"c": "c.510+1G>A", "p": paper_p},
+    )
+    assert [code for code, _ in reference_issues(variant, frame[TBX5])] == codes
+
+
 def _with(**changes: Any) -> dict[str, Any]:
     return {**TBX5_R279X, **changes}
 

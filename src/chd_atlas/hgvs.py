@@ -235,14 +235,28 @@ def _protein_change(text: str) -> str:
     return body.replace("X", "*")
 
 
+# A frameshift after normalising: reference residue, position, then the rest.
+_FRAMESHIFT: Final = re.compile(r"^([A-Z*])(\d+)([A-Z*]?fs.*)$")
+# The short form, `fs` alone or with a stop and no count (`fs`, `fs*`).
+_SHORT_FS: Final = frozenset({"fs", "fs*"})
+
+
 def same_protein_change(a: str, b: str) -> bool:
     """Whether two `p.` descriptions state the same change.
 
     Compares the parts after `p.` (any accession dropped) with parentheses
     stripped, three-letter codes mapped to one-letter, and `Ter`, `*` and `X`
-    equal. Nothing else is equated: `p.R279fs` and `p.Arg279GlyfsTer5` differ.
+    equal.
+
+    A short frameshift (`R279fs`, `R279fsX`) equals any frameshift at the same
+    residue and position, because papers abbreviate what the normaliser spells
+    out (owner ruling D5); two long forms still compare in full.
     """
-    return _protein_change(a) == _protein_change(b)
+    first, second = _protein_change(a), _protein_change(b)
+    one, two = _FRAMESHIFT.match(first), _FRAMESHIFT.match(second)
+    if one and two and (one[3] in _SHORT_FS or two[3] in _SHORT_FS):
+        return one.group(1, 2) == two.group(1, 2)
+    return first == second
 
 
 def parse_grch38(text: str) -> GenomeKey:

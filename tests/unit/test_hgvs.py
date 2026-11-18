@@ -110,8 +110,26 @@ def test_parse_grch38_reads_a_vcf_key_and_refuses_the_rest() -> None:
             parse_grch38(text)
 
 
-def test_same_protein_change_equates_one_and_three_letter_forms() -> None:
-    assert same_protein_change("p.R279X", "p.(Arg279Ter)")
-    assert same_protein_change("p.R279X", "NP_852259.1:p.Arg279*")
-    assert not same_protein_change("p.R279Q", "p.(Arg279Ter)")
-    assert not same_protein_change("p.R279X", "p.(Arg280Ter)")
+@pytest.mark.parametrize(
+    ("a", "b", "same"),
+    [
+        ("p.R279X", "p.(Arg279Ter)", True),
+        ("p.R279X", "NP_852259.1:p.Arg279*", True),
+        ("p.R279Q", "p.(Arg279Ter)", False),
+        ("p.R279X", "p.(Arg280Ter)", False),
+        # D5: a short frameshift equals any frameshift at its residue and position.
+        ("p.R279fs", "p.(Arg279GlyfsTer5)", True),
+        ("p.R279fs", "p.Arg279fsX", True),
+        ("p.(Arg279GlyfsTer5)", "p.Arg279fsX", True),
+        ("p.Arg279fsTer", "p.R279Gfs*5", True),
+        ("p.R279fs", "p.(Arg280GlyfsTer5)", False),
+        ("p.R279fs", "p.Q279fs", False),
+        ("p.R279fs", "p.(Arg279Ter)", False),
+        # Two long forms still compare in full.
+        ("p.R279Gfs*5", "p.Arg279GlyfsTer5", True),
+        ("p.R279Gfs*5", "p.Arg279GlyfsTer9", False),
+    ],
+)
+def test_same_protein_change_equates_one_and_three_letter_forms(a: str, b: str, same: bool) -> None:
+    assert same_protein_change(a, b) is same
+    assert same_protein_change(b, a) is same
