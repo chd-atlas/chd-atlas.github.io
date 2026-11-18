@@ -29,13 +29,17 @@ from chd_atlas.models.assertion import InTextLocator, SupplementaryLocator
 from chd_atlas.models.gene_literature import (
     Carriers,
     Finding,
+    ReportedNames,
     Search,
     Synthesis,
     SynthesisSentence,
     TriageEntry,
+    Unclear,
+    Variant,
 )
 from chd_atlas.models.literature import Publication
 from chd_atlas.models.review import ReviewStatus
+from chd_atlas.validate.finding_variants import shape_issues
 from chd_atlas.validate.gene_synthesis import _first_number
 
 REPO = Path(__file__).parent.parent
@@ -77,6 +81,10 @@ def _model_fields() -> set[str]:
         | set(SupplementaryLocator.model_fields)
         | set(Synthesis.model_fields)
         | set(SynthesisSentence.model_fields)
+        | set(Variant.model_fields)
+        | set(ReportedNames.model_fields)
+        | set(Unclear.model_fields)
+        | {"with"}  # Variant.with_, read and written through its alias
         | {"findings", "triage", "searches", "gene", "synthesis"}
     )
 
@@ -136,8 +144,11 @@ def test_every_code_the_rules_name_is_raised_and_they_cite_every_literature_code
     source = "".join(
         p.read_text(encoding="utf-8") for p in (REPO / "src" / "chd_atlas").rglob("*.py")
     )
-    validator = (REPO / "src/chd_atlas/validate/gene_literature.py").read_text(encoding="utf-8")
-    literature_codes = set(re.findall(r'"(LIT\d{3})"', validator))
+    validators = "".join(
+        (REPO / "src/chd_atlas/validate" / name).read_text(encoding="utf-8")
+        for name in ("gene_literature.py", "finding_variants.py")
+    )
+    literature_codes = set(re.findall(r'"(LIT\d{3})"', validators))
     text = _text(RULES)
     for code in re.findall(r"\b([A-Z]{2,6}\d{3})\b", text):
         assert f'"{code}"' in source, f"{code} is raised nowhere"
@@ -159,11 +170,26 @@ def test_the_yaml_examples_hold_real_vocabulary_and_validate_as_records() -> Non
         "syndromic": enums["SyndromicStatus"],
         "lesion_groups": enums["LesionGroup"],
         "review_status": enums["ReviewStatus"],
+        "placement": enums["VariantPlacement"],
+        "zygosity": enums["VariantZygosity"],
+        "phase": enums["Phase"],
+        "settled_by": enums["SettledBy"],
+        "review_settled_by": enums["SettledBy"],
     }
     for block in _fenced_yaml(_text(RULES)):
+        # `reason` is an ExclusionReason on a triage entry and free text on an
+        # `unclear` entry; the second is read through the model instead.
+        free = {
+            Unclear.model_validate(entry).reason
+            for key, value in _walk(block)
+            if key == "unclear"
+            for entry in value.values()
+        }
         for key, value in _walk(block):
             assert key in _model_fields(), f"unknown field {key}"
-            if key in by_field:
+            if key == "reason" and value in free:
+                continue
+            if key in by_field and not isinstance(value, dict):  # `unclear.zygosity` is an entry
                 values = value if isinstance(value, list) else [value]
                 assert set(values) <= by_field[key], f"{key}: {values}"
 
@@ -192,6 +218,77 @@ def test_the_rules_state_the_verified_rulings_literally() -> None:
     assert "`chd-curator add-publication`" in rules
     assert not re.search(r"NCBI_API_KEY\s*=\s*\S", rules)
     assert not re.search(r"api_key\s*[=:]\s*\S", rules)
+
+
+def _variant_examples() -> list[list[Variant]]:
+    blocks = [b["variants"] for b in _fenced_yaml(_text(RULES)) if "variants" in b]
+    return [[Variant.model_validate(v) for v in block] for block in blocks]
+
+
+def test_the_variant_examples_raise_only_the_before_normalise_messages() -> None:
+    """Each `variants` example, set in a finding that admits it, raises what the rules say.
+
+    Each `mane` entry (one in the first block, two in the `with` block) is as an
+    agent writes it, before `normalise`: it must raise exactly the three LIT022
+    messages the rules quote and nothing else (the LIT025 message needs the MANE
+    frame, so `validate` over a copy of the repository measures it, not this test).
+    Every other entry raises nothing. The first block holds one entry per
+    placement state, so deleting a field a state requires from its example
+    fails here.
+    """
+    blocks = _variant_examples()
+    assert len(blocks) == 3
+    assert [v.placement.value for v in blocks[0]] == [
+        "mane", "protein", "structural", "outside_region", "unplaced",
+    ]  # fmt: skip
+    issues = []
+    per_block = []
+    for variants in blocks:
+        finding = Finding.model_validate(
+            {
+                "id": "CHDA:LIT:0000001",
+                "publication": "PMID:10000001",
+                "design": "cohort_screen",
+                "methods": ["targeted_sequencing"],
+                "count_unit": "probands",
+                "screened": 100,
+                "carriers": {"de_novo": 4, "inherited": 4, "origin_unknown": 20},
+                "variant_classes": ["snv_indel", "cnv"],
+                "variants": [v.model_dump(by_alias=True, mode="json") for v in variants],
+                "phenotypes": ["HP:0001631"],
+                "lesion_groups": ["septal"],
+                "syndromic": "isolated",
+                "shares_probands_with": "unknown",
+                "locators": [{"kind": "in_text", "element": "Table 1"}],
+                "summary": "Illustrative.",
+                "extracted_by": "agent:literature-extract/model",
+            }
+        )
+        found = shape_issues(finding, {1})
+        per_block.append([(c, n) for c, n, _ in found])
+        issues += found
+    rules = " ".join(_text(RULES).split())
+    assert per_block == [
+        [("LIT022", 1)] * 3,
+        [("LIT022", 1)] * 3 + [("LIT022", 2)] * 3,
+        [],
+    ]  # one `mane` entry in the first block, two in the second
+    for _, _, message in issues:
+        assert f'"{message}"' in rules, message
+
+
+def test_the_rules_state_the_variant_rulings_literally() -> None:
+    rules = " ".join(_text(RULES).split())
+    for phrase in (
+        "One entry per distinct variant per genotype context.",
+        "`not_stated` only when the paper is silent about it.",
+        "Never choose between the paper's own names",
+        "Every `pending_review` names `review_settled_by`, and `not_accessible` takes none.",
+        "a group of more than two is never `trans`",
+        "`phase` is set exactly when `with` is",
+        "carries one identical `unclear.phase` entry on every member",
+    ):
+        assert phrase in rules, phrase
 
 
 def test_the_rules_number_examples_hold_against_syn002() -> None:
