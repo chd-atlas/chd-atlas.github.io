@@ -201,7 +201,8 @@ def _check_file(
             "MAN005",
             here,
             f"{needing_frame} variant(s) have reference checks that need the MANE frame, but "
-            "mirrors/mane_transcripts.tsv and mirrors/mane_exons.tsv did not load",
+            "mirrors/mane_transcripts.tsv and mirrors/mane_exons.tsv did not load "
+            "(pin and ingest the mane_select package)",
         )
         add(
             "MAN000",
@@ -258,8 +259,8 @@ def _check_file(
             error(
                 "LIT015",
                 where,
-                "approved content changed since approval; delete approved_by, approved_on and "
-                "approved_digest, then approve again",
+                "approved content changed since approval; approve it again with "
+                f"`chd-atlas literature review {path.stem} --approve {finding.id}`",
             )
         found_by = searches.get(first_search.get(finding.publication, -1))
         if (

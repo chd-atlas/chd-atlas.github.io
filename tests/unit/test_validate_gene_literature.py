@@ -522,6 +522,7 @@ def test_a_missing_frame_skips_the_reference_checks_with_one_error_and_one_warni
         ("MAN000", Severity.WARNING, _HERE),
     ]
     assert "3 variant(s)" in issues[0].message
+    assert "pin and ingest the mane_select package" in issues[0].message
     assert "skipped" in issues[1].message
 
 

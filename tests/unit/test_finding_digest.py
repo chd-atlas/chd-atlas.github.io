@@ -109,6 +109,16 @@ def test_editing_approved_content_voids_the_approval(
     assert ("LIT015" in _codes_of(_edited(tmp_path, **changes))) is refused
 
 
+def test_a_void_approval_names_the_command_that_approves_it_again(tmp_path: Path) -> None:
+    """LIT015's remedy is the review command, not hand-deleting the approval fields."""
+    from chd_atlas.validate.runner import validate_repository
+
+    root = _edited(tmp_path, summary="Edited after approval.")
+    (issue,) = (i for i in validate_repository(root).issues if i.code == "LIT015")
+    assert "chd-atlas literature review TBX5 --approve CHDA:LIT:" in issue.message
+    assert "delete" not in issue.message
+
+
 def test_an_approved_finding_with_no_digest_never_validates_clean(tmp_path: Path) -> None:
     root = _literature_repo(tmp_path)
     path = root / "curation" / "literature" / "TBX5.yaml"
