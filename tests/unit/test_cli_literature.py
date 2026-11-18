@@ -1547,7 +1547,8 @@ def test_the_variant_line_shows_kind_reported_names_and_locator(root: Path, lit_
     assert result.exit_code == 0, result.stdout
     assert (
         "  variant 1: Arg5X | unplaced | - - - | not_stated | carriers not stated"
-        " | no phenotypes | kind cnv | reported transcript NM_000001.1, c c.13C>T, p p.R5X, rsid rs123"
+        " | no phenotypes | kind cnv"
+        " | reported transcript NM_000001.1, c c.13C>T, p p.R5X, rsid rs123"
         " | locator supplementary s1.xlsx / Variants / row 7"
     ) in result.stdout.splitlines()
 
