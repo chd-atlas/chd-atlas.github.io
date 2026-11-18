@@ -459,7 +459,7 @@ from chd_atlas.corpus import Corpus
 # * Every `cohorts.json` record and every `scope.json` term gains
 #   `review_status` and `review_note` (owner's answer, 2026-10-27), both `null`
 #   where none is recorded: `pending_review`, a question about the record that
-#   this atlas leaves open for an expert (on the two cohorts marked, the
+#   this atlas leaves open (on the two cohorts marked, the
 #   sources they rest on conflict; on the two scope terms, a clinical
 #   judgement), or `not_accessible`, a source the record rests on could not be
 #   read, with a note stating what is unresolved (`models/review.py`).
@@ -520,7 +520,10 @@ from chd_atlas.corpus import Corpus
 # approved and its approval is current.
 #
 # 2.24 (additive): `literature.findings[].variants` and `literature.normalisations`.
-SCHEMA_VERSION: Final = "2.24"
+#
+# 2.25 (additive): `unclear` zygosity and phase, `variants[].unclear`, and
+# `review_settled_by` on findings and variants.
+SCHEMA_VERSION: Final = "2.25"
 
 # What `status` publishes today. A literal rather than something derived from
 # the corpus, unlike every field in `counts`: there is no measurement of "is

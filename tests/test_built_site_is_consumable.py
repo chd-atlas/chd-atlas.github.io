@@ -152,15 +152,29 @@ def test_every_html_page_the_build_writes_carries_the_research_use_notice(site: 
 
     `+ 3` since 2026-10-26: `methods.html`, the site's reading notes (D50), is
     the third page that is not a gene's.
+
+    Plus one register page (`register/`) per published gene whose approved
+    findings carry a review mark or an `unclear` entry, read from the bundles and
+    never from `register/` itself, so a stray register -- one for an unpublished
+    gene, or for a gene with no open question -- fails the count.
     """
     pages = sorted(site.rglob("*.html"))
     bundles = sorted((site / "genes").glob("HGNC_*.json"))
-    expected = len(bundles) + 3
+    registers = sum(
+        any(
+            finding["review_status"] is not None
+            or any(v["review_status"] is not None or v["unclear"] for v in finding["variants"])
+            for finding in json.loads(bundle.read_text(encoding="utf-8"))["literature"]["findings"]
+        )
+        for bundle in bundles
+    )
+    expected = len(bundles) + 3 + registers
 
     assert len(bundles) > 1, "the build published no gene bundles; the fixture is broken"
+    assert registers > 0, "no published gene carries an open question; the count is vacuous"
     assert len(pages) == expected, (
         f"expected {expected} HTML pages (1 landing + 1 browse + 1 methods + "
-        f"{len(bundles)} gene pages), found {len(pages)}"
+        f"{len(bundles)} gene pages + {registers} registers), found {len(pages)}"
     )
     for page in pages:
         assert RESEARCH_USE_NOTICE in page.read_text(encoding="utf-8"), (
@@ -297,7 +311,7 @@ def _card(page: str) -> str:
 
 
 @pytest.mark.parametrize(
-    ("gene", "curation", "mechanism", "line"),
+    ("gene", "curation", "mechanism", "line", "questions"),
     [
         pytest.param(
             "HGNC_11604",
@@ -310,6 +324,7 @@ def _card(page: str) -> str:
             "other 28. "
             "De novo carriers in 11 papers; inherited carriers in 24 papers. "
             "From the abstract only: 21 papers; pending review: 3 papers.",
+            25,
             id="TBX5",
         ),
         pytest.param(
@@ -322,17 +337,20 @@ def _card(page: str) -> str:
             "1 paper. Lesions studied, by paper: septal 9, LVOTO 8, conotruncal 2, AVSD 2, "
             "RVOTO 1, other 3. De novo carriers in 9 papers; inherited carriers in 4 papers. "
             "From the abstract only: 4 papers; pending review: 2 papers.",
+            8,
             id="NR2F2",
         ),
     ],
 )
 def test_the_card_states_a_curated_genes_literature_by_paper_and_its_mechanism(
-    site: Path, gene: str, curation: str, mechanism: str, line: str
+    site: Path, gene: str, curation: str, mechanism: str, line: str, questions: int
 ) -> None:
     """Pins the wiring on real data: the tallies and the assertions' mechanism reach the card.
 
     Literals measured on a build of the committed corpus (2026-11-14) by an
-    independent script over the gene bundles. Sliced to the card, so a copy of
+    independent script over the gene bundles, except the open-question figures
+    (25 for TBX5, 8 for NR2F2), measured 2026-11-18 with `chd-atlas literature
+    questions`, which lists no unapproved finding on that corpus. Sliced to the card, so a copy of
     either sentence elsewhere on the page cannot satisfy it, and so deleting the
     `mechanisms=` argument or the `_card_literature` call fails here. The three
     paragraphs are asserted as one contiguous run, so reordering them or
@@ -342,7 +360,8 @@ def test_the_card_states_a_curated_genes_literature_by_paper_and_its_mechanism(
     assert (
         f'<p class="card-curation">{curation}</p>'
         f'<p class="card-mechanism">Mechanism, as curated by the atlas: {mechanism}.</p>'
-        f'<p class="card-literature">{line}</p>'
+        f'<p class="card-literature">{line} '
+        f'<a href="../register/{gene}.html#questions">{questions} open questions</a></p>'
     ) in card
 
 
@@ -507,6 +526,7 @@ def variant_site(tmp_path_factory: pytest.TempPathFactory) -> Path:
                     reported={"c": "c.998G>T", "p": "p.D111Y"},
                     review_status="pending_review",
                     review_note="c.998G>T names G where MANE Select has C.",
+                    review_settled_by="authors",
                 )
             ],
         ),
@@ -2203,6 +2223,39 @@ def test_every_fragment_link_on_a_gene_page_lands_on_one_element_of_that_page(
     assert fragments, "no gene page carries a fragment link; the sweep would pass vacuously"
 
 
+def test_every_why_link_on_a_gene_page_lands_on_one_element_of_its_register(
+    site: Path,
+) -> None:
+    """A review mark's "why" is a link into the gene's register, and must arrive.
+
+    Every `<a>` whose text is `why` and whose href names `register/` is resolved
+    against the page it points at: the file must exist and exactly one element
+    there must carry the fragment as its id. A mark whose register was not
+    written, or whose anchor the register spells differently, is a link that
+    scrolls nowhere beside a label promising a reason.
+
+    Measured 2026-11-18, independently of this sweep: `chd-atlas literature
+    questions` gave 25 questions for TBX5 and 8 for NR2F2, and the registers'
+    "Open questions (25)" and "(8)" headings agree; 33 in all. Every
+    finding-level question on the real corpus is one record, so the count of
+    links equals the count of questions. Re-measure when a question is added or
+    approved, and do not edit the figure to make the test green.
+    """
+    checked = 0
+    for page_path in sorted((site / "genes").glob("HGNC_*.html")):
+        page = page_path.read_text(encoding="utf-8")
+        for href in re.findall(r'<a href="([^"]*register/[^"]*)">why</a>', page):
+            checked += 1
+            target, _, fragment = href.partition("#")
+            register = (page_path.parent / target).resolve()
+            assert register.is_file(), f"{page_path.name} links {href}, which no file answers"
+            ids = re.findall(r' id="([^"]+)"', register.read_text(encoding="utf-8"))
+            assert ids.count(fragment) == 1, (
+                f"{page_path.name} -> {href}: {ids.count(fragment)} ids"
+            )
+    assert checked == 33, f"{checked} why links on the gene pages; 33 measured"
+
+
 def test_the_front_page_declares_exactly_the_study_blocks_the_gene_pages_declare(
     site: Path,
 ) -> None:
@@ -2811,3 +2864,33 @@ def test_no_finding_card_states_a_mechanism_or_a_null_its_rows_do_not(site: Path
     for card in cards:
         for phrase in ("aploinsufficiency", "ain-of-function", "ain-of-Function", "no enrichment"):
             assert phrase not in card, (phrase, card)
+
+
+def test_the_register_exists_for_exactly_the_genes_with_open_questions(site: Path) -> None:
+    """`register/` holds TBX5's and NR2F2's back pages and nothing else (measured 2026-11-18).
+
+    Those are the two genes with approved findings that carry a mark. Every
+    anchor on a register is unique, so a gene page's "why" link names one record.
+    The link sweep above already walks `register/*.html`, since it globs every
+    page in the site.
+    """
+    files = sorted(path.name for path in (site / "register").glob("*"))
+    assert files == ["HGNC_11604.html", "HGNC_7976.html"]
+    for name in files:
+        page = (site / "register" / name).read_text(encoding="utf-8")
+        ids = re.findall(r' id="([^"]+)"', page)
+        assert ids and len(ids) == len(set(ids)), name
+        assert f'href="../genes/{name}"' in page
+
+
+def test_no_published_file_says_pending_review_is_for_an_expert(site: Path) -> None:
+    """Since the register names what settles each literature question ("the authors", "the
+    full text", ...), "for an expert" is false for most marks; `pending review` means one
+    thing on every record kind: a question the atlas leaves open (CLAUDE.md 4.35: grep the
+    build, not the source)."""
+    files = [p for p in site.rglob("*") if p.suffix in {".html", ".json"}]
+    assert len(files) > 100, "the build published too few files; the fixture is broken"
+    hits = [
+        str(p.relative_to(site)) for p in files if "for an expert" in p.read_text(encoding="utf-8")
+    ]
+    assert hits == []

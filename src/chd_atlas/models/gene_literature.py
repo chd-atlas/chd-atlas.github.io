@@ -42,6 +42,7 @@ from chd_atlas.vocab import (
     LesionGroup,
     Phase,
     ScreenUnit,
+    SettledBy,
     SyndromicStatus,
     TriageDecision,
     VariantPlacement,
@@ -80,12 +81,19 @@ _DIGEST_EXCLUDED: Final[frozenset[str]] = frozenset(
         "verified_by",
         "review_status",
         "review_note",
+        "review_settled_by",
     }
 )
 
 # A variant's review mark is not an edit to what the finding says, as the
-# finding's own mark is not; the synthesis covers it (`_covered_finding`).
-_VARIANT_DIGEST_EXCLUDED: Final[frozenset[str]] = frozenset({"review_status", "review_note"})
+# finding's own mark is not; the synthesis covers it (`_covered_finding`). The
+# `unclear` entries (reason, settler) are part of the mark; the `unclear` VALUE
+# of zygosity or phase stays content.
+_VARIANT_DIGEST_EXCLUDED: Final[frozenset[str]] = frozenset(
+    {"review_status", "review_note", "review_settled_by", "unclear"}
+)
+
+UnclearField = Literal["zygosity", "phase"]
 
 
 class Search(BaseModel):
@@ -187,13 +195,48 @@ class Normalisation(BaseModel):
     run_on: date
 
 
+class Unclear(BaseModel):
+    """Why a variant's zygosity or phase is `unclear`, and what would settle it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason: _NonBlankStr
+    settled_by: SettledBy
+
+
+def check_settled(record: str, status: ReviewStatus | None, settled_by: SettledBy | None) -> None:
+    """Refuse a review mark whose settler does not fit its status.
+
+    `pending_review` needs `settled_by`; `not_accessible` is settled by the full
+    text by definition, so it refuses one; a settler with no status marks no
+    question. Cohorts and scope terms do not call this (`check_review` alone).
+    """
+    if settled_by is not None and status is None:
+        raise ValueError(
+            f"{record}: review_settled_by needs a review_status saying which open question "
+            f"it settles"
+        )
+    if status is ReviewStatus.PENDING_REVIEW and settled_by is None:
+        raise ValueError(
+            f"{record}: review_status pending_review needs a review_settled_by saying what "
+            f"would settle it"
+        )
+    if status is ReviewStatus.NOT_ACCESSIBLE and settled_by is not None:
+        raise ValueError(
+            f"{record}: review_status not_accessible takes no review_settled_by; the full "
+            f"text settles it"
+        )
+
+
 class Variant(BaseModel):
     """One variant a finding names, placed on the MANE Select frame.
 
     The YAML key `with` is a Python keyword, so the field is `with_` and is
-    read and dumped through its alias. Only the review pairing is checked
-    here; every other rule is a validate code, so one bad variant costs one
-    issue and not the file.
+    read and dumped through its alias. Only pairings are checked here: a
+    review status with its note, a review mark with its settler
+    (`check_settled`), and an `unclear` value with its entry, each way. Every
+    other rule is a validate code, so one bad variant costs one issue and not
+    the file.
     """
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
@@ -215,10 +258,28 @@ class Variant(BaseModel):
     phenotypes: list[PhenotypeId] = Field(default_factory=list)
     review_status: ReviewStatus | None = None
     review_note: _NonBlankStr | None = None
+    review_settled_by: SettledBy | None = None
+    unclear: dict[UnclearField, Unclear] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def review_pairing(self) -> Variant:
         check_review(f"variant {self.id}", self.review_status, self.review_note)
+        check_settled(f"variant {self.id}", self.review_status, self.review_settled_by)
+        values = {
+            "zygosity": self.zygosity.value,
+            "phase": self.phase.value if self.phase else None,
+        }
+        for field, value in values.items():
+            if value == "unclear" and field not in self.unclear:
+                raise ValueError(
+                    f"variant {self.id}: {field} is unclear but has no unclear entry giving "
+                    f"its reason and settled_by"
+                )
+        for field in self.unclear:
+            if values[field] != "unclear":
+                raise ValueError(
+                    f"variant {self.id}: an unclear entry for {field}, which is not unclear"
+                )
         return self
 
 
@@ -256,6 +317,7 @@ class Finding(BaseModel):
     approved_digest: _NonBlankStr | None = None
     review_status: ReviewStatus | None = None
     review_note: _NonBlankStr | None = None
+    review_settled_by: SettledBy | None = None
 
     @model_validator(mode="after")
     def design_rules(self) -> Finding:
@@ -317,6 +379,7 @@ class Finding(BaseModel):
         ):
             raise ValueError(f"{self.id}: approved_by names an agent; a person must approve")
         check_review(self.id, self.review_status, self.review_note)
+        check_settled(self.id, self.review_status, self.review_settled_by)
         return self
 
 
@@ -423,6 +486,21 @@ def _covered_finding(finding: Finding) -> str:
         "approved_on": finding.approved_on.isoformat() if finding.approved_on else None,
         "approved_digest": finding.approved_digest,
     }
+    if finding.review_settled_by is not None:
+        covered["review_settled_by"] = finding.review_settled_by.value
+    questions = [
+        [
+            v.id,
+            v.review_settled_by.value if v.review_settled_by else None,
+            {f: [u.reason, u.settled_by.value] for f, u in sorted(v.unclear.items())},
+        ]
+        for v in sorted(finding.variants, key=lambda v: v.id)
+        if v.review_settled_by is not None or v.unclear
+    ]
+    if questions:
+        # Only when a variant carries a settler or an unclear entry, so every
+        # other finding keeps its covered digest byte for byte.
+        covered["variant_questions"] = questions
     if finding.variants:
         # Only when there are variants, so a finding with none keeps its digest.
         covered["variant_reviews"] = [

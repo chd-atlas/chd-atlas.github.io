@@ -19,8 +19,8 @@ anything; the curator reads it in the `review` listing.
 
 `variants` is compared as a set of what the paper says about each variant:
 before comparing, each variant loses its `id`, `with`, `normalisation`,
-`locator`, `review_status` and `review_note` (pass-local ids and the
-bookkeeping around them), and the dicts are sorted by canonical JSON.
+`locator`, `review_status`, `review_note`, `review_settled_by` and `unclear`
+(pass-local ids and the bookkeeping around them), and the dicts are sorted by canonical JSON.
 
 Lists compared as sets, because their order carries no meaning: `methods`,
 `variant_classes`, `phenotypes`, `lesion_groups` and `cohorts`. `carriers` is a mapping and is
@@ -48,6 +48,7 @@ EXCLUDED_FIELDS: Final = (
     "approved_digest",
     "review_status",
     "review_note",
+    "review_settled_by",
     "locators",
     "shares_probands_with",
 )
@@ -71,6 +72,8 @@ _VARIANT_BOOKKEEPING: Final = (
     "locator",
     "review_status",
     "review_note",
+    "review_settled_by",
+    "unclear",
 )
 
 FieldDifference = tuple[str, Any, Any]

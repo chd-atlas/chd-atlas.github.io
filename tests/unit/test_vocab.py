@@ -13,13 +13,16 @@ from chd_atlas.vocab import (
     LesionGroup,
     Mechanism,
     Perturbation,
+    Phase,
     PhenocopyAssessment,
     Redistribution,
     RescueOutcome,
+    SettledBy,
     SourceTier,
     StudyType,
     SyndromicStatus,
     Technology,
+    VariantZygosity,
     Zygosity,
     has_conflicting_evidence,
     reports_no_association,
@@ -223,3 +226,9 @@ def test_study_type_gains_the_four_literature_kinds_additively() -> None:
         "gwas",
         "candidate_variant",
     ]
+
+
+def test_unclear_joins_zygosity_and_phase_and_settled_by_has_its_four_values() -> None:
+    assert VariantZygosity("unclear") is VariantZygosity.UNCLEAR
+    assert Phase("unclear") is Phase.UNCLEAR
+    assert [s.value for s in SettledBy] == ["full_text", "authors", "expert", "atlas_model"]

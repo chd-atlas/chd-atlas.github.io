@@ -95,6 +95,15 @@ def gene_page_path(gene: HgncId) -> str:
     return f"genes/{slug(gene)}.html"
 
 
+def register_page_path(gene: HgncId) -> str:
+    """Relative URL of one gene's register (back) page, beside `genes/`.
+
+    A folder of its own, not `genes/<slug>-register.html`, so the suite's and
+    the consumers' `genes/HGNC_*.html` globs never read it as a gene page.
+    """
+    return f"register/{slug(gene)}.html"
+
+
 # The whole-corpus payloads, named here because two modules have to agree on each
 # and neither owns it: `literature.py` writes these files and `search.py`
 # advertises two of them as the `path` a search result resolves to. Held apart as

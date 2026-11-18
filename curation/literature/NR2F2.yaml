@@ -223,6 +223,7 @@ findings:
     approved_digest: sha256:9929df99d8f6983d2141c44afcae9b7cc81b2fa26ea45373bc49fd7fd40f242a
     review_status: pending_review
     review_note: The paper gives this duplication as c.220_222dup in Table 1 and as c.222_224dup in the Methods and Results, and the protein change as p.Gln75dup in Table 1 and Methods but p.Gln70dup in the luciferase results text.
+    review_settled_by: authors
   - id: CHDA:LIT:0000005
     publication: PMID:24702954
     design: case_report
@@ -269,6 +270,7 @@ findings:
     approved_digest: sha256:e1b930c67b025c1cea5d8f7a53f6dbb7da973326758b1029e636f53de09a6237
     review_status: pending_review
     review_note: The paper gives this splice donor variant as c.970+1G>A in Table 1 and as c.2359+1G>A in the Results text.
+    review_settled_by: authors
   - id: CHDA:LIT:0000007
     publication: PMID:27363585
     design: case_report
@@ -602,6 +604,7 @@ findings:
     approved_digest: sha256:6f2bb0e7083c6140036793c008848d03789c732df44aee9d8427f99f8c6b2a51
     review_status: pending_review
     review_note: The Results text states 15 of 17 individuals had de novo variants, 1 inherited and 2 of unknown inheritance, which sums to 18 and not 17; de novo is written here as 13, the 16 probands less the 3 not shown to be de novo.
+    review_settled_by: authors
   - id: CHDA:LIT:0000108
     publication: PMID:37500725
     design: case_report

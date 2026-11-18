@@ -1722,6 +1722,7 @@ findings:
     approved_digest: sha256:8a1977e729c7b6bed6853744a84503391d6a677cb6202ea24235890ba867c0c9
     review_status: pending_review
     review_note: The Results call the one TBX5 change "a synonymous variant" while naming it D111Y, a protein substitution; the Discussion treats it as a nonsynonymous variant.
+    review_settled_by: authors
   - id: CHDA:LIT:0000021
     publication: PMID:22333898
     design: family_segregation
@@ -2130,6 +2131,7 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     review_status: pending_review
     review_note: Table 3 prints an odds ratio of 0.187 for rs6489957, while the allele counts in the same table give about 11.3. Table 6 headers the cases CC N=87 and CT N=58 (sum 145 of 150), while Table 3 and the text give CT 63 (42%); the text gives the control CC frequency as 0.03% where Table 3 lists 2 of 90 controls.
+    review_settled_by: authors
     odds_ratio: 0.187
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
@@ -2394,6 +2396,7 @@ findings:
     approved_digest: sha256:6582543d70fcc5896363933b03d3552b9c2a687a6c192c2c0b2ebf5c6efd4020
     review_status: pending_review
     review_note: 'The case and control numbers disagree within the paper: Methods and the abstract give 200 cases and 150 controls, the Table 2 header gives 121 cases and 121 controls, and the counts in Table 3 sum to 101 cases and 100 controls.'
+    review_settled_by: authors
   - id: CHDA:LIT:0000059
     publication: PMID:36444245
     design: family_segregation

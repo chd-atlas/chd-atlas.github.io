@@ -205,8 +205,9 @@ def gene_literature(corpus: Corpus) -> dict[str, GeneLiterature]:
     """Every gene's literature record, keyed by HGNC id, published or not.
 
     Restricting to the published genes is the callers' job (``build_genes``
-    looks a gene up, ``literature_census`` takes ``published``): a file for an
-    unpublished gene reaches no bundle, and validation warns (LIT013).
+    looks a gene up, ``literature_census`` and ``build_register_pages`` take
+    ``published``): a file for an unpublished gene reaches no bundle and no
+    register page, and validation warns (LIT013).
 
     Raises ``ValueError`` on a repeated gene or a finding whose publication is
     not registered. Both are refused by validation first (LIT009, LIT011); the
@@ -323,6 +324,7 @@ class VariantReport(TypedDict):
     """
 
     finding: str
+    variant: int
     publication: str
     design: str
     hgvs_c: str | None
@@ -354,6 +356,9 @@ class ListedVariant(TypedDict):
     rsid: str | None
     publication: str
     finding: str
+    variant: int
+    zygosity: str
+    phase: str | None
     review_status: str | None
     review_note: str | None
 
@@ -463,6 +468,7 @@ def variant_table(findings: Sequence[Mapping[str, Any]]) -> VariantTable:
                 row["reports"].append(
                     VariantReport(
                         finding=finding["id"],
+                        variant=variant["id"],
                         publication=finding["publication"],
                         design=finding["design"],
                         hgvs_c=variant["hgvs_c"],
@@ -483,6 +489,9 @@ def variant_table(findings: Sequence[Mapping[str, Any]]) -> VariantTable:
                 rsid=variant["reported"]["rsid"],
                 publication=finding["publication"],
                 finding=finding["id"],
+                variant=variant["id"],
+                zygosity=variant["zygosity"],
+                phase=variant["phase"],
                 review_status=variant["review_status"],
                 review_note=variant["review_note"],
             )

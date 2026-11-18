@@ -59,7 +59,7 @@ What the build produced, and a checksum for every file in it.
     "genes/index.json": "sha256:<64 hex>",
     "publications.json": "sha256:<64 hex>"
   },
-  "schema_version": "2.24",
+  "schema_version": "2.25",
   "source_commit": "<40-hex commit sha, or null outside a git checkout>",
   "status": "in-development"
 }
@@ -287,7 +287,7 @@ wrong by the next one.
   the CHD cases among its case carriers apart. It added `review_status` and
   `review_note` to every [`cohorts.json`](#cohortsjson) record and every
   [`scope.json`](#scopejson) term: `"pending_review"`, a question about the
-  record that this atlas leaves open for an expert, or `"not_accessible"`, a
+  record that this atlas leaves open, or `"not_accessible"`, a
   source the record rests on could not be read, with a note stating what is
   unresolved; `null` and `null` where none is recorded. Additive.
   `2.20` added [`cell_type_expression`](#the-bundles-cell_type_expression-object-a-cell-type-profile-never-a-contrast)
@@ -315,6 +315,8 @@ wrong by the next one.
   `2.24` added `variants` to every finding (`[]` for none) and `normalisations`
   to every gene bundle's `literature`, and a variant's links publish as `with`.
   Additive.
+  `2.25` added `review_settled_by` to every finding and variant, `unclear` to
+  every variant, and the value `unclear` to `zygosity` and `phase`. Additive.
 - `status` is the atlas's own readiness, so a program can read it without
   scraping `index.html`'s prose. Today it is always `"in-development"` — one
   curated gene-disease assertion alongside mirrored ClinGen/GenCC validity for
@@ -326,7 +328,7 @@ wrong by the next one.
 ## The site root: `index.html`
 
 The page a person opens directly rather than fetches as JSON, and the entry
-point to the other 121. It carries the same development-status and
+point to the other 123. It carries the same development-status and
 research-use statement `status` above is the machine-readable half of, as every
 page does, and is a doorway rather than the census (since 2026-10-27): it says
 what the atlas is, states the figures a first-time reader needs, and sends
@@ -362,8 +364,8 @@ request, no build timestamp, byte-identical between two builds of one commit
 like everything else here.
 
 **Every page is checksummed in `manifest.json` exactly like a payload.** The
-build behind this document publishes 122 of them — this one, `genes/index.html`,
-[`methods.html`](#methodshtml) and one per published gene — and each has an entry
+build behind this document publishes 124 of them — this one, `genes/index.html`,
+[`methods.html`](#methodshtml), one per published gene and one register per published gene with an open literature question — and each has an entry
 in `files` giving the sha256 of the bytes served at it. A page is published
 output, so it is verifiable output.
 
@@ -451,8 +453,11 @@ and each carries an `id`, so a page can link the paragraph it shortens.
   excluded), that every paper a search returns gets a decision and only human
   genetics is kept, how a finding is classified and what its counts are counted
   in, that a named curator approves each finding before it is published, what
-  the two review marks mean, what the gene card's literature line counts, and
-  what its "In short" paragraph rests on and when it is published or withheld.
+  the two review marks mean, what "unclear" means for a variant's zygosity or
+  phase, that a gene with open literature questions has a register page giving
+  each one's reason and what would settle it, what the gene card's literature
+  line counts, and what its "In short" paragraph rests on and when it is
+  published or withheld.
 - `#literature-variants` says how the variants a finding names are placed and
   checked: on the gene's MANE Select transcript (MANE v1.5) and GRCh38, or on
   its protein alone; checked offline against the atlas's copy of the
@@ -787,10 +792,7 @@ abridged, and each is documented in full further down.
                  "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
                  "de_novo_papers": 11, "inherited_papers": 24,
                  "abstract_only_papers": 21, "pending_review_papers": 3 },
-    "synthesis": { "sentences": [ { "text": "Carriers' lesions include atrial and ventricular septal defects, double outlet right ventricle, hypoplastic left heart syndrome, anomalous pulmonary venous return and patent ductus arteriosus; tetralogy of Fallot, coarctation and atrioventricular septal defect rest on papers read from the abstract only.",
-                                    "cites": [ "CHDA:LIT:0000056", … ] }, … ],
-                   "drafted_by": "agent:gene-synthesis/claude-opus-5-5",
-                   "approved_by": "E.A.M", "approved_on": "2026-11-16" }
+    "synthesis": null
   }
 }
 ```
@@ -1663,10 +1665,7 @@ TBX5's, abridged:
                "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
                "de_novo_papers": 11, "inherited_papers": 24,
                "abstract_only_papers": 21, "pending_review_papers": 3 },
-  "synthesis": { "sentences": [ { "text": "Carriers' lesions include atrial and ventricular septal defects, double outlet right ventricle, hypoplastic left heart syndrome, anomalous pulmonary venous return and patent ductus arteriosus; tetralogy of Fallot, coarctation and atrioventricular septal defect rest on papers read from the abstract only.",
-                                  "cites": [ "CHDA:LIT:0000056", … ] }, … ],
-                 "drafted_by": "agent:gene-synthesis/claude-opus-5-5",
-                 "approved_by": "E.A.M", "approved_on": "2026-11-16" } }
+  "synthesis": null }
 ```
 
 - `searches` lists each recorded PubMed search: `source`, `query`, `run_on` (an
@@ -1696,9 +1695,9 @@ TBX5's, abridged:
   `families`, `screened` is families and each origin count is carrier families.
 - `variants` (since `2.24`) lists a finding's variants, `[]` for none. A variant's
   `id` and the ids in its `with` are per finding: `with` names only the same
-  finding's variants, and links are mutual. `phase` (`trans`, `cis` or
+  finding's variants, and links are mutual. `phase` (`trans`, `cis`, `unclear` or
   `not_stated`) is non-null exactly when `with` is non-empty. `zygosity` is
-  `heterozygous`, `homozygous`, `hemizygous` or `not_stated`; `kind` is
+  `heterozygous`, `homozygous`, `hemizygous`, `unclear` or `not_stated`; `kind` is
   `snv_indel`, `cnv` or `chromosomal`; `locator` says where the paper states it;
   `as_reported` is the variant as the paper prints it; `carriers` counts by
   origin, and is `null` on a common-variant finding; `phenotypes` are HPO ids
@@ -1715,6 +1714,21 @@ TBX5's, abridged:
   and a `mane` variant never share one, even for the same change). `unplaced`: a review mark,
   never grouped, and at most a checked `hgvs_p`. `structural` and
   `outside_region`: listed only, with no coordinates or HGVS.
+- `review_settled_by` (since `2.25`), on a finding and on a variant, is `null` or
+  what would settle its open question, with the label the register page prints:
+  `full_text` ("the full text"), only the abstract was read; `authors` ("the
+  authors"), the paper contradicts itself, or disagrees with the reference
+  sequence; `expert` ("an expert"), it needs a domain judgement the paper cannot
+  supply; `atlas_model` ("a change to the atlas"), the paper is clear and the
+  atlas's record cannot hold it. A finding's or variant's `pending_review` mark
+  always carries one. `not_accessible` is settled by the full text and carries
+  none. A variant's `unclear` is `{}` unless its `zygosity` or `phase` is
+  `unclear`; then it maps `"zygosity"` and/or `"phase"`, whichever is `unclear`,
+  to `{"reason", "settled_by"}`, `settled_by` taking the same four values. Every
+  member of a `with` group whose `phase` is `unclear` carries the same entry: it
+  is one question. `unclear` means the paper says something about the
+  value that cannot be written as one value on that line, or says two
+  incompatible things about it, and `not_stated` means it says nothing.
 - `normalisations` (since `2.24`) lists the normaliser runs that published
   variants cite, by `id`, which a variant's `normalisation` names: `tool`,
   `version`, `hgvs_version`, `vvta`, `vvdb`, `seqrepo` and `run_on`. A run no
@@ -1786,7 +1800,8 @@ registered papers share both; an entry opens to that
 paper's findings with each finding's design, methods, counts with their unit,
 carriers by origin, result (the comparator for a rare-variant association, and
 the stored p-value and odds ratio), lesion groups, independence (cohorts, and
-whether its probands are shared), summary with any review mark, and the person
+whether its probands are shared), summary with any review mark (the mark's label
+and a "why" link to the gene's register page, where the note is), and the person
 who approved it. A gene with a search and no approved finding says "No approved
 findings yet." and draws no timeline. Folded after those are the exclusion tally
 by reason and every search with its date, hits and exact query. Last, on a gene
@@ -1795,7 +1810,10 @@ row per placed variant (its `c.` and `p.` names and how many papers report it)
 and, under it, one line per report of it (a finding gives one for each
 genotype context it names the variant in: alone, or with a given partner and phase) with the paper, design, that report's own
 carriers by origin, zygosity or partner, and the carriers' heart defects as HPO
-labels. No line or row sums carriers across findings. After it come the variants
+labels. A zygosity or phase that is `unclear` reads "unclear" with a "why" link
+to the register, and a variant's own review mark is its label and a "why" link;
+neither prints the reason on the gene page. No line or row sums carriers across
+findings. After it come the variants
 listed as reported (outside the checked region, then with no position), and how
 many findings report carriers but name no variant. A paper's fold says, for a
 finding whose variants name only some of its carriers, how many.
@@ -1919,8 +1937,9 @@ Top to bottom:
    evidence against a gene — follows whenever the gene has rows.
 7. One sentence saying what the atlas itself has curated, then, where a curated
    lesion assertion exists, a mechanism sentence and, where approved findings
-   exist, a literature line and, where an approved synthesis is current, the
-   "In short" paragraph (all described below).
+   exist, a literature line, which ends with a link "N open questions" to the
+   gene's register page where that gene has any, and, where an approved synthesis
+   is current, the "In short" paragraph (all described below).
 8. *How to read this page*, a link to the top of [`methods.html`](#methodshtml),
    and a link to the gene's own JSON.
 
@@ -2110,7 +2129,7 @@ lesions each paper's findings name, which for a screen that found no carrier, an
 association study, or a paper that never states the carriers' lesions, are the
 cohort's lesions rather than carriers'), the
 papers reporting de novo and inherited carriers, and the papers read from the
-abstract only or pending review. Every figure counts papers. The card never
+abstract only or pending review. Every figure counts papers except the closing link, which counts open questions. The card never
 states a carrier count summed across papers, because those cohorts may overlap, and it names a common-variant
 association apart from the Mendelian designs ("not Mendelian evidence").
 
@@ -2141,6 +2160,13 @@ the machine-readable contract: the page's markup is not one.
 the JSON; the route to the page is the link on `genes/index.html`, which is why
 the slug rule stays an implementation detail (see
 [Reading this API](#reading-this-api)).
+
+## `register/<slug>.html`
+
+One HTML page per published gene that has at least one open question on its
+approved literature findings, and none for any other gene. It lists each question
+with its reason and what would settle it. It is a view of the gene bundle's
+`literature.findings` and of `publications.json`; it publishes no data of its own.
 
 ## `omics/<modality>/<accession>.json`
 
@@ -2622,7 +2648,7 @@ working with numbers stripped of the sentences that say what they count.
   the record that this atlas leaves open rather than settles. The rule, the
   atlas owner's: such a record says so rather than choosing a side,
   speculating, or being dropped. `review_status` is `"pending_review"`, a
-  question about the record left open for an expert, or `"not_accessible"`, a
+  question about the record that this atlas leaves open, or `"not_accessible"`, a
   source the record rests on could not be read; `review_note` states exactly
   what is unresolved and nothing more. The vocabulary is
   [`scope.json`](#scopejson)'s too, where the question can be a clinical
@@ -2710,8 +2736,8 @@ structural CHD is frequent but not part of the diagnosis.
 - `review_status` and `review_note` (since `2.19`) record an open question
   about the term, in the vocabulary [`cohorts.json`](#cohortsjson) uses: both
   set or both `null`, never omitted. Two terms carry `"pending_review"` today,
-  MONDO:1010098 and MONDO:1060150, marking a question left open for an expert
-  rather than a conflict between sources: whether each names a syndrome,
+  MONDO:1010098 and MONDO:1060150, marking a clinical judgement the atlas leaves
+  open rather than a conflict between sources: whether each names a syndrome,
   which decides whether a gene page calls a grade for it a grade for a
   syndrome as a whole, is left open for clinical review, and `syndrome` stays
   `false` meanwhile. Published here only: no page renders a term's question.

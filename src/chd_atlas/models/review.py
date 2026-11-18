@@ -16,15 +16,19 @@ both curated files' headers repeat (the review of 2026-10-27 found the API
 doc, the changelog and `chd_scope.yaml` defining it by a source conflict
 alone, which is false for the two terms):
 
-* `pending_review` -- a question about the record that this atlas leaves open
-  for an expert. On the two cohorts marked today, the sources it rests on
+* `pending_review` -- a question about the record that this atlas leaves
+  open. On the two cohorts marked today, the sources it rests on
   conflict; on the two scope terms, it is a clinical judgement.
 * `not_accessible` -- a source the record rests on could not be read.
 
 **One vocabulary for every record kind that carries one**, so "pending review"
 means the same thing on a cohort as on a scope term, and a consumer reads one
-token set. Today that is `Cohort` and `ScopeEntry`; each declares the two
-fields itself and calls `check_review` from its own validator.
+token set. Today that is `Cohort`, `ScopeEntry` and the literature `Finding`
+and `Variant`; each declares the two fields itself and calls `check_review`
+from its own validator. A literature `pending_review` mark also names what
+would settle it (`check_settled`, `gene_literature.py`): the authors, the full
+text, an expert or a change to the atlas; a `not_accessible` mark names none,
+since the full text settles it.
 
 Absent means no open question has been recorded, not that the record was
 checked and found clean.
@@ -39,7 +43,7 @@ class ReviewStatus(StrEnum):
     """Why a curated record is marked as carrying an open question.
 
     `PENDING_REVIEW`: a question about the record that this atlas leaves open
-    for an expert -- the sources it rests on conflict, as on the two cohorts
+    -- the sources it rests on conflict, as on the two cohorts
     the owner marked on 2026-10-27, or a clinical judgement is needed, as on
     the two scope terms marked the same day.
     `NOT_ACCESSIBLE`: a source it rests on could not be read, so what it says

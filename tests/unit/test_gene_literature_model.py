@@ -423,3 +423,64 @@ def test_with_findings_updated_places_a_whole_variants_list_after_variant_classe
     )
     keys = list(YAML().load(StringIO(out.decode()))["findings"][0])
     assert keys.index("variants") == keys.index("variant_classes") + 1
+
+
+@pytest.mark.parametrize("record", ["finding", "variant"])
+@pytest.mark.parametrize(
+    ("mark", "message"),
+    [
+        ({"review_settled_by": "authors"}, "review_settled_by needs a review_status"),
+        (
+            {"review_status": "pending_review", "review_note": "open"},
+            "pending_review needs a review_settled_by",
+        ),
+        (
+            {
+                "review_status": "not_accessible",
+                "review_note": "no full text",
+                "review_settled_by": "full_text",
+            },
+            "the full text settles it",
+        ),
+    ],
+)
+def test_a_pending_review_needs_review_settled_by_and_not_accessible_refuses_it(
+    record: str, mark: dict[str, Any], message: str
+) -> None:
+    if record == "finding":
+        with pytest.raises(ValidationError, match=message):
+            Finding.model_validate(_rare(**mark))
+    else:
+        with pytest.raises(ValidationError, match=message):
+            Finding.model_validate(_rare(variants=[_variant_entry(**mark)]))
+    # the paired marks load
+    ok = (
+        {"review_status": "pending_review", "review_note": "open", "review_settled_by": "authors"}
+        if record == "finding"
+        else {}
+    )
+    if record == "finding":
+        assert Finding.model_validate(_rare(**ok)).review_settled_by is not None
+    else:
+        paired = {
+            "review_status": "not_accessible",
+            "review_note": "no full text",
+        }
+        Finding.model_validate(_rare(variants=[_variant_entry(**paired)]))
+
+
+@pytest.mark.parametrize("field", ["zygosity", "phase"])
+def test_an_unclear_value_and_its_entry_come_together(field: str) -> None:
+    entry = {"reason": "Table 2 and the text disagree.", "settled_by": "atlas_model"}
+    both = _variant_entry(**{field: "unclear", "unclear": {field: entry}})
+    loaded = Finding.model_validate(_rare(variants=[both])).variants[0]
+    assert loaded.unclear[field].settled_by.value == "atlas_model"
+    with pytest.raises(ValidationError, match=f"{field} is unclear but has no unclear entry"):
+        Finding.model_validate(_rare(variants=[_variant_entry(**{field: "unclear"})]))
+    with pytest.raises(ValidationError, match=f"unclear entry for {field}, which is not unclear"):
+        Finding.model_validate(_rare(variants=[_variant_entry(unclear={field: entry})]))
+    blank = {**entry, "reason": "  "}
+    with pytest.raises(ValidationError):
+        Finding.model_validate(
+            _rare(variants=[_variant_entry(**{field: "unclear", "unclear": {field: blank}})])
+        )

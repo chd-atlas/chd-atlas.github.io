@@ -31,6 +31,7 @@ import pytest
 
 from chd_atlas.build.manifest import write_manifest
 from chd_atlas.build.profiles import LOOKUP_RULE, TAU_METHOD, TAU_SCALE
+from chd_atlas.build.questions import SETTLED_LABELS
 from chd_atlas.build.runner import build_site
 from chd_atlas.build.validity import GeneValidity, gene_validity
 from chd_atlas.corpus import load_curation
@@ -1657,7 +1658,8 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
         "`unplaced`: a review mark, never grouped, and at most a checked `hgvs_p`.",
         "`mane`: `hgvs_c`, `grch38` and `normalisation`, and `hgvs_p` where the change has one.",
         "`structural` and `outside_region`: listed only, with no coordinates or HGVS.",
-        "`phase` (`trans`, `cis` or `not_stated`) is non-null exactly when `with` is non-empty",
+        "`phase` (`trans`, `cis`, `unclear` or `not_stated`) is non-null exactly when "
+        "`with` is non-empty",
         "`version`, `hgvs_version`, `vvta`, `vvdb`, `seqrepo` and `run_on`",
         "group on its canonical reading: accession and parentheses dropped, one-letter "
         "residues, `Ter` and `X` as `*`",
@@ -1673,6 +1675,41 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
     # The canonical reading those words describe is `protein_key`'s.
     assert protein_key("NP_852259.1:p.(Gly80Arg)") == protein_key("NP_852259.1:p.G80R") == "G80R"
     assert protein_key("p.Arg279Ter") == protein_key("p.R279X") == "R279*"
+
+
+def test_the_doc_defines_unclear_and_every_settler() -> None:
+    """The 2.25 additions are defined in the doc (spec section 5.5): `unclear` against
+    `not_stated`, each `SettledBy` value with its page label and when it applies (spec
+    section 5.2), that a `not_accessible` question is settled by the full text, and that
+    a `with` group's unclear phase is one question. The definitions are literals
+    (CLAUDE.md 4.38); the loop over `SettledBy` fails when a fifth value lands
+    undefined."""
+    from chd_atlas.vocab import SettledBy
+
+    text = " ".join(DOC.read_text(encoding="utf-8").split())
+    definitions = {
+        "full_text": '`full_text` ("the full text"), only the abstract was read;',
+        "authors": '`authors` ("the authors"), the paper contradicts itself, or disagrees '
+        "with the reference sequence;",
+        "expert": '`expert` ("an expert"), it needs a domain judgement the paper cannot supply;',
+        "atlas_model": '`atlas_model` ("a change to the atlas"), the paper is clear and the '
+        "atlas's record cannot hold it.",
+    }
+    assert sorted(definitions) == sorted(s.value for s in SettledBy)
+    # The labels the doc quotes are the ones the register prints.
+    for value, label in SETTLED_LABELS.items():
+        assert f'`{value}` ("{label}")' in definitions[value], value
+    for needle in (
+        *definitions.values(),
+        "`unclear` means the paper says something about the value that cannot be written "
+        "as one value on that line, or says two incompatible things about it, and "
+        "`not_stated` means it says nothing",
+        "`not_accessible` is settled by the full text",
+        "Every member of a `with` group whose `phase` is `unclear` carries the same entry: "
+        "it is one question.",
+        "`2.25` added `review_settled_by`",
+    ):
+        assert needle in text, needle
 
 
 def test_the_doc_describes_the_literature_section_and_what_publishes_before_approval(

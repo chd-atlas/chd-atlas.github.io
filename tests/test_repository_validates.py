@@ -7,10 +7,18 @@ REPO_ROOT = Path(__file__).parent.parent
 
 
 def test_the_committed_repository_validates_cleanly() -> None:
-    """0 errors and the baseline 3 warnings (two SCP003, one SCP007), measured 2026-11-10."""
+    """0 errors and the baseline 5 warnings, measured 2026-11-18.
+
+    Two SCP003 and one SCP007 (the baseline since 2026-11-10), plus two SYN004
+    ("approval is stale") for the TBX5 and NR2F2 "In short" syntheses: the six
+    `review_settled_by: authors` marks are part of what a synthesis covers, so
+    both approvals are stale and the build withholds the text. The count returns
+    to 3 at C0 Task 18, the owner's re-approval after Stage F
+    (`2026-11-17-variants-in-findings.md`).
+    """
     report = validate_repository(REPO_ROOT)
     assert report.ok, report.render()
-    assert report.warning_count == 3, report.render()
+    assert report.warning_count == 5, report.render()
 
 
 def test_the_seed_corpus_is_not_empty() -> None:

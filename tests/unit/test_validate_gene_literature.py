@@ -566,6 +566,7 @@ def test_a_frame_with_no_row_for_the_gene_lists_its_variants_unplaceable_not_ski
         hgvs_p=None,
         review_status="pending_review",
         review_note="the gene has no MANE Select row",
+        review_settled_by="authors",
     )
     assert _run(_with_variants(unplaced), mane=without) == []
 
@@ -579,6 +580,7 @@ def test_an_unplaced_variant_waits_on_the_frame_only_when_it_keeps_an_hgvs_p() -
         normalisation=None,
         review_status="pending_review",
         review_note="numbering differs",
+        review_settled_by="authors",
     )
     issues = _run(_with_variants(kept), mane=None)
     assert [(i.code, i.location) for i in issues] == [("MAN005", _HERE), ("MAN000", _HERE)]

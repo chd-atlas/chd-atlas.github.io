@@ -766,7 +766,7 @@ def test_cohorts_lists_the_whole_registry_sorted_and_escaped(cohort_page: str) -
         "does not record. The same records are published as "
         '<a href="cohorts.json"><code>cohorts.json</code></a>.</p>'
         "<p>A record marked <strong>Pending review</strong> carries a question about it that "
-        "this atlas leaves open for an expert: its note states what is unresolved, and the "
+        "this atlas leaves open: its note states what is unresolved, and the "
         "atlas takes no side.</p>"
         '<dl class="cohort-list">'
         "<dt>German Competence Network (<code>cnchd</code>)</dt><dd>German registry.</dd>"
@@ -784,7 +784,7 @@ def test_cohorts_lists_the_whole_registry_sorted_and_escaped(cohort_page: str) -
 # 4.38); the pending one is also inside the literal above.
 _PENDING_KEY: Final = (
     "A record marked <strong>Pending review</strong> carries a question about it that this "
-    "atlas leaves open for an expert: its note states what is unresolved, and the atlas "
+    "atlas leaves open: its note states what is unresolved, and the atlas "
     "takes no side."
 )
 _NOT_ACCESSIBLE_KEY: Final = (
@@ -1239,13 +1239,15 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
     decisions `vocab.TriageDecision` names, the two axes are `FindingDesign`
     and `DetectionMethod`, the carrier's unit is `Finding.count_unit`, approval
     is a named person (`Finding.approved_by`) and the two marks are
-    `ReviewStatus`. Measured 2026-11-16: 329 words with each tag replaced by a
-    space (the heading 1, the paragraphs 157, 96 and 75) and 326 by the assertion
-    below (tags removed unspaced, so the heading and the first word of each later
-    paragraph fuse with the word before). The first paragraph, at 157, is under the
-    160 the plan allowed; the second (the gene card's literature line) and the third
-    (its "In short" paragraph) were added 2026-11-16. The wording awaits the owner's
-    approval (ruling R15).
+    `ReviewStatus`. Measured 2026-11-18 after the final review's wording (Task 8 added
+    the unclear and register sentences): 373 words with each tag replaced by a space
+    (the heading 1, the paragraphs 202, 95 and 75) and 370 by the assertion below (tags
+    removed unspaced, so the heading and the first word of each later paragraph fuse
+    with the word before), against 326 at 92a4da5, before this work: 44 words added,
+    within the 45 allowed. The first paragraph, at 157 before Task 8, was under the 160
+    the plan allowed and no longer is; the second (the gene card's literature line) and the
+    third (its "In short" paragraph) were added 2026-11-16. The wording awaits the
+    owner's approval (ruling R15).
     """
     assert _section(page, "literature") == (
         '<h2 id="literature">Literature</h2>'
@@ -1259,8 +1261,12 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
         "whatever the authors counted as one, in people or families as stated; the atlas "
         "records their counts and does not re-classify the variants. A named curator approves "
         "each finding before publication; findings awaiting approval are counted, not shown. "
-        "A review mark flags an open question for an expert (pending review) or a source "
-        "that could not be read (source not accessible).</p>"
+        "A review mark flags a question the atlas leaves open (pending review) or a source "
+        "that could not be read (source not accessible). "
+        'A variant\'s zygosity or phase reads "unclear" when the paper states it in a way '
+        "one value cannot hold, or states two incompatible things about it. "
+        "A gene with open literature questions has a register page giving each one's "
+        "reason and what would settle it.</p>"
         "<p>The gene card counts approved findings by paper and never sums carriers across "
         "papers, because cohorts can overlap. It names each paper's study design. "
         '"Lesions studied" counts the lesions a paper studied: for a screen with no carrier, '
@@ -1268,8 +1274,8 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
         "are the cohort's lesions. A common-variant association is never Mendelian "
         'evidence. "From the abstract only" counts papers with a finding whose source '
         "could not be read in "
-        'full; "pending review" counts papers with a finding that carries a question left '
-        "open for an expert.</p>"
+        'full; "pending review" counts papers with a finding that carries a question the '
+        "atlas leaves open.</p>"
         '<p>A gene card may also carry an "In short" paragraph of one to five sentences. '
         "An AI model drafts it, and its provenance line names the model. It draws only on "
         "the atlas's approved findings and the gene's lesion assertions, and each sentence "
@@ -1278,7 +1284,7 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
         "approved again.</p>"
     )
     words = len(re.sub(r"<[^>]+>", "", _section(page, "literature")).split())
-    assert words == 326  # tags stripped unspaced, so the heading fuses with the first word
+    assert words == 370  # tags stripped unspaced, so the heading fuses with the first word
 
 
 def test_variants_states_the_frame_the_check_and_the_two_unplaced_states(page: str) -> None:
@@ -1306,3 +1312,20 @@ def test_variants_states_the_frame_the_check_and_the_two_unplaced_states(page: s
     )
     paragraph = section[section.index("<p>") :]
     assert len(re.sub(r"<[^>]+>", " ", paragraph).split()) == 87
+
+
+def test_methods_defines_unclear_and_points_to_the_gene_register(page: str) -> None:
+    """Task 8 (unclear register): the literature section says what a review mark is, what
+    "unclear" means for a variant's zygosity or phase, and where each question's reason
+    lives. Pinned as literals (CLAUDE.md 4.38) and sliced to `#literature` (4.19)."""
+    literature = _section(page, "literature")
+    for sentence in (
+        "A review mark flags a question the atlas leaves open (pending review) or a source "
+        "that could not be read (source not accessible). ",
+        'A variant\'s zygosity or phase reads "unclear" when the paper states it in a way '
+        "one value cannot hold, or states two incompatible things about it. ",
+        "A gene with open literature questions has a register page giving each one's "
+        "reason and what would settle it.</p>",
+    ):
+        assert sentence in literature
+    assert "for an expert" not in literature

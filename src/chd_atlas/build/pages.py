@@ -108,7 +108,12 @@ from chd_atlas.build.gene_literature import (
     variant_table,
 )
 from chd_atlas.build.identity import EMPTY_IDENTITY, GeneIdentity, external_links
-from chd_atlas.build.paths import GENE_INDEX_PAGE, gene_bundle_path, gene_page_path
+from chd_atlas.build.paths import (
+    GENE_INDEX_PAGE,
+    gene_bundle_path,
+    gene_page_path,
+    register_page_path,
+)
 from chd_atlas.build.profiles import (
     EMPTY_EXPRESSION_PROFILE,
     DatasetProfileEntry,
@@ -118,6 +123,13 @@ from chd_atlas.build.profiles import (
     ProfileGap,
     StageProfileEntry,
     TissueProfileEntry,
+)
+from chd_atlas.build.questions import (
+    QUESTION_LABELS,
+    SETTLED_LABELS,
+    open_questions,
+    question_anchor,
+    question_rows,
 )
 from chd_atlas.build.render import (
     EVIDENCE_POWER_CAVEAT,
@@ -135,6 +147,7 @@ from chd_atlas.build.render import (
     document,
     evidence_legend,
     review_status_note,
+    review_status_why,
 )
 from chd_atlas.build.validity import (
     GeneValidity,
@@ -1849,10 +1862,13 @@ def _papers(n: int) -> str:
     return f"{n} paper" if n == 1 else f"{n} papers"
 
 
-def _card_literature(tallies: LiteratureTallies) -> str:
+def _card_literature(
+    tallies: LiteratureTallies, questions: int = 0, register: str | None = None
+) -> str:
     """The card's literature line: what the approved findings amount to, by paper.
 
-    Every count is of distinct papers (`literature_tallies`), so no figure here
+    Every count is of distinct papers (`literature_tallies`) except the closing
+    link's, which counts open questions, so no figure here
     sums carriers across papers: those cohorts may overlap and the atlas publishes
     no pooled statistic. The lesion counts are the lesions each paper's findings
     name, which for a screen that found no carrier, an association study, or a
@@ -1861,8 +1877,17 @@ def _card_literature(tallies: LiteratureTallies) -> str:
     when the gene has no approved paper. A common-variant association is named
     apart from the Mendelian designs and says so, because a
     reader must not add it to rare-variant evidence.
+
+    `questions` is the number of open questions (`questions.open_questions`:
+    questions, not rows or records) and `register` the URL of the register page
+    holding them. Above 0 the paragraph ends with one link to that page's
+    `#questions` heading; a question needs an approved finding, so a gene with
+    one has a paper and the link never stands alone. Raises if there are
+    questions and no page to link, or questions and no paper (the link would vanish).
     """
     if tallies["papers"] == 0:
+        if questions:
+            raise ValueError(f"{questions} open questions on a gene whose tallies hold no paper")
         return ""
     first, last = tallies["first_year"], tallies["last_year"]
     span = f"{first}" if first == last else f"{first} to {last}"
@@ -1913,7 +1938,13 @@ def _card_literature(tallies: LiteratureTallies) -> str:
     ]
     if basis:
         sentences.append(_upper_first("; ".join(basis)) + ".")
-    return f'<p class="card-literature">{html.escape(" ".join(sentences))}</p>'
+    link = ""
+    if questions:
+        if register is None:
+            raise ValueError(f"{questions} open questions and no register page to link")
+        noun = "open question" if questions == 1 else "open questions"
+        link = f' <a href="{html.escape(register)}#questions">{questions} {noun}</a>'
+    return f'<p class="card-literature">{html.escape(" ".join(sentences))}{link}</p>'
 
 
 def _card_mechanism(mechanisms: Sequence[str]) -> str:
@@ -2015,6 +2046,7 @@ def _rail(
     literature: GeneLiterature = EMPTY_GENE_LITERATURE,
     mechanisms: tuple[str, ...] = (),
     anchored_assertions: tuple[str, ...] = (),
+    register: str,
 ) -> str:
     """The clinician card: the summary column, for every gene whether curated here or not.
 
@@ -2028,7 +2060,8 @@ def _rail(
     study's block; the atlas-curation sentence (`_card_curation`); the
     mechanism sentence (`_card_mechanism`, from the gene's lesion assertions);
     the literature line (`_card_literature`, papers by design, lesion group,
-    carrier origin and review state); the approved "In short" narrative
+    carrier origin and review state, ending with a link counting the gene's open
+    questions into its register page); the approved "In short" narrative
     (`_card_synthesis`, when the gene has a current approved one, linking each
     cited assertion in `anchored_assertions` to its heading); and a last
     line linking the top of `methods.html` as "How to read this page" (P1,
@@ -2107,6 +2140,9 @@ def _rail(
             + "</p>"
         )
     bundle = gene_bundle_path(HgncId(gene))
+    literature_line = _card_literature(
+        literature["tallies"], len(open_questions(literature["findings"])), register
+    )
     synthesis = _card_synthesis(
         literature["synthesis"], literature["findings"], publications or {}, anchored_assertions
     )
@@ -2126,7 +2162,7 @@ def _rail(
         f"{_card_rare_variants(rows, families, publications or {})}"
         f"{_card_curation(fact, literature)}"
         f"{_card_mechanism(mechanisms)}"
-        f"{_card_literature(literature['tallies'])}"
+        f"{literature_line}"
         f"{synthesis}"
         '<p><a href="../methods.html">How to read this page</a> &middot; '
         f'<a href="../{html.escape(bundle)}">this gene as JSON</a></p></aside>'
@@ -6948,18 +6984,26 @@ def _named_share(finding: Mapping[str, Any]) -> str:
     return f" {named} of {total} {one if total == 1 else many} {verb} a named variant."
 
 
-def _finding_row(finding: Mapping[str, Json]) -> Row:
+def _why_href(
+    register: str, finding: str, variant: int | None = None, field: str | None = None
+) -> str:
+    """The register's anchor for one question: `register` is the page's URL from here."""
+    return f"{register}#{question_anchor(finding, variant, field)}"
+
+
+def _finding_row(finding: Mapping[str, Json], register: str) -> Row:
     """A finding's cells from `design` to `approved by`; the caller adds neither year nor paper.
 
     The review mark (R24) sits beside the summary, so it qualifies the finding
     and never hides it. `_named_share`'s sentence sits between them, so it reads
-    as a statement about this finding.
+    as a statement about this finding. The mark is its label and a link to the
+    register, which holds the note (`review_status_why`); `register` is that page's
+    URL from the gene page.
     """
-    status, note = finding["review_status"], finding["review_note"]
-    mark = review_status_note(
-        str(finding["id"]),
+    status = finding["review_status"]
+    mark = review_status_why(
         ReviewStatus(status) if isinstance(status, str) else None,
-        note if isinstance(note, str) else None,
+        _why_href(register, str(finding["id"])),
     )
     return Row(
         (
@@ -6979,6 +7023,7 @@ def _finding_row(finding: Mapping[str, Json]) -> Row:
 def _literature_publications(
     groups: Sequence[_PaperGroup],
     publications: Mapping[str, Publication],
+    register: str,
 ) -> str:
     """The approved papers folded, each opening to its own findings.
 
@@ -6995,7 +7040,9 @@ def _literature_publications(
             f"\u00b7 {designs} \u00b7 {k} {'finding' if k == 1 else 'findings'}"
             f"{_own_lab_mark(group.publication)}"
         )
-        table = data_table(_PAPER_FINDING_HEADERS, [_finding_row(f) for f in group.findings])
+        table = data_table(
+            _PAPER_FINDING_HEADERS, [_finding_row(f, register) for f in group.findings]
+        )
         blocks.append(
             f'<details class="lit-paper"><summary>{html.escape(summary)}</summary>'
             f"<p>{html.escape(group.publication.title)} "
@@ -7053,17 +7100,38 @@ def _variant_carriers(report: VariantReport) -> str:
     return f"{many}: {', '.join(parts) or 'none'}"
 
 
-def _variant_partner(report: VariantReport) -> str:
-    """The zygosity, or the partner a linked entry is carried with; `""` if heterozygous alone."""
+def _unclear_why(register: str, finding: str, variant: int, field: str) -> str:
+    return f'<a href="{html.escape(_why_href(register, finding, variant, field))}">why</a>'
+
+
+def _variant_partner(report: VariantReport, register: str) -> str:
+    """The zygosity, or the partner a linked entry is carried with; `""` if heterozygous alone.
+
+    Returns markup: an `unclear` zygosity or phase reads `unclear · why` and links
+    that field's question on the register. A linked entry whose zygosity is
+    not heterozygous raises: LIT022 refuses it, and a bypassed gate must not publish.
+    """
+    finding, variant = report["finding"], report["variant"]
+    unclear_zygosity = f"unclear \u00b7 {_unclear_why(register, finding, variant, 'zygosity')}"
     partners = report["with_names"]
     if partners:
-        phase = _PHASE_WORDS.get(report["phase"] or "")
-        if phase is None:
-            raise ValueError(f"{report['finding']}: a linked variant has phase {report['phase']!r}")
-        return f"with {' and '.join(_bare(name) for name in partners)} ({phase})"
+        if report["phase"] == "unclear":
+            phase = f"phase unclear \u00b7 {_unclear_why(register, finding, variant, 'phase')}"
+        else:
+            words = _PHASE_WORDS.get(report["phase"] or "")
+            if words is None:
+                raise ValueError(f"{finding}: a linked variant has phase {report['phase']!r}")
+            phase = html.escape(words)
+        text = f"with {html.escape(' and '.join(_bare(name) for name in partners))} ({phase})"
+        if report["zygosity"] == "unclear":
+            # LIT022 refuses a linked variant with an unclear zygosity.
+            raise ValueError(f"{finding}: a linked variant has an unclear zygosity")
+        return text
     if report["zygosity"] == "heterozygous":
         return ""
-    return _words(report["zygosity"])
+    if report["zygosity"] == "unclear":
+        return unclear_zygosity
+    return html.escape(_words(report["zygosity"]))
 
 
 def _variant_defects(report: VariantReport, labels: Mapping[str, str]) -> str:
@@ -7083,7 +7151,10 @@ def _variant_defects(report: VariantReport, labels: Mapping[str, str]) -> str:
 
 
 def _variant_paper(
-    report: VariantReport, row: VariantRow, publications: Mapping[str, Publication]
+    report: VariantReport,
+    row: VariantRow,
+    publications: Mapping[str, Publication],
+    register: str,
 ) -> str:
     """The paper's link; this report's own names where they differ from the row's (D13); its flag.
 
@@ -7096,18 +7167,25 @@ def _variant_paper(
         for name, shown in ((report["hgvs_c"], row["hgvs_c"]), (report["hgvs_p"], row["hgvs_p"]))
         if name is not None and (shown is None or _bare(name) != _bare(shown))
     ]
-    status, note = report["review_status"], report["review_note"]
+    status = report["review_status"]
     return (
         _paper_link(report["publication"], publications).html
         + (html.escape(" · recorded as " + " ".join(own)) if own else "")
-        + review_status_note(
-            report["finding"], None if status is None else ReviewStatus(status), note
+        + review_status_why(
+            None if status is None else ReviewStatus(status),
+            _why_href(register, report["finding"], report["variant"]),
         )
     )
 
 
-def _listed_variant(entry: ListedVariant, publications: Mapping[str, Publication]) -> str:
-    """One listed variant: as reported, its rsID linked to dbSNP, its paper and any flag."""
+def _listed_variant(
+    entry: ListedVariant, publications: Mapping[str, Publication], register: str
+) -> str:
+    """One listed variant: as reported, its rsID linked to dbSNP, its paper and any flag.
+
+    A variant with an `unclear` zygosity or phase says so after its paper
+    (ruling R-U4), each with a link to its question; a plain value shows nothing.
+    """
     text = html.escape(entry["as_reported"])
     rsid = entry["rsid"]
     if rsid is not None and _RSID.fullmatch(rsid):
@@ -7115,10 +7193,16 @@ def _listed_variant(entry: ListedVariant, publications: Mapping[str, Publication
         text, found = re.subn(rf"\b{rsid}\b", link, text, count=1)
         if not found:
             text += f" ({link})"
-    status, note = entry["review_status"], entry["review_note"]
-    mark = review_status_note(
-        entry["finding"], None if status is None else ReviewStatus(status), note
+    status = entry["review_status"]
+    mark = review_status_why(
+        None if status is None else ReviewStatus(status),
+        _why_href(register, entry["finding"], entry["variant"]),
     )
+    for field in ("zygosity", "phase"):
+        if entry[field] == "unclear":
+            mark += f" \u00b7 {field} unclear \u00b7 " + _unclear_why(
+                register, entry["finding"], entry["variant"], field
+            )
     return f"<li>{text} · {_paper_link(entry['publication'], publications).html}{mark}</li>"
 
 
@@ -7126,6 +7210,7 @@ def _variant_section(
     table: VariantTable,
     publications: Mapping[str, Publication],
     labels: Mapping[str, str],
+    register: str,
 ) -> str:
     """The variants a gene's approved findings name: a table, two lists and a count.
 
@@ -7153,10 +7238,10 @@ def _variant_section(
         ]
         for report in row["reports"]:
             cells = (
-                _variant_paper(report, row, publications),
+                _variant_paper(report, row, publications, register),
                 html.escape(_words(report["design"])),
                 html.escape(_variant_carriers(report)),
-                html.escape(_variant_partner(report)),
+                _variant_partner(report, register),
                 html.escape(_variant_defects(report, labels)),
             )
             lines.append("<tr>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>")
@@ -7185,7 +7270,7 @@ def _variant_section(
         (table["no_position"], "With no position, as reported:"),
     ):
         if entries:
-            items = "".join(_listed_variant(entry, publications) for entry in entries)
+            items = "".join(_listed_variant(entry, publications, register) for entry in entries)
             parts.append(f"<p>{lead}</p><ul>{items}</ul>")
     k = table["findings_naming_no_variant"]
     if k:
@@ -7200,6 +7285,7 @@ def _literature_section(
     literature: GeneLiterature,
     publications: Mapping[str, Publication],
     labels: Mapping[str, str],
+    register: str,
 ) -> str:
     """The gene's curated literature, in this order: the summary line, the timeline of
     approved papers and their folded list (or `No approved findings yet.` and no axis),
@@ -7216,8 +7302,9 @@ def _literature_section(
     the exclusion tally and every search folded with its exact query. The
     timeline and the list cover approved findings only, which is all the bundle
     carries; the `await approval` clause is what stops the unapproved ones being
-    invisible. A finding's `review_status` and `review_note` are rendered beside
-    its summary (ruling R24): the mark qualifies a published finding and never hides it.
+    invisible. A finding's `review_status` is rendered beside
+    its summary as its label and a "why" link to the register, which holds the
+    note (ruling R24): the mark qualifies a published finding and never hides it.
 
     `publications` supplies each paper's year; `_paper_groups` raises on an
     unregistered paper, because validation refuses one (LIT011).
@@ -7244,7 +7331,7 @@ def _literature_section(
     if findings:
         groups = _paper_groups(findings, publications)
         body = _literature_timeline(groups, publications) + _literature_publications(
-            groups, publications
+            groups, publications, register
         )
     else:
         body = "<p>No approved findings yet.</p>"
@@ -7253,7 +7340,7 @@ def _literature_section(
         + body
         + _literature_exclusions(triage["excluded"])
         + _literature_searches(searches)
-        + _variant_section(variant_table(findings), publications, labels)
+        + _variant_section(variant_table(findings), publications, labels, register)
     )
 
 
@@ -7364,6 +7451,10 @@ def build_gene_pages(
         identity = None if identities is None else identities.get(gene, EMPTY_IDENTITY)
         gene_literature_bundle = literature.get(gene, EMPTY_GENE_LITERATURE)
         curated = fact.atlas_curation is AtlasCuration.CURATED
+        # From `genes/`, where this page sits, to the gene's register. The page
+        # exists exactly when `open_questions` is non-empty (`build_register_pages`),
+        # and the card's literature line and every marked record link to it.
+        register = "../" + register_page_path(HgncId(gene))
         body = (
             '<div class="layout">'
             + _rail(
@@ -7383,6 +7474,7 @@ def build_gene_pages(
                 # Only the assertions whose headings `_evidence_section` renders
                 # below, so every link the card makes lands on this page.
                 anchored_assertions=tuple(record.id for record in records) if curated else (),
+                register=register,
             )
             + "<div>"
             + _SCOPE_SHORT
@@ -7407,7 +7499,7 @@ def build_gene_pages(
             # the atlas's own curation, so they sit together after the mirrored
             # validity they are distinguished from. It was the page's last
             # section until then, appended after expression.
-            + _literature_section(gene_literature_bundle, publications, phenotype_labels)
+            + _literature_section(gene_literature_bundle, publications, phenotype_labels, register)
             # After the atlas's own section, not between it and the mirrored
             # validity table, which keeps the atlas's own curation beside the
             # classifications it is distinguished from. The old main-column
@@ -7437,6 +7529,113 @@ def build_gene_pages(
         emitter.write_text(
             gene_page_path(HgncId(gene)),
             document(title=f"{symbol} — CHD Atlas", root="../", body=body),
+        )
+
+
+_REGISTER_HEADERS: Final = ("Record", "Question", "Reason", "Would be settled by")
+# The register's own rules, inlined on register pages alone through
+# `document(style=...)`, so no other page changes by a byte. A "why" link lands
+# on one record of a row, and in a table row the reason cell sits level with the
+# middle of that row's record list: on a 485 px wide, 713 px high viewport the
+# reason was above the screen for 13 of TBX5's 25 landings (review of
+# 2026-11-18, measured in headless Chrome). Under 40rem the table therefore
+# stacks: each row a block, its cells in order, each cell's `data-label` (its
+# column header, `data_table(labelled=True)`) standing in for the hidden
+# header. Wider screens keep the table. `:target` marks the record landed on.
+# Measured 2026-11-18 the same way, at 390x844, 485x713 and 1280x800: the reason
+# text wholly in view for 25 of 25 TBX5 and 8 of 8 NR2F2 landings at each width,
+# and no horizontal page scroll.
+_REGISTER_STYLE: Final = """
+  #register-table [id^="q-"]:target {
+    background: var(--notice-bg); outline: 2px solid var(--notice-border);
+  }
+  @media (max-width: 40rem) {
+    #register-table, #register-table tbody, #register-table tr, #register-table td {
+      display: block;
+    }
+    #register-table thead { display: none; }
+    #register-table tr { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+    #register-table tr:last-child { border-bottom: none; }
+    #register-table td { border-bottom: none; padding: 0.2rem 0.85rem; }
+    #register-table td::before {
+      content: attr(data-label); display: block; color: var(--muted); font-weight: 600;
+      font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+  }
+"""
+_REGISTER_INTRO: Final = (
+    "The open questions on this gene's approved literature findings, each with "
+    "its reason. A question stays open until what the last column names settles "
+    "it; the gene page marks each one."
+)
+
+
+def build_register_pages(
+    emitter: Emitter,
+    *,
+    literature: Mapping[str, GeneLiterature],
+    published: Collection[str],
+    symbols: Mapping[str, str],
+    publications: Mapping[str, Publication],
+) -> None:
+    """Emit `register/<slug>.html`: a gene's open literature questions.
+
+    One page per published gene with at least one open question on its
+    approved findings, none otherwise. `literature` holds every gene's record,
+    published or not (`gene_literature`), so `published` restricts it here, as
+    `facts` restricts the gene pages: a register for an unpublished gene would
+    link back to a gene page no builder wrote. It renders `literature[gene]
+    ["findings"]` through `questions.open_questions` and `question_rows`, the
+    same functions the curators' command reads, so the register is the approved
+    subset of the command's list. N in the heading counts questions; the table
+    has one row per merged group.
+
+    Every anchor is visible (no `<details>`), so a "why" link on the gene page
+    always lands on a row naming its record. Every curator string is escaped.
+    """
+    for gene in sorted(gene for gene in literature if gene in published):
+        findings = literature[gene]["findings"]
+        questions = open_questions(findings)
+        if not questions:
+            continue
+        symbol = symbols.get(gene, gene)
+        papers: dict[str, int] = {}
+        for finding in findings:
+            papers[finding["publication"]] = papers.get(finding["publication"], 0) + 1
+        rows: list[Row] = []
+        for question in question_rows(questions):
+            spans = []
+            for record in question["records"]:
+                parts = [_paper_link(record["publication"], publications).html]
+                if papers[record["publication"]] > 1:
+                    parts.append(html.escape(record["finding"]))
+                if record["variant_name"] is not None:
+                    parts.append(html.escape(_bare(record["variant_name"])))
+                spans.append(
+                    f'<span id="{html.escape(record["anchor"])}">{" · ".join(parts)}</span>'
+                )
+            rows.append(
+                Row(
+                    cells=(
+                        Markup("<br>".join(spans)),
+                        QUESTION_LABELS[question["kind"]],
+                        question["reason"],
+                        SETTLED_LABELS[question["settled_by"]],
+                    )
+                )
+            )
+        slug_page = html.escape(f"../{gene_page_path(HgncId(gene))}")
+        body = (
+            f"<h1>{html.escape(symbol)} register</h1>"
+            f'<p><a href="{slug_page}">{html.escape(symbol)} gene page</a></p>'
+            f"<p>{html.escape(_REGISTER_INTRO)}</p>"
+            f'<h2 id="questions">Open questions ({len(questions)})</h2>'
+            '<div class="scroll">'
+            f"{data_table(_REGISTER_HEADERS, rows, 'register-table', labelled=True)}</div>"
+        )
+        emitter.write_text(
+            register_page_path(HgncId(gene)),
+            document(title=f"{symbol} register", root="../", body=body, style=_REGISTER_STYLE),
         )
 
 

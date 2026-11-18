@@ -9,6 +9,12 @@ from typing import Any, Final
 
 import typer
 
+from chd_atlas.build.questions import (
+    QUESTION_LABELS,
+    SETTLED_LABELS,
+    SETTLED_ORDER,
+    open_questions,
+)
 from chd_atlas.build.runner import BuildRefused, build_site
 from chd_atlas.changes import render_markdown, site_changes
 from chd_atlas.corpus import Corpus, load_curation
@@ -52,6 +58,7 @@ from chd_atlas.models.review import ReviewStatus
 from chd_atlas.schema_export import TABLE_SCHEMA_DIR, export_schemas, export_table_schemas
 from chd_atlas.validate.gene_synthesis import validate_gene_synthesis
 from chd_atlas.validate.runner import validate_repository
+from chd_atlas.vocab import SettledBy
 
 app = typer.Typer(help="CHD Atlas curation tooling.", no_args_is_help=True)
 schemas_app = typer.Typer(help="JSON Schema utilities.", no_args_is_help=True)
@@ -581,9 +588,32 @@ def _variant_line(variant: Variant) -> str:
         f" | kind {variant.kind.value} | reported {reported}"
         f" | locator {variant.locator.kind} {_locator_text(variant.locator)}"
     )
-    if variant.review_status is not None:
-        line += f" | review: {variant.review_status.value}: {variant.review_note}"
     return line
+
+
+def _mark_text(
+    status: ReviewStatus | None, note: str | None, settled_by: SettledBy | None
+) -> str | None:
+    """`review: pending_review (settled by the authors): <note>`; a `not_accessible` mark
+    names no settler (the full text settles it by definition); None when unmarked."""
+    if status is None:
+        return None
+    if settled_by is None:
+        return f"review: {status.value}: {note}"
+    return f"review: {status.value} (settled by {SETTLED_LABELS[settled_by.value]}): {note}"
+
+
+def _variant_lines(variant: Variant) -> list[str]:
+    """The variant's line, then (indented) its own mark and one line per unclear field."""
+    lines = [_variant_line(variant)]
+    mark = _mark_text(variant.review_status, variant.review_note, variant.review_settled_by)
+    if mark is not None:
+        lines.append(f"    {mark}")
+    for field in ("zygosity", "phase"):
+        entry = variant.unclear.get(field)
+        if entry is not None:
+            lines.append(f"    unclear {field} ({entry.settled_by.value}): {entry.reason}")
+    return lines
 
 
 def _listing(finding: Finding, paper: Publication | None) -> list[str]:
@@ -613,7 +643,7 @@ def _listing(finding: Finding, paper: Publication | None) -> list[str]:
         f"  comparator: {finding.comparator.value if finding.comparator else 'none'}",
         f"  burden study: {finding.burden_study or 'none'}",
         f"  variant classes: {_ids([v.value for v in finding.variant_classes])}",
-        *(_variant_line(v) for v in finding.variants),
+        *(line for v in finding.variants for line in _variant_lines(v)),
         f"  {_counts_text(finding)}",
         f"  phenotypes: {', '.join(finding.phenotypes)}",
         f"  lesion groups: {', '.join(g.value for g in finding.lesion_groups)}",
@@ -622,8 +652,9 @@ def _listing(finding: Finding, paper: Publication | None) -> list[str]:
         f"  locators: {'; '.join(_locator_text(loc) for loc in finding.locators)}",
         f"  shares probands with: {shared if isinstance(shared, str) else _ids(shared)}",
     ]
-    if finding.review_status is not None:
-        lines.append(f"  review: {finding.review_status.value}: {finding.review_note}")
+    mark = _mark_text(finding.review_status, finding.review_note, finding.review_settled_by)
+    if mark is not None:
+        lines.append(f"  {mark}")
     lines.append(f"  extracted by: {finding.extracted_by}")
     lines.append(f"  {finding.summary}")
     return lines
@@ -650,13 +681,21 @@ def _approval_void(finding: Finding) -> bool:
     return finding.approved_by is not None and finding.approved_digest != finding_digest(finding)
 
 
-def _cited_state(finding: Finding) -> str:
-    """The mark after a cited finding: ` [unapproved]`, ` [approval void: LIT015]`, or
-    ` [<review mark>]`, in that precedence, else nothing."""
+def _approval_state(finding: Finding) -> str:
+    """` [unapproved]`, ` [approval void: LIT015]`, or nothing for a sound approval."""
     if finding.approved_by is None:
         return " [unapproved]"
     if _approval_void(finding):
         return " [approval void: LIT015]"
+    return ""
+
+
+def _cited_state(finding: Finding) -> str:
+    """The mark after a cited finding: ` [unapproved]`, ` [approval void: LIT015]`, or
+    ` [<review mark>]`, in that precedence, else nothing."""
+    state = _approval_state(finding)
+    if state:
+        return state
     if finding.review_status is not None:
         return f" [{finding.review_status.value}]"
     return ""
@@ -735,6 +774,62 @@ def _write_unless_changed(path: Path, read: bytes, content: bytes) -> None:
     write_bytes_atomically(path, content)
 
 
+@literature_app.command("questions")
+def literature_questions(
+    symbol: str | None = typer.Argument(
+        None, help="Gene symbol (approved, alias or previous); omit for every literature file."
+    ),
+    root: Path = typer.Option(Path("."), help="Repository root."),
+) -> None:
+    """List every open question in a gene's findings, approved or not. Read-only.
+
+    Per gene: `<SYMBOL>: N open questions`, then a heading per settler in the
+    order the atlas ranks them, `settled by <label> (K)`; N and every K count
+    questions, not records (a `with` group's shared unclear phase is one question
+    over several variants). A line names the finding (and `v<id>`), its PMID and the
+    question; a finding that is unapproved or whose approval is void is marked
+    exactly as `literature review` marks it. Exit 2 for an unknown symbol or a gene
+    with no literature file.
+    """
+    _require_root(root)
+    if symbol is not None:
+        approved, path = _require_literature_file(root, symbol)
+        files = [(approved, path)]
+    else:
+        directory = literature_path(root, "X").parent
+        files = (
+            [(p.stem, p) for p in sorted(directory.glob("*.yaml"))] if directory.is_dir() else []
+        )
+    for name, path in files:
+        try:
+            record = parse_literature(path.read_bytes())
+        except LiteratureFileError as exc:
+            raise _fail(f"{path}: {exc}", 1) from None
+        findings = sorted(record.findings, key=lambda f: f.id)
+        by_id: dict[str, Finding] = {f.id: f for f in findings}
+        questions = open_questions([f.model_dump(mode="json", by_alias=True) for f in findings])
+        count = len(questions)
+        typer.echo(f"{name}: {count} open question{'' if count == 1 else 's'}")
+        for settler in SETTLED_ORDER:
+            group = [q for q in questions if q["settled_by"] == settler]
+            if not group:
+                continue
+            typer.echo(f"settled by {SETTLED_LABELS[settler]} ({len(group)})")
+            for question in group:
+                for rec in question["records"]:
+                    where = (
+                        rec["finding"]
+                        if rec["variant"] is None
+                        else (f"{rec['finding']} v{rec['variant']}")
+                    )
+                    typer.echo(
+                        f"  {where}  {rec['publication']}  {QUESTION_LABELS[question['kind']]}"
+                        f"{_approval_state(by_id[rec['finding']])}"
+                    )
+                if question["kind"] != "not_accessible":
+                    typer.echo(f"    {question['reason']}")
+
+
 @literature_app.command("review")
 def literature_review(
     symbol: str = typer.Argument(..., help="Gene symbol (approved, alias or previous)."),
@@ -768,6 +863,12 @@ def literature_review(
         help="With --approve-synthesis: the digest the listing printed (12 or more hex digits).",
     ),
     note: str = typer.Option("", "--note", help="The measured disagreement, for --pending-review."),
+    settled_by: SettledBy | None = typer.Option(
+        None,
+        "--settled-by",
+        help="What would settle the question, for --pending-review: "
+        "full_text, authors, expert or atlas_model.",
+    ),
     root: Path = typer.Option(Path("."), help="Repository root."),
 ) -> None:
     """List the findings awaiting approval (and the synthesis, if any), approve some, or mark one.
@@ -800,6 +901,8 @@ def literature_review(
         )
     if not pending_review and note:
         raise _fail("--note only applies with --pending-review", 2)
+    if not pending_review and settled_by is not None:
+        raise _fail("--settled-by only applies with --pending-review", 2)
     if not approve_synthesis and digest:
         raise _fail("--digest only applies with --approve-synthesis", 2)
     if against is not None and (approve or pending_review or approve_synthesis):
@@ -824,6 +927,13 @@ def literature_review(
         )
     if pending_review and not note.strip():
         raise _fail("--note (the measured disagreement) is required with --pending-review", 2)
+    if pending_review and settled_by is None:
+        raise _fail(
+            "--settled-by (what would settle the question: "
+            + ", ".join(v.value for v in SettledBy)
+            + ") is required with --pending-review",
+            2,
+        )
 
     approved_symbol, path = _require_literature_file(root, symbol)
     raw = path.read_bytes()
@@ -946,6 +1056,7 @@ def literature_review(
             pending_review: {
                 "review_status": ReviewStatus.PENDING_REVIEW.value,
                 "review_note": note.strip(),
+                "review_settled_by": settled_by.value if settled_by else None,
             }
         }
         messages = [f"marked {pending_review} pending_review"]
