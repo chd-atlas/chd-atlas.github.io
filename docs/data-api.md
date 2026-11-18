@@ -59,7 +59,7 @@ What the build produced, and a checksum for every file in it.
     "genes/index.json": "sha256:<64 hex>",
     "publications.json": "sha256:<64 hex>"
   },
-  "schema_version": "2.23",
+  "schema_version": "2.24",
   "source_commit": "<40-hex commit sha, or null outside a git checkout>",
   "status": "in-development"
 }
@@ -312,6 +312,8 @@ wrong by the next one.
   short" narrative, `null` where the gene has none, or its approval is missing
   or stale (see each field's own description). The gene page card reads from
   both. Additive.
+  `2.24` added `variants` to every finding in `literature.findings` and
+  `normalisations` to `literature`. Additive.
 - `status` is the atlas's own readiness, so a program can read it without
   scraping `index.html`'s prose. Today it is always `"in-development"` — one
   curated gene-disease assertion alongside mirrored ClinGen/GenCC validity for
@@ -772,6 +774,7 @@ abridged, and each is documented in full further down.
     "pending_approval": 0,
     "findings": [ { "id": "CHDA:LIT:0000015", "publication": "PMID:12789647",
                     "design": "cohort_screen", … }, … ],
+    "normalisations": [],
     "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
                  "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
                  "de_novo_papers": 11, "inherited_papers": 24,
@@ -1629,7 +1632,7 @@ On every gene bundle (since `2.21`). Always present; a gene with no
 
 ```json
 { "searches": [], "triage": { "included": 0, "excluded": {}, "pending": 0 },
-  "pending_approval": 0, "findings": [],
+  "pending_approval": 0, "findings": [], "normalisations": [],
   "tallies": { "papers": 0, "first_year": null, "last_year": null, "designs": {},
                "lesion_groups": {}, "de_novo_papers": 0, "inherited_papers": 0,
                "abstract_only_papers": 0, "pending_review_papers": 0 },
@@ -1645,7 +1648,9 @@ TBX5's, abridged:
   "pending_approval": 0,
   "findings": [ { "id": "CHDA:LIT:0000015", "publication": "PMID:12789647", "design": "cohort_screen",
                   "count_unit": "probands", "screened": 49,
-                  "carriers": { "de_novo": 0, "inherited": 9, "origin_unknown": 8 }, … }, … ],
+                  "carriers": { "de_novo": 0, "inherited": 9, "origin_unknown": 8 },
+                  "variants": [], … }, … ],
+  "normalisations": [],
   "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
                "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
                "de_novo_papers": 11, "inherited_papers": 24,
@@ -1681,6 +1686,15 @@ TBX5's, abridged:
   not yet approved, which is then in no bundle, so the id resolves nowhere in the
   published data. `carriers` and `screened` are counted in `count_unit`: with
   `families`, `screened` is families and each origin count is carrier families.
+- `variants` (since `2.24`) lists the variants a finding names, `[]` for none.
+  Each carries `as_reported`, `placement`, `hgvs_c`, `hgvs_p`, `grch38`,
+  `zygosity`, `with` (ids of variants it was found with), `reported` (the paper's
+  own names, unchecked) and `normalisation`, the id of a run in `normalisations`.
+  A variant outside the checked region has no coordinates. A consumer groups on
+  `grch38`, never on `as_reported`.
+- `normalisations` (since `2.24`) lists the normaliser runs that published
+  variants cite, by `id`: `tool`, the tool, database and sequence versions, and
+  `run_on`. A run no published variant cites is not published.
 - `tallies` (since `2.23`) counts the approved findings by paper (distinct `publication`), never
   carriers: papers may share probands, so no carrier total across papers is
   published. A paper with several findings counts once in each category, so the
@@ -1711,6 +1725,15 @@ TBX5's, abridged:
   digit run, a digit run read as an ordinal, a decade or a multiple ("3rd",
   "1990s", "3x"), a numeric symbol such as "½", and a fixed list of number words,
   alone or glued to "fold"; counts are in `tallies` and the findings.
+
+A finding with one variant (a made-up example, not TBX5's), and the run it cites, abridged:
+
+```json
+{ "findings": [ { "id": "CHDA:LIT:0000015", "variants": [ { "id": 1, "as_reported": "p.R279X",
+                    "placement": "mane", "grch38": "12:114366312:G:A", "normalisation": 1,
+                    "with": [], … } ], … } ],
+  "normalisations": [ { "id": 1, "tool": "variantvalidator", "run_on": "2026-11-17", … } ] }
+```
 
 The gene page renders this as its Literature section, right after the atlas's
 curated evidence (on a gene with none, after the validity table) and before the

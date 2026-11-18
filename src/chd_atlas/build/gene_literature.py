@@ -106,6 +106,7 @@ class GeneLiterature(TypedDict):
     triage: TriageTally
     pending_approval: int
     findings: list[dict[str, Any]]
+    normalisations: list[dict[str, Any]]
     tallies: LiteratureTallies
     synthesis: PublishedSynthesis | None
 
@@ -160,6 +161,7 @@ EMPTY_GENE_LITERATURE: Final[GeneLiterature] = GeneLiterature(
     triage=TriageTally(included=0, excluded={}, pending=0),
     pending_approval=0,
     findings=[],
+    normalisations=[],
     tallies=literature_tallies([], {}),
     synthesis=None,
 )
@@ -245,6 +247,14 @@ def gene_literature(corpus: Corpus) -> dict[str, GeneLiterature]:
         approved.sort(
             key=lambda f: (years[str(f.publication)], pmid_number(str(f.publication)), str(f.id))
         )
+        # A run publishes only when a published variant cites it: an unapproved
+        # finding's variants, and the runs only they cite, reach no file.
+        cited = {
+            variant.normalisation
+            for finding in approved
+            for variant in finding.variants
+            if variant.normalisation is not None
+        }
         result[gene] = GeneLiterature(
             searches=[
                 SearchRecord(
@@ -263,7 +273,13 @@ def gene_literature(corpus: Corpus) -> dict[str, GeneLiterature]:
             ),
             pending_approval=unapproved,
             findings=[
-                finding.model_dump(mode="json", exclude={"approved_digest"}) for finding in approved
+                finding.model_dump(mode="json", by_alias=True, exclude={"approved_digest"})
+                for finding in approved
+            ],
+            normalisations=[
+                run.model_dump(mode="json")
+                for run in sorted(file.normalisations, key=lambda n: n.id)
+                if run.id in cited
             ],
             tallies=literature_tallies(approved, years),
             synthesis=_published_synthesis(

@@ -518,7 +518,9 @@ from chd_atlas.corpus import Corpus
 # `{"papers": 0, ...}` with empty maps where the gene has no approved finding.
 # It also gains `synthesis`: the gene's "In short" narrative, `null` unless it is
 # approved and its approval is current.
-SCHEMA_VERSION: Final = "2.23"
+#
+# 2.24 (additive): `literature.findings[].variants` and `literature.normalisations`.
+SCHEMA_VERSION: Final = "2.24"
 
 # What `status` publishes today. A literal rather than something derived from
 # the corpus, unlike every field in `counts`: there is no measurement of "is

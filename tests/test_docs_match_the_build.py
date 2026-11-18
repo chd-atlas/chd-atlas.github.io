@@ -35,6 +35,7 @@ from chd_atlas.build.runner import build_site
 from chd_atlas.build.validity import GeneValidity, gene_validity
 from chd_atlas.corpus import load_curation
 from chd_atlas.models.dataset import Dataset, Stage
+from chd_atlas.models.gene_literature import Normalisation, Variant
 from chd_atlas.tables import TABLE_SCHEMAS, read_table
 from chd_atlas.vocab import has_conflicting_evidence
 
@@ -1621,10 +1622,17 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
     section = doc[doc.index(heading) + len(heading) :]
     section = re.split(r"\n#{2,3} ", section)[0]
     blocks = re.findall(r"```json\n(.*?)```", section, re.S)
-    assert len(blocks) == 2, "the literature section shows the empty shape and TBX5's"
+    assert len(blocks) == 3, "the literature section shows the empty shape, TBX5's and a variant"
     _agrees(_abridged(blocks[0]), empty["literature"], "literature (empty)")
     tbx5 = json.loads((site / "genes" / "HGNC_11604.json").read_text())
     _agrees(_abridged(blocks[1]), tbx5["literature"], "literature (TBX5)")
+    # TBX5 has no variant, so the third example cannot be held to a published one:
+    # hold its keys to the models' own, so a renamed field breaks the doc.
+    shown = _abridged(blocks[2])
+    variant = shown["findings"][0]["variants"][0]
+    assert set(variant) - {"…"} <= {f.alias or n for n, f in Variant.model_fields.items()}
+    run = shown["normalisations"][0]
+    assert set(run) - {"…"} <= set(Normalisation.model_fields)
     empty_count = len(bundles) - len(with_record)
     prose = " ".join(section.split())
     assert f"as {empty_count} of the {len(bundles)} published genes do today" in prose
@@ -1633,6 +1641,7 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
         "`pending_approval` counts findings no named person has approved",
         "sorted by publication year, then numeric PMID, then finding id",
         "A finding carrying a `review_status` is published with it",
+        "A consumer groups on `grch38`",
     ):
         assert needle in prose, needle
 

@@ -177,6 +177,80 @@ def test_a_genes_literature_is_its_searches_its_tally_and_only_its_approved_find
     assert json.dumps(entry)
 
 
+def _run(number: int) -> dict[str, Any]:
+    return {
+        "id": number,
+        "tool": "variantvalidator",
+        "version": f"v{number}",
+        "hgvs_version": "2.2",
+        "vvta": "vvta_1",
+        "vvdb": "vvdb_1",
+        "seqrepo": "seqrepo_1",
+        "run_on": "2026-11-17",
+    }
+
+
+def _variant_file(*, second_approved: bool) -> GeneLiteratureFile:
+    """Runs 3, 1 and 2 listed out of order; the approved finding cites 2 and 1, an
+    unapproved one cites 3. Variant 2 carries a non-empty `with`."""
+    raw = _file().model_dump(mode="json", by_alias=True)
+    raw["normalisations"] = [_run(3), _run(1), _run(2)]
+    by_id = {f["id"]: f for f in raw["findings"]}
+
+    def variant(number: int, run: int, **changes: Any) -> dict[str, Any]:
+        base = {
+            "id": number,
+            "as_reported": f"as printed {number}",
+            "locator": {"kind": "in_text", "element": "Table 1"},
+            "kind": "snv_indel",
+            "placement": "mane",
+            "grch38": f"12:{number}:G:A",
+            "normalisation": run,
+        }
+        return {**base, **changes}
+
+    by_id["CHDA:LIT:0000002"]["variants"] = [
+        variant(1, 2),
+        variant(2, 1, **{"with": [1]}),
+    ]
+    by_id["CHDA:LIT:0000003"]["variants"] = [variant(1, 3)]
+    for finding in raw["findings"]:
+        if finding["id"] == "CHDA:LIT:0000002":
+            finding["approved_digest"] = "sha256:probe"
+    if not second_approved:
+        by_id["CHDA:LIT:0000002"].update(approved_by=None, approved_on=None, approved_digest=None)
+    raw["findings"] = [
+        stamped({k: v for k, v in f.items() if k != "approved_digest"}) for f in raw["findings"]
+    ]
+    return GeneLiteratureFile.model_validate(raw)
+
+
+def test_an_approved_findings_variants_publish_with_their_with_key_and_cited_normalisations() -> (
+    None
+):
+    entry = gene_literature(_corpus(_variant_file(second_approved=True)))[TBX5]
+
+    finding = next(f for f in entry["findings"] if f["id"] == "CHDA:LIT:0000002")
+    assert [v["id"] for v in finding["variants"]] == [1, 2]
+    linked = finding["variants"][1]
+    assert linked["with"] == [1]
+    assert "with_" not in linked
+    assert linked["reported"] == {"transcript": None, "c": None, "p": None, "rsid": None}
+    # A finding with no variant publishes `[]`, not an absent key.
+    assert next(f for f in entry["findings"] if f["id"] == "CHDA:LIT:0000004")["variants"] == []
+    # Cited runs only (run 3 is cited by an unapproved finding), sorted by id, JSON-ready.
+    assert [n["id"] for n in entry["normalisations"]] == [1, 2]
+    assert entry["normalisations"][0]["run_on"] == "2026-11-17"
+    assert json.dumps(entry)
+
+
+def test_an_unapproved_findings_normalisation_does_not_publish() -> None:
+    entry = gene_literature(_corpus(_variant_file(second_approved=False)))[TBX5]
+
+    assert all(f["variants"] == [] for f in entry["findings"])
+    assert entry["normalisations"] == []
+
+
 def test_a_review_mark_is_published_with_an_approved_finding() -> None:
     raw = _file().model_dump(mode="json")
     raw["findings"][0].update(review_status="pending_review", review_note="Source disagrees.")
@@ -228,6 +302,7 @@ def test_the_empty_shape_is_literally_the_documented_one() -> None:
         "triage": {"included": 0, "excluded": {}, "pending": 0},
         "pending_approval": 0,
         "findings": [],
+        "normalisations": [],
         "synthesis": None,
         "tallies": {
             "papers": 0,
