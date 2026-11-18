@@ -2759,7 +2759,8 @@ assumed from the presence of a `validity` object.
 
 The registry also carries `mane_select`, MANE Select v1.5 (NCBI and EMBL-EBI),
 recorded `"redistribution": "permitted_with_attribution"` under NCBI's data policy
-(no NCBI restrictions; submitters may claim rights). The build checks each
+(no NCBI restrictions; submitters may claim rights). NCBI places no restriction on
+the data; the atlas attributes it, as NLM requests for its web content. The build checks each
 gene's `mane_select` identity field against it; no published bundle or page
 carries a value taken from its two mirror tables.
 

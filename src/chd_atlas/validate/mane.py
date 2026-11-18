@@ -8,6 +8,11 @@ genes frame lacking `hgnc_id` or `mane_select` is skipped for the same reason
 (TBL001 reports the column), and a row whose `hgnc_id` is null is skipped (TBL003
 reports it).
 
+MAN004 is a WARNING and the rest are errors (owner decision 2026-11-18): the
+package drops some genes' MANE Select by design (a transcript placed only on an
+alternate scaffold, or a non-coding NR_), and such a registry gene is allowed in
+with a warning rather than refusing the build.
+
 Issues come back sorted, never in dict or set iteration order.
 """
 
@@ -155,7 +160,13 @@ def _against_registry(
         declared = row.get("mane_select")
         t = frame.get(hgnc_id)
         if t is None:
-            yield _man("MAN004", location, f"{hgnc_id} has no row in mane_transcripts")
+            yield ValidationIssue(
+                "MAN004",
+                Severity.WARNING,
+                str(location),
+                f"{hgnc_id} has no row in mane_transcripts: no MANE Select frame, "
+                "so its variants cannot be checked against MANE",
+            )
         elif declared != t.transcript:
             yield _man(
                 "MAN003",

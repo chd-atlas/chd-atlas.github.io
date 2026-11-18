@@ -2063,7 +2063,10 @@ def test_the_front_page_names_every_source_that_requires_attribution(site: Path)
     written: 7 such sources. Since the doorway page (2026-10-27) the section is
     "Sources", one paragraph of 118 words (tags deleted outright, the method
     below), and the sentence is three. Farah et al. 2024's cell-type data made it 8
-    sources on 2026-11-02, named in one 13-word sentence. Measured on builds of fe94116, the
+    sources on 2026-11-02, named in one 13-word sentence; MANE Select v1.5 made it 9 on
+    2026-11-18, named in one 17-word sentence (131 words with Farah's, 148 with MANE's,
+    tags deleted outright; 136 and 153 with each tag replaced by a space, measured on a
+    build of this branch by the method below). Measured on builds of fe94116, the
     paragraph's HTML between `<p>` and `</p>` (heading not counted) with entities unescaped and
     split on whitespace: 118 words without the sentence and 131 with it when
     tags are deleted outright, 123 and 136 when each tag is replaced by a

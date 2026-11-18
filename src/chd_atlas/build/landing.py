@@ -347,11 +347,11 @@ def _render(
     # name. Audain et al. 2021's S6 Table is CC0-1.0, so it is named apart. Farah
     # et al. 2024's cell-type data carry no licence of their own (the UCSC Cell
     # Browser states none; owner decision 2026-11-02), so the sentence names
-    # whom they are attributed to and states no licence for them. The
-    # MANE Select v1.5 is attributable (owner decision) under NCBI's data policy;
-    # the sentence states only what the build does with it, which is to check
-    # `genes.tsv`'s `mane_select` against it (MAN003); no variant is placed on
-    # it yet. The
+    # whom they are attributed to and states no licence for them. MANE Select
+    # v1.5 is used without restriction and attributed, as NLM requests for its web
+    # content (owner decision 2026-11-18); the sentence states only what the build
+    # does with it, which is to check `genes.tsv`'s `mane_select` against it
+    # (MAN003); no variant is placed on it yet. The
     # Orphadata citation is Orphadata's own requested form, its "Data version"
     # each file's own header (R11, `_orphadata_version`).
     orphadata = _orphadata_version(sources)
