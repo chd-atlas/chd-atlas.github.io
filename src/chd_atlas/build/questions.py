@@ -86,12 +86,17 @@ def _variant_record(
 
 
 def _review_mark(record: Mapping[str, Any], records: list[QuestionRecord]) -> Question | None:
+    """The record's own mark as a question, or None. A status other than the two
+    `ReviewStatus` values is refused rather than read as pending review, so a value
+    added to the vocabulary later cannot publish under the wrong label."""
     status = record["review_status"]
     if status is None:
         return None
     if status == "not_accessible":
         # Settled by the full text by definition; the model refuses a settler here.
         return _mark("not_accessible", record["review_note"], "full_text", records)
+    if status != "pending_review":
+        raise ValueError(f"review_status {status!r} is neither pending_review nor not_accessible")
     return _mark("pending_review", record["review_note"], record["review_settled_by"], records)
 
 
@@ -101,6 +106,15 @@ def open_questions(findings: Sequence[Mapping[str, Any]]) -> list[Question]:
     Within a finding: its own mark, then each variant by id (its own mark, then
     zygosity, then phase). A `with` group's unclear phase is emitted once, at the
     member with the lowest id, naming every member in id order.
+
+    A member's group is read from its own `with` list, so this relies on LIT022's
+    rule that every member names every other. In a chain 1-2, 2-3, which LIT022
+    refuses, variant 3 reads its group as {2, 3} and leaves the question to 2, 2
+    reads {1, 2, 3} and leaves it to 1, and 1 reads {1, 2}: the one question
+    emitted names variants 1 and 2, and variant 3 appears nowhere (measured
+    2026-11-18). The build refuses a corpus failing validation; the `literature
+    questions` command parses the YAML through the models and runs no validate
+    code, so on such a file its list can omit a record.
     """
     questions: list[Question] = []
     for finding in findings:

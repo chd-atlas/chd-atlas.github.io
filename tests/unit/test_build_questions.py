@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from chd_atlas.build.questions import (
     open_questions,
     question_anchor,
@@ -108,6 +110,9 @@ def test_not_accessible_is_settled_by_the_full_text() -> None:
 
 
 def test_a_variant_with_both_fields_unclear_is_two_questions() -> None:
+    # One variant with both fields unclear is a shape LIT022 refuses (a linked
+    # variant is heterozygous; an unlinked one has no phase). Kept: `literature
+    # questions` runs no validate code, so this function still meets it (spec 5.7).
     finding = _finding(
         4,
         "PMID:4",
@@ -224,6 +229,20 @@ def test_a_with_group_sharing_an_unclear_phase_is_one_question_naming_every_memb
     assert open_questions([finding]) == expected
 
 
+def test_a_review_status_outside_the_two_marks_is_refused() -> None:
+    """Not read as pending review: a value `ReviewStatus` gains later must not publish
+    under the wrong label on the register or in the command (final review, D3)."""
+    for record in ("finding", "variant"):
+        variant = _variant(
+            1, review_status="pending_review", review_note="n", review_settled_by="authors"
+        )
+        finding = _finding(1, "PMID:1", variants=[variant])
+        target = finding if record == "finding" else finding["variants"][0]
+        target.update(review_status="disputed", review_note="n", review_settled_by="authors")
+        with pytest.raises(ValueError, match="'disputed' is neither pending_review nor"):
+            open_questions([finding])
+
+
 def test_identical_questions_share_a_row_and_different_ones_do_not() -> None:
     note = "Only the abstract was read."
     first = _finding(1, "PMID:1", review_status="not_accessible", review_note=note)
@@ -277,8 +296,17 @@ def test_rows_follow_full_text_authors_expert_then_a_change_to_the_atlas() -> No
         9,
         "PMID:9",
         variants=[
-            _variant(
-                1, hgvs_c="c.1A>G", phase="unclear", unclear={"phase": _entry("P.", "authors")}
+            # A linked pair, as LIT022 requires of a phase: one question, one row.
+            *(
+                _variant(
+                    number,
+                    hgvs_c=f"c.{number}A>G",
+                    zygosity="heterozygous",
+                    phase="unclear",
+                    unclear={"phase": _entry("P.", "authors")},
+                    **{"with": [4 - number]},
+                )
+                for number in (1, 3)
             ),
             _variant(
                 2,
@@ -315,6 +343,9 @@ def test_anchors_are_shaped_and_unique_across_a_gene() -> None:
     assert question_anchor("CHDA:LIT:0000020") == "q-chda-lit-0000020"
     assert question_anchor("CHDA:LIT:0000020", 3) == "q-chda-lit-0000020-v3"
     assert question_anchor("CHDA:LIT:0000020", 3, "zygosity") == "q-chda-lit-0000020-v3-zygosity"
+    # One variant with both fields unclear is a shape LIT022 refuses (a linked
+    # variant is heterozygous; an unlinked one has no phase). Kept: `literature
+    # questions` runs no validate code, so its anchors must still be unique.
     finding = _finding(
         20,
         "PMID:20",
