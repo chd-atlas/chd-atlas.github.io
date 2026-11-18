@@ -1815,8 +1815,33 @@ QUESTIONS_TEXT_EDITS = (
     # F4: unapproved; the finding itself is pending review.
     (
         "    summary: Another proband.\n",
-        "    summary: Another proband.\n    review_status: pending_review\n"
-        "    review_note: Table 2 says 7.\n    review_settled_by: authors\n",
+        """\
+    variants:
+      - id: 1
+        as_reported: c.20A>G
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: unplaced
+        zygosity: heterozygous
+        with: [2]
+        phase: unclear
+        unclear:
+          phase: {reason: The paper does not say which allele., settled_by: authors}
+      - id: 2
+        as_reported: c.30A>G
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: unplaced
+        zygosity: heterozygous
+        with: [1]
+        phase: unclear
+        unclear:
+          phase: {reason: The paper does not say which allele., settled_by: authors}
+    summary: Another proband.
+    review_status: pending_review
+    review_note: Table 2 says 7.
+    review_settled_by: authors
+""",
     ),
 )
 
@@ -1844,14 +1869,17 @@ def test_questions_groups_by_settler_in_order_and_marks_unapproved_and_void(
 
     assert result.exit_code == 0, result.stdout
     assert result.stdout.splitlines() == [
-        "TBX5: 5 open questions",
+        "TBX5: 6 open questions",
         "settled by the full text (1)",
         "  CHDA:LIT:0000001  PMID:8988165  Source not accessible [approval void: LIT015]",
-        "settled by the authors (2)",
+        "settled by the authors (3)",
         "  CHDA:LIT:0000003 v1  PMID:222  Pending review",
         "    The paper's c. name disagrees.",
         "  CHDA:LIT:0000004  PMID:333  Pending review [unapproved]",
         "    Table 2 says 7.",
+        "  CHDA:LIT:0000004 v1  PMID:333  Phase unclear [unapproved]",
+        "  CHDA:LIT:0000004 v2  PMID:333  Phase unclear [unapproved]",
+        "    The paper does not say which allele.",
         "settled by an expert (1)",
         "  CHDA:LIT:0000002 v1  PMID:111  Zygosity unclear [unapproved]",
         "    No genotype in the cohort table.",
@@ -1880,7 +1908,7 @@ def test_questions_with_no_symbol_covers_every_file_and_an_unknown_symbol_exits_
 
     assert both.exit_code == 0, both.stdout
     heads = [line for line in both.stdout.splitlines() if "open question" in line]
-    assert heads == ["GATA4: 1 open question", "TBX5: 5 open questions"]
+    assert heads == ["GATA4: 1 open question", "TBX5: 6 open questions"]
     assert "settled by the full text (1)" in both.stdout
 
     unknown = _questions(root, "NOSUCHGENE")
