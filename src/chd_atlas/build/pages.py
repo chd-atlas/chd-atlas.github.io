@@ -7009,7 +7009,7 @@ def _literature_publications(
 _VARIANT_HEADERS: Final = (
     "paper",
     "design",
-    "carriers in this finding",
+    "carriers in this report",
     "zygosity or partner",
     "heart defects",
 )
@@ -7132,8 +7132,8 @@ def _variant_section(
     `""` unless some approved finding names a variant (ruling D15, spec 7.5: no
     variants, no table). Each row is one variant, named without accessions, with
     the number of distinct papers; under it one line per report of it (a finding
-    can give two, when it names the variant alone and with a partner), each with
-    that report's own carriers. No row carries a total of carriers: two
+    gives one for each genotype context it names the variant in), each with that
+    report's own carriers. No row carries a total of carriers: two
     findings may count the same people (D33). Below the table, the variants
     outside the checked region, then those with no position (structural, then
     unplaced), each as reported with its paper; then the findings that count
@@ -7163,8 +7163,9 @@ def _variant_section(
         groups.append(f"<tbody>{''.join(lines)}</tbody>")
     # The caption describes the table, so it renders only with one (4.27).
     caption = (
-        "One row per variant, one line per report; a change named by position in one "
-        "finding and by protein alone in another is two rows. "
+        "One row per variant, one line per report. One change can take two rows: named by "
+        "its DNA change in one finding and by protein alone in another, or as a frameshift "
+        "written short in one and in full in another. "
         "Carriers are never summed across findings, because two findings can count the "
         "same people. "
         if groups

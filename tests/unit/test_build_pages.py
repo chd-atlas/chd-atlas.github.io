@@ -10899,7 +10899,7 @@ def test_the_variant_table_has_one_row_per_variant_and_one_sub_row_per_finding(
     table = section[section.index('<div class="scroll"><table>') : section.index("</table></div>")]
     assert table + "</table></div>" == (
         '<div class="scroll"><table><thead><tr><th scope="col">paper</th>'
-        '<th scope="col">design</th><th scope="col">carriers in this finding</th>'
+        '<th scope="col">design</th><th scope="col">carriers in this report</th>'
         '<th scope="col">zygosity or partner</th><th scope="col">heart defects</th></tr></thead>'
         '<tbody><tr><td colspan="5"><strong>p.(Gly80Arg)</strong> · 1 paper</td></tr>'
         f"<tr><td>{_AMES}</td><td>cohort screen</td><td>carriers: 1 inherited</td>"
@@ -10922,8 +10922,9 @@ def test_the_variant_table_has_one_row_per_variant_and_one_sub_row_per_finding(
     # Last in the Literature section, after the searches fold, under its caption.
     assert section.startswith(
         '<h3>Reported variants</h3><p class="method">One row per variant, one line per '
-        "report; a change named by position in one finding and by protein alone in another "
-        "is two rows. Carriers are never summed across findings, "
+        "report. One change can take two rows: named by its DNA change in one finding and by "
+        "protein alone in another, or as a frameshift written short in one and in full in "
+        "another. Carriers are never summed across findings, "
         "because two findings can count the same people. "
         '<a href="../methods.html#literature-variants">'
         'How variants are checked</a>.</p><div class="scroll"><table>'

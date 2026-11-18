@@ -1792,8 +1792,8 @@ findings yet." and draws no timeline. Folded after those are the exclusion tally
 by reason and every search with its date, hits and exact query. Last, on a gene
 whose approved findings name a variant, *Reported variants*: a table with one
 row per placed variant (its `c.` and `p.` names and how many papers report it)
-and, under it, one line per report of it (a finding names a variant once, or
-twice when it reports it alone and with a partner) with the paper, design, that report's own
+and, under it, one line per report of it (a finding gives one for each
+genotype context it names the variant in: alone, or with a given partner and phase) with the paper, design, that report's own
 carriers by origin, zygosity or partner, and the carriers' heart defects as HPO
 labels. No line or row sums carriers across findings. After it come the variants
 listed as reported (outside the checked region, then with no position), and how

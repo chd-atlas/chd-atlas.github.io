@@ -260,7 +260,8 @@ def _check_file(
                 "LIT015",
                 where,
                 "approved content changed since approval; approve it again with "
-                f"`chd-atlas literature review {path.stem} --approve {finding.id}`",
+                f"`chd-atlas literature review {path.stem} --approve {finding.id} --by <name>` "
+                "(add --allow-unverified when no verifier has compared the finding)",
             )
         found_by = searches.get(first_search.get(finding.publication, -1))
         if (

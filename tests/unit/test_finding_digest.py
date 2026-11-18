@@ -115,7 +115,10 @@ def test_a_void_approval_names_the_command_that_approves_it_again(tmp_path: Path
 
     root = _edited(tmp_path, summary="Edited after approval.")
     (issue,) = (i for i in validate_repository(root).issues if i.code == "LIT015")
-    assert "chd-atlas literature review TBX5 --approve CHDA:LIT:" in issue.message
+    assert (
+        "`chd-atlas literature review TBX5 --approve CHDA:LIT:0000001 --by <name>` "
+        "(add --allow-unverified when no verifier has compared the finding)"
+    ) in issue.message
     assert "delete" not in issue.message
 
 

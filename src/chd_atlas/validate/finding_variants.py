@@ -664,6 +664,19 @@ def _row_key(v: Variant) -> str | None:
     return None
 
 
+def _context(v: Variant, by_id: dict[int, Variant]) -> tuple[frozenset[str], Phase | None]:
+    """A variant's genotype context (ruling D16'): its partners' names, and the phase.
+
+    A partner is named by its row key, or by `as_reported` when it has none; the
+    partners' ids do not count, so the same pair written twice is one context.
+    """
+    names = {
+        (_row_key(p) or p.as_reported) if (p := by_id.get(o)) is not None else f"#{o}"
+        for o in v.with_
+    }
+    return frozenset(names), v.phase
+
+
 def shape_issues(finding: Finding, normalisation_ids: set[int]) -> list[ShapeIssue]:
     """LIT022-LIT024 for one finding's variants, sorted; each is `(code, variant id, message)`.
 
@@ -676,11 +689,21 @@ def shape_issues(finding: Finding, normalisation_ids: set[int]) -> list[ShapeIss
     for number in sorted({v.id for v in variants if sum(w.id == v.id for w in variants) > 1}):
         out.append(("LIT022", number, f"variant id {number} is used more than once"))
     seen: dict[str, list[Variant]] = {}
+    by_id = {v.id: v for v in variants}
+    group_of = {v.id: n for n, group in enumerate(_components(variants)) for v in group}
     for v in variants:
         key = _row_key(v)
         if key is not None:
             twin = next(
-                (w for w in seen.get(key, []) if w.id != v.id and set(w.with_) == set(v.with_)),
+                (
+                    w
+                    for w in seen.get(key, [])
+                    if w.id != v.id
+                    and (
+                        _context(w, by_id) == _context(v, by_id)
+                        or (v.id in group_of and group_of.get(w.id) == group_of[v.id])
+                    )
+                ),
                 None,
             )
             if twin is not None:
@@ -689,10 +712,10 @@ def shape_issues(finding: Finding, normalisation_ids: set[int]) -> list[ShapeIss
                         "LIT022",
                         v.id,
                         f"variant {v.id} repeats variant {twin.id}'s name ({key[2:]}) in the "
-                        "same genotype context; name each variant once per finding, with "
-                        "zygosity not_stated when its carriers differ in zygosity (a variant "
-                        "some carry alone and others with a partner is two entries only when "
-                        "their with partners differ)",
+                        "same genotype context (or in the same with group, where one change "
+                        "twice is in effect homozygous); name each variant once per finding "
+                        "per context, with zygosity not_stated when its carriers differ in "
+                        "zygosity",
                     )
                 )
             seen.setdefault(key, []).append(v)

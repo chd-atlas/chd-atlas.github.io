@@ -985,3 +985,55 @@ def test_a_variant_naming_zero_carriers_is_lit022() -> None:
     assert "0 carriers" in issues[0][2]
     one = {"de_novo": 0, "inherited": 0, "origin_unknown": 1}
     assert _shape([_sv(1, carriers=one)]) == []
+
+
+def _repeats(issues: list[tuple[str, int | None, str]]) -> list[int | None]:
+    return [vid for code, vid, message in issues if code == "LIT022" and "repeats" in message]
+
+
+def test_a_repeated_name_needs_a_different_genotype_context() -> None:
+    """Ruling D16': a context is the partners' row keys plus the phase, not their ids.
+
+    A: three contexts (alone, with one partner, with another) pass. B: alone twice.
+    C: one pair entered twice under fresh ids. D: same partners, other phase.
+    E: the same change twice in one with group, where the contexts differ (so only
+    the group rule refuses it). F: twice in one cis group.
+    """
+    k = "12:114366312:G:A"
+    a = [
+        _sv(1, grch38=k),
+        _linked(2, 4, grch38=k),
+        _linked(3, 5, grch38=k),
+        _linked(4, 2, grch38="12:114366399:G:A"),
+        _linked(5, 3, grch38="12:114366398:G:A"),
+    ]
+    assert _repeats(_shape(a)) == []
+    assert _repeats(_shape([_sv(1, grch38=k), _sv(2, grch38=k)])) == [2]
+    other = "12:114366399:G:A"
+    split = [
+        _linked(1, 2, grch38=k),
+        _linked(2, 1, grch38=other),
+        _linked(3, 4, grch38=k),
+        _linked(4, 3, grch38=other),
+    ]
+    assert _repeats(_shape(split)) == [3, 4]
+    phased = [
+        _linked(1, 2, grch38=k),
+        _linked(2, 1, grch38=other),
+        _linked(3, 4, grch38=k, phase="cis"),
+        _linked(4, 3, grch38=other, phase="cis"),
+    ]
+    assert _repeats(_shape(phased)) == []
+    # Same group, different contexts (variant 1 has one partner, variant 2 has two).
+    grouped = [
+        _linked(1, 2, grch38=k),
+        _linked(2, 1, grch38=k, **{"with": [1, 3]}),
+        _linked(3, 2, grch38=other),
+    ]
+    assert _repeats(_shape(grouped)) == [2]
+    cis = [
+        _linked(1, 2, grch38=k, phase="cis", **{"with": [2, 3]}),
+        _linked(2, 1, grch38=k, phase="cis", **{"with": [1, 3]}),
+        _linked(3, 1, grch38=other, phase="cis", **{"with": [1, 2]}),
+    ]
+    assert _repeats(_shape(cis)) == [2]
