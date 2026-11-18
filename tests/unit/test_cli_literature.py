@@ -1437,3 +1437,192 @@ def test_approval_flags_without_an_approval_are_refused(root: Path, lit_path: Pa
         "--by and --on only apply with --approve or --approve-synthesis, "
         "and --allow-unverified only with --approve"
     ) in result.stdout
+
+
+# --------------------------------------------------------------------------
+# variants in the review listing, and re-approval of a void approval (V5)
+# --------------------------------------------------------------------------
+
+_TWO_VARIANTS = """\
+    variants:
+      - id: 1
+        as_reported: c.100A>G
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: mane
+        hgvs_c: c.100A>G
+        hgvs_p: p.Lys34Glu
+        grch38: 12:114000000:A:G
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes:
+          - HP:0001631
+      - id: 2
+        as_reported: p.Arg5*
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: unplaced
+        zygosity: heterozygous
+        with: [3, 4]
+        phase: trans
+        carriers: {de_novo: 0, inherited: 2, origin_unknown: 3}
+        review_status: pending_review
+        review_note: the paper's c. name disagrees
+"""
+
+
+def _give_variants(lit_path: Path, finding_id: str, summary: str) -> None:
+    text = lit_path.read_text()
+    marker = f"    summary: {summary}\n"
+    assert text.count(marker) == 1
+    lit_path.write_text(text.replace(marker, _TWO_VARIANTS + marker))
+    assert finding_id in lit_path.read_text()
+
+
+def test_a_listing_shows_one_line_per_variant(root: Path, lit_path: Path) -> None:
+    _give_variants(lit_path, "CHDA:LIT:0000004", "Another proband.")
+
+    result = _review(root)
+
+    assert result.exit_code == 0, result.stdout
+    four = next(b for b in result.stdout.split("\n\n") if b.startswith("CHDA:LIT:0000004"))
+    assert four.splitlines()[5:9] == [
+        "  variant classes: snv_indel",
+        "  variant 1: c.100A>G | mane | c.100A>G p.Lys34Glu 12:114000000:A:G"
+        " | heterozygous | carriers 1/0/0 | HP:0001631"
+        " | kind snv_indel | reported none | locator in_text Abstract",
+        "  variant 2: p.Arg5* | unplaced | - - - | heterozygous with 3, 4 (trans)"
+        " | carriers 0/2/3 | no phenotypes | kind snv_indel | reported none"
+        " | locator in_text Abstract"
+        " | review: pending_review: the paper's c. name disagrees",
+        "  screened 1 probands; carriers 1 (de novo 0, inherited 1, origin unknown 0)",
+    ]
+    one = next(b for b in result.stdout.split("\n\n") if b.startswith("CHDA:LIT:0000001"))
+    assert "variant 1:" not in one
+
+
+def test_the_variant_line_pins_missing_carriers_and_a_with_clause_without_a_phase(
+    root: Path, lit_path: Path
+) -> None:
+    text = lit_path.read_text()
+    marker = "    summary: Another proband.\n"
+    bare = """\
+    variants:
+      - id: 1
+        as_reported: c.5del
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: unplaced
+        with: [2]
+"""
+    lit_path.write_text(text.replace(marker, bare + marker))
+
+    result = _review(root)
+
+    assert result.exit_code == 0, result.stdout
+    assert (
+        "  variant 1: c.5del | unplaced | - - - | not_stated with 2"
+        " | carriers not stated | no phenotypes | kind snv_indel | reported none"
+        " | locator in_text Abstract"
+    ) in result.stdout.splitlines()
+
+
+def test_the_variant_line_shows_kind_reported_names_and_locator(root: Path, lit_path: Path) -> None:
+    """The digest covers `kind`, `reported` and `locator`, so the listing must show them."""
+    text = lit_path.read_text()
+    marker = "    summary: Another proband.\n"
+    one = """\
+    variants:
+      - id: 1
+        as_reported: Arg5X
+        locator: {kind: supplementary, file: s1.xlsx, sheet: Variants, row: 7}
+        kind: cnv
+        placement: unplaced
+        reported: {transcript: NM_000001.1, c: c.13C>T, p: p.R5X, rsid: rs123}
+"""
+    lit_path.write_text(text.replace(marker, one + marker))
+
+    result = _review(root)
+
+    assert result.exit_code == 0, result.stdout
+    assert (
+        "  variant 1: Arg5X | unplaced | - - - | not_stated | carriers not stated"
+        " | no phenotypes | kind cnv"
+        " | reported transcript NM_000001.1, c c.13C>T, p p.R5X, rsid rs123"
+        " | locator supplementary s1.xlsx / Variants / row 7"
+    ) in result.stdout.splitlines()
+
+
+def test_a_void_finding_is_listed_marked_and_can_be_approved_again(
+    root: Path, lit_path: Path
+) -> None:
+    _give_variants(lit_path, "CHDA:LIT:0000003", "A proband.")
+    void_header = (
+        "CHDA:LIT:0000003  https://pubmed.ncbi.nlm.nih.gov/222/  case_report  UNVERIFIED"
+        "  APPROVAL VOID (LIT015)"
+    )
+
+    listed = _review(root)
+    assert listed.exit_code == 0, listed.stdout
+    assert void_header in listed.stdout.splitlines()
+    assert "APPROVAL VOID" not in "".join(
+        b for b in listed.stdout.split("\n\n") if not b.startswith("CHDA:LIT:0000003")
+    )
+
+    done = _review(
+        root, "--approve", "CHDA:LIT:0000003", "--by", "Dr. New", "--on", "2026-11-04",
+        "--allow-unverified",
+    )  # fmt: skip
+    assert done.exit_code == 0, done.stdout
+    after = lit_path.read_text()
+    assert "Dr. Ada Curator" not in after
+    block = _blocks(after)["CHDA:LIT:0000003"]
+    assert "approved_by: Dr. New\n" in block
+    assert "approved_on: 2026-11-04\n" in block
+    assert done.stdout == (
+        "re-approved CHDA:LIT:0000003 (Dr. New, 2026-11-04; was Dr. Ada Curator on 2026-10-01)\n"
+    )
+    current = _finding_on_disk(lit_path, "CHDA:LIT:0000003")
+    assert current.approved_digest == finding_digest(current)
+    assert "APPROVAL VOID" not in _review(root).stdout
+    headers = [line for line in _review(root).stdout.splitlines() if line.startswith("CHDA:LIT:")]
+    assert [h[:16] for h in headers] == ["CHDA:LIT:0000001", "CHDA:LIT:0000002", "CHDA:LIT:0000004"]
+
+
+def test_re_approving_a_void_finding_is_refused_if_the_file_changed_since_it_was_read(
+    root: Path, lit_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import chd_atlas.cli as cli
+
+    _give_variants(lit_path, "CHDA:LIT:0000003", "A proband.")
+    theirs = lit_path.read_bytes() + b"# another writer's line\n"
+    original = cli.with_findings_updated
+
+    def racing(*a: Any, **k: Any) -> bytes:
+        content: bytes = original(*a, **k)
+        lit_path.write_bytes(theirs)
+        return content
+
+    monkeypatch.setattr(cli, "with_findings_updated", racing)
+    result = _review(root, "--approve", "CHDA:LIT:0000003", "--by", "Dr. New", "--allow-unverified")
+    assert result.exit_code == 2, result.stdout
+    assert result.stdout == f"error: {lit_path} changed since it was read; nothing was written\n"
+    assert lit_path.read_bytes() == theirs
+
+
+def _finding_on_disk(path: Path, finding_id: str) -> Finding:
+    data = YAML(typ="safe").load(path.read_text())
+    return next(Finding.model_validate(f) for f in data["findings"] if f["id"] == finding_id)
+
+
+def test_a_current_approval_is_still_refused(root: Path, lit_path: Path) -> None:
+    before = lit_path.read_text()
+
+    result = _review(root, "--approve", "CHDA:LIT:0000003", "--by", "Someone Else")
+
+    assert result.exit_code == 2
+    assert (
+        "CHDA:LIT:0000003 is already approved by Dr. Ada Curator; "
+        "approving again would erase who approved it"
+    ) in result.output
+    assert lit_path.read_text() == before

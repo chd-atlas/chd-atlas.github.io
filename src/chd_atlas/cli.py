@@ -43,6 +43,7 @@ from chd_atlas.models.assertion import InTextLocator, Locator
 from chd_atlas.models.gene_literature import (
     Finding,
     GeneLiteratureFile,
+    Variant,
     finding_digest,
     synthesis_digest,
 )
@@ -544,11 +545,54 @@ def _today() -> date:
     return date.today()
 
 
+def _variant_line(variant: Variant) -> str:
+    """One variant as the person approving reads it, every digest-covered field but one.
+
+    Shown: the paper's own text, placement, the checked names, zygosity and
+    links, carriers, phenotypes, `kind`, the non-null `reported` names (labelled
+    transcript, c, p, rsid) and the locator (its kind, then its element or file).
+    Omitted on purpose: `normalisation`, the id of the normaliser run, which is
+    bookkeeping a person approving the finding has nothing to read in.
+    """
+    names = f"{variant.hgvs_c or '-'} {variant.hgvs_p or '-'} {variant.grch38 or '-'}"
+    zygosity = variant.zygosity.value
+    if variant.with_:
+        phase = f" ({variant.phase.value})" if variant.phase is not None else ""
+        zygosity += f" with {', '.join(str(i) for i in variant.with_)}{phase}"
+    c = variant.carriers
+    carriers = f"{c.de_novo}/{c.inherited}/{c.origin_unknown}" if c is not None else "not stated"
+    r = variant.reported
+    reported = (
+        ", ".join(
+            f"{label} {value}"
+            for label, value in (
+                ("transcript", r.transcript),
+                ("c", r.c),
+                ("p", r.p),
+                ("rsid", r.rsid),
+            )
+            if value is not None
+        )
+        or "none"
+    )
+    line = (
+        f"  variant {variant.id}: {variant.as_reported} | {variant.placement.value} | {names}"
+        f" | {zygosity} | carriers {carriers} | {', '.join(variant.phenotypes) or 'no phenotypes'}"
+        f" | kind {variant.kind.value} | reported {reported}"
+        f" | locator {variant.locator.kind} {_locator_text(variant.locator)}"
+    )
+    if variant.review_status is not None:
+        line += f" | review: {variant.review_status.value}: {variant.review_note}"
+    return line
+
+
 def _listing(finding: Finding, paper: Publication | None) -> list[str]:
-    """Every field of a finding a person approves, except the bookkeeping ones.
+    """Every field the approval digest covers, except the bookkeeping ones.
 
     Omitted on purpose: `id` and the link (the heading line), `approved_*`
-    (a listed finding has none) and `verified_by` (the heading line). Floats go
+    (a listed finding is unapproved, or its approval is void and `APPROVAL
+    VOID` stands in for it), `verified_by` (the heading line) and each
+    variant's `normalisation` id (see `_variant_line`). Floats go
     through `repr`, so 1.23456789e-9 is not shown as 1.23457e-09 (final review
     I2). The paper's `study_type` and `own_lab` come from publications.yaml,
     where an agent's reading of the design may be the only copy (R32).
@@ -560,13 +604,16 @@ def _listing(finding: Finding, paper: Publication | None) -> list[str]:
         own_lab = "yes" if paper.own_lab else "no"
         paper_line = f"paper: study_type {paper.study_type.value}; own_lab {own_lab}"
     shared = finding.shares_probands_with
+    void = "  APPROVAL VOID (LIT015)" if _approval_void(finding) else ""
     lines = [
-        f"{finding.id}  {link}  {finding.design.value}  {finding.verified_by or 'UNVERIFIED'}",
+        f"{finding.id}  {link}  {finding.design.value}  {finding.verified_by or 'UNVERIFIED'}"
+        f"{void}",
         f"  {paper_line}",
         f"  methods: {', '.join(m.value for m in finding.methods)}",
         f"  comparator: {finding.comparator.value if finding.comparator else 'none'}",
         f"  burden study: {finding.burden_study or 'none'}",
         f"  variant classes: {_ids([v.value for v in finding.variant_classes])}",
+        *(_variant_line(v) for v in finding.variants),
         f"  {_counts_text(finding)}",
         f"  phenotypes: {', '.join(finding.phenotypes)}",
         f"  lesion groups: {', '.join(g.value for g in finding.lesion_groups)}",
@@ -692,7 +739,10 @@ def _write_unless_changed(path: Path, read: bytes, content: bytes) -> None:
 def literature_review(
     symbol: str = typer.Argument(..., help="Gene symbol (approved, alias or previous)."),
     approve: list[str] = typer.Option(
-        [], "--approve", help="A finding id to approve; repeat the option for several."
+        [],
+        "--approve",
+        help="A finding id to approve, or to approve again when its approval is void "
+        "(LIT015); repeat the option for several.",
     ),
     by: str = typer.Option("", "--by", help="The approving person's name."),
     on: str = typer.Option("", "--on", help="Approval date, YYYY-MM-DD (default today)."),
@@ -728,7 +778,9 @@ def literature_review(
     refused while any approved finding of the file fails LIT015. A review mark is
     published with the finding; it does not withdraw an approval, and a marked
     finding can still be approved. A finding carries one mark: a second is
-    refused rather than overwriting the first note. Every write is refused if the
+    refused rather than overwriting the first note. A finding whose approval is
+    void (LIT015) is listed, marked `APPROVAL VOID`, and may be approved again;
+    the output names the approval it replaced. Every write is refused if the
     file changed since this command read it.
     """
     _require_root(root)
@@ -782,7 +834,10 @@ def literature_review(
     by_id: dict[str, Finding] = {f.id: f for f in record.findings}
 
     if not approve and not pending_review and not approve_synthesis:
-        waiting = sorted((f for f in record.findings if f.approved_by is None), key=lambda f: f.id)
+        waiting = sorted(
+            (f for f in record.findings if f.approved_by is None or _approval_void(f)),
+            key=lambda f: f.id,
+        )
         if not waiting:
             typer.echo(f"{approved_symbol}: no findings awaiting approval")
         curation = load_curation(root)[0]
@@ -900,7 +955,7 @@ def literature_review(
             target = by_id.get(finding_id)
             if target is None:
                 raise _fail(f"no such finding {finding_id} in {path}", 2)
-            if target.approved_by is not None:
+            if target.approved_by is not None and not _approval_void(target):
                 raise _fail(
                     f"{finding_id} is already approved by {target.approved_by}; "
                     f"approving again would erase who approved it",
@@ -927,7 +982,13 @@ def literature_review(
             }
             for i in ids
         }
-        messages = [f"approved {i} ({by.strip()}, {when.isoformat()})" for i in ids]
+        messages = [
+            f"re-approved {i} ({by.strip()}, {when.isoformat()}; "
+            f"was {by_id[i].approved_by} on {by_id[i].approved_on})"
+            if by_id[i].approved_by is not None
+            else f"approved {i} ({by.strip()}, {when.isoformat()})"
+            for i in ids
+        ]
     try:
         content = with_findings_updated(raw, updates)
     except LiteratureFileError as exc:

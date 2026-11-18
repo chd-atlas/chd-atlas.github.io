@@ -39,6 +39,7 @@ from collections.abc import Collection, Mapping, Sequence
 from typing import Any, Final, NamedTuple, TypedDict
 
 from chd_atlas.corpus import Corpus
+from chd_atlas.hgvs import parse_c, parse_p, protein_key
 from chd_atlas.models.assertion import LesionAssertion
 from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile, synthesis_digest
 from chd_atlas.models.review import ReviewStatus
@@ -106,6 +107,7 @@ class GeneLiterature(TypedDict):
     triage: TriageTally
     pending_approval: int
     findings: list[dict[str, Any]]
+    normalisations: list[dict[str, Any]]
     tallies: LiteratureTallies
     synthesis: PublishedSynthesis | None
 
@@ -160,6 +162,7 @@ EMPTY_GENE_LITERATURE: Final[GeneLiterature] = GeneLiterature(
     triage=TriageTally(included=0, excluded={}, pending=0),
     pending_approval=0,
     findings=[],
+    normalisations=[],
     tallies=literature_tallies([], {}),
     synthesis=None,
 )
@@ -245,6 +248,14 @@ def gene_literature(corpus: Corpus) -> dict[str, GeneLiterature]:
         approved.sort(
             key=lambda f: (years[str(f.publication)], pmid_number(str(f.publication)), str(f.id))
         )
+        # A run publishes only when a published variant cites it: an unapproved
+        # finding's variants, and the runs only they cite, reach no file.
+        cited = {
+            variant.normalisation
+            for finding in approved
+            for variant in finding.variants
+            if variant.normalisation is not None
+        }
         result[gene] = GeneLiterature(
             searches=[
                 SearchRecord(
@@ -263,7 +274,13 @@ def gene_literature(corpus: Corpus) -> dict[str, GeneLiterature]:
             ),
             pending_approval=unapproved,
             findings=[
-                finding.model_dump(mode="json", exclude={"approved_digest"}) for finding in approved
+                finding.model_dump(mode="json", by_alias=True, exclude={"approved_digest"})
+                for finding in approved
+            ],
+            normalisations=[
+                run.model_dump(mode="json")
+                for run in sorted(file.normalisations, key=lambda n: n.id)
+                if run.id in cited
             ],
             tallies=literature_tallies(approved, years),
             synthesis=_published_synthesis(
@@ -291,3 +308,196 @@ def literature_census(
         genes += 1
         findings += len(entry["findings"])
     return LiteratureCensus(genes=genes, findings=findings)
+
+
+class VariantReport(TypedDict):
+    """One finding's report of a variant. ``carriers`` is that finding's own count.
+
+    ``hgvs_c`` and ``hgvs_p`` are the names this report's variant carries. A row
+    shows its first report's; a paper may name the same key differently (LIT018
+    accepts shifted names), so the page renders a report's name where it differs
+    from the row's.
+
+    No count is ever summed across reports: two papers may report the same
+    probands (D33), so a row carries reports and no total.
+    """
+
+    finding: str
+    publication: str
+    design: str
+    hgvs_c: str | None
+    hgvs_p: str | None
+    count_unit: str | None
+    carriers: dict[str, int] | None
+    zygosity: str
+    with_names: list[str]
+    phase: str | None
+    phenotypes: list[str]
+    review_status: str | None
+    review_note: str | None
+
+
+class VariantRow(TypedDict):
+    """One distinct variant: ``papers`` counts distinct publications among ``reports``."""
+
+    key: str
+    hgvs_c: str | None
+    hgvs_p: str | None
+    papers: int
+    reports: list[VariantReport]
+
+
+class ListedVariant(TypedDict):
+    """A variant listed beside the table, never grouped."""
+
+    as_reported: str
+    rsid: str | None
+    publication: str
+    finding: str
+    review_status: str | None
+    review_note: str | None
+
+
+class VariantTable(TypedDict):
+    """A gene's approved variants for its page: rows, two lists and a count.
+
+    ``no_position`` holds the ``structural`` variants, then the ``unplaced`` ones.
+    ``findings_naming_no_variant`` counts findings of any design but a
+    common-variant association that report carriers and list no variant.
+    """
+
+    rows: list[VariantRow]
+    outside_region: list[ListedVariant]
+    no_position: list[ListedVariant]
+    findings_naming_no_variant: int
+
+
+_REGION_RANK: Final[dict[str, int]] = {"five_prime": 0, "cds": 1, "three_prime": 2}
+
+
+def _partner_name(variant: Mapping[str, Any]) -> str:
+    return variant["hgvs_c"] or variant["hgvs_p"] or str(variant["as_reported"])
+
+
+def _row_order(key: str, hgvs_c: str | None, hgvs_p: str | None) -> tuple[int, int, int, str]:
+    """``(region rank, base, offset, key)``; a protein row sits at its codon's first base."""
+    if key.startswith("g:"):
+        if hgvs_c is None:
+            raise ValueError(f"{key}: a mane row with no hgvs_c has no position to sort by")
+        start = parse_c(hgvs_c).start
+        return (_REGION_RANK[start.region], start.base, start.offset, key)
+    if hgvs_p is None:
+        raise ValueError(f"{key}: a protein row with no hgvs_p has no position to sort by")
+    residues = parse_p(hgvs_p).residues
+    if not residues:
+        raise ValueError(f"{key}: {hgvs_p} names no residue to sort by")
+    return (_REGION_RANK["cds"], 3 * residues[0][1] - 2, 0, key)
+
+
+def variant_table(findings: Sequence[Mapping[str, Any]]) -> VariantTable:
+    """Group approved published findings' variants into rows, one per distinct variant.
+
+    ``findings`` are the bundle's ``literature.findings`` (already in (year, PMID,
+    finding id) order, which is the order each row's reports keep). A ``mane``
+    variant is keyed ``g:<grch38>`` and a ``protein`` one ``p:<hgvs_p>``, so a
+    protein row is never merged into a mane row that shares its p. A protein key
+    is the canonical reading of its ``hgvs_p`` (``protein_key``): accession and
+    parentheses dropped, ``Ter`` and ``X`` as ``*``, no frameshift equivalence. Variant and
+    ``with`` ids are scoped per finding. Raises ``ValueError`` on a variant a
+    bypassed gate lets through: no key, an unreadable HGVS, a protein ``hgvs_p`` naming
+    no residue (LIT022 refuses it) or a dangling partner.
+    """
+    rows: dict[str, VariantRow] = {}
+    papers: dict[str, set[str]] = {}
+    outside: list[ListedVariant] = []
+    structural: list[ListedVariant] = []
+    unplaced: list[ListedVariant] = []
+    naming_none = 0
+    for finding in findings:
+        variants: Sequence[Mapping[str, Any]] = finding["variants"]
+        carriers = finding.get("carriers")
+        if (
+            not variants
+            and finding["design"] != "common_variant_association"
+            and carriers is not None
+            and sum(carriers.values()) > 0
+        ):
+            naming_none += 1
+        by_id = {v["id"]: v for v in variants}
+        for variant in variants:
+            placement = variant["placement"]
+            if placement in ("mane", "protein"):
+                if placement == "mane":
+                    if variant["grch38"] is None:
+                        raise ValueError(
+                            f"{finding['id']}: mane variant {variant['id']} has no grch38"
+                        )
+                    key = "g:" + variant["grch38"]
+                else:
+                    if variant["hgvs_p"] is None:
+                        raise ValueError(
+                            f"{finding['id']}: protein variant {variant['id']} has no hgvs_p"
+                        )
+                    key = "p:" + protein_key(variant["hgvs_p"])
+                partners = []
+                for partner in variant["with"]:
+                    if partner not in by_id:
+                        raise ValueError(
+                            f"{finding['id']}: variant {variant['id']} is with {partner}, "
+                            "which is not in the finding"
+                        )
+                    partners.append(_partner_name(by_id[partner]))
+                row = rows.get(key)
+                if row is None:
+                    row = rows[key] = VariantRow(
+                        key=key,
+                        hgvs_c=variant["hgvs_c"],
+                        hgvs_p=variant["hgvs_p"],
+                        papers=0,
+                        reports=[],
+                    )
+                    papers[key] = set()
+                row["hgvs_c"] = row["hgvs_c"] or variant["hgvs_c"]
+                row["hgvs_p"] = row["hgvs_p"] or variant["hgvs_p"]
+                papers[key].add(finding["publication"])
+                row["reports"].append(
+                    VariantReport(
+                        finding=finding["id"],
+                        publication=finding["publication"],
+                        design=finding["design"],
+                        hgvs_c=variant["hgvs_c"],
+                        hgvs_p=variant["hgvs_p"],
+                        count_unit=finding.get("count_unit"),
+                        carriers=None if variant["carriers"] is None else dict(variant["carriers"]),
+                        zygosity=variant["zygosity"],
+                        with_names=partners,
+                        phase=variant["phase"],
+                        phenotypes=list(variant["phenotypes"]),
+                        review_status=variant["review_status"],
+                        review_note=variant["review_note"],
+                    )
+                )
+                continue
+            listed = ListedVariant(
+                as_reported=variant["as_reported"],
+                rsid=variant["reported"]["rsid"],
+                publication=finding["publication"],
+                finding=finding["id"],
+                review_status=variant["review_status"],
+                review_note=variant["review_note"],
+            )
+            if placement == "outside_region":
+                outside.append(listed)
+            elif placement == "structural":
+                structural.append(listed)
+            else:
+                unplaced.append(listed)
+    for key, row in rows.items():
+        row["papers"] = len(papers[key])
+    ordered = sorted(rows.values(), key=lambda r: _row_order(r["key"], r["hgvs_c"], r["hgvs_p"]))
+    return VariantTable(
+        rows=ordered,
+        outside_region=outside,
+        no_position=structural + unplaced,
+        findings_naming_no_variant=naming_none,
+    )

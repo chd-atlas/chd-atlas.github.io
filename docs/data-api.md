@@ -59,7 +59,7 @@ What the build produced, and a checksum for every file in it.
     "genes/index.json": "sha256:<64 hex>",
     "publications.json": "sha256:<64 hex>"
   },
-  "schema_version": "2.23",
+  "schema_version": "2.24",
   "source_commit": "<40-hex commit sha, or null outside a git checkout>",
   "status": "in-development"
 }
@@ -312,6 +312,9 @@ wrong by the next one.
   short" narrative, `null` where the gene has none, or its approval is missing
   or stale (see each field's own description). The gene page card reads from
   both. Additive.
+  `2.24` added `variants` to every finding (`[]` for none) and `normalisations`
+  to every gene bundle's `literature`, and a variant's links publish as `with`.
+  Additive.
 - `status` is the atlas's own readiness, so a program can read it without
   scraping `index.html`'s prose. Today it is always `"in-development"` — one
   curated gene-disease assertion alongside mirrored ClinGen/GenCC validity for
@@ -369,7 +372,7 @@ output, so it is verifiable output.
 "How to read this atlas": the explanation every gene page assumes, written once
 at the site root rather than repeated on each page (design decision D50), and
 linked from the navigation bar on every page and from the foot of every gene
-page's card, as *How to read this page*. It has seven sections, in this order,
+page's card, as *How to read this page*. It has eight sections, in this order,
 and each carries an `id`, so a page can link the paragraph it shortens.
 
 - `#scope` states in full the rule that admits a gene to this atlas and the rule
@@ -450,6 +453,13 @@ and each carries an `id`, so a page can link the paragraph it shortens.
   in, that a named curator approves each finding before it is published, what
   the two review marks mean, what the gene card's literature line counts, and
   what its "In short" paragraph rests on and when it is published or withheld.
+- `#literature-variants` says how the variants a finding names are placed and
+  checked: on the gene's MANE Select transcript (MANE v1.5) and GRCh38, or on
+  its protein alone; checked offline against the atlas's copy of the
+  transcript, the protein and the genome within 50 bases of each exon; and
+  listed as reported, without coordinates, when beyond that region, structural,
+  or failing the check (then flagged for review). The variant table on a gene
+  page links here.
 
 Like the other pages it is for people: its markup is not a contract, and no
 payload depends on it.
@@ -772,6 +782,7 @@ abridged, and each is documented in full further down.
     "pending_approval": 0,
     "findings": [ { "id": "CHDA:LIT:0000015", "publication": "PMID:12789647",
                     "design": "cohort_screen", … }, … ],
+    "normalisations": [],
     "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
                  "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
                  "de_novo_papers": 11, "inherited_papers": 24,
@@ -1629,7 +1640,7 @@ On every gene bundle (since `2.21`). Always present; a gene with no
 
 ```json
 { "searches": [], "triage": { "included": 0, "excluded": {}, "pending": 0 },
-  "pending_approval": 0, "findings": [],
+  "pending_approval": 0, "findings": [], "normalisations": [],
   "tallies": { "papers": 0, "first_year": null, "last_year": null, "designs": {},
                "lesion_groups": {}, "de_novo_papers": 0, "inherited_papers": 0,
                "abstract_only_papers": 0, "pending_review_papers": 0 },
@@ -1645,7 +1656,9 @@ TBX5's, abridged:
   "pending_approval": 0,
   "findings": [ { "id": "CHDA:LIT:0000015", "publication": "PMID:12789647", "design": "cohort_screen",
                   "count_unit": "probands", "screened": 49,
-                  "carriers": { "de_novo": 0, "inherited": 9, "origin_unknown": 8 }, … }, … ],
+                  "carriers": { "de_novo": 0, "inherited": 9, "origin_unknown": 8 },
+                  "variants": [], … }, … ],
+  "normalisations": [],
   "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
                "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
                "de_novo_papers": 11, "inherited_papers": 24,
@@ -1681,6 +1694,31 @@ TBX5's, abridged:
   not yet approved, which is then in no bundle, so the id resolves nowhere in the
   published data. `carriers` and `screened` are counted in `count_unit`: with
   `families`, `screened` is families and each origin count is carrier families.
+- `variants` (since `2.24`) lists a finding's variants, `[]` for none. A variant's
+  `id` and the ids in its `with` are per finding: `with` names only the same
+  finding's variants, and links are mutual. `phase` (`trans`, `cis` or
+  `not_stated`) is non-null exactly when `with` is non-empty. `zygosity` is
+  `heterozygous`, `homozygous`, `hemizygous` or `not_stated`; `kind` is
+  `snv_indel`, `cnv` or `chromosomal`; `locator` says where the paper states it;
+  `as_reported` is the variant as the paper prints it; `carriers` counts by
+  origin, and is `null` on a common-variant finding; `phenotypes` are HPO ids
+  within the finding's; `reported` holds the paper's own names (`transcript`, `c`,
+  `p`, `rsid`), each `null` when not given. They are not copied into `hgvs_c` or
+  `hgvs_p`: only `reported.p` is checked, by LIT025 against `hgvs_p`, and only
+  when `reported.transcript` is absent or is the gene's MANE Select. `review_status` and
+  `review_note` publish as on a finding. `placement` sets what a variant
+  carries. `mane`: `hgvs_c`, `grch38` and `normalisation`, and `hgvs_p` where the
+  change has one. A consumer groups on `grch38` for these. `protein`: `hgvs_p`
+  only, no genomic coordinates; group on its canonical reading: accession and
+  parentheses dropped, one-letter residues, `Ter` and `X` as `*`, so
+  `NP_852259.1:p.(Gly80Arg)` and `NP_852259.1:p.G80R` are one group (a `protein`
+  and a `mane` variant never share one, even for the same change). `unplaced`: a review mark,
+  never grouped, and at most a checked `hgvs_p`. `structural` and
+  `outside_region`: listed only, with no coordinates or HGVS.
+- `normalisations` (since `2.24`) lists the normaliser runs that published
+  variants cite, by `id`, which a variant's `normalisation` names: `tool`,
+  `version`, `hgvs_version`, `vvta`, `vvdb`, `seqrepo` and `run_on`. A run no
+  published variant cites is not published.
 - `tallies` (since `2.23`) counts the approved findings by paper (distinct `publication`), never
   carriers: papers may share probands, so no carrier total across papers is
   published. A paper with several findings counts once in each category, so the
@@ -1712,6 +1750,27 @@ TBX5's, abridged:
   "1990s", "3x"), a numeric symbol such as "½", and a fixed list of number words,
   alone or glued to "fold"; counts are in `tallies` and the findings.
 
+A finding with two linked variants (an invented example: no published finding
+has this id), and the run they cite, abridged. Both variants were run through
+`reference_issues` against the committed MANE mirrors for TBX5 and gave no issue.
+The variant ids restart in each finding; `normalisation` is the id of a run in
+the gene's `normalisations`:
+
+```json
+{ "findings": [ { "id": "CHDA:LIT:9999999",
+    "variants": [ { "id": 1, "as_reported": "R279X", "placement": "mane",
+                    "hgvs_c": "NM_181486.4:c.835C>T",
+                    "hgvs_p": "NP_852259.1:p.(Arg279Ter)",
+                    "grch38": "12:114366312:G:A", "normalisation": 1,
+                    "with": [2], "phase": "trans", … },
+                  { "id": 2, "as_reported": "R279Q", "placement": "mane",
+                    "hgvs_c": "NM_181486.4:c.836G>A",
+                    "hgvs_p": "NP_852259.1:p.(Arg279Gln)",
+                    "grch38": "12:114366311:C:T", "normalisation": 1,
+                    "with": [1], "phase": "trans", … } ], … } ],
+  "normalisations": [ { "id": 1, "tool": "variantvalidator", "run_on": "2026-11-17", … } ] }
+```
+
 The gene page renders this as its Literature section, right after the atlas's
 curated evidence (on a gene with none, after the validity table) and before the
 rare-variant and expression sections. A gene with no search says only "Not yet curated." Otherwise
@@ -1730,7 +1789,16 @@ the stored p-value and odds ratio), lesion groups, independence (cohorts, and
 whether its probands are shared), summary with any review mark, and the person
 who approved it. A gene with a search and no approved finding says "No approved
 findings yet." and draws no timeline. Folded after those are the exclusion tally
-by reason and every search with its date, hits and exact query.
+by reason and every search with its date, hits and exact query. Last, on a gene
+whose approved findings name a variant, *Reported variants*: a table with one
+row per placed variant (its `c.` and `p.` names and how many papers report it)
+and, under it, one line per report of it (a finding gives one for each
+genotype context it names the variant in: alone, or with a given partner and phase) with the paper, design, that report's own
+carriers by origin, zygosity or partner, and the carriers' heart defects as HPO
+labels. No line or row sums carriers across findings. After it come the variants
+listed as reported (outside the checked region, then with no position), and how
+many findings report carriers but name no variant. A paper's fold says, for a
+finding whose variants name only some of its carriers, how many.
 
 ## `genes/<slug>.html`
 

@@ -1,8 +1,9 @@
 """The pinned MANE frame: each gene's MANE Select transcript, its exons and genome windows.
 
 Reads the two flat mirror tables `mane_transcripts` and `mane_exons` into
-`ManeTranscript` records. This module only reads; `validate/mane.py` checks what
-it returns.
+`ManeTranscript` records, and maps a `c.` position onto one
+(`transcript_position`, `genome_position`, `genome_slice`). This module only
+reads; `validate/mane.py` checks what it returns.
 
 Absent versus unreadable is a distinction the callers rely on. `read_mane_frame`
 returns `(None, [])` for an absent file and `(None, issues)` for a present one
@@ -24,6 +25,7 @@ from pathlib import Path
 
 import polars as pl
 
+from chd_atlas.hgvs import CPosition
 from chd_atlas.issues import Severity, ValidationIssue
 from chd_atlas.tables import TABLE_SCHEMAS, read_table
 
@@ -72,6 +74,78 @@ class ManeTranscript:
 
 
 ManeFrame = Mapping[str, ManeTranscript]
+
+
+def transcript_position(t: ManeTranscript, p: CPosition) -> int:
+    """The 1-based transcript position a `c.` position is anchored on, offset ignored.
+
+    `c.N` is `cds_start + N - 1`; `c.-N` is `cds_start - N` (there is no c.0);
+    `c.*N` is `cds_end + N`. A position off the transcript's ends comes out
+    below 1 or above its length; `genome_position` still places it.
+    """
+    if p.region == "cds":
+        return t.cds_start + p.base - 1
+    if p.region == "five_prime":
+        return t.cds_start + p.base
+    return t.cds_end + p.base
+
+
+def genome_position(t: ManeTranscript, p: CPosition) -> int:
+    """The forward-strand GRCh38 coordinate of a `c.` position.
+
+    The anchor's exon gives the coordinate; an intronic offset then moves away
+    from it in the transcript's direction, which on `-` is towards lower
+    coordinates. A position off the transcript's ends (a `c.-N` past the 5' UTR,
+    a `c.*N` past the 3' UTR) is measured outward from exon 1's 5' end or the
+    last exon's 3' end (owner ruling D7); whether a window holds it is the
+    caller's check. Raises `ValueError` when there are no exons, or when an
+    offset is not anchored on an intron's edge: `+M` needs an exon's 3' end and
+    an exon after it, `-M` an exon's 5' end and an exon before it, so a position
+    off the transcript's ends takes no offset.
+    """
+    if not t.exons:
+        raise ValueError(f"{t.transcript} has no exons")
+    tx = transcript_position(t, p)
+    first, last = t.exons[0], t.exons[-1]
+    outside = tx < first.transcript_start or tx > last.transcript_end
+    if outside and p.offset:
+        raise ValueError(
+            f"an offset of {p.offset:+d} needs an exon edge; a position off the "
+            "transcript's ends is written c.-N or c.*N"
+        )
+    if tx < first.transcript_start:
+        away = first.transcript_start - tx
+        return first.genomic_start - away if t.strand == "+" else first.genomic_end + away
+    if tx > last.transcript_end:
+        away = tx - last.transcript_end
+        return last.genomic_end + away if t.strand == "+" else last.genomic_start - away
+    for index, exon in enumerate(t.exons):
+        if not exon.transcript_start <= tx <= exon.transcript_end:
+            continue
+        if p.offset > 0 and (tx != exon.transcript_end or index == len(t.exons) - 1):
+            raise ValueError(
+                f"an offset of +{p.offset} needs an exon's 3' end with an intron after it"
+            )
+        if p.offset < 0 and (tx != exon.transcript_start or index == 0):
+            raise ValueError(
+                f"an offset of {p.offset} needs an exon's 5' end with an intron before it"
+            )
+        if t.strand == "+":
+            return exon.genomic_start + (tx - exon.transcript_start) + p.offset
+        return exon.genomic_end - (tx - exon.transcript_start) - p.offset
+    raise ValueError(f"transcript position {tx} lies in no exon of {t.transcript}")
+
+
+def genome_slice(t: ManeTranscript, start: int, end: int) -> str | None:
+    """Forward-strand bases `start..end` (1-based, inclusive) from one exon window.
+
+    None when no single window holds the whole span, which is how a position
+    beyond the pinned exons ±50 bp reads.
+    """
+    for exon in t.exons:
+        if exon.window_start <= start and end <= exon.window_end:
+            return exon.window_sequence[start - exon.window_start : end - exon.window_start + 1]
+    return None
 
 
 def _unusable(path: Path, why: str) -> list[ValidationIssue]:

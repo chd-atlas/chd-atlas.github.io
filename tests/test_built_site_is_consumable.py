@@ -2,6 +2,7 @@
 import csv
 import gzip
 import html
+import itertools
 import json
 import math
 import posixpath
@@ -20,6 +21,7 @@ from chd_atlas.build.concordance import survives_own_correction
 from chd_atlas.build.render import RESEARCH_USE_NOTICE
 from chd_atlas.build.runner import build_site
 from chd_atlas.corpus import load_curation
+from tests.unit._stamp import stamped
 
 REPO = Path(__file__).parent.parent
 
@@ -367,6 +369,249 @@ def test_no_literature_line_sums_carriers_across_papers(site: Path) -> None:
             re.findall(r"carriers in \d+ papers?", line)
         )
     assert seen >= 2, "no gene page carried a literature line; the test checked nothing"
+
+
+# A TBX5 literature record naming variants, for the one build here where a variant
+# table exists: the committed corpus names none yet (plan Task 14). Real TBX5 papers
+# and finding ids, and names checked against the pinned MANE frame (NM_181486.4).
+_TBX5_A = {
+    "hgvs_c": "NM_181486.4:c.835C>T",
+    "hgvs_p": "NP_852259.1:p.(Arg279Ter)",
+    "grch38": "12:114366312:G:A",
+    "normalisation": 1,
+}
+_TBX5_D = {
+    "hgvs_c": "NM_181486.4:c.836G>A",
+    "hgvs_p": "NP_852259.1:p.(Arg279Gln)",
+    "grch38": "12:114366311:C:T",
+    "normalisation": 1,
+}
+
+
+def _site_variant(
+    vid: int, placement: str, carriers: dict[str, int], **rest: Any
+) -> dict[str, Any]:
+    origins = {"de_novo": 0, "inherited": 0, "origin_unknown": 0, **carriers}
+    return {
+        "id": vid,
+        "as_reported": rest.pop("as_reported", f"variant {vid}"),
+        "locator": {"kind": "in_text", "element": "Table 1"},
+        "kind": rest.pop("kind", "snv_indel"),
+        "placement": placement,
+        "zygosity": rest.pop("zygosity", "heterozygous"),
+        "carriers": origins,
+        **rest,
+    }
+
+
+def _site_finding(number: int, pmid: str, design: str, **rest: Any) -> dict[str, Any]:
+    finding = {
+        "id": f"CHDA:LIT:{number:07d}",
+        "publication": pmid,
+        "design": design,
+        "methods": ["exome"],
+        "count_unit": "probands",
+        "variant_classes": ["snv_indel"],
+        "phenotypes": ["HP:0001631"],
+        "lesion_groups": ["septal"],
+        "syndromic": "both",
+        "shares_probands_with": "unknown",
+        "locators": [{"kind": "in_text", "element": "Table 1"}],
+        "summary": f"Finding {number}.",
+        "extracted_by": "agent:extract/test",
+        "approved_by": "A. Curator",
+        "approved_on": "2026-11-18",
+        **rest,
+    }
+    return stamped(finding)
+
+
+@pytest.fixture(scope="module")
+def variant_site(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The committed corpus with TBX5's literature record replaced by one naming variants.
+
+    c.835C>T is named by three papers whose findings count 2 de novo, 3 inherited
+    (in families) and 1 origin-unknown carrier: every sum of two or three of
+    those totals (4, 5, 6) differs from every number any one of its lines shows,
+    so a row printing a total cannot pass for a line's own count. The file also
+    names a protein-only variant, one outside the checked region, a structural
+    one and an unplaced one, and holds one finding that names none.
+    """
+    base = tmp_path_factory.mktemp("variants")
+    root = base / "repo"
+    root.mkdir()
+    for name in ("curation", "mirrors"):
+        shutil.copytree(REPO / name, root / name)
+    (root / "ontologies").symlink_to(REPO / "ontologies")
+    papers = ["PMID:8988165", "PMID:12789647", "PMID:21637475", "PMID:18828908", "PMID:35514310"]
+    findings = [
+        _site_finding(
+            15,
+            "PMID:8988165",
+            "cohort_screen",
+            screened=50,
+            carriers={"de_novo": 2, "inherited": 1, "origin_unknown": 4},
+            variant_classes=["snv_indel", "cnv"],
+            variants=[
+                _site_variant(1, "mane", {"de_novo": 2}, phenotypes=["HP:0001631"], **_TBX5_A),
+                _site_variant(
+                    2,
+                    "protein",
+                    {"inherited": 1},
+                    hgvs_p="NP_852259.1:p.(Gly80Arg)",
+                    zygosity="homozygous",
+                ),
+                _site_variant(
+                    3,
+                    "outside_region",
+                    {"origin_unknown": 1},
+                    as_reported="rs6489956 (c.*1101C>T)",
+                    reported={"rsid": "rs6489956"},
+                ),
+                _site_variant(
+                    4,
+                    "structural",
+                    {"origin_unknown": 1},
+                    kind="cnv",
+                    as_reported="12q24.21 microdeletion",
+                ),
+            ],
+        ),
+        _site_finding(
+            16,
+            "PMID:12789647",
+            "case_report",
+            screened=1,
+            carriers={"de_novo": 0, "inherited": 0, "origin_unknown": 1},
+            variants=[
+                _site_variant(
+                    1, "mane", {"origin_unknown": 1}, phase="trans", **{"with": [2]}, **_TBX5_A
+                ),
+                _site_variant(
+                    2, "mane", {"origin_unknown": 1}, phase="trans", **{"with": [1]}, **_TBX5_D
+                ),
+            ],
+        ),
+        _site_finding(
+            17,
+            "PMID:21637475",
+            "cohort_screen",
+            screened=20,
+            carriers={"de_novo": 0, "inherited": 0, "origin_unknown": 2},
+            variants=[
+                _site_variant(
+                    1,
+                    "unplaced",
+                    {"origin_unknown": 1},
+                    as_reported="c.998G>T p.D111Y",
+                    reported={"c": "c.998G>T", "p": "p.D111Y"},
+                    review_status="pending_review",
+                    review_note="c.998G>T names G where MANE Select has C.",
+                )
+            ],
+        ),
+        _site_finding(
+            18,
+            "PMID:18828908",
+            "case_report",
+            screened=1,
+            carriers={"de_novo": 1, "inherited": 0, "origin_unknown": 0},
+        ),
+        _site_finding(
+            19,
+            "PMID:35514310",
+            "family_segregation",
+            count_unit="families",
+            screened=3,
+            carriers={"de_novo": 0, "inherited": 3, "origin_unknown": 0},
+            phenotypes=["HP:0011722", "HP:0001684"],
+            lesion_groups=["anomalous_venous_return", "septal"],
+            variants=[
+                _site_variant(1, "mane", {"inherited": 3}, phenotypes=["HP:0011722"], **_TBX5_A)
+            ],
+        ),
+    ]
+    record = {
+        "gene": "HGNC:11604",
+        "normalisations": [
+            {
+                "id": 1,
+                "tool": "variantvalidator",
+                "version": "4.0.1.dev7+gbdab9c72f",
+                "hgvs_version": "4.0.0",
+                "vvta": "vvta_2025_02",
+                "vvdb": "vvdb_2025_3",
+                "seqrepo": "VV_SR_2025_02/master",
+                "run_on": "2026-11-17",
+            }
+        ],
+        "searches": [
+            {
+                "id": 1,
+                "source": "pubmed",
+                "query": "q",
+                "run_on": "2026-11-18",
+                "hits": len(papers),
+                "new_hits": len(papers),
+            }
+        ],
+        "triage": [{"pmid": pmid, "search": 1, "decision": "included"} for pmid in papers],
+        "findings": findings,
+    }
+    (root / "curation" / "literature" / "TBX5.yaml").write_text(json.dumps(record))  # JSON is YAML
+    out = base / "dist"
+    build_site(root, out)
+    return out
+
+
+def _variant_table(page: str) -> str:
+    start = page.index("<h3>Reported variants</h3>")
+    return page[page.index("<table>", start) : page.index("</table>", start)]
+
+
+def _cell_text(markup: str) -> str:
+    return html.unescape(re.sub(r"<[^>]+>", " ", markup))
+
+
+def test_no_variant_row_sums_carriers_across_findings(variant_site: Path) -> None:
+    """D33 on a built page: no `<tr>` of the variant table shows a carrier sum.
+
+    For each variant's `<tbody>`, the sums over two or more of its lines' carrier
+    counts (each origin, and each line's total) that equal no number any single
+    line shows must appear in no `<tr>` of that `<tbody>`, its variant row
+    included. The fixture makes three such sums for c.835C>T (4, 5 and 6), so the
+    check cannot pass by finding none; a row printing "6 carriers" fails it.
+    """
+    page = (variant_site / "genes" / "HGNC_11604.html").read_text(encoding="utf-8")
+    groups = re.findall(r"<tbody>(.*?)</tbody>", _variant_table(page))
+    assert len(groups) == 3, "c.(Gly80Arg), c.835C>T and c.836G>A, one tbody each"
+    distinct: set[int] = set()
+    for group in groups:
+        rows = [_cell_text(row) for row in re.findall(r"<tr>.*?</tr>", group)]
+        lines = rows[1:]
+        counts = [
+            {
+                origin: int(n)
+                for n, origin in re.findall(r"(\d+) (de novo|inherited|origin unknown)", line)
+            }
+            for line in lines
+        ]
+        series = [[sum(c.values()) for c in counts]] + [
+            [c[origin] for c in counts if c.get(origin)]
+            for origin in ("de novo", "inherited", "origin unknown")
+        ]
+        sums = {
+            sum(pick)
+            for values in series
+            for k in range(2, len(values) + 1)
+            for pick in itertools.combinations(values, k)
+        }
+        shown = {int(n) for line in lines for n in re.findall(r"\d+", line)}
+        forbidden = sums - shown
+        distinct |= forbidden
+        for row in rows:
+            assert not {int(n) for n in re.findall(r"\d+", row)} & forbidden, row
+    assert distinct == {4, 5, 6}, "the fixture no longer separates a sum from every line"
 
 
 def _burden_rows(gene: str, bundle: dict[str, Any]) -> list[BurdenRow]:

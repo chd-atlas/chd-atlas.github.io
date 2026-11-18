@@ -61,7 +61,7 @@ from chd_atlas.build.validity import gene_validity, published_genes
 from chd_atlas.build.variants import build_variants
 from chd_atlas.corpus import Corpus, load_curation
 from chd_atlas.models.assertion import LesionAssertion
-from chd_atlas.orphanet_scope import load_orphanet_tables, pinned_structural_phenotypes
+from chd_atlas.orphanet_scope import load_orphanet_tables, pinned_hpo
 from chd_atlas.tables import TABLE_SCHEMAS, cell_text, read_table
 from chd_atlas.validate.runner import validate_repository
 from chd_atlas.validate.sources import load_sources
@@ -434,13 +434,20 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
     # It cannot fail here — SRC001 is an error, so the gate refused already.
     registry, _ = load_sources(root)
     build_sources(registry, emitter)
+    # The pinned HPO release, read once for two consumers: its structural
+    # phenotypes for the scope warrants below, and its term names for the gene
+    # pages' variant table. None when the release is unpinned or unreadable,
+    # which validate reports wherever an HP term is used (ONT003/ONT004); the
+    # pages then get no labels, and a variant phenotype raises rather than
+    # rendering blank.
+    hpo = pinned_hpo(root, registry.ontology_files())
     # The Orphanet warrants, derived once from the mirrors by the function SCP006
     # refused on, and handed to both `scope.json` and the gene pages, so the
     # registry and the note under a gene's validity table state one warrant.
     warrants = scope_warrants(
         corpus.chd_scope,
         load_orphanet_tables(root),
-        pinned_structural_phenotypes(root, registry.ontology_files()),
+        None if hpo is None else hpo.structural,
     )
     build_scope(corpus.chd_scope, warrants, emitter)
     # The site's reading notes (D50): the full forms of what the gene pages'
@@ -508,6 +515,7 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
         # The mapping the bundles carry, so a page cannot state a search or a
         # finding its own bundle does not.
         literature=literature,
+        phenotype_labels={} if hpo is None else hpo.labels,
         scope_warrants=warrants,
         scope_labels={str(e.id): e.label for e in corpus.chd_scope},
         # The registry itself, for the card's line on a syndrome a ClinGen

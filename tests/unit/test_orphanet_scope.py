@@ -19,6 +19,7 @@ from chd_atlas.orphanet_scope import (
     OrphanetTables,
     Warrant,
     load_orphanet_tables,
+    pinned_hpo,
     pinned_structural_phenotypes,
     qualifying,
     qualifying_targets,
@@ -292,6 +293,41 @@ def test_an_hpo_release_that_cannot_be_read_is_none_never_an_empty_set(
         (tmp_path / "ontologies").mkdir()
         (tmp_path / "ontologies" / "hp.obo").write_bytes(content)
     assert pinned_structural_phenotypes(tmp_path, pinned) is None
+    assert pinned_hpo(tmp_path, pinned) is None
+
+
+def test_the_pinned_release_gives_the_structural_set_and_each_terms_name(
+    tmp_path: Path, structural: frozenset[str]
+) -> None:
+    """`pinned_hpo`, which the build reads once for the scope warrants and the variant table.
+
+    On the synthetic release: one label per `[Term]`, keyed by its id -- never by
+    an alt id (HP:0001630), and never the Typedef's -- and the same structural set
+    `structural_phenotypes` reads. On the pinned release, the two labels the
+    variant table's tests print.
+    """
+    (tmp_path / "ontologies").mkdir()
+    (tmp_path / "ontologies" / "hp.obo").write_text(_OBO, encoding="utf-8")
+    synthetic = pinned_hpo(tmp_path, {"HP": "ontologies/hp.obo"})
+    assert synthetic is not None
+    assert synthetic.structural == structural
+    assert synthetic.labels == {
+        "HP:0000118": "Phenotypic abnormality",
+        "HP:0001627": "Abnormal heart morphology",
+        "HP:0001671": "Abnormal cardiac septum morphology",
+        "HP:0001631": "Atrial septal defect",
+        "HP:0001637": "Abnormal myocardium morphology",
+        "HP:0001638": "Cardiomyopathy",
+        "HP:0030962": "Abnormal morphology of the great vessels",
+        "HP:0001643": "Patent ductus arteriosus",
+        "HP:0001680": "Coarctation of aorta",
+    }
+    repo = Path(__file__).resolve().parents[2]
+    registry, _ = load_sources(repo)
+    pinned = pinned_hpo(repo, registry.ontology_files())
+    assert pinned is not None, "the pinned HPO release did not load"
+    assert pinned.labels["HP:0001631"] == "Atrial septal defect"
+    assert pinned.labels["HP:0011722"] == "Mixed total anomalous pulmonary venous connection"
 
 
 def test_the_structural_set_the_build_applies_is_the_one_methods_html_states() -> None:

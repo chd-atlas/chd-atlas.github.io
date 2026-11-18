@@ -668,6 +668,33 @@ class FindingVariantClass(StrEnum):
     CHROMOSOMAL = "chromosomal"
 
 
+class VariantPlacement(StrEnum):
+    """Where a named variant sits on the MANE Select frame the atlas pins."""
+
+    MANE = "mane"
+    PROTEIN = "protein"
+    UNPLACED = "unplaced"
+    STRUCTURAL = "structural"
+    OUTSIDE_REGION = "outside_region"
+
+
+class VariantZygosity(StrEnum):
+    """The zygosity a paper states for a variant in its carriers."""
+
+    HETEROZYGOUS = "heterozygous"
+    HOMOZYGOUS = "homozygous"
+    HEMIZYGOUS = "hemizygous"
+    NOT_STATED = "not_stated"
+
+
+class Phase(StrEnum):
+    """Whether a paper states two variants lie on different alleles or the same one."""
+
+    TRANS = "trans"
+    CIS = "cis"
+    NOT_STATED = "not_stated"
+
+
 class TriageDecision(StrEnum):
     """What was decided about one PubMed hit."""
 

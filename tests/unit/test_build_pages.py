@@ -76,7 +76,8 @@ from chd_atlas.models.literature import Publication
 from chd_atlas.models.phases import CardiacPhase, CardiacPhaseFile, EndBasis
 from chd_atlas.models.review import ReviewStatus
 from chd_atlas.models.scope import ScopeEntry
-from chd_atlas.orphanet_scope import Annotation, Warrant
+from chd_atlas.orphanet_scope import Annotation, Warrant, pinned_hpo
+from chd_atlas.validate.sources import load_sources
 from chd_atlas.vocab import (
     AtlasCuration,
     Classification,
@@ -294,6 +295,7 @@ def test_an_uncurated_gene_page_says_the_atlas_has_not_curated_it(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -360,6 +362,7 @@ def test_a_curated_gene_page_carries_its_evidence_quote_and_pmid(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     page = _page(tmp_path, "HGNC_11604.html")
@@ -432,6 +435,7 @@ def test_a_symbol_carrying_markup_is_escaped(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -487,6 +491,7 @@ def test_a_non_http_report_url_never_becomes_a_link(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -537,6 +542,7 @@ def test_panelapp_australias_homepage_link_opens_the_genes_own_page_and_nothing_
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     groups = _validity_table(_page(tmp_path, "HGNC_4173.html"))
@@ -586,6 +592,7 @@ def test_an_uncurated_notice_never_denies_functional_records_the_rail_counts(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -619,6 +626,7 @@ def test_a_mirrored_disease_label_carrying_markup_is_escaped(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     assert "<img src=x" not in _page(tmp_path, "HGNC_4173.html")
@@ -731,6 +739,7 @@ def test_a_contested_gene_is_never_chipped_as_settled(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -797,6 +806,7 @@ def test_every_gene_in_the_facts_gets_exactly_one_page(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     assert sorted(path.name for path in (tmp_path / "genes").iterdir()) == [
@@ -1108,6 +1118,7 @@ def test_a_gene_definitive_for_two_in_scope_diseases_names_both_in_a_fixed_order
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     browse = _page(tmp_path, "index.html")
@@ -1166,6 +1177,7 @@ def test_both_page_kinds_state_the_rule_that_admits_a_gene_to_this_atlas(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     for name in ("index.html", "HGNC_11604.html", "HGNC_4173.html"):
@@ -1247,6 +1259,7 @@ def test_a_gene_page_names_the_disease_beside_the_chip_that_says_definitive(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -1276,6 +1289,7 @@ def test_every_browse_row_links_to_a_page_that_was_written(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
     build_gene_index_page(facts_two, emitter, symbols={}, validity=validity_two, burden_counts={})
 
@@ -1531,6 +1545,7 @@ def _burden_page(
         axes=axes if axes is not None else evidence_axes(rows),
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
     return _page(tmp_path, name)
 
@@ -4401,6 +4416,7 @@ def test_the_rail_names_the_grade_the_panel_gave_and_the_disease_it_gave_it_for(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     page = _page(tmp_path, "HGNC_11604.html")
@@ -4439,6 +4455,7 @@ def test_a_gene_no_panel_graded_names_the_submitters_that_admitted_it(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -4500,6 +4517,7 @@ def test_both_page_kinds_leave_the_grade_key_to_methods_html(tmp_path: Path) -> 
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     for name in ("index.html", "HGNC_11604.html"):
@@ -4692,6 +4710,7 @@ def _expression_page(
     cell_types: dict[str, CellTypeExpression] | None = None,
     literature: dict[str, GeneLiterature] | None = None,
     publications: dict[str, Publication] | None = None,
+    phenotype_labels: dict[str, str] | None = None,
 ) -> str:
     """One gene page, built only to exercise the expression section.
 
@@ -4721,6 +4740,7 @@ def _expression_page(
         phases=phases,
         cell_types=cell_types or {},
         literature=literature or {},
+        phenotype_labels=phenotype_labels or {},
     )
     return _page(tmp_path, name)
 
@@ -7417,6 +7437,7 @@ def test_a_study_s_own_combination_is_stated_in_its_block_and_labelled_for_what_
         combined={GATA4: [_combined()]},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
     section = _burden_section_text(_page(tmp_path, "HGNC_4173.html"))
     block = _study_block(section, "40127276")
@@ -7529,6 +7550,7 @@ def test_an_orphanet_scoped_syndrome_says_why_it_counts_as_chd_above_both_groups
         },
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
     page = _page(tmp_path, "HGNC_4173.html")
     section = _slice_between(page, "<h2>Mirrored gene&ndash;disease validity</h2>", ("<h2",))
@@ -7720,6 +7742,7 @@ def test_clingens_own_gencc_copy_is_listed_only_where_it_differs_from_the_panel(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     page = _page(tmp_path, "HGNC_4173.html")
@@ -7768,6 +7791,7 @@ def test_a_copy_spelling_the_panels_rung_differently_is_still_folded(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     others = _validity_table(_page(tmp_path, "HGNC_4173.html"))
@@ -7826,6 +7850,7 @@ def test_the_validity_section_groups_by_authority_and_reads_one_vocabulary(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     section = _validity_table(_page(tmp_path, "HGNC_4173.html"))
@@ -7897,6 +7922,7 @@ def test_an_empty_authority_group_is_a_sentence_not_an_empty_table(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     section = _validity_table(_page(tmp_path, "HGNC_4173.html"))
@@ -7934,6 +7960,7 @@ def test_a_gene_page_names_its_gene_and_links_gnomad_and_clinvar_first(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     rail = _slice_between(_page(tmp_path, "HGNC_4173.html"), '<aside class="rail">', ("</aside>",))
@@ -7977,6 +8004,7 @@ def test_the_rails_identity_text_is_escaped(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
 
     rail = _slice_between(_page(tmp_path, "HGNC_4173.html"), '<aside class="rail">', ("</aside>",))
@@ -8012,6 +8040,7 @@ def test_a_gene_page_that_cannot_carry_its_required_links_is_refused(
             cohorts={},
             cell_types={},
             literature={},
+            phenotype_labels={},
         )
 
 
@@ -8863,6 +8892,7 @@ def _card_page(
         scope_terms=scope_terms,
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
     return _rail_of(_page(tmp_path, "HGNC_4173.html"))
 
@@ -9841,6 +9871,7 @@ def test_the_card_says_in_plain_words_what_the_atlas_itself_curated(
         cohorts={},
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
     page = _page(tmp_path, "HGNC_4173.html")
     rail = _rail_of(page)
@@ -9925,6 +9956,7 @@ def test_the_card_counts_approved_literature_findings_as_atlas_curation(
         cohorts={},
         cell_types={},
         literature={GATA4: _approved(*literature)} if literature else {},
+        phenotype_labels={},
     )
     rail = _rail_of(_page(tmp_path, "HGNC_4173.html"))
     assert re.findall(r'<p class="card-curation">(.*?)</p>', rail) == [sentence]
@@ -9951,6 +9983,7 @@ def test_a_gene_whose_findings_all_await_approval_is_not_yet_curated(tmp_path: P
         cohorts={},
         cell_types={},
         literature={GATA4: waiting},
+        phenotype_labels={},
     )
     rail = _rail_of(_page(tmp_path, "HGNC_4173.html"))
     assert re.findall(r'<p class="card-curation">(.*?)</p>', rail) == [_NOT_CURATED_BY_PANEL]
@@ -9989,6 +10022,7 @@ def test_the_card_counts_the_approved_findings_and_not_those_awaiting_approval(
         cohorts={},
         cell_types={},
         literature={GATA4: mixed},
+        phenotype_labels={},
     )
     rail = _rail_of(_page(tmp_path, "HGNC_4173.html"))
     assert re.findall(r'<p class="card-curation">(.*?)</p>', rail) == [
@@ -10048,6 +10082,7 @@ def test_every_value_the_card_interpolates_is_escaped(tmp_path: Path) -> None:
         scope_warrants=_ORPHANET_WARRANTS,
         cell_types={},
         literature={},
+        phenotype_labels={},
     )
     rail = _rail_of(_page(tmp_path, "HGNC_4173.html"))
 
@@ -10243,6 +10278,7 @@ def _lit_finding(**changes: object) -> dict[str, object]:
         "screened": 70,
         "carriers": {"de_novo": 2, "inherited": 1, "origin_unknown": 4},
         "variant_classes": ["snv_indel"],
+        "variants": [],
         "cases": None,
         "controls": None,
         "p_value": None,
@@ -10321,13 +10357,19 @@ def _literature_html(page: str) -> str:
     return page[start : page.index("<h2", start + 1)]
 
 
-def _lit_page(tmp_path: Path, literature: GeneLiterature | None) -> str:
+def _lit_page(
+    tmp_path: Path,
+    literature: GeneLiterature | None,
+    publications: dict[str, Publication] | None = None,
+    labels: dict[str, str] | None = None,
+) -> str:
     return _literature_html(
         _expression_page(
             tmp_path,
             {},
             literature=None if literature is None else {GATA4: literature},
-            publications={"PMID:8988165": _LIT_PUBLICATION},
+            publications=publications or {"PMID:8988165": _LIT_PUBLICATION},
+            phenotype_labels=labels,
         )
     )
 
@@ -10671,6 +10713,447 @@ def test_a_summary_a_review_note_a_query_and_a_curator_name_are_escaped(tmp_path
     assert "Note &lt;i&gt; &amp; &quot;q&quot;" in section
     assert "O&#x27;Neil &lt;x&gt;" in section
     assert "<b>" not in section and "<script>" not in section and "<i>" not in section
+
+
+# --- Variant table (plan Task 14) ----------------------------------------------------
+
+_A_C, _A_P, _A_G = "NM_181486.4:c.835C>T", "NP_852259.1:p.(Arg279Ter)", "12:114366312:G:A"
+_D_C, _D_P, _D_G = "NM_181486.4:c.836G>A", "NP_852259.1:p.(Arg279Gln)", "12:114366311:C:T"
+_AMES = '<a href="https://pubmed.ncbi.nlm.nih.gov/2/" title="Title 1">Ames A et al. 1999</a>'
+_BELL = '<a href="https://pubmed.ncbi.nlm.nih.gov/3/" title="Title 2">Bell B et al. 2004</a>'
+_COLE = '<a href="https://pubmed.ncbi.nlm.nih.gov/4/" title="Title 3">Cole C et al. 2010</a>'
+
+
+@pytest.fixture(scope="module")
+def hpo_labels() -> dict[str, str]:
+    """The pinned HPO release's term names, read as the build reads them (`pinned_hpo`)."""
+    repo = Path(__file__).resolve().parents[2]
+    registry, _ = load_sources(repo)
+    hpo = pinned_hpo(repo, registry.ontology_files())
+    assert hpo is not None, "the pinned HPO release did not load"
+    return hpo.labels
+
+
+def _pv(vid: int, placement: str = "mane", **changes: object) -> dict[str, object]:
+    """A variant as a bundle publishes it (`Finding.model_dump(by_alias=True)`)."""
+    base: dict[str, object] = {
+        "id": vid,
+        "as_reported": f"variant {vid}",
+        "locator": {"kind": "in_text", "element": "Table 1"},
+        "kind": "snv_indel",
+        "placement": placement,
+        "reported": {"transcript": None, "c": None, "p": None, "rsid": None},
+        "hgvs_c": None,
+        "hgvs_p": None,
+        "grch38": None,
+        "normalisation": None,
+        "zygosity": "heterozygous",
+        "with": [],
+        "phase": None,
+        "carriers": None,
+        "phenotypes": [],
+        "review_status": None,
+        "review_note": None,
+    }
+    base.update(changes)
+    return base
+
+
+def _carried(de_novo: int = 0, inherited: int = 0, origin_unknown: int = 0) -> dict[str, int]:
+    return {"de_novo": de_novo, "inherited": inherited, "origin_unknown": origin_unknown}
+
+
+def _variant_pubs() -> dict[str, Publication]:
+    """Three papers by three first authors, so no label gains its PMID."""
+    papers = (("PMID:2", 1999, "Ames A"), ("PMID:3", 2004, "Bell B"), ("PMID:4", 2010, "Cole C"))
+    return {
+        pmid: _LIT_PUBLICATION.model_copy(
+            update={"id": pmid, "year": year, "authors": [author], "title": f"Title {n}"}
+        )
+        for n, (pmid, year, author) in enumerate(papers, start=1)
+    }
+
+
+def _variant_findings() -> list[dict[str, object]]:
+    """Four findings over three papers naming three variants, in bundle order.
+
+    c.835C>T is named by three papers, the second spelling its protein change
+    `p.Arg279*` (the same key, LIT018/`protein_key`) with a review mark and no
+    stated zygosity, the third linking it in trans with c.836G>A. A protein-only
+    p.(Gly80Arg) sits at codon 80, so its row sorts first. The common-variant
+    finding counts no carrier.
+    """
+    return [
+        _lit_finding(
+            id="CHDA:LIT:0000001",
+            publication="PMID:2",
+            summary="One.",
+            variants=[
+                _pv(
+                    1,
+                    hgvs_c=_A_C,
+                    hgvs_p=_A_P,
+                    grch38=_A_G,
+                    carriers=_carried(de_novo=2),
+                    phenotypes=["HP:0001631"],
+                ),
+                _pv(
+                    2,
+                    "protein",
+                    hgvs_p="NP_852259.1:p.(Gly80Arg)",
+                    carriers=_carried(inherited=1),
+                    zygosity="homozygous",
+                ),
+            ],
+        ),
+        _lit_finding(
+            id="CHDA:LIT:0000002",
+            publication="PMID:3",
+            design="family_segregation",
+            count_unit="families",
+            screened=4,
+            carriers=_carried(inherited=3, origin_unknown=1),
+            phenotypes=["HP:0011722"],
+            lesion_groups=["anomalous_venous_return"],
+            summary="Two.",
+            variants=[
+                _pv(
+                    1,
+                    hgvs_c=_A_C,
+                    hgvs_p="NP_852259.1:p.Arg279*",
+                    grch38=_A_G,
+                    carriers=_carried(inherited=3, origin_unknown=1),
+                    phenotypes=["HP:0011722"],
+                    zygosity="not_stated",
+                    review_status="pending_review",
+                    review_note="The paper's p. disagrees.",
+                ),
+            ],
+        ),
+        _lit_finding(
+            id="CHDA:LIT:0000003",
+            publication="PMID:4",
+            design="case_report",
+            screened=1,
+            carriers=_carried(origin_unknown=1),
+            summary="Three.",
+            variants=[
+                _pv(
+                    1,
+                    hgvs_c=_A_C,
+                    hgvs_p=_A_P,
+                    grch38=_A_G,
+                    carriers=_carried(origin_unknown=1),
+                    phase="trans",
+                    **{"with": [2]},
+                ),
+                _pv(
+                    2,
+                    hgvs_c=_D_C,
+                    hgvs_p=_D_P,
+                    grch38=_D_G,
+                    carriers=_carried(origin_unknown=1),
+                    phase="trans",
+                    **{"with": [1]},
+                ),
+            ],
+        ),
+        _lit_finding(
+            id="CHDA:LIT:0000004",
+            publication="PMID:4",
+            design="common_variant_association",
+            methods=["genotyping_array"],
+            count_unit=None,
+            screened=None,
+            carriers=None,
+            cases=1200,
+            controls=3400,
+            summary="Four.",
+            variants=[_pv(1, hgvs_c=_D_C, hgvs_p=_D_P, grch38=_D_G)],
+        ),
+    ]
+
+
+def _variant_section_html(section: str) -> str:
+    """The variant section alone: from its heading to the end of the Literature section."""
+    return section[section.index("<h3>Reported variants</h3>") :]
+
+
+def test_the_variant_table_has_one_row_per_variant_and_one_sub_row_per_finding(
+    tmp_path: Path, hpo_labels: dict[str, str]
+) -> None:
+    """Spec 7.5 and rulings D13, D15: the table pinned whole, sliced to itself (4.19).
+
+    One `<tbody>` per variant in transcript order (the protein row at its codon);
+    its first `<tr>` names the variant without accessions and counts distinct
+    papers, and holds no carrier figure; one `<tr>` per finding after it, each
+    with that finding's own carriers in its unit. A heterozygous variant with no
+    partner leaves its zygosity cell empty (spec 7.5, "unless heterozygous
+    alone"), and a report whose record names the change differently from its
+    row's shows its own name (D13). Every value differs where a mutant could
+    swap two (4.30): three papers by three authors, two units, three origins.
+    """
+    section = _variant_section_html(
+        _lit_page(tmp_path, _lit(_variant_findings()), _variant_pubs(), hpo_labels)
+    )
+    table = section[section.index('<div class="scroll"><table>') : section.index("</table></div>")]
+    assert table + "</table></div>" == (
+        '<div class="scroll"><table><thead><tr><th scope="col">paper</th>'
+        '<th scope="col">design</th><th scope="col">carriers in this report</th>'
+        '<th scope="col">zygosity or partner</th><th scope="col">heart defects</th></tr></thead>'
+        '<tbody><tr><td colspan="5"><strong>p.(Gly80Arg)</strong> · 1 paper</td></tr>'
+        f"<tr><td>{_AMES}</td><td>cohort screen</td><td>carriers: 1 inherited</td>"
+        "<td>homozygous</td><td>not given per carrier</td></tr></tbody>"
+        '<tbody><tr><td colspan="5"><strong>c.835C&gt;T p.(Arg279Ter)</strong> · 3 papers</td></tr>'
+        f"<tr><td>{_AMES}</td><td>cohort screen</td><td>carriers: 2 de novo</td><td></td>"
+        "<td>Atrial septal defect</td></tr>"
+        f"<tr><td>{_BELL} · recorded as p.Arg279* <strong>Pending review:</strong> The "
+        "paper&#x27;s p. disagrees.</td><td>family segregation</td>"
+        "<td>carrier families: 3 inherited, 1 origin unknown</td><td>not stated</td>"
+        "<td>Mixed total anomalous pulmonary venous connection</td></tr>"
+        f"<tr><td>{_COLE}</td><td>case report</td><td>carriers: 1 origin unknown</td>"
+        "<td>with c.836G&gt;A (in trans)</td><td>not given per carrier</td></tr></tbody>"
+        '<tbody><tr><td colspan="5"><strong>c.836G&gt;A p.(Arg279Gln)</strong> · 1 paper</td></tr>'
+        f"<tr><td>{_COLE}</td><td>case report</td><td>carriers: 1 origin unknown</td>"
+        "<td>with c.835C&gt;T (in trans)</td><td>not given per carrier</td></tr>"
+        f"<tr><td>{_COLE}</td><td>common variant association</td><td>association</td><td></td>"
+        "<td>not given per carrier</td></tr></tbody></table></div>"
+    )
+    # Last in the Literature section, after the searches fold, under its caption.
+    assert section.startswith(
+        '<h3>Reported variants</h3><p class="method">One row per variant, one line per '
+        "report. One change can take more than one row: named by its DNA change in one "
+        "finding and by protein alone in another, or as a frameshift written in different "
+        "forms. Carriers are never summed across findings, "
+        "because two findings can count the same people. "
+        '<a href="../methods.html#literature-variants">'
+        'How variants are checked</a>.</p><div class="scroll"><table>'
+    )
+    assert section.endswith("</table></div>")
+    # The row key is internal and never printed; nor is an accession.
+    assert "g:12" not in section and "p:R279" not in section and "NM_181486" not in section
+
+
+def test_a_gene_with_no_approved_variant_gets_no_variant_section(tmp_path: Path) -> None:
+    """Ruling D15 (spec 7.5: "No variants, no table ... not an empty one").
+
+    A finding that counts carriers and names no variant is what
+    `findings_naming_no_variant` counts, and alone it renders nothing: today that
+    would put the count on TBX5's and NR2F2's pages, which name no variant yet.
+    One variant in either list is enough to render the section, with no table
+    and no table caption where no variant has a row.
+    """
+    unnamed = _lit_finding(summary="Seven carriers, none named.")
+    section = _lit_page(tmp_path, _lit([unnamed]))
+    assert "Reported variants" not in section and "no variant" not in section
+    assert "have a named variant" not in section
+    for placement, kind in (("outside_region", "snv_indel"), ("structural", "cnv")):
+        listed = _lit_finding(
+            id="CHDA:LIT:0000002",
+            variant_classes=["snv_indel", "cnv"],
+            variants=[
+                _pv(1, placement, kind=kind, as_reported="named", carriers=_carried(de_novo=1))
+            ],
+        )
+        variants = _variant_section_html(_lit_page(tmp_path, _lit([unnamed, listed])))
+        # No table, so no caption describing one: the methods link alone (4.27).
+        assert variants.startswith(
+            '<h3>Reported variants</h3><p class="method"><a href="../methods.html#'
+            'literature-variants">How variants are checked</a>.</p><p>'
+        ), placement
+        assert "<table" not in variants and "One row per variant" not in variants, placement
+        assert "<li>named · " in variants, placement
+        assert variants.endswith("<p>1 finding reports carriers but names no variant.</p>")
+
+
+def test_heart_defects_render_as_hpo_labels_or_not_given_per_carrier(
+    tmp_path: Path, hpo_labels: dict[str, str]
+) -> None:
+    """The release's own names, in the order curated; a defect with no label raises.
+
+    LIT024 holds a variant's phenotypes among its finding's, which the ontology
+    checks resolve in the pinned release, so a label missing here means the
+    labels were never passed or a gate was bypassed: it must fail, never render
+    a blank cell or the bare id.
+    """
+    finding = _lit_finding(
+        phenotypes=["HP:0011722", "HP:0001631"],
+        variants=[
+            _pv(
+                1,
+                hgvs_c=_A_C,
+                hgvs_p=_A_P,
+                grch38=_A_G,
+                carriers=_carried(de_novo=1),
+                phenotypes=["HP:0011722", "HP:0001631"],
+            ),
+            _pv(2, hgvs_c=_D_C, hgvs_p=_D_P, grch38=_D_G, carriers=_carried(inherited=1)),
+        ],
+    )
+    section = _variant_section_html(_lit_page(tmp_path, _lit([finding]), labels=hpo_labels))
+    cells = re.findall(r"<td>([^<]*)</td></tr>", section)
+    assert cells == [
+        "Mixed total anomalous pulmonary venous connection, Atrial septal defect",
+        "not given per carrier",
+    ]
+    with pytest.raises(ValueError, match="HP:0011722"):
+        _lit_page(tmp_path, _lit([finding]), labels={"HP:0001631": "Atrial septal defect"})
+
+
+def test_a_finding_with_unnamed_carriers_says_how_many_are_named(tmp_path: Path) -> None:
+    """Spec 7.2 and ruling D14: "N of M carriers have a named variant.", in its own row.
+
+    The LIT:0000094 shape (78 carriers, none named) gets no line: a finding naming
+    no variant is counted under the table instead. A linked pair is the same
+    people and counts once (3 of 5 here, 5 of 5 if counted twice), a finding whose
+    variants name every carrier gets no line, a common-variant finding counts no
+    carrier, and a family finding's carrier is a carrier family (R30).
+    """
+    pair = [
+        _pv(
+            1,
+            hgvs_c=_A_C,
+            hgvs_p=_A_P,
+            grch38=_A_G,
+            carriers=_carried(inherited=2),
+            phase="trans",
+            **{"with": [2]},
+        ),
+        _pv(
+            2,
+            hgvs_c=_D_C,
+            hgvs_p=_D_P,
+            grch38=_D_G,
+            carriers=_carried(inherited=2),
+            phase="trans",
+            **{"with": [1]},
+        ),
+        _pv(3, "protein", hgvs_p="NP_852259.1:p.(Gly80Arg)", carriers=_carried(de_novo=1)),
+    ]
+    findings = [
+        _lit_finding(
+            id="CHDA:LIT:0000001",
+            summary="Linked.",
+            screened=9,
+            carriers=_carried(1, 2, 2),
+            variants=pair,
+        ),
+        _lit_finding(
+            id="CHDA:LIT:0000002",
+            summary="Families.",
+            count_unit="families",
+            screened=2,
+            carriers=_carried(inherited=2),
+            variants=[
+                _pv(1, hgvs_c=_A_C, hgvs_p=_A_P, grch38=_A_G, carriers=_carried(inherited=1))
+            ],
+        ),
+        _lit_finding(
+            id="CHDA:LIT:0000003",
+            summary="None named.",
+            screened=90,
+            carriers=_carried(origin_unknown=78),
+        ),
+        _lit_finding(
+            id="CHDA:LIT:0000004",
+            summary="All named.",
+            screened=2,
+            carriers=_carried(de_novo=2),
+            variants=[_pv(1, hgvs_c=_A_C, hgvs_p=_A_P, grch38=_A_G, carriers=_carried(de_novo=2))],
+        ),
+        _lit_finding(
+            id="CHDA:LIT:0000005",
+            summary="Common.",
+            design="common_variant_association",
+            methods=["genotyping_array"],
+            count_unit=None,
+            screened=None,
+            carriers=None,
+            cases=10,
+            controls=20,
+            variants=[_pv(1, hgvs_c=_A_C, hgvs_p=_A_P, grch38=_A_G)],
+        ),
+    ]
+    (block,) = _paper_blocks(_lit_page(tmp_path, _lit(findings)))
+    summaries = re.findall(r"<td>([^<]*)</td><td>A\. Curator</td>", block)
+    assert summaries == [
+        "Linked. 3 of 5 carriers have a named variant.",
+        "Families. 1 of 2 carrier families has a named variant.",
+        "None named.",
+        "All named.",
+        "Common.",
+    ]
+
+
+def test_the_lists_give_each_variant_as_reported_with_its_paper_and_any_dbsnp_link(
+    tmp_path: Path,
+) -> None:
+    """Spec 7.5: outside the checked region (V6), then with no position; then the count.
+
+    An rsID is linked to dbSNP where the paper wrote it, or after the text where
+    it did not, and only when it reads as one; a structural variant precedes an
+    unplaced one, which keeps its review mark. Escaped like every curated text.
+    """
+    findings = [
+        _lit_finding(
+            id="CHDA:LIT:0000001",
+            publication="PMID:2",
+            variant_classes=["snv_indel", "cnv"],
+            variants=[
+                _pv(
+                    1,
+                    "outside_region",
+                    as_reported="rs1234 near rs123 c.*3000A>G",
+                    reported={"transcript": None, "c": None, "p": None, "rsid": "rs123"},
+                    carriers=_carried(de_novo=1),
+                ),
+                _pv(
+                    2,
+                    "outside_region",
+                    as_reported="c.-2000A>G",
+                    reported={"transcript": None, "c": None, "p": None, "rsid": "rs6489956"},
+                    carriers=_carried(de_novo=1),
+                ),
+                _pv(
+                    3,
+                    "outside_region",
+                    as_reported="c.-3000del",
+                    reported={"transcript": None, "c": None, "p": None, "rsid": "rs 77"},
+                    carriers=_carried(inherited=1),
+                ),
+                _pv(
+                    4,
+                    "unplaced",
+                    as_reported="c.998G>T p.D111Y",
+                    carriers=_carried(inherited=1),
+                    review_status="pending_review",
+                    review_note="c.998G>T: MANE has C.",
+                ),
+                _pv(
+                    5,
+                    "structural",
+                    kind="cnv",
+                    as_reported="12q24 & del",
+                    carriers=_carried(origin_unknown=1),
+                ),
+            ],
+        ),
+        _lit_finding(id="CHDA:LIT:0000002", publication="PMID:3", summary="Unnamed one."),
+        _lit_finding(id="CHDA:LIT:0000003", publication="PMID:4", summary="Unnamed two."),
+    ]
+    section = _variant_section_html(_lit_page(tmp_path, _lit(findings), _variant_pubs()))
+    dbsnp = "https://www.ncbi.nlm.nih.gov/snp/"
+    assert section[section.index("<p>Outside") :] == (
+        "<p>Outside the region the atlas checks, as reported:</p><ul>"
+        f'<li>rs1234 near <a href="{dbsnp}rs123">rs123</a> c.*3000A&gt;G · {_AMES}</li>'
+        f'<li>c.-2000A&gt;G (<a href="{dbsnp}rs6489956">rs6489956</a>) · {_AMES}</li>'
+        f"<li>c.-3000del · {_AMES}</li></ul>"
+        "<p>With no position, as reported:</p><ul>"
+        f"<li>12q24 &amp; del · {_AMES}</li>"
+        f"<li>c.998G&gt;T p.D111Y · {_AMES} <strong>Pending review:</strong> c.998G&gt;T: MANE "
+        "has C.</li></ul>"
+        "<p>2 findings report carriers but name no variant.</p>"
+    )
 
 
 # --- Literature timeline figure (plan Task B3) ---------------------------------------
@@ -11279,6 +11762,7 @@ def test_a_cited_assertion_links_to_its_heading_on_the_same_page(
             TBX5: literature("CHDA:AST:0000001", "CHDA:AST:0000002"),
             GATA4: literature("CHDA:AST:0000002"),
         },
+        phenotype_labels={},
     )
     page = _page(tmp_path, "HGNC_11604.html")
     card = _slice_between(_rail_of(page), '<div class="card-synthesis">', ("</div>",))
