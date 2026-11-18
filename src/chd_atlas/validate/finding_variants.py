@@ -568,6 +568,20 @@ def _link_issues(variants: list[Variant]) -> list[ShapeIssue]:
         phases = {v.phase for v in group if v.with_}
         if len(phases) > 1:
             out.append(("LIT022", group[0].id, f"variants {ids} are linked but differ in phase"))
+        if phases == {Phase.UNCLEAR}:
+            # One unclear phase is one question about one statement in the paper
+            # (R-U3), so every member carries the same reason and settler. The
+            # Variant validator guarantees each member has an unclear["phase"].
+            entries = [v.unclear["phase"] for v in group if v.with_]
+            if any(e != entries[0] for e in entries[1:]):
+                out.append(
+                    (
+                        "LIT022",
+                        group[0].id,
+                        f"variants {ids} share an unclear phase but state it with different "
+                        "reasons or settlers; one statement in the paper is one entry",
+                    )
+                )
         if len(group) > 2 and Phase.TRANS in phases:
             out.append(
                 (
@@ -717,8 +731,8 @@ def shape_issues(finding: Finding, normalisation_ids: set[int]) -> list[ShapeIss
                         f"variant {v.id} repeats variant {twin.id}'s name ({key[2:]}) in the "
                         "same genotype context (or in the same with group, where one change "
                         "twice is in effect homozygous); name each variant once per finding "
-                        "per context, with zygosity not_stated when its carriers differ in "
-                        "zygosity",
+                        "per context, with zygosity unclear, and its reason, when its carriers "
+                        "differ in zygosity",
                     )
                 )
             seen.setdefault(key, []).append(v)

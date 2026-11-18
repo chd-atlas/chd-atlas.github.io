@@ -1066,3 +1066,60 @@ def test_a_partner_with_no_row_key_is_told_apart_by_what_the_paper_printed() -> 
     assert _repeats(_shape(pair)) == []
     same = [*pair[:3], _linked(4, 2, as_reported="partner X", **unplaced)]
     assert _repeats(_shape(same)) == [2]
+
+
+_UNCLEAR_PHASE = {
+    "reason": "the paper does not say whether the changes share an allele",
+    "settled_by": "full_text",
+}
+
+
+def _unclear_trio(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Three variants linked pairwise, each `phase: unclear` with its own entry."""
+    everyone = {1: [2, 3], 2: [1, 3], 3: [1, 2]}
+    return [
+        _linked(i, 0, phase="unclear", unclear={"phase": entries[i - 1]}, **{"with": w})
+        for i, w in everyone.items()
+    ]
+
+
+def test_a_with_group_sharing_an_unclear_phase_validates_when_its_entries_agree() -> None:
+    assert _shape(_unclear_trio([_UNCLEAR_PHASE] * 3)) == []
+
+
+@pytest.mark.parametrize(
+    "different",
+    [
+        {**_UNCLEAR_PHASE, "reason": "the authors give no haplotype data"},
+        {**_UNCLEAR_PHASE, "settled_by": "authors"},
+    ],
+    ids=["reason", "settler"],
+)
+def test_a_with_group_whose_unclear_phase_entries_differ_is_refused(
+    different: dict[str, Any],
+) -> None:
+    issues = _shape(_unclear_trio([_UNCLEAR_PHASE, _UNCLEAR_PHASE, different]))
+    assert [(code, number) for code, number, _ in issues] == [("LIT022", 1)]
+    assert "variants 1, 2, 3 share an unclear phase" in issues[0][2]
+    assert "one statement in the paper is one entry" in issues[0][2]
+
+
+def test_a_linked_variant_cannot_be_zygosity_unclear() -> None:
+    unclear = {"zygosity": {"reason": "not stated in the table", "settled_by": "full_text"}}
+    pair = [
+        _linked(1, 2, zygosity="unclear", unclear=unclear),
+        _linked(2, 1),
+    ]
+    issues = _shape(pair)
+    assert [(code, number) for code, number, _ in issues] == [("LIT022", 1)]
+    assert "must be heterozygous" in issues[0][2]
+
+
+def test_the_repeat_message_tells_the_curator_to_write_zygosity_unclear() -> None:
+    twice = _shape([_sv(1, grch38="12:114366312:G:A"), _sv(2, grch38="12:114366312:G:A")])
+    messages = [m for c, _, m in twice if c == "LIT022" and "repeats" in m]
+    assert len(messages) == 1
+    assert (
+        "with zygosity unclear, and its reason, when its carriers differ in zygosity" in messages[0]
+    )
+    assert "not_stated when its carriers differ" not in messages[0]
