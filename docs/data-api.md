@@ -1791,7 +1791,8 @@ registered papers share both; an entry opens to that
 paper's findings with each finding's design, methods, counts with their unit,
 carriers by origin, result (the comparator for a rare-variant association, and
 the stored p-value and odds ratio), lesion groups, independence (cohorts, and
-whether its probands are shared), summary with any review mark, and the person
+whether its probands are shared), summary with any review mark (the mark's label
+and a "why" link to the gene's register page, where the note is), and the person
 who approved it. A gene with a search and no approved finding says "No approved
 findings yet." and draws no timeline. Folded after those are the exclusion tally
 by reason and every search with its date, hits and exact query. Last, on a gene
@@ -1800,7 +1801,10 @@ row per placed variant (its `c.` and `p.` names and how many papers report it)
 and, under it, one line per report of it (a finding gives one for each
 genotype context it names the variant in: alone, or with a given partner and phase) with the paper, design, that report's own
 carriers by origin, zygosity or partner, and the carriers' heart defects as HPO
-labels. No line or row sums carriers across findings. After it come the variants
+labels. A zygosity or phase that is `unclear` reads "unclear" with a "why" link
+to the register, and a variant's own review mark is its label and a "why" link;
+neither prints the reason on the gene page. No line or row sums carriers across
+findings. After it come the variants
 listed as reported (outside the checked region, then with no position), and how
 many findings report carriers but name no variant. A paper's fold says, for a
 finding whose variants name only some of its carriers, how many.
@@ -1924,8 +1928,9 @@ Top to bottom:
    evidence against a gene — follows whenever the gene has rows.
 7. One sentence saying what the atlas itself has curated, then, where a curated
    lesion assertion exists, a mechanism sentence and, where approved findings
-   exist, a literature line and, where an approved synthesis is current, the
-   "In short" paragraph (all described below).
+   exist, a literature line, which ends with a link "N open questions" to the
+   gene's register page where that gene has any, and, where an approved synthesis
+   is current, the "In short" paragraph (all described below).
 8. *How to read this page*, a link to the top of [`methods.html`](#methodshtml),
    and a link to the gene's own JSON.
 

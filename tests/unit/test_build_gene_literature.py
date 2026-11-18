@@ -768,6 +768,9 @@ def test_the_lists_hold_outside_region_then_structural_then_unplaced_variants() 
         "rsid": "rs12",
         "publication": "PMID:1",
         "finding": "CHDA:LIT:0000001",
+        "variant": 3,
+        "zygosity": "heterozygous",
+        "phase": None,
         "review_status": None,
         "review_note": None,
     }

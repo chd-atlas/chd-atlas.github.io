@@ -300,7 +300,7 @@ def _card(page: str) -> str:
 
 
 @pytest.mark.parametrize(
-    ("gene", "curation", "mechanism", "line"),
+    ("gene", "curation", "mechanism", "line", "questions"),
     [
         pytest.param(
             "HGNC_11604",
@@ -313,6 +313,7 @@ def _card(page: str) -> str:
             "other 28. "
             "De novo carriers in 11 papers; inherited carriers in 24 papers. "
             "From the abstract only: 21 papers; pending review: 3 papers.",
+            25,
             id="TBX5",
         ),
         pytest.param(
@@ -325,12 +326,13 @@ def _card(page: str) -> str:
             "1 paper. Lesions studied, by paper: septal 9, LVOTO 8, conotruncal 2, AVSD 2, "
             "RVOTO 1, other 3. De novo carriers in 9 papers; inherited carriers in 4 papers. "
             "From the abstract only: 4 papers; pending review: 2 papers.",
+            8,
             id="NR2F2",
         ),
     ],
 )
 def test_the_card_states_a_curated_genes_literature_by_paper_and_its_mechanism(
-    site: Path, gene: str, curation: str, mechanism: str, line: str
+    site: Path, gene: str, curation: str, mechanism: str, line: str, questions: int
 ) -> None:
     """Pins the wiring on real data: the tallies and the assertions' mechanism reach the card.
 
@@ -345,7 +347,8 @@ def test_the_card_states_a_curated_genes_literature_by_paper_and_its_mechanism(
     assert (
         f'<p class="card-curation">{curation}</p>'
         f'<p class="card-mechanism">Mechanism, as curated by the atlas: {mechanism}.</p>'
-        f'<p class="card-literature">{line}</p>'
+        f'<p class="card-literature">{line} '
+        f'<a href="../register/{gene}.html#questions">{questions} open questions</a></p>'
     ) in card
 
 
@@ -2205,6 +2208,38 @@ def test_every_fragment_link_on_a_gene_page_lands_on_one_element_of_that_page(
             fragments += 1
             assert target in ids, f"{page_path.name} links #{target}, which no element carries"
     assert fragments, "no gene page carries a fragment link; the sweep would pass vacuously"
+
+
+def test_every_why_link_on_a_gene_page_lands_on_one_element_of_its_register(
+    site: Path,
+) -> None:
+    """A review mark's "why" is a link into the gene's register, and must arrive.
+
+    Every `<a>` whose text is `why` and whose href names `register/` is resolved
+    against the page it points at: the file must exist and exactly one element
+    there must carry the fragment as its id. A mark whose register was not
+    written, or whose anchor the register spells differently, is a link that
+    scrolls nowhere beside a label promising a reason.
+
+    Measured on the real corpus (method: this sweep's own count over a build of
+    the committed curation): 33 links, 25 on TBX5's page and 8 on NR2F2's, each
+    one finding's own mark; no variant carries a question there yet. A number
+    that moves means a question was added or approved: re-measure, do not edit
+    the figure to make the test green.
+    """
+    checked = 0
+    for page_path in sorted((site / "genes").glob("HGNC_*.html")):
+        page = page_path.read_text(encoding="utf-8")
+        for href in re.findall(r'<a href="([^"]*register/[^"]*)">why</a>', page):
+            checked += 1
+            target, _, fragment = href.partition("#")
+            register = (page_path.parent / target).resolve()
+            assert register.is_file(), f"{page_path.name} links {href}, which no file answers"
+            ids = re.findall(r' id="([^"]+)"', register.read_text(encoding="utf-8"))
+            assert ids.count(fragment) == 1, (
+                f"{page_path.name} -> {href}: {ids.count(fragment)} ids"
+            )
+    assert checked == 33, f"{checked} why links on the gene pages; 33 measured"
 
 
 def test_the_front_page_declares_exactly_the_study_blocks_the_gene_pages_declare(

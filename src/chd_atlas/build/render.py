@@ -989,6 +989,19 @@ def review_status_note(record: str, status: ReviewStatus | None, note: str | Non
     return f" <strong>{review_status_label(status)}:</strong> {html.escape(note)}"
 
 
+def review_status_why(status: ReviewStatus | None, href: str) -> str:
+    """A literature record's open question as its label and a link; `""` where none.
+
+    The gene page's front is a label and a "why" link; the note and what would
+    settle it live on the register (back) page the link names (owner, 2026-11-18).
+    Cohort notes keep `review_status_note`, in full. `href` is escaped here.
+    """
+    if status is None:
+        return ""
+    label = review_status_label(status)
+    return f' <strong>{label}</strong> \u00b7 <a href="{html.escape(href)}">why</a>'
+
+
 def evidence_legend(*, swatches: bool) -> str:
     """The four-state key, as one `<p>`. `swatches` picks square keys over dots.
 

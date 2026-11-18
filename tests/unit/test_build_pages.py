@@ -1525,6 +1525,7 @@ def _burden_page(
     families: tuple[frozenset[str], ...] | None = None,
     axes: tuple[tuple[str, str], ...] | None = None,
     cohorts: dict[str, Cohort] | None = None,
+    literature: dict[str, GeneLiterature] | None = None,
 ) -> str:
     """Render one gene page.
 
@@ -1548,7 +1549,7 @@ def _burden_page(
         families=families if families is not None else cohort_families(rows, registry),
         axes=axes if axes is not None else evidence_axes(rows),
         cell_types={},
-        literature={},
+        literature=literature or {},
         phenotype_labels={},
     )
     return _page(tmp_path, name)
@@ -9901,7 +9902,10 @@ def _approved(*pmids: str) -> GeneLiterature:
         searches=[],
         triage={"included": 0, "excluded": {}, "pending": 0},
         pending_approval=0,
-        findings=[{"id": f"F{n}", "publication": pmid} for n, pmid in enumerate(pmids)],
+        findings=[
+            {"id": f"F{n}", "publication": pmid, "review_status": None, "variants": []}
+            for n, pmid in enumerate(pmids)
+        ],
         tallies=EMPTY_GENE_LITERATURE["tallies"],
         synthesis=None,
     )
@@ -10011,7 +10015,10 @@ def test_the_card_counts_the_approved_findings_and_not_those_awaiting_approval(
         searches=[],
         triage={"included": 0, "excluded": {}, "pending": 0},
         pending_approval=4,
-        findings=[{"id": "F0", "publication": "PMID:1"}, {"id": "F1", "publication": "PMID:2"}],
+        findings=[
+            {"id": "F0", "publication": "PMID:1", "review_status": None, "variants": []},
+            {"id": "F1", "publication": "PMID:2", "review_status": None, "variants": []},
+        ],
         tallies=EMPTY_GENE_LITERATURE["tallies"],
         synthesis=None,
     )
@@ -10260,6 +10267,9 @@ def test_the_cell_type_block_adds_at_most_41_visible_words_to_a_gene_page(
 # --- Literature section (plan Task 6) -------------------------------------------------
 
 
+# From `genes/`, as a gene page links its register.
+_REGISTER = "../register/HGNC_4173.html"
+
 _LIT_PUBLICATION = Publication(
     id="PMID:8988165",  # type: ignore[arg-type]
     title="Mutations in human TBX5 cause limb and cardiac malformation.",
@@ -10300,6 +10310,7 @@ def _lit_finding(**changes: object) -> dict[str, object]:
         "approved_on": "2026-11-05",
         "review_status": None,
         "review_note": None,
+        "review_settled_by": None,
     }
     base.update(changes)
     try:
@@ -10673,9 +10684,252 @@ def test_a_review_mark_is_shown_beside_the_approved_finding_it_qualifies(tmp_pat
     marked = _lit_finding(review_status="pending_review", review_note="Source disagrees.")
     section = _lit_page(tmp_path, _lit([marked]))
     (block,) = _paper_blocks(section)
-    assert "Seven of seventy probands carried a variant. <strong>" in block
-    assert "Source disagrees.</td>" in block
+    # The label and a link to the register; the note itself is on the register page.
+    assert (
+        "Seven of seventy probands carried a variant. <strong>Pending review</strong> · "
+        '<a href="../register/HGNC_4173.html#q-chda-lit-0000001">why</a></td>'
+    ) in block
+    assert "Source disagrees." not in block
     assert "<summary>1 publication</summary>" in section
+
+
+_NOTE = "ZZQ-7731 the paper's table and its text disagree."
+_WHY = '<a href="../register/HGNC_4173.html#{}">why</a>'
+
+
+def test_a_findings_mark_shows_its_label_and_a_why_link_and_not_its_note(tmp_path: Path) -> None:
+    """Review mark on a finding, on a variant and on a listed variant: label and link only.
+
+    The note is a string no other text on the page contains, so its absence from the
+    whole page (a negative assertion, 4.35) means it is nowhere, escaped or not; the
+    label and link are pinned as literals inside each element (4.19, 4.38).
+    """
+    finding = _lit_finding(
+        review_status="pending_review",
+        review_note=_NOTE,
+        review_settled_by="authors",
+        variants=[
+            _pv(
+                1,
+                hgvs_c=_A_C,
+                hgvs_p=_A_P,
+                grch38=_A_G,
+                carriers=_carried(de_novo=1),
+                review_status="not_accessible",
+                review_note=_NOTE + " variant",
+            ),
+            _pv(
+                2,
+                "unplaced",
+                as_reported="listed",
+                carriers=_carried(de_novo=1),
+                review_status="pending_review",
+                review_note=_NOTE + " listed",
+                review_settled_by="expert",
+            ),
+        ],
+    )
+    page = _expression_page(
+        tmp_path,
+        {},
+        literature={GATA4: _lit([finding])},
+        publications={"PMID:8988165": _LIT_PUBLICATION},
+        phenotype_labels={"HP:0001631": "Atrial septal defect", "HP:0001680": "x"},
+    )
+    assert "ZZQ-7731" not in page
+    section = _literature_html(page)
+    (block,) = _paper_blocks(section)
+    assert (
+        " <strong>Pending review</strong> · "
+        + _WHY.format("q-chda-lit-0000001")
+        + "</td><td>A. Curator</td>"
+    ) in block
+    variants = _variant_section_html(section)
+    first_row = variants[variants.index("<tr><td><a") :].split("</tr>")[0]
+    assert first_row.startswith("<tr><td>")
+    assert (
+        " <strong>Source not accessible</strong> · " + _WHY.format("q-chda-lit-0000001-v1")
+    ) in first_row
+    assert "<li>listed · " in variants[variants.index("<p>With no position") :]
+    assert variants.endswith(
+        " <strong>Pending review</strong> · " + _WHY.format("q-chda-lit-0000001-v2") + "</li></ul>"
+    )
+
+
+def test_an_unclear_zygosity_and_an_unclear_phase_read_unclear_why(
+    tmp_path: Path, hpo_labels: dict[str, str]
+) -> None:
+    """The zygosity cell and the partner phrase, each sliced to its own `<td>` (4.19).
+
+    Variant 1 has an unclear zygosity; 2 and 3 are linked with an unclear phase,
+    which each member links to its own anchor (the register keeps one record per
+    member). A plain `homozygous` stays a plain word.
+    """
+    reason = {"reason": "The paper does not say.", "settled_by": "authors"}
+    finding = _lit_finding(
+        carriers=_carried(de_novo=4),
+        variants=[
+            _pv(
+                1,
+                hgvs_c=_A_C,
+                hgvs_p=_A_P,
+                grch38=_A_G,
+                carriers=_carried(de_novo=1),
+                zygosity="unclear",
+                unclear={"zygosity": reason},
+            ),
+            _pv(
+                2,
+                hgvs_c=_D_C,
+                hgvs_p=_D_P,
+                grch38=_D_G,
+                carriers=_carried(de_novo=1),
+                phase="unclear",
+                unclear={"phase": reason},
+                **{"with": [3]},
+            ),
+            _pv(
+                3,
+                "protein",
+                hgvs_p="NP_852259.1:p.(Gly80Arg)",
+                carriers=_carried(de_novo=1),
+                phase="unclear",
+                unclear={"phase": reason},
+                **{"with": [2]},
+            ),
+            _pv(
+                4,
+                "protein",
+                hgvs_p="NP_852259.1:p.(Leu90Pro)",
+                carriers=_carried(de_novo=1),
+                zygosity="homozygous",
+            ),
+        ],
+    )
+    section = _variant_section_html(_lit_page(tmp_path, _lit([finding]), labels=hpo_labels))
+    cells = {
+        name: re.findall(r"<td>(.*?)</td>", body)[3]
+        for name, body in (
+            (m.group(1), m.group(0))
+            for m in re.finditer(r"<tbody>.*?<strong>(.*?)</strong>.*?</tbody>", section)
+        )
+    }
+    base = "../register/HGNC_4173.html#q-chda-lit-0000001"
+    assert cells["c.835C&gt;T p.(Arg279Ter)"] == f'unclear · <a href="{base}-v1-zygosity">why</a>'
+    assert cells["c.836G&gt;A p.(Arg279Gln)"] == (
+        f'with p.(Gly80Arg) (phase unclear · <a href="{base}-v2-phase">why</a>)'
+    )
+    assert cells["p.(Gly80Arg)"] == (
+        f'with c.836G&gt;A (phase unclear · <a href="{base}-v3-phase">why</a>)'
+    )
+    assert cells["p.(Leu90Pro)"] == "homozygous"
+
+
+def test_a_listed_variant_says_unclear_only_when_a_field_is(tmp_path: Path) -> None:
+    """R-U4: a listed variant names an unclear zygosity or phase; a plain value shows nothing."""
+    reason = {"reason": "The paper does not say.", "settled_by": "authors"}
+    finding = _lit_finding(
+        variant_classes=["snv_indel", "cnv"],
+        variants=[
+            _pv(
+                1,
+                "unplaced",
+                as_reported="alpha",
+                carriers=_carried(de_novo=1),
+                zygosity="unclear",
+                unclear={"zygosity": reason},
+            ),
+            _pv(
+                2,
+                "structural",
+                kind="cnv",
+                as_reported="beta",
+                carriers=_carried(de_novo=1),
+                phase="unclear",
+                unclear={"phase": reason},
+                **{"with": [3]},
+            ),
+            _pv(
+                3,
+                "structural",
+                kind="cnv",
+                as_reported="gamma",
+                carriers=_carried(de_novo=1),
+                zygosity="homozygous",
+            ),
+        ],
+    )
+    section = _variant_section_html(_lit_page(tmp_path, _lit([finding])))
+    items = re.findall(r"<li>(.*?)</li>", section)
+    base = "../register/HGNC_4173.html#q-chda-lit-0000001"
+    assert [i.split(" · ")[0] for i in items] == ["beta", "gamma", "alpha"]
+    assert items[0].endswith(f' · phase unclear · <a href="{base}-v2-phase">why</a>')
+    assert items[2].endswith(f' · zygosity unclear · <a href="{base}-v1-zygosity">why</a>')
+    assert items[1].endswith("</a>") and "unclear" not in items[1] and "why" not in items[1]
+
+
+def test_the_card_links_its_open_questions_only_when_the_gene_has_one(tmp_path: Path) -> None:
+    href = "../register/HGNC_4173.html"
+    assert _card_literature(_tallies(), 1, href).endswith(
+        f' <a href="{href}#questions">1 open question</a></p>'
+    )
+    three = _card_literature(_tallies(), 3, href)
+    assert three.endswith(f' <a href="{href}#questions">3 open questions</a></p>')
+    # The paragraph's own sentences are unchanged and still escaped text before the link.
+    assert _card_text(three).startswith("Papers from 2003 to 2026, by design:")
+    assert "<a " not in _card_literature(_tallies(), 0, href)
+    assert _card_literature(_tallies()) == _card_literature(_tallies(), 0, None)
+    with pytest.raises(ValueError, match="no register page"):
+        _card_literature(_tallies(), 2, None)
+
+    # Through the real approval filter: two marked findings, one unapproved, count one.
+    unapproved = {"approved_by": None, "approved_on": None}
+    marked = _lit_file(
+        GATA4,
+        [_raw_finding(1, "PMID:11"), _raw_finding(2, "PMID:12", **unapproved)],
+    )
+    only_unapproved = _lit_file(GATA4, [_raw_finding(3, "PMID:13", **unapproved)])
+    for name, file, expected in (("a", marked, "1 open question"), ("b", only_unapproved, None)):
+        corpus = Corpus(
+            root=Path("."),
+            publications=tuple(_reg_pubs().values()),
+            literature=((Path("a.yaml"), file),),
+        )
+        page = _expression_page(
+            tmp_path / name, {}, literature=gene_literature(corpus), publications=_reg_pubs()
+        )
+        card = page[page.index('<aside class="rail">') : page.index("</aside>")]
+        if expected is None:
+            assert "open question" not in card and "register/" not in card
+        else:
+            assert card.count("open question") == 1
+            assert f'<a href="../register/HGNC_4173.html#questions">{expected}</a></p>' in card
+
+
+def test_a_cohort_note_still_renders_in_full_on_the_gene_page(
+    tmp_path: Path, facts_uncurated: dict[str, GeneFacts]
+) -> None:
+    """4.31: the literature marks became label and link; a cohort's note did not."""
+    registry = {
+        **_COHORTS,
+        "ukbb": _COHORTS["ukbb"].model_copy(
+            update={"review_status": ReviewStatus.PENDING_REVIEW, "review_note": "Cohort note QQ."}
+        ),
+    }
+    finding = _lit_finding(
+        review_status="pending_review", review_note=_NOTE, review_settled_by="authors"
+    )
+    page = _burden_page(
+        tmp_path,
+        facts_uncurated,
+        [_burden_row()],
+        cohorts=registry,
+        literature={GATA4: _lit([finding])},
+        publications={_PUBLICATION.id: _PUBLICATION, "PMID:8988165": _LIT_PUBLICATION},
+    )
+    notes = _slice_between(page, '<details class="cohort-notes">', ("</details>",))
+    assert "<strong>Pending review:</strong> Cohort note QQ.</li>" in notes
+    assert "ZZQ-7731" not in page and "Pending review</strong> · <a" in page
 
 
 def test_a_searched_gene_with_nothing_approved_says_so_and_draws_no_axis(
@@ -10714,7 +10968,8 @@ def test_a_summary_a_review_note_a_query_and_a_curator_name_are_escaped(tmp_path
     )
     section = _lit_page(tmp_path, _lit([hostile]))
     assert "A&lt;b&gt; &amp; &quot;C&quot; &lt;script&gt;" in section
-    assert "Note &lt;i&gt; &amp; &quot;q&quot;" in section
+    # The note is on the register page (escaped there), never on this one.
+    assert "Note" not in section
     assert "O&#x27;Neil &lt;x&gt;" in section
     assert "<b>" not in section and "<script>" not in section and "<i>" not in section
 
@@ -10758,6 +11013,8 @@ def _pv(vid: int, placement: str = "mane", **changes: object) -> dict[str, objec
         "phenotypes": [],
         "review_status": None,
         "review_note": None,
+        "review_settled_by": None,
+        "unclear": {},
     }
     base.update(changes)
     return base
@@ -10911,8 +11168,9 @@ def test_the_variant_table_has_one_row_per_variant_and_one_sub_row_per_finding(
         '<tbody><tr><td colspan="5"><strong>c.835C&gt;T p.(Arg279Ter)</strong> · 3 papers</td></tr>'
         f"<tr><td>{_AMES}</td><td>cohort screen</td><td>carriers: 2 de novo</td><td></td>"
         "<td>Atrial septal defect</td></tr>"
-        f"<tr><td>{_BELL} · recorded as p.Arg279* <strong>Pending review:</strong> The "
-        "paper&#x27;s p. disagrees.</td><td>family segregation</td>"
+        f"<tr><td>{_BELL} · recorded as p.Arg279* <strong>Pending review</strong> · "
+        '<a href="../register/HGNC_4173.html#q-chda-lit-0000002-v1">why</a>'
+        "</td><td>family segregation</td>"
         "<td>carrier families: 3 inherited, 1 origin unknown</td><td>not stated</td>"
         "<td>Mixed total anomalous pulmonary venous connection</td></tr>"
         f"<tr><td>{_COLE}</td><td>case report</td><td>carriers: 1 origin unknown</td>"
@@ -11154,8 +11412,8 @@ def test_the_lists_give_each_variant_as_reported_with_its_paper_and_any_dbsnp_li
         f"<li>c.-3000del · {_AMES}</li></ul>"
         "<p>With no position, as reported:</p><ul>"
         f"<li>12q24 &amp; del · {_AMES}</li>"
-        f"<li>c.998G&gt;T p.D111Y · {_AMES} <strong>Pending review:</strong> c.998G&gt;T: MANE "
-        "has C.</li></ul>"
+        f"<li>c.998G&gt;T p.D111Y · {_AMES} <strong>Pending review</strong> · "
+        '<a href="../register/HGNC_4173.html#q-chda-lit-0000001-v4">why</a></li></ul>'
         "<p>2 findings report carriers but name no variant.</p>"
     )
 
@@ -11341,7 +11599,7 @@ def _fold_fixture() -> tuple[list[_PaperGroup], dict[str, Publication]]:
 
 def test_publications_fold_opens_one_block_per_paper_to_its_own_findings() -> None:
     groups, pubs = _fold_fixture()
-    fold = _literature_publications(groups, pubs)
+    fold = _literature_publications(groups, pubs, _REGISTER)
     assert fold.startswith("<details><summary>3 publications</summary>")
     assert fold.count('<details class="lit-paper">') == 3
     assert (
@@ -11361,7 +11619,7 @@ def test_publications_fold_opens_one_block_per_paper_to_its_own_findings() -> No
 
 def test_publications_fold_one_paper_reads_singular_and_the_table_drops_year_and_paper() -> None:
     groups, pubs = _fold_fixture()
-    one = _literature_publications(groups[:1], pubs)
+    one = _literature_publications(groups[:1], pubs, _REGISTER)
     assert "<summary>1 publication</summary>" in one
     assert re.findall(r'<th scope="col">(.*?)</th>', one) == [
         "design",
@@ -11386,7 +11644,7 @@ def test_publications_fold_escapes_hostile_title_journal_and_author() -> None:
     )
     pubs = {"PMID:8988165": hostile}
     groups = _paper_groups([_lit_finding()], pubs)
-    fold = _literature_publications(groups, pubs)
+    fold = _literature_publications(groups, pubs, _REGISTER)
     assert "A&lt;i&gt;&amp;&quot;q&quot; et al. 1997 · J&lt;b&gt;&amp;" in fold
     assert "<p>T&lt;script&gt;&amp;&quot;x&quot; " in fold
     assert "<script>" not in fold and "<b>" not in fold and "<i>" not in fold
@@ -11479,7 +11737,7 @@ def test_a_colliding_paper_names_its_pmid_once_in_its_hover_and_its_fold_summary
     plain = [t for t in titles if t.startswith("Baban A et al. 2016")]
     assert len(plain) == 1 and plain[0].startswith("Baban A et al. 2016 · PMID:13 · ")
 
-    fold = _literature_publications(groups, pubs)
+    fold = _literature_publications(groups, pubs, _REGISTER)
     summaries = re.findall(r"<summary>(.*?)</summary>", fold)
     assert summaries[1].startswith("Baban A et al. 2014 (PMID:11) · Nature genetics · ")
     assert summaries[2].startswith("Baban A et al. 2014 (PMID:12) · Nature genetics · ")
@@ -11496,7 +11754,7 @@ def test_an_atlas_authors_paper_declares_itself_in_the_fold_and_the_timeline() -
         _lit_finding(id="CHDA:LIT:0000002", publication="PMID:2"),
     ]
     groups = _paper_groups(findings, pubs)
-    fold = _literature_publications(groups, pubs)
+    fold = _literature_publications(groups, pubs, _REGISTER)
     own_summary = re.search(r"<summary>(.*?)</summary>", _fold_block(fold, "PMID:8988165"))
     other_summary = re.search(r"<summary>(.*?)</summary>", _fold_block(fold, "PMID:2"))
     assert own_summary is not None and other_summary is not None

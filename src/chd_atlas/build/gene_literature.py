@@ -323,6 +323,7 @@ class VariantReport(TypedDict):
     """
 
     finding: str
+    variant: int
     publication: str
     design: str
     hgvs_c: str | None
@@ -354,6 +355,9 @@ class ListedVariant(TypedDict):
     rsid: str | None
     publication: str
     finding: str
+    variant: int
+    zygosity: str
+    phase: str | None
     review_status: str | None
     review_note: str | None
 
@@ -463,6 +467,7 @@ def variant_table(findings: Sequence[Mapping[str, Any]]) -> VariantTable:
                 row["reports"].append(
                     VariantReport(
                         finding=finding["id"],
+                        variant=variant["id"],
                         publication=finding["publication"],
                         design=finding["design"],
                         hgvs_c=variant["hgvs_c"],
@@ -483,6 +488,9 @@ def variant_table(findings: Sequence[Mapping[str, Any]]) -> VariantTable:
                 rsid=variant["reported"]["rsid"],
                 publication=finding["publication"],
                 finding=finding["id"],
+                variant=variant["id"],
+                zygosity=variant["zygosity"],
+                phase=variant["phase"],
                 review_status=variant["review_status"],
                 review_note=variant["review_note"],
             )
