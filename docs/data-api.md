@@ -287,7 +287,7 @@ wrong by the next one.
   the CHD cases among its case carriers apart. It added `review_status` and
   `review_note` to every [`cohorts.json`](#cohortsjson) record and every
   [`scope.json`](#scopejson) term: `"pending_review"`, a question about the
-  record that this atlas leaves open for an expert, or `"not_accessible"`, a
+  record that this atlas leaves open, or `"not_accessible"`, a
   source the record rests on could not be read, with a note stating what is
   unresolved; `null` and `null` where none is recorded. Additive.
   `2.20` added [`cell_type_expression`](#the-bundles-cell_type_expression-object-a-cell-type-profile-never-a-contrast)
@@ -2639,7 +2639,7 @@ working with numbers stripped of the sentences that say what they count.
   the record that this atlas leaves open rather than settles. The rule, the
   atlas owner's: such a record says so rather than choosing a side,
   speculating, or being dropped. `review_status` is `"pending_review"`, a
-  question about the record left open for an expert, or `"not_accessible"`, a
+  question about the record that this atlas leaves open, or `"not_accessible"`, a
   source the record rests on could not be read; `review_note` states exactly
   what is unresolved and nothing more. The vocabulary is
   [`scope.json`](#scopejson)'s too, where the question can be a clinical
@@ -2727,7 +2727,7 @@ structural CHD is frequent but not part of the diagnosis.
 - `review_status` and `review_note` (since `2.19`) record an open question
   about the term, in the vocabulary [`cohorts.json`](#cohortsjson) uses: both
   set or both `null`, never omitted. Two terms carry `"pending_review"` today,
-  MONDO:1010098 and MONDO:1060150, marking a question left open for an expert
+  MONDO:1010098 and MONDO:1060150, marking a question the atlas leaves open
   rather than a conflict between sources: whether each names a syndrome,
   which decides whether a gene page calls a grade for it a grade for a
   syndrome as a whole, is left open for clinical review, and `syndrome` stays

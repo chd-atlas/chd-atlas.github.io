@@ -2868,3 +2868,14 @@ def test_the_register_exists_for_exactly_the_genes_with_open_questions(site: Pat
         ids = re.findall(r' id="([^"]+)"', page)
         assert ids and len(ids) == len(set(ids)), name
         assert f'href="../genes/{name}"' in page
+
+
+def test_no_published_file_says_pending_review_is_for_an_expert(site: Path) -> None:
+    """Since the register names what settles each literature question ("the authors", "the
+    full text", ...), "for an expert" is false for most marks; `pending review` means one
+    thing on every record kind: a question the atlas leaves open (CLAUDE.md 4.35: grep the
+    build, not the source)."""
+    files = [p for p in site.rglob("*") if p.suffix in {".html", ".json"}]
+    assert len(files) > 100, "the build published too few files; the fixture is broken"
+    hits = [str(p.relative_to(site)) for p in files if "for an expert" in p.read_text()]
+    assert hits == []

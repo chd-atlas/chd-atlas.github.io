@@ -589,7 +589,7 @@
       "type": "object"
     },
     "ReviewStatus": {
-      "description": "Why a curated record is marked as carrying an open question.\n\n`PENDING_REVIEW`: a question about the record that this atlas leaves open\nfor an expert -- the sources it rests on conflict, as on the two cohorts\nthe owner marked on 2026-10-27, or a clinical judgement is needed, as on\nthe two scope terms marked the same day.\n`NOT_ACCESSIBLE`: a source it rests on could not be read, so what it says\nis unchecked. Neither is a verdict on the record.",
+      "description": "Why a curated record is marked as carrying an open question.\n\n`PENDING_REVIEW`: a question about the record that this atlas leaves open\n-- the sources it rests on conflict, as on the two cohorts\nthe owner marked on 2026-10-27, or a clinical judgement is needed, as on\nthe two scope terms marked the same day.\n`NOT_ACCESSIBLE`: a source it rests on could not be read, so what it says\nis unchecked. Neither is a verdict on the record.",
       "enum": [
         "pending_review",
         "not_accessible"
