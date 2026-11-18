@@ -240,6 +240,13 @@ def test_a_variant_on_a_gene_outside_the_frame_is_lit016_until_it_is_unplaced(
         # An absent hgvs_p is not exempt when the paper names a residue.
         (None, "p.R279X", ["LIT025"]),
         (None, "p.?", []),
+        # D6': the paper's own residue-less p. has nothing to compare either,
+        # whatever hgvs_p holds; a paper p. that does name a residue still fires.
+        ("NP_852259.1:p.(Arg279Ter)", "p.?", []),
+        ("NP_852259.1:p.(Arg279Ter)", "p.(?)", []),
+        ("NP_852259.1:p.(Arg279Ter)", "p.=", []),
+        ("NP_852259.1:p.(Arg279Ter)", "p.0", []),
+        ("NP_852259.1:p.(Arg279Ter)", "p.R279Q", ["LIT025"]),
         # D5: the paper's short frameshift against VariantValidator's long form.
         ("NP_852259.1:p.(Arg279GlyfsTer5)", "p.R279fs", []),
         ("NP_852259.1:p.(Arg279GlyfsTer5)", "p.R280fs", ["LIT025"]),

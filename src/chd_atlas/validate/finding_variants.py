@@ -39,8 +39,9 @@ LIT024 is a variant's phenotypes against the finding's.
 
 LIT025 compares the paper's `p.` with `hgvs_p` where both number residues on the
 MANE protein, and fires when `hgvs_p` is absent while the paper's `p.` names a
-residue. An `hgvs_p` naming no residue (`p.?`, `p.=`, `p.0`) has nothing to
-compare (owner ruling D6), and a frameshift naming no new residue matches any
+residue. A name numbering no residue (`p.?`, `p.=`, `p.0`) has nothing to
+compare on either side: an `hgvs_p` (owner ruling D6) or the paper's own `p.`
+(D6'), whatever the other holds. And a frameshift naming no new residue matches any
 frameshift at its residue (D5, D5', in `same_protein_change`).
 """
 
@@ -348,8 +349,10 @@ def _names_a_residue(text: str) -> bool:
 def _lit025(variant: Variant, t: ManeTranscript, hgvs_p: PVariant | None) -> list[Issue]:
     """The paper's own `p.` against `hgvs_p`, when both number residues on MANE.
 
-    An `hgvs_p` naming no residue has nothing to compare, so it is exempt (owner
-    ruling D6); an absent one is not, when the paper names a residue.
+    A name that numbers no residue has nothing to compare, so it is exempt on
+    either side: an `hgvs_p` naming none (owner ruling D6) and a paper's own `p.?`,
+    `p.=` or `p.0` (D6'), whatever `hgvs_p` holds. An absent `hgvs_p` is not
+    exempt when the paper names a residue.
     """
     reported = variant.reported
     if reported.p is None:
@@ -357,9 +360,9 @@ def _lit025(variant: Variant, t: ManeTranscript, hgvs_p: PVariant | None) -> lis
     mane = {_unversioned(t.transcript), _unversioned(t.protein)}
     if reported.transcript is not None and _unversioned(reported.transcript) not in mane:
         return []  # another transcript may number residues differently
+    if not _names_a_residue(reported.p):
+        return []  # the paper's own `p.?` has nothing to compare (owner ruling D6')
     if variant.hgvs_p is None:
-        if not _names_a_residue(reported.p):
-            return []
         return [("LIT025", f"the paper names {reported.p} but the variant has no hgvs_p")]
     if hgvs_p is None or not hgvs_p.residues:
         return []  # unreadable or on another protein (already reported), or no residue named
