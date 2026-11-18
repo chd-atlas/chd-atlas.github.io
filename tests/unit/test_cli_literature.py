@@ -1489,9 +1489,12 @@ def test_a_listing_shows_one_line_per_variant(root: Path, lit_path: Path) -> Non
     assert four.splitlines()[5:9] == [
         "  variant classes: snv_indel",
         "  variant 1: c.100A>G | mane | c.100A>G p.Lys34Glu 12:114000000:A:G"
-        " | heterozygous | carriers 1/0/0 | HP:0001631",
+        " | heterozygous | carriers 1/0/0 | HP:0001631"
+        " | kind snv_indel | reported none | locator in_text Abstract",
         "  variant 2: p.Arg5* | unplaced | - - - | heterozygous with 3, 4 (trans)"
-        " | carriers 0/2/3 | no phenotypes | review: pending_review: the paper's c. name disagrees",
+        " | carriers 0/2/3 | no phenotypes | kind snv_indel | reported none"
+        " | locator in_text Abstract"
+        " | review: pending_review: the paper's c. name disagrees",
         "  screened 1 probands; carriers 1 (de novo 0, inherited 1, origin unknown 0)",
     ]
     one = next(b for b in result.stdout.split("\n\n") if b.startswith("CHDA:LIT:0000001"))
@@ -1519,7 +1522,33 @@ def test_the_variant_line_pins_missing_carriers_and_a_with_clause_without_a_phas
     assert result.exit_code == 0, result.stdout
     assert (
         "  variant 1: c.5del | unplaced | - - - | not_stated with 2"
-        " | carriers not stated | no phenotypes"
+        " | carriers not stated | no phenotypes | kind snv_indel | reported none"
+        " | locator in_text Abstract"
+    ) in result.stdout.splitlines()
+
+
+def test_the_variant_line_shows_kind_reported_names_and_locator(root: Path, lit_path: Path) -> None:
+    """The digest covers `kind`, `reported` and `locator`, so the listing must show them."""
+    text = lit_path.read_text()
+    marker = "    summary: Another proband.\n"
+    one = """\
+    variants:
+      - id: 1
+        as_reported: Arg5X
+        locator: {kind: supplementary, file: s1.xlsx, sheet: Variants, row: 7}
+        kind: cnv
+        placement: unplaced
+        reported: {transcript: NM_000001.1, p: p.R5X, rsid: rs123}
+"""
+    lit_path.write_text(text.replace(marker, one + marker))
+
+    result = _review(root)
+
+    assert result.exit_code == 0, result.stdout
+    assert (
+        "  variant 1: Arg5X | unplaced | - - - | not_stated | carriers not stated"
+        " | no phenotypes | kind cnv | reported transcript NM_000001.1, p p.R5X, rsid rs123"
+        " | locator supplementary s1.xlsx / Variants / row 7"
     ) in result.stdout.splitlines()
 
 

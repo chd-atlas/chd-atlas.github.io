@@ -546,7 +546,14 @@ def _today() -> date:
 
 
 def _variant_line(variant: Variant) -> str:
-    """One variant as the person approving reads it: names, placement, zygosity, carriers."""
+    """One variant as the person approving reads it, every digest-covered field but one.
+
+    Shown: the paper's own text, placement, the checked names, zygosity and
+    links, carriers, phenotypes, `kind`, the non-null `reported` names (labelled
+    transcript, c, p, rsid) and the locator (its kind, then its element or file).
+    Omitted on purpose: `normalisation`, the id of the normaliser run, which is
+    bookkeeping a person approving the finding has nothing to read in.
+    """
     names = f"{variant.hgvs_c or '-'} {variant.hgvs_p or '-'} {variant.grch38 or '-'}"
     zygosity = variant.zygosity.value
     if variant.with_:
@@ -554,9 +561,25 @@ def _variant_line(variant: Variant) -> str:
         zygosity += f" with {', '.join(str(i) for i in variant.with_)}{phase}"
     c = variant.carriers
     carriers = f"{c.de_novo}/{c.inherited}/{c.origin_unknown}" if c is not None else "not stated"
+    r = variant.reported
+    reported = (
+        ", ".join(
+            f"{label} {value}"
+            for label, value in (
+                ("transcript", r.transcript),
+                ("c", r.c),
+                ("p", r.p),
+                ("rsid", r.rsid),
+            )
+            if value is not None
+        )
+        or "none"
+    )
     line = (
         f"  variant {variant.id}: {variant.as_reported} | {variant.placement.value} | {names}"
         f" | {zygosity} | carriers {carriers} | {', '.join(variant.phenotypes) or 'no phenotypes'}"
+        f" | kind {variant.kind.value} | reported {reported}"
+        f" | locator {variant.locator.kind} {_locator_text(variant.locator)}"
     )
     if variant.review_status is not None:
         line += f" | review: {variant.review_status.value}: {variant.review_note}"
@@ -564,11 +587,12 @@ def _variant_line(variant: Variant) -> str:
 
 
 def _listing(finding: Finding, paper: Publication | None) -> list[str]:
-    """Every field of a finding a person approves, except the bookkeeping ones.
+    """Every field the approval digest covers, except the bookkeeping ones.
 
     Omitted on purpose: `id` and the link (the heading line), `approved_*`
     (a listed finding is unapproved, or its approval is void and `APPROVAL
-    VOID` stands in for it) and `verified_by` (the heading line). Floats go
+    VOID` stands in for it), `verified_by` (the heading line) and each
+    variant's `normalisation` id (see `_variant_line`). Floats go
     through `repr`, so 1.23456789e-9 is not shown as 1.23457e-09 (final review
     I2). The paper's `study_type` and `own_lab` come from publications.yaml,
     where an agent's reading of the design may be the only copy (R32).
