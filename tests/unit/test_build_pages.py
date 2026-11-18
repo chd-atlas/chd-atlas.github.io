@@ -12204,7 +12204,7 @@ def _register(
 
 def _register_rows(page: str) -> list[list[str]]:
     body = _slice_between(page, "<tbody>", ("</tbody>",))
-    return [re.findall(r"<td>(.*?)</td>", row) for row in body.split("<tr>")[1:]]
+    return [re.findall(r"<td[^>]*>(.*?)</td>", row) for row in body.split("<tr>")[1:]]
 
 
 def test_a_gene_with_no_open_question_gets_no_register_page(tmp_path: Path) -> None:
@@ -12254,7 +12254,43 @@ def test_the_register_groups_identical_questions_into_one_row_and_names_every_re
     assert rows[0][0].count("<span id=") == 2
     assert 'id="q-chda-lit-0000001"' in rows[0][0] and 'id="q-chda-lit-0000002"' in rows[0][0]
     assert "<br>" in rows[0][0]
-    assert "<details" not in page and '<div class="scroll"><table>' in page
+    assert "<details" not in page and '<div class="scroll"><table id="register-table">' in page
+
+
+def test_the_register_stacks_on_a_phone_and_every_cell_names_its_column(tmp_path: Path) -> None:
+    """Ruling R-UP10. In a table row the reason cell sits level with the middle of the
+    row's record list, so on a 485x713 viewport a "why" link left the reason above the
+    screen for 13 of TBX5's 25 landings (measured 2026-11-18, headless Chrome). Under
+    40rem the register's own stylesheet stacks the table and hides its header, so each
+    cell carries its column's name as `data-label`. Literals, not `_REGISTER_HEADERS`
+    (CLAUDE.md 4.38); the rules are sliced to the register's own `<style>` (4.19)."""
+    finding = _reg_finding(
+        1,
+        "PMID:11",
+        review_status="pending_review",
+        review_note="Counts differ.",
+        review_settled_by="authors",
+    )
+    page = (_register(tmp_path, [finding]) / "HGNC_11604.html").read_text("utf-8")
+    body = _slice_between(page, "<tbody>", ("</tbody>",))
+    assert re.findall(r'<td data-label="([^"]*)">', body) == [
+        "Record",
+        "Question",
+        "Reason",
+        "Would be settled by",
+    ]
+    assert "<td>" not in body
+    assert page.count("<style>") == 2
+    own = page[page.rindex("<style>") : page.index("</head>")]
+    assert '#register-table [id^="q-"]:target {' in own
+    stacked = own[own.index("@media (max-width: 40rem) {") :]
+    for rule in (
+        "#register-table, #register-table tbody, #register-table tr, #register-table td {\n"
+        "      display: block;",
+        "#register-table thead { display: none; }",
+        "#register-table td::before {\n      content: attr(data-label);",
+    ):
+        assert rule in stacked, rule
 
 
 def test_a_papers_second_finding_is_named_by_its_id_on_the_register(tmp_path: Path) -> None:
@@ -12393,7 +12429,7 @@ def test_two_pending_findings_of_one_paper_share_a_row_only_when_their_notes_mat
 
     folder = _register(tmp_path, [pending(1, "First note."), pending(2, second_note)])
     page = (folder / "HGNC_11604.html").read_text("utf-8")
-    table = _slice_between(page, "<table>", ("</table>",))
+    table = _slice_between(page, '<table id="register-table">', ("</table>",))
     got = [
         (cells[1], cells[2], [re.sub(r"<[^>]+>", "", s) for s in cells[0].split("<br>")])
         for cells in _register_rows(table)
@@ -12420,7 +12456,7 @@ def test_a_with_group_sharing_an_unclear_phase_is_one_register_row_of_every_memb
     )
     page = (_register(tmp_path, [finding]) / "HGNC_11604.html").read_text("utf-8")
     assert "Open questions (1)" in page
-    rows = _register_rows(_slice_between(page, "<table>", ("</table>",)))
+    rows = _register_rows(_slice_between(page, '<table id="register-table">', ("</table>",)))
     assert len(rows) == 1
     assert rows[0][1:] == ["Phase unclear", "Cis or trans.", "an expert"]
     assert re.findall(r'<span id="([^"]+)"', rows[0][0]) == [
@@ -12461,5 +12497,7 @@ def test_the_same_note_with_a_different_settler_is_two_rows(tmp_path: Path) -> N
         )
 
     page = _register(tmp_path, [pending(1, "expert"), pending(2, "authors")]) / "HGNC_11604.html"
-    rows = _register_rows(_slice_between(page.read_text("utf-8"), "<table>", ("</table>",)))
+    rows = _register_rows(
+        _slice_between(page.read_text("utf-8"), '<table id="register-table">', ("</table>",))
+    )
     assert [row[3] for row in rows] == ["the authors", "an expert"]

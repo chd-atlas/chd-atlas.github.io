@@ -7533,6 +7533,36 @@ def build_gene_pages(
 
 
 _REGISTER_HEADERS: Final = ("Record", "Question", "Reason", "Would be settled by")
+# The register's own rules, inlined on register pages alone through
+# `document(style=...)`, so no other page changes by a byte. A "why" link lands
+# on one record of a row, and in a table row the reason cell sits level with the
+# middle of that row's record list: on a 485 px wide, 713 px high viewport the
+# reason was above the screen for 13 of TBX5's 25 landings (review of
+# 2026-11-18, measured in headless Chrome). Under 40rem the table therefore
+# stacks: each row a block, its cells in order, each cell's `data-label` (its
+# column header, `data_table(labelled=True)`) standing in for the hidden
+# header. Wider screens keep the table. `:target` marks the record landed on.
+# Measured 2026-11-18 the same way, at 390x844, 485x713 and 1280x800: the reason
+# text wholly in view for 25 of 25 TBX5 and 8 of 8 NR2F2 landings at each width,
+# and no horizontal page scroll.
+_REGISTER_STYLE: Final = """
+  #register-table [id^="q-"]:target {
+    background: var(--notice-bg); outline: 2px solid var(--notice-border);
+  }
+  @media (max-width: 40rem) {
+    #register-table, #register-table tbody, #register-table tr, #register-table td {
+      display: block;
+    }
+    #register-table thead { display: none; }
+    #register-table tr { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+    #register-table tr:last-child { border-bottom: none; }
+    #register-table td { border-bottom: none; padding: 0.2rem 0.85rem; }
+    #register-table td::before {
+      content: attr(data-label); display: block; color: var(--muted); font-weight: 600;
+      font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+  }
+"""
 _REGISTER_INTRO: Final = (
     "The open questions on this gene's approved literature findings, each with "
     "its reason. A question stays open until what the last column names settles "
@@ -7600,11 +7630,12 @@ def build_register_pages(
             f'<p><a href="{slug_page}">{html.escape(symbol)} gene page</a></p>'
             f"<p>{html.escape(_REGISTER_INTRO)}</p>"
             f'<h2 id="questions">Open questions ({len(questions)})</h2>'
-            f'<div class="scroll">{data_table(_REGISTER_HEADERS, rows)}</div>'
+            '<div class="scroll">'
+            f"{data_table(_REGISTER_HEADERS, rows, 'register-table', labelled=True)}</div>"
         )
         emitter.write_text(
             register_page_path(HgncId(gene)),
-            document(title=f"{symbol} register", root="../", body=body),
+            document(title=f"{symbol} register", root="../", body=body, style=_REGISTER_STYLE),
         )
 
 

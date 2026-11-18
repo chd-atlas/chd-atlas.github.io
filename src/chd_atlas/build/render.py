@@ -1281,11 +1281,20 @@ def definition_list(items: Sequence[tuple[str, str]]) -> str:
     return f"<dl>{body}</dl>"
 
 
-def data_table(headers: Sequence[str], rows: Sequence[Row], table_id: str = "") -> str:
+def data_table(
+    headers: Sequence[str], rows: Sequence[Row], table_id: str = "", *, labelled: bool = False
+) -> str:
     """A `<table>` whose every cell and attribute is escaped by this function.
 
     An empty `rows` still renders the header, because a table with no rows and
     a table that was never written read the same to a caller otherwise.
+
+    `labelled` gives every `<td>` a `data-label` naming its column's header, for
+    a caller whose own stylesheet stacks the table on a narrow screen and hides
+    `<thead>` (the register, `pages._REGISTER_STYLE`): each cell then says what
+    it is. A row whose cell count differs from the headers' is refused, since
+    its labels would name the wrong columns. Off by default, so every other
+    table renders exactly as before.
 
     An attribute *name* is refused rather than escaped, because escaping cannot
     make it safe. `html.escape` rewrites `<`, `>`, `&`, `"` and `'` and leaves
@@ -1315,12 +1324,18 @@ def data_table(headers: Sequence[str], rows: Sequence[Row], table_id: str = "") 
         attributes = "".join(
             f' data-{name}="{html.escape(value)}"' for name, value in row.attributes
         )
-        cells = "".join(f"<td>{_cell(cell)}</td>" for cell in row.cells)
+        if labelled:
+            cells = "".join(
+                f'<td data-label="{html.escape(header)}">{_cell(cell)}</td>'
+                for header, cell in zip(headers, row.cells, strict=True)
+            )
+        else:
+            cells = "".join(f"<td>{_cell(cell)}</td>" for cell in row.cells)
         body += f"<tr{attributes}>{cells}</tr>"
     return f"<table{ident}><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
 
 
-def document(*, title: str, root: str, body: str, script: str = "") -> str:
+def document(*, title: str, root: str, body: str, script: str = "", style: str = "") -> str:
     """The shell every page shares.
 
     `root` is the relative prefix from this page back to the site root -- "" for
@@ -1331,6 +1346,11 @@ def document(*, title: str, root: str, body: str, script: str = "") -> str:
     `body` is HTML the caller has already assembled from the primitives above;
     it is the one argument not escaped here, which is why every primitive exists.
     `script` is likewise inlined verbatim and must be a literal from this module.
+    `style` is a page kind's own rules, inlined verbatim in a second `<style>`
+    after `STYLESHEET` and emitted only when non-empty, so a page that passes
+    none is byte-identical to one built before the argument existed. It must be
+    a literal from the calling module; the register (`pages._REGISTER_STYLE`)
+    is the one caller.
 
     `RESEARCH_USE_NOTICE` is emitted **before** `<main>`, so it precedes whatever
     the caller assembled in DOM order, in reading order and in the order a screen
@@ -1341,6 +1361,7 @@ def document(*, title: str, root: str, body: str, script: str = "") -> str:
     the site.
     """
     tail = f"<script>{script}</script>" if script else ""
+    own_style = f"<style>{style}</style>\n" if style else ""
     # Assembled ahead of the template only to keep the line under 100 characters;
     # the markup is one line in the output, exactly as it reads here.
     home = html.escape(root)
@@ -1357,7 +1378,7 @@ def document(*, title: str, root: str, body: str, script: str = "") -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(title)}</title>
 <style>{STYLESHEET}</style>
-</head>
+{own_style}</head>
 <body>
 {nav}
 {notice}
