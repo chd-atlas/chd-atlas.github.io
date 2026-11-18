@@ -95,10 +95,10 @@ _PIN_BLOCK = re.compile(
 def unpinned(raw: bytes) -> bytes:
     """`sources.yaml` with every `package:` pin removed.
 
-    The committed file pins hgnc, sierant2025_ds6 and farah2024_hoc (since the
-    2026-11-11 ingest); these tests need a repository with no pin, and a pin
-    with no cache is ING017. Measured: the pattern removes exactly the
-    three blocks `chd-atlas ingest` wrote.
+    The committed file pins 12 of its 14 sources (every one but `hpo` and
+    `audain2021_s8`); these tests need a repository with no pin, and a pin
+    with no cache is ING017. Measured 2026-11-18: the pattern removes exactly
+    those 12 blocks, the 12 `package:` keys that `grep` finds at the entry level.
     """
     return _PIN_BLOCK.sub("", raw.decode("utf-8")).encode("utf-8")
 
@@ -115,7 +115,8 @@ def copy_repo(target: Path) -> Path:
     # with SLC11A1 (HGNC:10907), which MAN004 then reports as absent from the
     # frame; the real `ingest --all` re-filters `mane_select` from its cache, as
     # it does every every-gene package. These fixtures test validity repins and
-    # assert on the report's errors, so the frame is removed rather than repinned.
+    # carry no `mane_select` pin or cache, so the frame is removed for isolation
+    # (the repin tests also pass without this, now that MAN004 is a warning).
     for name in ("mane_transcripts.tsv", "mane_exons.tsv"):
         (target / "mirrors" / name).unlink()
     return target

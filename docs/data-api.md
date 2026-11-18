@@ -2760,9 +2760,13 @@ assumed from the presence of a `validity` object.
 The registry also carries `mane_select`, MANE Select v1.5 (NCBI and EMBL-EBI),
 recorded `"redistribution": "permitted_with_attribution"` under NCBI's data policy
 (no NCBI restrictions; submitters may claim rights). NCBI places no restriction on
-the data; the atlas attributes it, as NLM requests for its web content. The build checks each
-gene's `mane_select` identity field against it; no published bundle or page
-carries a value taken from its two mirror tables.
+the data; the atlas attributes it, as NLM requests for its web content. `validate` checks each
+gene's `mane_select` identity field against the atlas's MANE mirror wherever the
+mirror holds that gene's row (the build refuses a corpus that fails it). A registry
+gene without a row (the package drops some by design) is reported as `MAN004`, a
+warning that does not refuse the build, and that gene's `mane_select` is then
+unchecked. No published bundle or page carries a value taken from the mirror's
+two tables.
 
 **`scope.json` republishes Orphanet content, and that content requires
 attribution.** Each Orphanet-path term's `orphanet` object carries Orphanet's

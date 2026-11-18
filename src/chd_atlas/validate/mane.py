@@ -9,9 +9,11 @@ genes frame lacking `hgnc_id` or `mane_select` is skipped for the same reason
 reports it).
 
 MAN004 is a WARNING and the rest are errors (owner decision 2026-11-18): the
-package drops some genes' MANE Select by design (a transcript placed only on an
-alternate scaffold, or a non-coding NR_), and such a registry gene is allowed in
-with a warning rather than refusing the build.
+package drops some genes' MANE Select by design, and such a registry gene is
+allowed in with a warning rather than refusing the build. The v1.5 drops are 70
+non-coding (NR_) Selects, 61 placed only on an alternate-locus or fix-patch
+scaffold, 1 failing MAN002 (HGNC:42967) and 52 with no HGNC id, which never
+appear as registry genes.
 
 Issues come back sorted, never in dict or set iteration order.
 """
