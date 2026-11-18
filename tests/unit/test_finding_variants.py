@@ -1037,3 +1037,20 @@ def test_a_repeated_name_needs_a_different_genotype_context() -> None:
         _linked(3, 1, grch38=other, phase="cis", **{"with": [1, 2]}),
     ]
     assert _repeats(_shape(cis)) == [2]
+
+
+def test_a_partner_with_no_row_key_is_told_apart_by_what_the_paper_printed() -> None:
+    """Two unplaced partners have no row key; their `as_reported` names the context."""
+    k = "12:114366312:G:A"
+    unplaced = {"placement": "unplaced", "grch38": None, "hgvs_c": None, "normalisation": None}
+    unplaced["review_status"] = "pending_review"
+    unplaced["review_note"] = "numbering differs"
+    pair = [
+        _linked(1, 3, grch38=k),
+        _linked(2, 4, grch38=k),
+        _linked(3, 1, as_reported="partner X", **unplaced),
+        _linked(4, 2, as_reported="partner Y", **unplaced),
+    ]
+    assert _repeats(_shape(pair)) == []
+    same = [*pair[:3], _linked(4, 2, as_reported="partner X", **unplaced)]
+    assert _repeats(_shape(same)) == [2]
