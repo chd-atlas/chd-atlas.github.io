@@ -453,8 +453,11 @@ and each carries an `id`, so a page can link the paragraph it shortens.
   excluded), that every paper a search returns gets a decision and only human
   genetics is kept, how a finding is classified and what its counts are counted
   in, that a named curator approves each finding before it is published, what
-  the two review marks mean, what the gene card's literature line counts, and
-  what its "In short" paragraph rests on and when it is published or withheld.
+  the two review marks mean, what "unclear" means for a variant's zygosity or
+  phase, that a gene with open literature questions has a register page giving
+  each one's reason and what would settle it, what the gene card's literature
+  line counts, and what its "In short" paragraph rests on and when it is
+  published or withheld.
 - `#literature-variants` says how the variants a finding names are placed and
   checked: on the gene's MANE Select transcript (MANE v1.5) and GRCh38, or on
   its protein alone; checked offline against the atlas's copy of the
@@ -1712,12 +1715,18 @@ TBX5's, abridged:
   never grouped, and at most a checked `hgvs_p`. `structural` and
   `outside_region`: listed only, with no coordinates or HGVS.
 - `review_settled_by` (since `2.25`), on a finding and on a variant, is `null` or
-  what would settle its open question: `full_text`, `authors`, `expert` or
-  `atlas_model`. A finding's or variant's `pending_review` mark always carries
-  one. `not_accessible` is settled by the full text and carries none. A
-  variant's `unclear` is `{}` unless its `zygosity` or `phase` is `unclear`;
-  then it maps `"zygosity"` and/or `"phase"`, whichever is `unclear`, to
-  `{"reason", "settled_by"}`. `unclear` means the paper says something about the
+  what would settle its open question, with the label the register page prints:
+  `full_text` ("the full text"), only the abstract was read; `authors` ("the
+  authors"), the paper contradicts itself, or disagrees with the reference
+  sequence; `expert` ("an expert"), it needs a domain judgement the paper cannot
+  supply; `atlas_model` ("a change to the atlas"), the paper is clear and the
+  atlas's record cannot hold it. A finding's or variant's `pending_review` mark
+  always carries one. `not_accessible` is settled by the full text and carries
+  none. A variant's `unclear` is `{}` unless its `zygosity` or `phase` is
+  `unclear`; then it maps `"zygosity"` and/or `"phase"`, whichever is `unclear`,
+  to `{"reason", "settled_by"}`, `settled_by` taking the same four values. Every
+  member of a `with` group whose `phase` is `unclear` carries the same entry: it
+  is one question. `unclear` means the paper says something about the
   value that cannot be written as one value on that line, or says two
   incompatible things about it, and `not_stated` means it says nothing.
 - `normalisations` (since `2.24`) lists the normaliser runs that published
@@ -2727,8 +2736,8 @@ structural CHD is frequent but not part of the diagnosis.
 - `review_status` and `review_note` (since `2.19`) record an open question
   about the term, in the vocabulary [`cohorts.json`](#cohortsjson) uses: both
   set or both `null`, never omitted. Two terms carry `"pending_review"` today,
-  MONDO:1010098 and MONDO:1060150, marking a question the atlas leaves open
-  rather than a conflict between sources: whether each names a syndrome,
+  MONDO:1010098 and MONDO:1060150, marking a clinical judgement the atlas leaves
+  open rather than a conflict between sources: whether each names a syndrome,
   which decides whether a gene page calls a grade for it a grade for a
   syndrome as a whole, is left open for clinical review, and `syndrome` stays
   `false` meanwhile. Published here only: no page renders a term's question.

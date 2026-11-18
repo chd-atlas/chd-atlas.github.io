@@ -913,7 +913,7 @@
     },
     "Variant": {
       "additionalProperties": false,
-      "description": "One variant a finding names, placed on the MANE Select frame.\n\nThe YAML key `with` is a Python keyword, so the field is `with_` and is\nread and dumped through its alias. Only the review pairing is checked\nhere; every other rule is a validate code, so one bad variant costs one\nissue and not the file.",
+      "description": "One variant a finding names, placed on the MANE Select frame.\n\nThe YAML key `with` is a Python keyword, so the field is `with_` and is\nread and dumped through its alias. Only pairings are checked here: a\nreview status with its note, a review mark with its settler\n(`check_settled`), and an `unclear` value with its entry, each way. Every\nother rule is a validate code, so one bad variant costs one issue and not\nthe file.",
       "properties": {
         "as_reported": {
           "minLength": 1,

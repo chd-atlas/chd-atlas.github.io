@@ -1239,12 +1239,13 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
     decisions `vocab.TriageDecision` names, the two axes are `FindingDesign`
     and `DetectionMethod`, the carrier's unit is `Finding.count_unit`, approval
     is a named person (`Finding.approved_by`) and the two marks are
-    `ReviewStatus`. Measured 2026-11-18 (Task 8 added the unclear and register
-    sentences): 368 words with each tag replaced by a space (the heading 1, the
-    paragraphs 197, 95 and 75) and 365 by the assertion below (tags removed unspaced,
-    so the heading and the first word of each later paragraph fuse with the word
-    before). The first paragraph, at 157 before Task 8, was under the 160 the plan
-    allowed and no longer is; the second (the gene card's literature line) and the
+    `ReviewStatus`. Measured 2026-11-18 after the final review's wording (Task 8 added
+    the unclear and register sentences): 373 words with each tag replaced by a space
+    (the heading 1, the paragraphs 202, 95 and 75) and 370 by the assertion below (tags
+    removed unspaced, so the heading and the first word of each later paragraph fuse
+    with the word before), against 326 at 92a4da5, before this work: 44 words added,
+    within the 45 allowed. The first paragraph, at 157 before Task 8, was under the 160
+    the plan allowed and no longer is; the second (the gene card's literature line) and the
     third (its "In short" paragraph) were added 2026-11-16. The wording awaits the
     owner's approval (ruling R15).
     """
@@ -1264,8 +1265,8 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
         "that could not be read (source not accessible). "
         'A variant\'s zygosity or phase reads "unclear" when the paper states it in a way '
         "one value cannot hold, or states two incompatible things about it. "
-        "The gene's register page gives each literature question's reason and what would "
-        "settle it.</p>"
+        "A gene with open literature questions has a register page giving each one's "
+        "reason and what would settle it.</p>"
         "<p>The gene card counts approved findings by paper and never sums carriers across "
         "papers, because cohorts can overlap. It names each paper's study design. "
         '"Lesions studied" counts the lesions a paper studied: for a screen with no carrier, '
@@ -1283,7 +1284,7 @@ def test_literature_states_how_it_was_searched_and_who_approves(page: str) -> No
         "approved again.</p>"
     )
     words = len(re.sub(r"<[^>]+>", "", _section(page, "literature")).split())
-    assert words == 365  # tags stripped unspaced, so the heading fuses with the first word
+    assert words == 370  # tags stripped unspaced, so the heading fuses with the first word
 
 
 def test_variants_states_the_frame_the_check_and_the_two_unplaced_states(page: str) -> None:
@@ -1323,8 +1324,8 @@ def test_methods_defines_unclear_and_points_to_the_gene_register(page: str) -> N
         "that could not be read (source not accessible). ",
         'A variant\'s zygosity or phase reads "unclear" when the paper states it in a way '
         "one value cannot hold, or states two incompatible things about it. ",
-        "The gene's register page gives each literature question's reason and what would "
-        "settle it.</p>",
+        "A gene with open literature questions has a register page giving each one's "
+        "reason and what would settle it.</p>",
     ):
         assert sentence in literature
     assert "for an expert" not in literature

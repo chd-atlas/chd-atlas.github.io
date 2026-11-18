@@ -348,7 +348,9 @@ def test_the_card_states_a_curated_genes_literature_by_paper_and_its_mechanism(
     """Pins the wiring on real data: the tallies and the assertions' mechanism reach the card.
 
     Literals measured on a build of the committed corpus (2026-11-14) by an
-    independent script over the gene bundles. Sliced to the card, so a copy of
+    independent script over the gene bundles, except the open-question figures
+    (25 for TBX5, 8 for NR2F2), measured 2026-11-18 with `chd-atlas literature
+    questions`, which lists no unapproved finding on that corpus. Sliced to the card, so a copy of
     either sentence elsewhere on the page cannot satisfy it, and so deleting the
     `mechanisms=` argument or the `_card_literature` call fails here. The three
     paragraphs are asserted as one contiguous run, so reordering them or
@@ -2888,5 +2890,7 @@ def test_no_published_file_says_pending_review_is_for_an_expert(site: Path) -> N
     build, not the source)."""
     files = [p for p in site.rglob("*") if p.suffix in {".html", ".json"}]
     assert len(files) > 100, "the build published too few files; the fixture is broken"
-    hits = [str(p.relative_to(site)) for p in files if "for an expert" in p.read_text()]
+    hits = [
+        str(p.relative_to(site)) for p in files if "for an expert" in p.read_text(encoding="utf-8")
+    ]
     assert hits == []

@@ -31,6 +31,7 @@ import pytest
 
 from chd_atlas.build.manifest import write_manifest
 from chd_atlas.build.profiles import LOOKUP_RULE, TAU_METHOD, TAU_SCALE
+from chd_atlas.build.questions import SETTLED_LABELS
 from chd_atlas.build.runner import build_site
 from chd_atlas.build.validity import GeneValidity, gene_validity
 from chd_atlas.corpus import load_curation
@@ -1677,21 +1678,38 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
 
 
 def test_the_doc_defines_unclear_and_every_settler() -> None:
-    """The 2.25 additions are defined in the doc: `unclear` against `not_stated`, each
-    `SettledBy` value, and that a `not_accessible` question is settled by the full text."""
+    """The 2.25 additions are defined in the doc (spec section 5.5): `unclear` against
+    `not_stated`, each `SettledBy` value with its page label and when it applies (spec
+    section 5.2), that a `not_accessible` question is settled by the full text, and that
+    a `with` group's unclear phase is one question. The definitions are literals
+    (CLAUDE.md 4.38); the loop over `SettledBy` fails when a fifth value lands
+    undefined."""
     from chd_atlas.vocab import SettledBy
 
-    text = " ".join(DOC.read_text().split())
+    text = " ".join(DOC.read_text(encoding="utf-8").split())
+    definitions = {
+        "full_text": '`full_text` ("the full text"), only the abstract was read;',
+        "authors": '`authors` ("the authors"), the paper contradicts itself, or disagrees '
+        "with the reference sequence;",
+        "expert": '`expert` ("an expert"), it needs a domain judgement the paper cannot supply;',
+        "atlas_model": '`atlas_model` ("a change to the atlas"), the paper is clear and the '
+        "atlas's record cannot hold it.",
+    }
+    assert sorted(definitions) == sorted(s.value for s in SettledBy)
+    # The labels the doc quotes are the ones the register prints.
+    for value, label in SETTLED_LABELS.items():
+        assert f'`{value}` ("{label}")' in definitions[value], value
     for needle in (
+        *definitions.values(),
         "`unclear` means the paper says something about the value that cannot be written "
         "as one value on that line, or says two incompatible things about it, and "
         "`not_stated` means it says nothing",
         "`not_accessible` is settled by the full text",
+        "Every member of a `with` group whose `phase` is `unclear` carries the same entry: "
+        "it is one question.",
         "`2.25` added `review_settled_by`",
     ):
         assert needle in text, needle
-    for settler in SettledBy:
-        assert f"`{settler.value}`" in text, settler
 
 
 def test_the_doc_describes_the_literature_section_and_what_publishes_before_approval(

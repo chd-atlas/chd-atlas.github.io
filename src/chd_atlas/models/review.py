@@ -25,9 +25,10 @@ alone, which is false for the two terms):
 means the same thing on a cohort as on a scope term, and a consumer reads one
 token set. Today that is `Cohort`, `ScopeEntry` and the literature `Finding`
 and `Variant`; each declares the two fields itself and calls `check_review`
-from its own validator. A literature mark also names what would settle it
-(`check_settled`, `gene_literature.py`): the authors, the full text, an expert
-or a change to the atlas, so a literature question is not always one for an expert.
+from its own validator. A literature `pending_review` mark also names what
+would settle it (`check_settled`, `gene_literature.py`): the authors, the full
+text, an expert or a change to the atlas; a `not_accessible` mark names none,
+since the full text settles it.
 
 Absent means no open question has been recorded, not that the record was
 checked and found clean.

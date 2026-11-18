@@ -1095,10 +1095,15 @@ def test_a_with_group_sharing_an_unclear_phase_validates_when_its_entries_agree(
     ],
     ids=["reason", "settler"],
 )
+@pytest.mark.parametrize("position", [0, 1, 2], ids=["first", "second", "third"])
 def test_a_with_group_whose_unclear_phase_entries_differ_is_refused(
-    different: dict[str, Any],
+    different: dict[str, Any], position: int
 ) -> None:
-    issues = _shape(_unclear_trio([_UNCLEAR_PHASE, _UNCLEAR_PHASE, different]))
+    """Whichever member differs. Only the third did before, so a check comparing the
+    last entry with the first alone passed every case; the second position fails it."""
+    entries = [_UNCLEAR_PHASE] * 3
+    entries[position] = different
+    issues = _shape(_unclear_trio(entries))
     assert [(code, number) for code, number, _ in issues] == [("LIT022", 1)]
     assert "variants 1, 2, 3 share an unclear phase" in issues[0][2]
     assert "one statement in the paper is one entry" in issues[0][2]

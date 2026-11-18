@@ -237,6 +237,12 @@ def test_an_approved_findings_variants_publish_with_their_with_key_and_cited_nor
     assert linked["with"] == [1]
     assert "with_" not in linked
     assert linked["reported"] == {"transcript": None, "c": None, "p": None, "rsid": None}
+    # Schema 2.25: with no question, `unclear` publishes `{}` and the settler `null`,
+    # never an absent key (the committed corpus has no variant to pin this on).
+    assert linked["unclear"] == {}
+    assert type(linked["unclear"]) is dict
+    assert linked["review_settled_by"] is None
+    assert finding["review_settled_by"] is None
     # A finding with no variant publishes `[]`, not an absent key.
     assert next(f for f in entry["findings"] if f["id"] == "CHDA:LIT:0000004")["variants"] == []
     # Cited runs only (run 3 is cited by an unapproved finding), sorted by id, JSON-ready.

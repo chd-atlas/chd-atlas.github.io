@@ -232,9 +232,11 @@ class Variant(BaseModel):
     """One variant a finding names, placed on the MANE Select frame.
 
     The YAML key `with` is a Python keyword, so the field is `with_` and is
-    read and dumped through its alias. Only the review pairing is checked
-    here; every other rule is a validate code, so one bad variant costs one
-    issue and not the file.
+    read and dumped through its alias. Only pairings are checked here: a
+    review status with its note, a review mark with its settler
+    (`check_settled`), and an `unclear` value with its entry, each way. Every
+    other rule is a validate code, so one bad variant costs one issue and not
+    the file.
     """
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)

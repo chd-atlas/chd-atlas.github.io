@@ -528,8 +528,8 @@ _LITERATURE: Final = (
     "that could not be read (source not accessible). "
     'A variant\'s zygosity or phase reads "unclear" when the paper states it in a way '
     "one value cannot hold, or states two incompatible things about it. "
-    "The gene's register page gives each literature question's reason and what would "
-    "settle it.</p>"
+    "A gene with open literature questions has a register page giving each one's "
+    "reason and what would settle it.</p>"
     "<p>The gene card counts approved findings by paper and never sums carriers across "
     "papers, because cohorts can overlap. It names each paper's study design. "
     '"Lesions studied" counts the lesions a paper studied: for a screen with no carrier, '
