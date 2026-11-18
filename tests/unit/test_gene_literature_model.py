@@ -388,7 +388,7 @@ def test_a_variant_review_note_without_a_status_is_refused() -> None:
         Finding.model_validate(_rare(variants=[_variant_entry(review_status="pending_review")]))
 
 
-def test_duplicate_normalisation_ids_are_refused_and_variants_follow_variant_classes() -> None:
+def test_duplicate_normalisation_ids_are_refused() -> None:
     run = {
         "tool": "variantvalidator",
         "version": "v",
@@ -402,10 +402,11 @@ def test_duplicate_normalisation_ids_are_refused_and_variants_follow_variant_cla
         GeneLiteratureFile.model_validate(
             _file(normalisations=[{"id": 1, **run}, {"id": 1, **run}])
         )
-    assert (
-        list(Finding.model_fields)[list(Finding.model_fields).index("variant_classes") + 1]
-        == "variants"
-    )
+
+
+def test_normalisations_sit_immediately_after_searches_in_the_file() -> None:
+    names = list(GeneLiteratureFile.model_fields)
+    assert names[names.index("searches") + 1] == "normalisations"
 
 
 def test_with_findings_updated_places_a_whole_variants_list_after_variant_classes() -> None:

@@ -237,14 +237,24 @@ def _variant(vid: int, as_reported: str, **changes: Any) -> dict[str, Any]:
 
 
 def test_variant_order_and_local_ids_do_not_count_as_a_difference() -> None:
-    first = [_variant(1, "p.Arg1Trp"), _variant(2, "p.Gly2Ser", zygosity="homozygous", with_=[1])]
+    """All six bookkeeping keys differ between the passes: id, with, normalisation,
+    locator, review_status and review_note."""
+    first = [
+        _variant(1, "p.Arg1Trp"),
+        _variant(2, "p.Gly2Ser", zygosity="homozygous", **{"with": [1]}),
+    ]
     second = [
-        _variant(7, "p.Gly2Ser", zygosity="homozygous", normalisation=3, review_note=None),
+        _variant(
+            7,
+            "p.Gly2Ser",
+            zygosity="homozygous",
+            normalisation=3,
+            review_status="pending_review",
+            review_note="the paper's table disagrees with its text",
+            **{"with": [5]},
+        ),
         _variant(5, "p.Arg1Trp", locator={"kind": "in_text", "element": "Figure 9"}),
     ]
-    first[1]["with"] = [1]
-    del first[1]["with_"]
-    second[0]["with"] = [5]
     diff = _pair({"variants": first}, {"variants": second})
     assert diff.fields == {} and diff.agreed == ("CHDA:LIT:0000001",)
 
