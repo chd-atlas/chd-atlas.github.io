@@ -238,8 +238,9 @@ def _variant(vid: int, as_reported: str, **changes: Any) -> dict[str, Any]:
 
 
 def test_variant_order_and_local_ids_do_not_count_as_a_difference() -> None:
-    """All bookkeeping keys differ between the passes: id, with, normalisation,
-    locator, review_status, review_note and review_settled_by."""
+    """Seven bookkeeping keys differ between the passes: id, with, normalisation,
+    locator, review_status, review_note and review_settled_by. The eighth,
+    `unclear`, is covered by the next test."""
     first = [
         _variant(1, "p.Arg1Trp"),
         _variant(2, "p.Gly2Ser", zygosity="homozygous", **{"with": [1]}),

@@ -13,8 +13,8 @@ def test_the_committed_repository_validates_cleanly() -> None:
     ("approval is stale") for the TBX5 and NR2F2 "In short" syntheses: the six
     `review_settled_by: authors` marks are part of what a synthesis covers, so
     both approvals are stale and the build withholds the text. The count returns
-    to 3 when the owner re-approves both syntheses after Stage F of the
-    unclear-register plan.
+    to 3 at C0 Task 18, the owner's re-approval after Stage F
+    (`2026-11-17-variants-in-findings.md`).
     """
     report = validate_repository(REPO_ROOT)
     assert report.ok, report.render()

@@ -359,6 +359,22 @@ def test_every_committed_approval_still_matches_its_finding() -> None:
     assert findings.get("TBX5", 0) >= 73 and findings.get("NR2F2", 0) >= 21
     assert {"TBX5", "NR2F2"} <= approved_syntheses
     assert stale == {"NR2F2", "TBX5"}
+    # The cause: with the six settlers stripped, each stale approval matches again.
+    # Holds only until Stage F changes the findings; C0 Task 18 removes this with
+    # the stale set.
+    for symbol in stale:
+        file = GeneLiteratureFile.model_validate(
+            yaml.load((root / f"{symbol}.yaml").read_text(encoding="utf-8"))
+        )
+        assert file.synthesis is not None
+        stripped = [
+            f.model_copy(update={"review_settled_by": None}) if f.review_settled_by else f
+            for f in file.findings
+        ]
+        gene_assertions = [a for a in _committed_assertions(root.parent) if a.gene == file.gene]
+        assert file.synthesis.approved_digest == synthesis_digest(
+            file.synthesis, stripped, gene_assertions
+        ), symbol
 
 
 def _committed_assertions(curation: Path) -> list[LesionAssertion]:
@@ -558,6 +574,19 @@ def test_the_synthesis_covers_settlers_and_unclear_reasons_but_only_when_set() -
     )
     unsettled = Finding.model_validate(_raw(review_status="not_accessible", review_note="open"))
     assert len({_covered_finding(f) for f in (settled, resettled, unsettled)}) == 3
+    # a variant's settler alone (no unclear entry) is covered
+    by_authors, by_expert = (
+        _with_variants(
+            _variant(
+                review_status="pending_review",
+                review_note="open",
+                review_settled_by=who,
+                **{"with": []},
+            )
+        )
+        for who in ("authors", "expert")
+    )
+    assert _covered_finding(by_authors) != _covered_finding(by_expert)
     base = _with_variants(_unclear_variant())
     reworded = _with_variants(
         _unclear_variant(unclear={"zygosity": {**_UNCLEAR, "reason": "Another reason."}})
