@@ -205,8 +205,9 @@ def gene_literature(corpus: Corpus) -> dict[str, GeneLiterature]:
     """Every gene's literature record, keyed by HGNC id, published or not.
 
     Restricting to the published genes is the callers' job (``build_genes``
-    looks a gene up, ``literature_census`` takes ``published``): a file for an
-    unpublished gene reaches no bundle, and validation warns (LIT013).
+    looks a gene up, ``literature_census`` and ``build_register_pages`` take
+    ``published``): a file for an unpublished gene reaches no bundle and no
+    register page, and validation warns (LIT013).
 
     Raises ``ValueError`` on a repeated gene or a finding whose publication is
     not registered. Both are refused by validation first (LIT009, LIT011); the

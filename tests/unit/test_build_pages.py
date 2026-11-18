@@ -12195,6 +12195,7 @@ def _register(
     build_register_pages(
         Emitter(root=tmp_path),
         literature=literature,
+        published={gene},
         symbols={TBX5: "TBX5"},
         publications=_reg_pubs(),
     )
@@ -12342,6 +12343,7 @@ def test_the_register_is_built_from_approved_findings_only(tmp_path: Path) -> No
     build_register_pages(
         Emitter(root=tmp_path),
         literature=gene_literature(corpus),
+        published={TBX5, GATA4},
         symbols={TBX5: "TBX5", GATA4: "GATA4"},
         publications=_reg_pubs(),
     )

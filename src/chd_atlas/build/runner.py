@@ -526,11 +526,14 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
         # panel scoped (R5): it reads each term's `syndrome` mark and authority.
         scope_terms={str(e.id): e for e in corpus.chd_scope},
     )
-    # One back page per gene with an open literature question, from the same
-    # `literature` mapping the gene pages and bundles read.
+    # One back page per published gene with an open literature question, from
+    # the same `literature` mapping the gene pages and bundles read. That mapping
+    # holds unpublished genes too, so `published` restricts it, as it restricts
+    # the gene pages.
     build_register_pages(
         emitter,
         literature=literature,
+        published=published,
         symbols=symbols,
         publications={publication.id: publication for publication in corpus.publications},
     )

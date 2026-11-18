@@ -365,7 +365,7 @@ like everything else here.
 
 **Every page is checksummed in `manifest.json` exactly like a payload.** The
 build behind this document publishes 124 of them — this one, `genes/index.html`,
-[`methods.html`](#methodshtml), one per published gene and one register per gene with an open literature question — and each has an entry
+[`methods.html`](#methodshtml), one per published gene and one register per published gene with an open literature question — and each has an entry
 in `files` giving the sha256 of the bytes served at it. A page is published
 output, so it is verifiable output.
 
@@ -2154,8 +2154,8 @@ the slug rule stays an implementation detail (see
 
 ## `register/<slug>.html`
 
-One HTML page per gene that has at least one open question on its approved
-literature findings, and none for a gene without one. It lists each question
+One HTML page per published gene that has at least one open question on its
+approved literature findings, and none for any other gene. It lists each question
 with its reason and what would settle it. It is a view of the gene bundle's
 `literature.findings` and of `publications.json`; it publishes no data of its own.
 

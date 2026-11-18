@@ -152,18 +152,29 @@ def test_every_html_page_the_build_writes_carries_the_research_use_notice(site: 
 
     `+ 3` since 2026-10-26: `methods.html`, the site's reading notes (D50), is
     the third page that is not a gene's.
+
+    Plus one register page (`register/`) per published gene whose approved
+    findings carry a review mark or an `unclear` entry, read from the bundles and
+    never from `register/` itself, so a stray register -- one for an unpublished
+    gene, or for a gene with no open question -- fails the count.
     """
     pages = sorted(site.rglob("*.html"))
     bundles = sorted((site / "genes").glob("HGNC_*.json"))
-    # Plus one register page per gene with an open literature question
-    # (`register/`), counted by name in `test_the_register_exists_for_exactly_...`.
-    registers = len(list((site / "register").glob("HGNC_*.html")))
+    registers = sum(
+        any(
+            finding["review_status"] is not None
+            or any(v["review_status"] is not None or v["unclear"] for v in finding["variants"])
+            for finding in json.loads(bundle.read_text(encoding="utf-8"))["literature"]["findings"]
+        )
+        for bundle in bundles
+    )
     expected = len(bundles) + 3 + registers
 
     assert len(bundles) > 1, "the build published no gene bundles; the fixture is broken"
+    assert registers > 0, "no published gene carries an open question; the count is vacuous"
     assert len(pages) == expected, (
         f"expected {expected} HTML pages (1 landing + 1 browse + 1 methods + "
-        f"{len(bundles)} gene pages), found {len(pages)}"
+        f"{len(bundles)} gene pages + {registers} registers), found {len(pages)}"
     )
     for page in pages:
         assert RESEARCH_USE_NOTICE in page.read_text(encoding="utf-8"), (

@@ -7544,21 +7544,26 @@ def build_register_pages(
     emitter: Emitter,
     *,
     literature: Mapping[str, GeneLiterature],
+    published: Collection[str],
     symbols: Mapping[str, str],
     publications: Mapping[str, Publication],
 ) -> None:
     """Emit `register/<slug>.html`: a gene's open literature questions.
 
-    One page per gene with at least one open question on its published
-    (approved) findings, none otherwise. It renders `literature[gene]
+    One page per published gene with at least one open question on its
+    approved findings, none otherwise. `literature` holds every gene's record,
+    published or not (`gene_literature`), so `published` restricts it here, as
+    `facts` restricts the gene pages: a register for an unpublished gene would
+    link back to a gene page no builder wrote. It renders `literature[gene]
     ["findings"]` through `questions.open_questions` and `question_rows`, the
-    same functions the curators' command reads, so the two cannot disagree. N in
-    the heading counts questions; the table has one row per merged group.
+    same functions the curators' command reads, so the register is the approved
+    subset of the command's list. N in the heading counts questions; the table
+    has one row per merged group.
 
     Every anchor is visible (no `<details>`), so a "why" link on the gene page
     always lands on a row naming its record. Every curator string is escaped.
     """
-    for gene in sorted(literature):
+    for gene in sorted(gene for gene in literature if gene in published):
         findings = literature[gene]["findings"]
         questions = open_questions(findings)
         if not questions:
