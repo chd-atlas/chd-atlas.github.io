@@ -1498,6 +1498,31 @@ def test_a_listing_shows_one_line_per_variant(root: Path, lit_path: Path) -> Non
     assert "variant 1:" not in one
 
 
+def test_the_variant_line_pins_missing_carriers_and_a_with_clause_without_a_phase(
+    root: Path, lit_path: Path
+) -> None:
+    text = lit_path.read_text()
+    marker = "    summary: Another proband.\n"
+    bare = """\
+    variants:
+      - id: 1
+        as_reported: c.5del
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: unplaced
+        with: [2]
+"""
+    lit_path.write_text(text.replace(marker, bare + marker))
+
+    result = _review(root)
+
+    assert result.exit_code == 0, result.stdout
+    assert (
+        "  variant 1: c.5del | unplaced | - - - | not_stated with 2"
+        " | carriers not stated | no phenotypes"
+    ) in result.stdout.splitlines()
+
+
 def test_a_void_finding_is_listed_marked_and_can_be_approved_again(
     root: Path, lit_path: Path
 ) -> None:
@@ -1524,17 +1549,40 @@ def test_a_void_finding_is_listed_marked_and_can_be_approved_again(
     block = _blocks(after)["CHDA:LIT:0000003"]
     assert "approved_by: Dr. New\n" in block
     assert "approved_on: 2026-11-04\n" in block
-    current = GeneLiteratureFileProbe.finding(lit_path, "CHDA:LIT:0000003")
+    assert done.stdout == (
+        "re-approved CHDA:LIT:0000003 (Dr. New, 2026-11-04; was Dr. Ada Curator on 2026-10-01)\n"
+    )
+    current = _finding_on_disk(lit_path, "CHDA:LIT:0000003")
     assert current.approved_digest == finding_digest(current)
     assert "APPROVAL VOID" not in _review(root).stdout
-    assert "CHDA:LIT:0000003" not in _review(root).stdout
+    headers = [line for line in _review(root).stdout.splitlines() if line.startswith("CHDA:LIT:")]
+    assert [h[:16] for h in headers] == ["CHDA:LIT:0000001", "CHDA:LIT:0000002", "CHDA:LIT:0000004"]
 
 
-class GeneLiteratureFileProbe:
-    @staticmethod
-    def finding(path: Path, finding_id: str) -> Finding:
-        data = YAML(typ="safe").load(path.read_text())
-        return next(Finding.model_validate(f) for f in data["findings"] if f["id"] == finding_id)
+def test_re_approving_a_void_finding_is_refused_if_the_file_changed_since_it_was_read(
+    root: Path, lit_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import chd_atlas.cli as cli
+
+    _give_variants(lit_path, "CHDA:LIT:0000003", "A proband.")
+    theirs = lit_path.read_bytes() + b"# another writer's line\n"
+    original = cli.with_findings_updated
+
+    def racing(*a: Any, **k: Any) -> bytes:
+        content: bytes = original(*a, **k)
+        lit_path.write_bytes(theirs)
+        return content
+
+    monkeypatch.setattr(cli, "with_findings_updated", racing)
+    result = _review(root, "--approve", "CHDA:LIT:0000003", "--by", "Dr. New", "--allow-unverified")
+    assert result.exit_code == 2, result.stdout
+    assert result.stdout == f"error: {lit_path} changed since it was read; nothing was written\n"
+    assert lit_path.read_bytes() == theirs
+
+
+def _finding_on_disk(path: Path, finding_id: str) -> Finding:
+    data = YAML(typ="safe").load(path.read_text())
+    return next(Finding.model_validate(f) for f in data["findings"] if f["id"] == finding_id)
 
 
 def test_a_current_approval_is_still_refused(root: Path, lit_path: Path) -> None:

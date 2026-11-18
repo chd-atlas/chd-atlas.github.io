@@ -567,7 +567,8 @@ def _listing(finding: Finding, paper: Publication | None) -> list[str]:
     """Every field of a finding a person approves, except the bookkeeping ones.
 
     Omitted on purpose: `id` and the link (the heading line), `approved_*`
-    (a listed finding has none) and `verified_by` (the heading line). Floats go
+    (a listed finding is unapproved, or its approval is void and `APPROVAL
+    VOID` stands in for it) and `verified_by` (the heading line). Floats go
     through `repr`, so 1.23456789e-9 is not shown as 1.23457e-09 (final review
     I2). The paper's `study_type` and `own_lab` come from publications.yaml,
     where an agent's reading of the design may be the only copy (R32).
@@ -714,7 +715,10 @@ def _write_unless_changed(path: Path, read: bytes, content: bytes) -> None:
 def literature_review(
     symbol: str = typer.Argument(..., help="Gene symbol (approved, alias or previous)."),
     approve: list[str] = typer.Option(
-        [], "--approve", help="A finding id to approve; repeat the option for several."
+        [],
+        "--approve",
+        help="A finding id to approve, or to approve again when its approval is void "
+        "(LIT015); repeat the option for several.",
     ),
     by: str = typer.Option("", "--by", help="The approving person's name."),
     on: str = typer.Option("", "--on", help="Approval date, YYYY-MM-DD (default today)."),
@@ -750,7 +754,9 @@ def literature_review(
     refused while any approved finding of the file fails LIT015. A review mark is
     published with the finding; it does not withdraw an approval, and a marked
     finding can still be approved. A finding carries one mark: a second is
-    refused rather than overwriting the first note. Every write is refused if the
+    refused rather than overwriting the first note. A finding whose approval is
+    void (LIT015) is listed, marked `APPROVAL VOID`, and may be approved again;
+    the output names the approval it replaced. Every write is refused if the
     file changed since this command read it.
     """
     _require_root(root)
@@ -952,7 +958,13 @@ def literature_review(
             }
             for i in ids
         }
-        messages = [f"approved {i} ({by.strip()}, {when.isoformat()})" for i in ids]
+        messages = [
+            f"re-approved {i} ({by.strip()}, {when.isoformat()}; "
+            f"was {by_id[i].approved_by} on {by_id[i].approved_on})"
+            if by_id[i].approved_by is not None
+            else f"approved {i} ({by.strip()}, {when.isoformat()})"
+            for i in ids
+        ]
     try:
         content = with_findings_updated(raw, updates)
     except LiteratureFileError as exc:
