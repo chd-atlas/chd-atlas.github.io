@@ -59,7 +59,7 @@ What the build produced, and a checksum for every file in it.
     "genes/index.json": "sha256:<64 hex>",
     "publications.json": "sha256:<64 hex>"
   },
-  "schema_version": "2.24",
+  "schema_version": "2.25",
   "source_commit": "<40-hex commit sha, or null outside a git checkout>",
   "status": "in-development"
 }
@@ -315,6 +315,8 @@ wrong by the next one.
   `2.24` added `variants` to every finding (`[]` for none) and `normalisations`
   to every gene bundle's `literature`, and a variant's links publish as `with`.
   Additive.
+  `2.25` added `review_settled_by` to every finding and variant, `unclear` to
+  every variant, and the value `unclear` to `zygosity` and `phase`. Additive.
 - `status` is the atlas's own readiness, so a program can read it without
   scraping `index.html`'s prose. Today it is always `"in-development"` — one
   curated gene-disease assertion alongside mirrored ClinGen/GenCC validity for
@@ -1690,9 +1692,9 @@ TBX5's, abridged:
   `families`, `screened` is families and each origin count is carrier families.
 - `variants` (since `2.24`) lists a finding's variants, `[]` for none. A variant's
   `id` and the ids in its `with` are per finding: `with` names only the same
-  finding's variants, and links are mutual. `phase` (`trans`, `cis` or
+  finding's variants, and links are mutual. `phase` (`trans`, `cis`, `unclear` or
   `not_stated`) is non-null exactly when `with` is non-empty. `zygosity` is
-  `heterozygous`, `homozygous`, `hemizygous` or `not_stated`; `kind` is
+  `heterozygous`, `homozygous`, `hemizygous`, `unclear` or `not_stated`; `kind` is
   `snv_indel`, `cnv` or `chromosomal`; `locator` says where the paper states it;
   `as_reported` is the variant as the paper prints it; `carriers` counts by
   origin, and is `null` on a common-variant finding; `phenotypes` are HPO ids
@@ -1709,6 +1711,14 @@ TBX5's, abridged:
   and a `mane` variant never share one, even for the same change). `unplaced`: a review mark,
   never grouped, and at most a checked `hgvs_p`. `structural` and
   `outside_region`: listed only, with no coordinates or HGVS.
+- `review_settled_by` (since `2.25`), on a finding and on a variant, is `null` or
+  what would settle its open question: `full_text`, `authors`, `expert` or
+  `atlas_model`. A `pending_review` mark always carries one. `not_accessible`
+  is settled by the full text and carries none. A variant's `unclear` is `{}`
+  unless its `zygosity` or `phase` is `unclear`; then it holds that field's
+  `{"reason", "settled_by"}`. `unclear` means the paper says something about the
+  value that cannot be written as one value, and `not_stated` means it says
+  nothing.
 - `normalisations` (since `2.24`) lists the normaliser runs that published
   variants cite, by `id`, which a variant's `normalisation` names: `tool`,
   `version`, `hgvs_version`, `vvta`, `vvdb`, `seqrepo` and `run_on`. A run no

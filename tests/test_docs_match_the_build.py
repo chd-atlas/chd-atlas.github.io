@@ -1657,7 +1657,8 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
         "`unplaced`: a review mark, never grouped, and at most a checked `hgvs_p`.",
         "`mane`: `hgvs_c`, `grch38` and `normalisation`, and `hgvs_p` where the change has one.",
         "`structural` and `outside_region`: listed only, with no coordinates or HGVS.",
-        "`phase` (`trans`, `cis` or `not_stated`) is non-null exactly when `with` is non-empty",
+        "`phase` (`trans`, `cis`, `unclear` or `not_stated`) is non-null exactly when "
+        "`with` is non-empty",
         "`version`, `hgvs_version`, `vvta`, `vvdb`, `seqrepo` and `run_on`",
         "group on its canonical reading: accession and parentheses dropped, one-letter "
         "residues, `Ter` and `X` as `*`",
@@ -1673,6 +1674,23 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
     # The canonical reading those words describe is `protein_key`'s.
     assert protein_key("NP_852259.1:p.(Gly80Arg)") == protein_key("NP_852259.1:p.G80R") == "G80R"
     assert protein_key("p.Arg279Ter") == protein_key("p.R279X") == "R279*"
+
+
+def test_the_doc_defines_unclear_and_every_settler() -> None:
+    """The 2.25 additions are defined in the doc: `unclear` against `not_stated`, each
+    `SettledBy` value, and that a `not_accessible` question is settled by the full text."""
+    from chd_atlas.vocab import SettledBy
+
+    text = " ".join(DOC.read_text().split())
+    for needle in (
+        "`unclear` means the paper says something about the value that cannot be written "
+        "as one value, and `not_stated` means it says nothing",
+        "`not_accessible` is settled by the full text",
+        "`2.25` added `review_settled_by`",
+    ):
+        assert needle in text, needle
+    for settler in SettledBy:
+        assert f"`{settler.value}`" in text, settler
 
 
 def test_the_doc_describes_the_literature_section_and_what_publishes_before_approval(

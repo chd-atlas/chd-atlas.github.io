@@ -520,7 +520,10 @@ from chd_atlas.corpus import Corpus
 # approved and its approval is current.
 #
 # 2.24 (additive): `literature.findings[].variants` and `literature.normalisations`.
-SCHEMA_VERSION: Final = "2.24"
+#
+# 2.25 (additive): `unclear` zygosity and phase, `variants[].unclear`, and
+# `review_settled_by` on findings and variants.
+SCHEMA_VERSION: Final = "2.25"
 
 # What `status` publishes today. A literal rather than something derived from
 # the corpus, unlike every field in `counts`: there is no measurement of "is
