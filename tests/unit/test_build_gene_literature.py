@@ -627,6 +627,32 @@ def test_one_variant_in_two_papers_is_one_row_with_two_reports_and_no_summed_car
     assert "carriers" not in row and "total" not in row
 
 
+def test_one_finding_naming_a_variant_alone_and_with_a_partner_is_one_row_two_reports() -> None:
+    """Ruling D16: the same change in two genotype contexts of one finding is two reports
+    on one row, each with its own carriers and partner names."""
+    alone = {"de_novo": 1, "inherited": 0, "origin_unknown": 0}
+    paired = {"de_novo": 0, "inherited": 2, "origin_unknown": 0}
+    table = variant_table(
+        [
+            _pub(
+                1,
+                "PMID:1",
+                [
+                    _mane(1, "c.10A>G", "1:1:A:G", carriers=alone),
+                    _mane(2, "c.10A>G", "1:1:A:G", carriers=paired, **{"with": [3]}),
+                    _mane(3, "c.20A>G", "1:2:A:G", **{"with": [2]}),
+                ],
+            )
+        ]
+    )
+    row = next(r for r in table["rows"] if r["key"] == "g:1:1:A:G")
+    assert row["papers"] == 1
+    assert [(r["finding"], r["carriers"], r["with_names"]) for r in row["reports"]] == [
+        ("CHDA:LIT:0000001", alone, []),
+        ("CHDA:LIT:0000001", paired, ["c.20A>G"]),
+    ]
+
+
 def test_a_partner_is_named_by_hgvs_c_then_hgvs_p_then_as_reported() -> None:
     table = variant_table(
         [

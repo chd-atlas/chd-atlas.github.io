@@ -208,16 +208,16 @@ def test_a_variant_on_a_gene_outside_the_frame_is_lit016_until_it_is_unplaced(
     # Owner decision D2 (2026-11-18): a registry gene with no MANE row is a
     # MAN004 warning, and a variant on it cannot be placed or have its residue
     # checked. Listed `unplaced` with no names, it is listed without coordinates.
-    absent = [
-        (
-            "LIT016",
-            "the gene has no MANE Select in the pinned frame, so no variant on it can be "
-            "placed or its residue checked; list it unplaced",
-        )
-    ]
+    head = (
+        "the gene has no MANE Select in the pinned frame, so no variant on it can be "
+        "placed or its residue checked; "
+    )
+    absent = [("LIT016", head + "list it unplaced, with no hgvs_c or grch38 and no hgvs_p")]
+    # An unplaced variant is already unplaced: its only fix is to drop the hgvs_p.
+    dropped = [("LIT016", head + "drop its hgvs_p")]
     assert reference_issues(_variant(**TBX5_R279X), None) == absent
     assert reference_issues(_variant(placement="protein", hgvs_p="p.Arg279Ter"), None) == absent
-    assert reference_issues(_variant(placement="unplaced", hgvs_p="p.Arg279Ter"), None) == absent
+    assert reference_issues(_variant(placement="unplaced", hgvs_p="p.Arg279Ter"), None) == dropped
     assert reference_issues(_variant(placement="unplaced"), None) == []
     # An unplaced variant on a gene the frame holds keeps only its residue
     # checked: a mismatching paper p. is not LIT025 there.
@@ -931,3 +931,47 @@ def test_two_variants_with_one_row_key_in_a_finding_are_lit022() -> None:
     assert [(c, v) for c, v, _ in protein] == [("LIT022", 2)]
     different = _shape([_sv(1), _sv(2, grch38="12:114366399:G:A")])
     assert different == []
+
+
+def test_a_wrong_protein_accession_names_the_fix_for_its_placement(frame: ManeFrame) -> None:
+    """A `mane` variant is re-normalised; a `protein` or `unplaced` one is never normalised."""
+    wrong = "NP_852259.2:p.(Arg279Ter)"
+    ((_, mane),) = reference_issues(_variant(**_with(hgvs_p=wrong)), frame[TBX5])
+    assert "re-normalise" in mane
+    for placement in ("protein", "unplaced"):
+        issues = reference_issues(_variant(placement=placement, hgvs_p=wrong), frame[TBX5])
+        assert [code for code, _ in issues] == ["LIT016"]
+        assert "write hgvs_p on NP_852259.1" in issues[0][1]
+        assert "re-normalise" not in issues[0][1]
+
+
+def test_one_variant_alone_and_with_a_partner_is_two_entries_but_not_otherwise() -> None:
+    """Spec 7.2 (ruling D16): the same name twice is allowed only in different genotype
+    contexts, i.e. when the entries' `with` partner sets differ."""
+    alone = _sv(1, grch38="12:114366312:G:A")
+    partnered = _linked(2, 3, grch38="12:114366312:G:A")
+    partner = _linked(3, 2, grch38="12:114366399:G:A")
+    assert [i for i in _shape([alone, partnered, partner]) if i[0] == "LIT022"] == []
+    # Both unlinked: refused.
+    both_alone = _shape([alone, _sv(2, grch38="12:114366312:G:A")])
+    assert [(c, v) for c, v, _ in both_alone] == [("LIT022", 2)]
+    assert "genotype context" in both_alone[0][2]
+    # Same partner set: refused, whatever order the partners are listed in.
+    twice = _shape(
+        [
+            _linked(1, 3, grch38="12:114366312:G:A", **{"with": [3, 4]}),
+            _linked(2, 3, grch38="12:114366312:G:A", **{"with": [4, 3]}),
+            _linked(3, 1, grch38="12:114366399:G:A", **{"with": [1, 2, 4]}),
+            _linked(4, 1, grch38="12:114366398:G:A", **{"with": [1, 2, 3]}),
+        ]
+    )
+    assert [(c, v) for c, v, m in twice if "repeats" in m] == [("LIT022", 2)]
+
+
+def test_a_variant_naming_zero_carriers_is_lit022() -> None:
+    zero = {"de_novo": 0, "inherited": 0, "origin_unknown": 0}
+    issues = _shape([_sv(1, carriers=zero)])
+    assert [(c, v) for c, v, _ in issues] == [("LIT022", 1)]
+    assert "0 carriers" in issues[0][2]
+    one = {"de_novo": 0, "inherited": 0, "origin_unknown": 1}
+    assert _shape([_sv(1, carriers=one)]) == []

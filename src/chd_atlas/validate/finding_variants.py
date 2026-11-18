@@ -283,8 +283,15 @@ def _key_issues(text: str, t: ManeTranscript) -> tuple[list[Issue], _Change | No
     return issues, _key_change(key)
 
 
-def _protein_issues(text: str, t: ManeTranscript) -> tuple[list[Issue], PVariant | None]:
-    """LIT021/LIT016/LIT019 on `hgvs_p`, and what it reads as on the MANE protein."""
+def _protein_issues(
+    text: str, t: ManeTranscript, normalised: bool = False
+) -> tuple[list[Issue], PVariant | None]:
+    """LIT021/LIT016/LIT019 on `hgvs_p`, and what it reads as on the MANE protein.
+
+    `normalised` is true for a `mane` variant, whose `hgvs_p` comes from a
+    normaliser run and is fixed by re-running it; a `protein` or `unplaced`
+    variant is never normalised, so its fix is writing `hgvs_p` by hand.
+    """
     try:
         pv = parse_p(text)
     except HgvsUnsupported as error:
@@ -294,7 +301,12 @@ def _protein_issues(text: str, t: ManeTranscript) -> tuple[list[Issue], PVariant
             (
                 "LIT016",
                 f"hgvs_p {text} is not on {t.protein}, the gene's pinned MANE Select protein "
-                "(re-normalise it on the pinned transcript)",
+                + (
+                    "(re-normalise it on the pinned transcript)"
+                    if normalised
+                    else f"(write hgvs_p on {t.protein}, or for an unplaced variant drop it; "
+                    "a protein variant is never normalised)"
+                ),
             )
         ], None
     issues: list[Issue] = []
@@ -362,11 +374,16 @@ def _lit025(variant: Variant, t: ManeTranscript, hgvs_p: PVariant | None) -> lis
     return []
 
 
-def _absent() -> Issue:
+def _absent(variant: Variant) -> Issue:
+    fix = (
+        "drop its hgvs_p"
+        if variant.placement is VariantPlacement.UNPLACED
+        else "list it unplaced, with no hgvs_c or grch38 and no hgvs_p"
+    )
     return (
         "LIT016",
         "the gene has no MANE Select in the pinned frame, so no variant on it can be "
-        "placed or its residue checked; list it unplaced",
+        f"placed or its residue checked; {fix}",
     )
 
 
@@ -380,12 +397,12 @@ def reference_issues(variant: Variant, frame_entry: ManeTranscript | None) -> li
         if variant.hgvs_p is None:
             return []
         if frame_entry is None:
-            return [_absent()]
+            return [_absent(variant)]
         return sorted(_protein_issues(variant.hgvs_p, frame_entry)[0])
     if placement not in (VariantPlacement.MANE, VariantPlacement.PROTEIN):
         return []
     if frame_entry is None:
-        return [_absent()]
+        return [_absent(variant)]
     t = frame_entry
     issues: list[Issue] = []
     c_change = key_change = None
@@ -408,7 +425,9 @@ def reference_issues(variant: Variant, frame_entry: ManeTranscript | None) -> li
             )
     read_p: PVariant | None = None
     if variant.hgvs_p is not None:
-        found, read_p = _protein_issues(variant.hgvs_p, t)
+        found, read_p = _protein_issues(
+            variant.hgvs_p, t, variant.placement is VariantPlacement.MANE
+        )
         issues += found
     issues += _lit025(variant, t, read_p)
     return sorted(issues)
@@ -656,21 +675,36 @@ def shape_issues(finding: Finding, normalisation_ids: set[int]) -> list[ShapeIss
     out: list[ShapeIssue] = []
     for number in sorted({v.id for v in variants if sum(w.id == v.id for w in variants) > 1}):
         out.append(("LIT022", number, f"variant id {number} is used more than once"))
-    seen: dict[str, int] = {}
+    seen: dict[str, list[Variant]] = {}
     for v in variants:
         key = _row_key(v)
         if key is not None:
-            if key in seen and seen[key] != v.id:
+            twin = next(
+                (w for w in seen.get(key, []) if w.id != v.id and set(w.with_) == set(v.with_)),
+                None,
+            )
+            if twin is not None:
                 out.append(
                     (
                         "LIT022",
                         v.id,
-                        f"variant {v.id} repeats variant {seen[key]}'s name ({key[2:]}); "
-                        "name each variant once per finding, with zygosity not_stated "
-                        "when its carriers differ in zygosity",
+                        f"variant {v.id} repeats variant {twin.id}'s name ({key[2:]}) in the "
+                        "same genotype context; name each variant once per finding, with "
+                        "zygosity not_stated when its carriers differ in zygosity (a variant "
+                        "some carry alone and others with a partner is two entries only when "
+                        "their with partners differ)",
                     )
                 )
-            seen.setdefault(key, v.id)
+            seen.setdefault(key, []).append(v)
+        if v.carriers is not None and v.carriers.total == 0:
+            out.append(
+                (
+                    "LIT022",
+                    v.id,
+                    f"variant {v.id} names 0 carriers; a variant a finding names is "
+                    "carried by someone, so drop it or count its carriers",
+                )
+            )
         out += _placement_issues(finding, v, normalisation_ids)
         for pheno in v.phenotypes:
             if pheno not in finding.phenotypes:
