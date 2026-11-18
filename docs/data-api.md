@@ -2152,7 +2152,7 @@ the slug rule stays an implementation detail (see
 One HTML page per gene that has at least one open question on its approved
 literature findings, and none for a gene without one. It lists each question
 with its reason and what would settle it. It is a view of the gene bundle's
-`literature.findings`, so it adds no data.
+`literature.findings` and of `publications.json`; it publishes no data of its own.
 
 ## `omics/<modality>/<accession>.json`
 

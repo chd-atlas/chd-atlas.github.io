@@ -28,6 +28,7 @@ from chd_atlas.build.gene_literature import (
     GeneLiterature,
     LiteratureTallies,
     PublishedSynthesis,
+    gene_literature,
 )
 from chd_atlas.build.identity import GeneIdentity
 from chd_atlas.build.pages import (
@@ -70,10 +71,11 @@ from chd_atlas.build.profiles import (
 )
 from chd_atlas.build.render import Markup
 from chd_atlas.build.validity import GeneValidity, ValidityRecord
+from chd_atlas.corpus import Corpus
 from chd_atlas.models.assertion import Evidence, InTextLocator, LesionAssertion
 from chd_atlas.models.cohort import Cohort
 from chd_atlas.models.dataset import Dataset, Stage
-from chd_atlas.models.gene_literature import Finding
+from chd_atlas.models.gene_literature import Finding, GeneLiteratureFile
 from chd_atlas.models.literature import Publication
 from chd_atlas.models.phases import CardiacPhase, CardiacPhaseFile, EndBasis
 from chd_atlas.models.review import ReviewStatus
@@ -11945,21 +11947,177 @@ def test_a_reason_with_markup_characters_is_escaped(tmp_path: Path) -> None:
     assert "<b>" not in page
 
 
-def test_the_register_shows_approved_findings_only(tmp_path: Path) -> None:
-    # The mapping's `findings` is the approved set; waiting findings are a count.
-    # A gene whose only marked findings are still awaiting approval has none here.
-    folder = _register(tmp_path, [_reg_finding(1, "PMID:11")], pending=9)
-    assert not (folder / "HGNC_11604.html").exists()
-    page = (
-        _register(
-            tmp_path / "b",
+def _raw_finding(number: int, pmid: str, **changes: object) -> dict[str, object]:
+    """A raw literature-file finding (approved, marked not-accessible unless changed)."""
+    base = _reg_finding(number, pmid, review_status="not_accessible", review_note="Abstract only.")
+    for key in ("approved_digest",):
+        base.pop(key, None)
+    base.update({"approved_by": "A. Curator", "approved_on": "2026-11-05"})
+    base.update(changes)
+    return stamped(base)
+
+
+def _lit_file(gene: str, findings: list[dict[str, object]]) -> GeneLiteratureFile:
+    return GeneLiteratureFile.model_validate(
+        {
+            "gene": gene,
+            "searches": [
+                {
+                    "id": 1,
+                    "source": "pubmed",
+                    "query": "q",
+                    "run_on": "2026-11-02",
+                    "hits": 3,
+                    "new_hits": 3,
+                }
+            ],
+            "triage": [],
+            "findings": findings,
+        }
+    )
+
+
+def test_the_register_is_built_from_approved_findings_only(tmp_path: Path) -> None:
+    """Through `gene_literature`'s real approval filter, which `build_register_pages` trusts.
+
+    GATA4 has only an unapproved marked finding: no page. TBX5 has one approved
+    and one unapproved marked finding: a page holding the approved one's anchor
+    and no trace of the unapproved one's id.
+    """
+    unapproved = {"approved_by": None, "approved_on": None}
+    corpus = Corpus(
+        root=Path("."),
+        publications=tuple(_reg_pubs().values()),
+        literature=(
+            (Path("a.yaml"), _lit_file(GATA4, [_raw_finding(5, "PMID:11", **unapproved)])),
+            (
+                Path("b.yaml"),
+                _lit_file(
+                    TBX5,
+                    [_raw_finding(1, "PMID:12"), _raw_finding(2, "PMID:13", **unapproved)],
+                ),
+            ),
+        ),
+    )
+    build_register_pages(
+        Emitter(root=tmp_path),
+        literature=gene_literature(corpus),
+        symbols={TBX5: "TBX5", GATA4: "GATA4"},
+        publications=_reg_pubs(),
+    )
+    assert sorted(p.name for p in (tmp_path / "register").iterdir()) == ["HGNC_11604.html"]
+    page = (tmp_path / "register" / "HGNC_11604.html").read_text("utf-8")
+    assert 'id="q-chda-lit-0000001"' in page
+    assert "CHDA:LIT:0000002" not in page and "0000002" not in page
+    assert "Gamma G" not in page
+
+
+@pytest.mark.parametrize(
+    ("second_note", "expected"),
+    [
+        (
+            "Second note.",
             [
-                _reg_finding(
-                    2, "PMID:12", review_status="not_accessible", review_note="Abstract only."
+                ("Pending review", "First note.", ["Alpha A et al. 2001 · CHDA:LIT:0000001"]),
+                ("Pending review", "Second note.", ["Alpha A et al. 2001 · CHDA:LIT:0000002"]),
+            ],
+        ),
+        (
+            "First note.",
+            [
+                (
+                    "Pending review",
+                    "First note.",
+                    [
+                        "Alpha A et al. 2001 · CHDA:LIT:0000001",
+                        "Alpha A et al. 2001 · CHDA:LIT:0000002",
+                    ],
                 )
             ],
-            pending=9,
+        ),
+    ],
+)
+def test_two_pending_findings_of_one_paper_share_a_row_only_when_their_notes_match(
+    tmp_path: Path, second_note: str, expected: list[tuple[str, str, list[str]]]
+) -> None:
+    def pending(number: int, note: str, settler: str = "expert") -> dict[str, object]:
+        return _reg_finding(
+            number,
+            "PMID:11",
+            review_status="pending_review",
+            review_note=note,
+            review_settled_by=settler,
+        )
+
+    folder = _register(tmp_path, [pending(1, "First note."), pending(2, second_note)])
+    page = (folder / "HGNC_11604.html").read_text("utf-8")
+    table = _slice_between(page, "<table>", ("</table>",))
+    got = [
+        (cells[1], cells[2], [re.sub(r"<[^>]+>", "", s) for s in cells[0].split("<br>")])
+        for cells in _register_rows(table)
+    ]
+    assert got == expected
+    assert "Open questions (2)" in page
+
+
+def test_a_with_group_sharing_an_unclear_phase_is_one_register_row_of_every_member(
+    tmp_path: Path,
+) -> None:
+    def member(number: int, partners: list[int]) -> dict[str, object]:
+        return _reg_variant(
+            number,
+            hgvs_c=f"c.{number}A>G",
+            zygosity="heterozygous",
+            phase="unclear",
+            unclear={"phase": {"reason": "Cis or trans.", "settled_by": "expert"}},
+            **{"with": partners},
+        )
+
+    finding = _reg_finding(
+        1, "PMID:11", variants=[member(3, [1, 2]), member(1, [2, 3]), member(2, [1, 3])]
+    )
+    page = (_register(tmp_path, [finding]) / "HGNC_11604.html").read_text("utf-8")
+    assert "Open questions (1)" in page
+    rows = _register_rows(_slice_between(page, "<table>", ("</table>",)))
+    assert len(rows) == 1
+    assert rows[0][1:] == ["Phase unclear", "Cis or trans.", "an expert"]
+    assert re.findall(r'<span id="([^"]+)"', rows[0][0]) == [
+        "q-chda-lit-0000001-v1-phase",
+        "q-chda-lit-0000001-v2-phase",
+        "q-chda-lit-0000001-v3-phase",
+    ]
+
+
+def test_the_register_introduction_reads_as_approved(tmp_path: Path) -> None:
+    page = (
+        _register(
+            tmp_path,
+            [
+                _reg_finding(
+                    1, "PMID:11", review_status="not_accessible", review_note="Abstract only."
+                )
+            ],
         )
         / "HGNC_11604.html"
     ).read_text("utf-8")
-    assert "Open questions (1)" in page and "CHDA:LIT:0000001" not in page
+    intro = _slice_between(page, "gene page</a></p>", ("<h2",))
+    assert intro == (
+        "<p>The open questions on this gene's approved literature findings, each with its "
+        "reason. A question stays open until what the last column names settles it; the "
+        "gene page marks each one.</p>"
+    ).replace("'", "&#x27;")
+
+
+def test_the_same_note_with_a_different_settler_is_two_rows(tmp_path: Path) -> None:
+    def pending(number: int, settler: str) -> dict[str, object]:
+        return _reg_finding(
+            number,
+            "PMID:11",
+            review_status="pending_review",
+            review_note="Same note.",
+            review_settled_by=settler,
+        )
+
+    page = _register(tmp_path, [pending(1, "expert"), pending(2, "authors")]) / "HGNC_11604.html"
+    rows = _register_rows(_slice_between(page.read_text("utf-8"), "<table>", ("</table>",)))
+    assert [row[3] for row in rows] == ["the authors", "an expert"]
