@@ -1554,15 +1554,15 @@ def test_a_listing_shows_one_line_per_variant(root: Path, lit_path: Path) -> Non
 
     assert result.exit_code == 0, result.stdout
     four = next(b for b in result.stdout.split("\n\n") if b.startswith("CHDA:LIT:0000004"))
-    assert four.splitlines()[5:9] == [
+    assert four.splitlines()[5:10] == [
         "  variant classes: snv_indel",
         "  variant 1: c.100A>G | mane | c.100A>G p.Lys34Glu 12:114000000:A:G"
         " | heterozygous | carriers 1/0/0 | HP:0001631"
         " | kind snv_indel | reported none | locator in_text Abstract",
         "  variant 2: p.Arg5* | unplaced | - - - | heterozygous with 3, 4 (trans)"
         " | carriers 0/2/3 | no phenotypes | kind snv_indel | reported none"
-        " | locator in_text Abstract"
-        " | review: pending_review: the paper's c. name disagrees",
+        " | locator in_text Abstract",
+        "    review: pending_review (settled by the authors): the paper's c. name disagrees",
         "  screened 1 probands; carriers 1 (de novo 0, inherited 1, origin unknown 0)",
     ]
     one = next(b for b in result.stdout.split("\n\n") if b.startswith("CHDA:LIT:0000001"))
@@ -1694,3 +1694,195 @@ def test_a_current_approval_is_still_refused(root: Path, lit_path: Path) -> None
         "approving again would erase who approved it"
     ) in result.output
     assert lit_path.read_text() == before
+
+
+# --------------------------------------------------------------------------
+# the unclear register (C0): settlers in the listing, and `literature questions`
+# --------------------------------------------------------------------------
+
+
+def _once(text: str, old: str, new: str) -> str:
+    assert text.count(old) == 1, old
+    return text.replace(old, new)
+
+
+def test_the_listing_prints_each_settler_and_each_unclear_reason(
+    root: Path, lit_path: Path
+) -> None:
+    text = lit_path.read_text()
+    marker = "    summary: Another proband.\n"
+    variants = """\
+    variants:
+      - id: 1
+        as_reported: c.5del
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: unplaced
+        zygosity: unclear
+        unclear:
+          zygosity: {reason: The table gives no genotype., settled_by: atlas_model}
+      - id: 2
+        as_reported: c.9del
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: unplaced
+        with: [3]
+        phase: unclear
+        unclear:
+          phase: {reason: The authors do not say., settled_by: authors}
+        review_status: pending_review
+        review_note: The c. name disagrees.
+        review_settled_by: expert
+      - id: 3
+        as_reported: c.12del
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: unplaced
+        with: [2]
+        phase: unclear
+        unclear:
+          phase: {reason: The authors do not say., settled_by: authors}
+"""
+    marks = (
+        "    review_status: pending_review\n    review_note: Table 2 says 7.\n"
+        "    review_settled_by: authors\n"
+    )
+    lit_path.write_text(text.replace(marker, variants + marker + marks))
+
+    result = _review(root)
+
+    assert result.exit_code == 0, result.stdout
+    four = next(b for b in result.stdout.split("\n\n") if b.startswith("CHDA:LIT:0000004"))
+    lines = four.splitlines()
+    assert "  review: pending_review (settled by the authors): Table 2 says 7." in lines
+    start = next(i for i, line in enumerate(lines) if line.startswith("  variant 1:"))
+    shown = [line for line in lines[start:] if line.startswith("    ")]
+    assert shown == [
+        "    unclear zygosity (atlas_model): The table gives no genotype.",
+        "    review: pending_review (settled by an expert): The c. name disagrees.",
+        "    unclear phase (authors): The authors do not say.",
+        "    unclear phase (authors): The authors do not say.",
+    ]
+    assert lines[start + 1] == shown[0]
+    assert lines[start + 2].startswith("  variant 2:") and lines[start + 3] == shown[1]
+
+
+QUESTIONS_TEXT_EDITS = (
+    # F1: approved, then voided below; not accessible.
+    (
+        "    summary: Six of seven probands carry a variant.\n"
+        "    extracted_by: agent:extract/test\n",
+        "    summary: Six of seven probands carry a variant.\n"
+        "    extracted_by: agent:extract/test\n"
+        "    approved_by: Dr. Ada Curator\n    approved_on: 2026-10-01\n"
+        "    review_status: not_accessible\n    review_note: Only the abstract was read.\n",
+    ),
+    # F2: unapproved; an unclear zygosity the expert settles.
+    (
+        "    summary: A GWAS hit.\n",
+        """\
+    variants:
+      - id: 1
+        as_reported: c.7A>G
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: unplaced
+        zygosity: unclear
+        unclear:
+          zygosity: {reason: No genotype in the cohort table., settled_by: expert}
+    summary: A GWAS hit.
+""",
+    ),
+    # F3: approved and clean; a variant mark and an unclear zygosity.
+    (
+        "    summary: A proband.\n",
+        """\
+    variants:
+      - id: 1
+        as_reported: c.8A>G
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: unplaced
+        zygosity: unclear
+        unclear:
+          zygosity: {reason: Needs a mosaic value., settled_by: atlas_model}
+        review_status: pending_review
+        review_note: The paper's c. name disagrees.
+        review_settled_by: authors
+    summary: A proband.
+""",
+    ),
+    # F4: unapproved; the finding itself is pending review.
+    (
+        "    summary: Another proband.\n",
+        "    summary: Another proband.\n    review_status: pending_review\n"
+        "    review_note: Table 2 says 7.\n    review_settled_by: authors\n",
+    ),
+)
+
+
+def _questions(root: Path, *args: str) -> Any:
+    return runner.invoke(app, ["literature", "questions", *args, "--root", str(root)])
+
+
+def _questions_file(lit_path: Path) -> None:
+    text = LITERATURE
+    for old, new in QUESTIONS_TEXT_EDITS:
+        text = _once(text, old, new)
+    stamped = stamped_yaml(text)
+    # Edit F1's content after stamping, so its approval is void.
+    lit_path.write_text(_once(stamped, "Six of seven probands", "Seven of seven probands"))
+
+
+def test_questions_groups_by_settler_in_order_and_marks_unapproved_and_void(
+    root: Path, lit_path: Path
+) -> None:
+    _questions_file(lit_path)
+    before = lit_path.read_bytes()
+
+    result = _questions(root, "TBX5")
+
+    assert result.exit_code == 0, result.stdout
+    assert result.stdout.splitlines() == [
+        "TBX5: 5 open questions",
+        "settled by the full text (1)",
+        "  CHDA:LIT:0000001  PMID:8988165  Source not accessible [approval void: LIT015]",
+        "settled by the authors (2)",
+        "  CHDA:LIT:0000003 v1  PMID:222  Pending review",
+        "    The paper's c. name disagrees.",
+        "  CHDA:LIT:0000004  PMID:333  Pending review [unapproved]",
+        "    Table 2 says 7.",
+        "settled by an expert (1)",
+        "  CHDA:LIT:0000002 v1  PMID:111  Zygosity unclear [unapproved]",
+        "    No genotype in the cohort table.",
+        "settled by a change to the atlas (1)",
+        "  CHDA:LIT:0000003 v1  PMID:222  Zygosity unclear",
+        "    Needs a mosaic value.",
+    ]
+    assert lit_path.read_bytes() == before
+
+
+def test_questions_with_no_symbol_covers_every_file_and_an_unknown_symbol_exits_2(
+    root: Path, lit_path: Path
+) -> None:
+    _questions_file(lit_path)
+    other = lit_path.parent / "GATA4.yaml"
+    head, body = LITERATURE.split("findings:\n")
+    one = body.split("  # A comment between")[0]
+    other.write_text(
+        head.replace("HGNC:11604", "HGNC:4173")
+        + "findings:\n"
+        + one
+        + "    review_status: not_accessible\n    review_note: No access.\n"
+    )
+
+    both = _questions(root)
+
+    assert both.exit_code == 0, both.stdout
+    heads = [line for line in both.stdout.splitlines() if "open question" in line]
+    assert heads == ["GATA4: 1 open question", "TBX5: 5 open questions"]
+    assert "settled by the full text (1)" in both.stdout
+
+    unknown = _questions(root, "NOSUCHGENE")
+    assert unknown.exit_code == 2 and "NOSUCHGENE" in unknown.stdout
+    assert _questions(root, "BRCA1").exit_code == 2  # a gene with no literature file
