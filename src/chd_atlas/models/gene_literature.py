@@ -18,7 +18,7 @@ import hashlib
 import json
 from collections.abc import Sequence
 from datetime import date
-from typing import Annotated, Final, Literal
+from typing import Annotated, Any, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -82,6 +82,10 @@ _DIGEST_EXCLUDED: Final[frozenset[str]] = frozenset(
         "review_note",
     }
 )
+
+# A variant's review mark is not an edit to what the finding says, as the
+# finding's own is not; the synthesis covers it (`_covered_finding`).
+_VARIANT_DIGEST_EXCLUDED: Final[frozenset[str]] = frozenset({"review_status", "review_note"})
 
 
 class Search(BaseModel):
@@ -320,7 +324,11 @@ def finding_digest(finding: Finding) -> str:
     """`sha256:` and the hex digest of the finding's content, approval excluded.
 
     The canonical JSON (sorted keys, no ASCII escaping, compact separators) of
-    `model_dump(mode="json", exclude_defaults=True)` without `_DIGEST_EXCLUDED`.
+    `model_dump(mode="json", exclude_defaults=True, by_alias=True)` without
+    `_DIGEST_EXCLUDED`, and without each variant's review mark
+    (`_VARIANT_DIGEST_EXCLUDED`). `by_alias` keys a variant's links `with`, as
+    in the YAML. The file's `normalisations` are not on the finding and enter
+    no digest.
     An approval records this value, so a later edit to anything it covers no
     longer matches (LIT015). A field left at its default is not hashed, so a
     release that adds an optional field does not void standing approvals; the
@@ -328,9 +336,14 @@ def finding_digest(finding: Finding) -> str:
     """
     content = {
         k: v
-        for k, v in finding.model_dump(mode="json", exclude_defaults=True).items()
+        for k, v in finding.model_dump(mode="json", exclude_defaults=True, by_alias=True).items()
         if k not in _DIGEST_EXCLUDED
     }
+    if "variants" in content:
+        content["variants"] = [
+            {k: v for k, v in variant.items() if k not in _VARIANT_DIGEST_EXCLUDED}
+            for variant in content["variants"]
+        ]
     canonical = json.dumps(content, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
@@ -402,16 +415,21 @@ def _covered_finding(finding: Finding) -> str:
     content, withholds the synthesis until it is approved again (GS5).
     `verified_by` stays out, as it does of the finding's own digest.
     """
-    return _canonical_digest(
-        {
-            "finding": finding_digest(finding),
-            "review_status": finding.review_status.value if finding.review_status else None,
-            "review_note": finding.review_note or None,
-            "approved_by": finding.approved_by,
-            "approved_on": finding.approved_on.isoformat() if finding.approved_on else None,
-            "approved_digest": finding.approved_digest,
-        }
-    )
+    covered: dict[str, Any] = {
+        "finding": finding_digest(finding),
+        "review_status": finding.review_status.value if finding.review_status else None,
+        "review_note": finding.review_note or None,
+        "approved_by": finding.approved_by,
+        "approved_on": finding.approved_on.isoformat() if finding.approved_on else None,
+        "approved_digest": finding.approved_digest,
+    }
+    if finding.variants:
+        # Only when there are variants, so a finding with none keeps its digest.
+        covered["variant_reviews"] = [
+            [v.id, v.review_status.value if v.review_status else None, v.review_note or None]
+            for v in sorted(finding.variants, key=lambda v: v.id)
+        ]
+    return _canonical_digest(covered)
 
 
 def synthesis_digest(
