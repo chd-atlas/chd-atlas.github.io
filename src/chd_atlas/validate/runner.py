@@ -872,6 +872,7 @@ def validate_repository(root: Path) -> ValidationReport:
                 known_cohorts=cohort_ids or None,
                 burden_studies=burden_studies_by_gene(root),
                 published_genes=published or None,
+                mane=mane_frame,
             )
         )
         # SYN001-SYN004: same branch, same corpus; needs no registry, so no skip.

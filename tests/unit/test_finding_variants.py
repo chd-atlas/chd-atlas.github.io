@@ -22,8 +22,8 @@ from chd_atlas.mane import (
     genome_slice,
     read_mane_frame,
 )
-from chd_atlas.models.gene_literature import Variant
-from chd_atlas.validate.finding_variants import reference_issues
+from chd_atlas.models.gene_literature import Finding, Variant
+from chd_atlas.validate.finding_variants import reference_issues, shape_issues
 from tests.unit.mane_fixtures import make_gene
 
 REPO_ROOT = Path(__file__).parent.parent.parent
@@ -356,3 +356,381 @@ def test_each_reference_code_fires_alone(
 ) -> None:
     issues = reference_issues(_variant(**fields), frame[TBX5])
     assert issues and {found for found, _ in issues} == {code}, issues
+
+
+# ---- shape, linking and reconciliation (LIT022-LIT024) ----------------------------
+#
+# The finding carries {de_novo: 2, inherited: 1, origin_unknown: 3} (six in all) and
+# the phenotypes HP:0001631 and HP:0001680. Every origin and the total differ from
+# each other, so a check keyed on the wrong one cannot pass by coincidence (§4.30).
+
+_MANE_FIELDS: dict[str, Any] = {
+    "placement": "mane",
+    "hgvs_c": "NM_181486.4:c.835C>T",
+    "grch38": "12:114366312:G:A",
+    "normalisation": 1,
+}
+_REVIEW: dict[str, Any] = {"review_status": "pending_review", "review_note": "numbering differs"}
+
+
+def _sv(vid: int, **fields: Any) -> dict[str, Any]:
+    """A clean `mane` variant carried once, de novo; `fields` overrides."""
+    entry: dict[str, Any] = {
+        "id": vid,
+        "as_reported": "as printed",
+        "locator": {"kind": "in_text", "element": "Table 1"},
+        "kind": "snv_indel",
+        "carriers": {"de_novo": 1, "inherited": 0, "origin_unknown": 0},
+        **_MANE_FIELDS,
+    }
+    entry.update(fields)
+    return entry
+
+
+def _finding(variants: list[dict[str, Any]], **changes: Any) -> Finding:
+    raw: dict[str, Any] = {
+        "id": "CHDA:LIT:0000001",
+        "publication": "PMID:1001",
+        "design": "cohort_screen",
+        "methods": ["exome"],
+        "count_unit": "probands",
+        "screened": 7,
+        "carriers": {"de_novo": 2, "inherited": 1, "origin_unknown": 3},
+        "variant_classes": ["snv_indel", "cnv"],
+        "variants": variants,
+        "phenotypes": ["HP:0001631", "HP:0001680"],
+        "lesion_groups": ["septal"],
+        "syndromic": "both",
+        "shares_probands_with": "unknown",
+        "locators": [{"kind": "in_text", "element": "Table 2"}],
+        "summary": "Six of seven probands carry a variant.",
+        "extracted_by": "agent:extract/test",
+    }
+    raw.update(changes)
+    return Finding.model_validate(raw)
+
+
+def _shape(variants: list[dict[str, Any]], **changes: Any) -> list[tuple[str, int | None, str]]:
+    return shape_issues(_finding(variants, **changes), {1})
+
+
+def _linked(vid: int, other: int, **fields: Any) -> dict[str, Any]:
+    return _sv(vid, **{"zygosity": "heterozygous", "with": [other], "phase": "trans", **fields})
+
+
+_COMMON: dict[str, Any] = {
+    "design": "common_variant_association",
+    "methods": ["genotyping_array"],
+    "cases": 100,
+    "controls": 200,
+    "count_unit": None,
+    "screened": None,
+    "carriers": None,
+}
+
+# (the one defect, the finding's changes, the message fragment) -- each fires LIT022 alone.
+_SHAPE_CASES: list[tuple[list[dict[str, Any]], dict[str, Any], str]] = [
+    ([_sv(1, hgvs_c=None)], {}, "needs hgvs_c"),
+    ([_sv(1, grch38=None)], {}, "needs grch38"),
+    ([_sv(1, normalisation=None)], {}, "needs normalisation"),
+    ([_sv(1, kind="cnv")], {}, "is kind snv_indel, not cnv"),
+    (
+        [
+            _sv(
+                1,
+                placement="protein",
+                hgvs_p="NP_852259.1:p.(Arg279Ter)",
+                grch38=None,
+                normalisation=None,
+                hgvs_c=None,
+            )
+            | {"hgvs_p": None}
+        ],
+        {},
+        "needs hgvs_p",
+    ),
+    (
+        [
+            _sv(
+                1,
+                placement="protein",
+                hgvs_p="NP_852259.1:p.(Arg279Ter)",
+                grch38=None,
+                normalisation=None,
+            )
+        ],
+        {},
+        "must leave hgvs_c null",
+    ),
+    (
+        [
+            _sv(
+                1,
+                placement="protein",
+                hgvs_p="NP_852259.1:p.(Arg279Ter)",
+                hgvs_c=None,
+                normalisation=None,
+            )
+        ],
+        {},
+        "must leave grch38 null",
+    ),
+    (
+        [_sv(1, placement="protein", hgvs_p="NP_852259.1:p.(Arg279Ter)", hgvs_c=None, grch38=None)],
+        {},
+        "must leave normalisation null",
+    ),
+    (
+        [_sv(1, placement="unplaced", hgvs_c=None, grch38=None, normalisation=None)],
+        {},
+        "needs review_status",
+    ),
+    (
+        [_sv(1, placement="unplaced", grch38=None, normalisation=None, **_REVIEW)],
+        {},
+        "must leave hgvs_c null",
+    ),
+    (
+        [_sv(1, placement="unplaced", hgvs_c=None, normalisation=None, **_REVIEW)],
+        {},
+        "must leave grch38 null",
+    ),
+    (
+        [
+            _sv(
+                1,
+                placement="structural",
+                kind="snv_indel",
+                hgvs_c=None,
+                grch38=None,
+                normalisation=None,
+            )
+        ],
+        {},
+        "is kind chromosomal or cnv, not snv_indel",
+    ),
+    (
+        [_sv(1, placement="structural", kind="cnv", grch38=None, normalisation=None)],
+        {},
+        "must leave hgvs_c null",
+    ),
+    (
+        [
+            _sv(
+                1,
+                placement="structural",
+                kind="cnv",
+                hgvs_c=None,
+                grch38=None,
+                normalisation=None,
+                hgvs_p="NP_852259.1:p.(Arg279Ter)",
+            )
+        ],
+        {},
+        "must leave hgvs_p null",
+    ),
+    (
+        [_sv(1, placement="structural", kind="cnv", hgvs_c=None, normalisation=None)],
+        {},
+        "must leave grch38 null",
+    ),
+    (
+        [
+            _sv(
+                1,
+                placement="outside_region",
+                kind="cnv",
+                hgvs_c=None,
+                grch38=None,
+                normalisation=None,
+            )
+        ],
+        {},
+        "is kind snv_indel, not cnv",
+    ),
+    (
+        [_sv(1, placement="outside_region", grch38=None, normalisation=None)],
+        {},
+        "must leave hgvs_c null",
+    ),
+    (
+        [
+            _sv(
+                1,
+                placement="outside_region",
+                hgvs_c=None,
+                grch38=None,
+                normalisation=None,
+                hgvs_p="NP_852259.1:p.(Arg279Ter)",
+            )
+        ],
+        {},
+        "must leave hgvs_p null",
+    ),
+    (
+        [_sv(1, placement="outside_region", hgvs_c=None, normalisation=None)],
+        {},
+        "must leave grch38 null",
+    ),
+    (
+        [_sv(1, placement="structural", kind="cnv", hgvs_c=None, grch38=None, normalisation=None)],
+        {"variant_classes": ["snv_indel"]},
+        "not among the finding's variant_classes",
+    ),
+    ([_sv(1, normalisation=9)], {}, "normalisation 9 is not in this file"),
+    ([_sv(1), _sv(1)], {}, "variant id 1 is used more than once"),
+    ([_sv(1, carriers=None)], {}, "carriers are required"),
+    (
+        [_sv(1, carriers={"de_novo": 1, "inherited": 0, "origin_unknown": 0})],
+        _COMMON,
+        "carriers on a common_variant_association",
+    ),
+    # `with` rules
+    ([_linked(1, 9), _sv(2)], {}, "names variant 9, which this finding does not have"),
+    ([_linked(1, 1)], {}, "names the variant itself"),
+    ([_linked(1, 2, phase=None), _sv(2, zygosity="heterozygous")], {}, "does not name 1 back"),
+    ([_linked(1, 2, phase="cis"), _linked(2, 1)], {}, "differ in phase"),
+    ([_sv(1, phase="trans")], {}, "phase is only for a variant with a with link"),
+    ([_linked(1, 2, zygosity="not_stated"), _linked(2, 1)], {}, "must be heterozygous"),
+    ([_linked(1, 2, zygosity="homozygous"), _linked(2, 1)], {}, "has no partner"),
+    ([_linked(1, 2, zygosity="hemizygous"), _linked(2, 1)], {}, "has no partner"),
+    (
+        [
+            _linked(1, 2),
+            _linked(2, 1, carriers={"de_novo": 1, "inherited": 1, "origin_unknown": 0}),
+        ],
+        {},
+        "carry different totals",
+    ),
+]
+
+
+@pytest.mark.parametrize(("variants", "changes", "fragment"), _SHAPE_CASES)
+def test_each_shape_rule_fires_alone(
+    variants: list[dict[str, Any]], changes: dict[str, Any], fragment: str
+) -> None:
+    issues = _shape(variants, **changes)
+    assert [(code, fragment in message) for code, _, message in issues] == [("LIT022", True)], (
+        issues
+    )
+    assert issues[0][1] is not None  # attributed to a variant, so the location can name it
+
+
+def test_a_clean_finding_and_a_finding_with_no_variants_have_no_shape_issue() -> None:
+    assert _shape([]) == []
+    assert (
+        _shape([_sv(1), _sv(2, carriers={"de_novo": 0, "inherited": 1, "origin_unknown": 0})]) == []
+    )
+    # A placement with its fields null is whole: nothing is inferred from nulls.
+    assert (
+        _shape(
+            [
+                _sv(
+                    1,
+                    placement="structural",
+                    kind="cnv",
+                    hgvs_c=None,
+                    grch38=None,
+                    normalisation=None,
+                ),
+                _sv(
+                    2,
+                    placement="outside_region",
+                    hgvs_c=None,
+                    grch38=None,
+                    normalisation=None,
+                    carriers={"de_novo": 0, "inherited": 1, "origin_unknown": 0},
+                ),
+                _sv(
+                    3,
+                    placement="unplaced",
+                    hgvs_c=None,
+                    grch38=None,
+                    normalisation=None,
+                    carriers={"de_novo": 0, "inherited": 0, "origin_unknown": 1},
+                    **_REVIEW,
+                ),
+            ],
+            variant_classes=["snv_indel", "cnv"],
+        )
+        == []
+    )
+    # A common-variant finding carries no per-variant counts.
+    assert _shape([_sv(1, carriers=None)], **_COMMON) == []
+
+
+def test_a_compound_heterozygote_with_mixed_origins_reconciles() -> None:
+    """One person, two linked entries (de novo and inherited, one each).
+
+    The finding names a single de novo carrier. Counted per entry, or per origin
+    over linked entries, this overshoots; counted as one group it fits.
+    """
+    variants = [
+        _linked(1, 2, carriers={"de_novo": 1, "inherited": 0, "origin_unknown": 0}),
+        _linked(2, 1, carriers={"de_novo": 0, "inherited": 1, "origin_unknown": 0}),
+    ]
+    one_person = {"carriers": {"de_novo": 1, "inherited": 0, "origin_unknown": 0}}
+    assert _shape(variants, **one_person) == []
+    # The same pair beside a second, unlinked de novo person is two people: refused.
+    issues = _shape([*variants, _sv(3)], **one_person)
+    assert [code for code, _, _ in issues] == ["LIT023"]
+    assert "name 2 carrier" in issues[0][2]
+
+
+def test_a_finding_whose_variants_name_fewer_carriers_than_it_is_valid() -> None:
+    """LIT:0000094's shape: 78 carriers and none of them named, or only some."""
+    assert (
+        _shape([], carriers={"de_novo": 30, "inherited": 20, "origin_unknown": 28}, screened=90)
+        == []
+    )
+    assert (
+        _shape(
+            [_sv(1)], carriers={"de_novo": 30, "inherited": 20, "origin_unknown": 28}, screened=90
+        )
+        == []
+    )
+
+
+def test_variants_naming_more_carriers_than_the_finding_fire_lit023() -> None:
+    inherited = {"de_novo": 0, "inherited": 1, "origin_unknown": 0}
+    unknown = {"de_novo": 0, "inherited": 0, "origin_unknown": 1}
+    # Each origin is checked on its own: three inherited against the finding's one,
+    # with a total (3) that is well inside its six.
+    per_origin = _shape([_sv(i, carriers=inherited) for i in (1, 2, 3)])
+    assert [(code, "inherited" in message) for code, _, message in per_origin] == [("LIT023", True)]
+    assert per_origin[0][1] is None  # about the finding's variants as a whole
+    # The total is checked on its own: every origin fits, the sum does not. The
+    # finding names {1, 0, 0}; one unlinked de novo plus one linked pair is two
+    # people, and the pair's own origins are not checked per origin.
+    pair = [
+        _linked(2, 3, carriers=inherited),
+        _linked(3, 2, carriers=unknown),
+    ]
+    total = _shape(
+        [_sv(1), *pair], carriers={"de_novo": 1, "inherited": 0, "origin_unknown": 0}, screened=1
+    )
+    assert [(code, "carrier(s)" in message) for code, _, message in total] == [("LIT023", True)]
+    assert "name 2 carrier" in total[0][2] and "finding's 1" in total[0][2]
+    # A group counts once, however many entries it has: three linked entries are
+    # one person, so two groups of three beside the finding's 2 de novo fit.
+    assert (
+        _shape(
+            [
+                _linked(1, 2),
+                _linked(2, 1),
+                _sv(3),
+                _sv(4),
+            ],
+            carriers={"de_novo": 3, "inherited": 0, "origin_unknown": 0},
+            screened=3,
+        )
+        == []
+    )
+
+
+def test_a_variant_phenotype_outside_the_findings_fires_lit024() -> None:
+    issues = _shape(
+        [_sv(1, phenotypes=["HP:0001631"]), _sv(2, phenotypes=["HP:0001631", "HP:0009999"])]
+    )
+    assert [(code, number) for code, number, _ in issues] == [("LIT024", 2)]
+    assert "HP:0009999" in issues[0][2]

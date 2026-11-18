@@ -30,9 +30,11 @@ from pathlib import Path
 from chd_atlas.corpus import Corpus
 from chd_atlas.genes import GeneRegistry, Resolution
 from chd_atlas.issues import Severity, ValidationIssue
+from chd_atlas.mane import ManeFrame
 from chd_atlas.models.gene_literature import GeneLiteratureFile, finding_digest
+from chd_atlas.validate.finding_variants import reference_issues, shape_issues
 from chd_atlas.validate.referential import lesion_group_faults
-from chd_atlas.vocab import LesionGroup, TriageDecision
+from chd_atlas.vocab import LesionGroup, TriageDecision, VariantPlacement
 
 
 def _approved_symbol_of(symbols: GeneRegistry, gene: str) -> str | None:
@@ -50,12 +52,17 @@ def validate_gene_literature(
     known_cohorts: set[str] | None,
     burden_studies: dict[str, set[str]] | None,
     published_genes: set[str] | None = None,
+    mane: ManeFrame | None = None,
 ) -> list[ValidationIssue]:
     """Check every literature file; `None` for a registry skips only its checks.
 
     - `symbols` None skips LIT009 (TBL008 reports an unreadable registry).
     - `known_publications` None skips LIT011; `known_cohorts` None skips LIT012.
     - `published_genes` None skips LIT013.
+    - `mane` None skips the variants' reference checks (LIT016-LIT021, LIT025); a file
+      with a `mane` or `protein` variant then reports MAN005 (error) beside MAN000
+      (warning), once. A frame that loads but holds no row for the file's gene is not
+      None: its variants are LIT016 and the curator lists them `unplaced`.
     - `burden_studies` (gene -> the studies `mirrors/burden.tsv` has rows for) None
       skips LIT014; it is None only when that table is unreadable, which TBL000 or
       TBL001 reports. A missing table is `{}`: a finding linking a burden study then
@@ -85,6 +92,7 @@ def validate_gene_literature(
             known_cohorts,
             burden_studies,
             published_genes,
+            mane,
         )
     return issues
 
@@ -100,6 +108,7 @@ def _check_file(
     known_cohorts: set[str] | None,
     burden_studies: dict[str, set[str]] | None,
     published_genes: set[str] | None,
+    mane: ManeFrame | None,
 ) -> None:
     def add(code: str, severity: Severity, location: str, message: str) -> None:
         issues.append(ValidationIssue(code, severity, location, message))
@@ -175,6 +184,38 @@ def _check_file(
                 f"{here}:pmid {entry.pmid}",
                 f"same_as names {entry.same_as}, which is not included in this file",
             )
+
+    # Variants: shape (LIT022-LIT024) always; reference checks only against a frame.
+    needing_frame = sum(
+        1
+        for finding in literature.findings
+        for variant in finding.variants
+        if variant.placement in (VariantPlacement.MANE, VariantPlacement.PROTEIN)
+    )
+    if mane is None and needing_frame:
+        error(
+            "MAN005",
+            here,
+            f"{needing_frame} variant(s) need the MANE frame, but mirrors/mane_transcripts.tsv "
+            "and mirrors/mane_exons.tsv did not load",
+        )
+        add(
+            "MAN000",
+            Severity.WARNING,
+            here,
+            "variant reference checks skipped: no MANE frame",
+        )
+    frame_entry = mane.get(literature.gene) if mane is not None else None
+    normalisation_ids = {n.id for n in literature.normalisations}
+    for finding in literature.findings:
+        for code, number, message in shape_issues(finding, normalisation_ids):
+            at = f"{here}:finding {finding.id}"
+            error(code, at if number is None else f"{at}:variant {number}", message)
+        if mane is None:
+            continue
+        for variant in finding.variants:
+            for code, message in reference_issues(variant, frame_entry):
+                error(code, f"{here}:finding {finding.id}:variant {variant.id}", message)
 
     first_search: dict[str, int] = {}
     for entry in literature.triage:

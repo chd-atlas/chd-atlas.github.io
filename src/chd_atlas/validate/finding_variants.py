@@ -29,6 +29,12 @@ left-aligned VCF key agree on an indel in a repeat. The key itself must also be
 minimal and left-aligned: ref and alt must not end in one base, nor share a
 first base beyond the VCF anchor.
 
+`shape_issues` is the other half (LIT022-LIT024): it needs no frame, only the finding
+itself. LIT022 is the fields against `placement`, the `with` links and the carrier
+shape; LIT023 is a finding's variant carriers against its own (a compound
+heterozygote is one person, so a `with` group counts once); LIT024 is a variant's
+phenotypes against the finding's.
+
 LIT025 compares the paper's `p.` with `hgvs_p` where both number residues on the
 MANE protein, and fires when `hgvs_p` is absent while the paper's `p.` names a
 residue. An `hgvs_p` naming no residue (`p.?`, `p.=`, `p.0`) has nothing to
@@ -52,9 +58,14 @@ from chd_atlas.hgvs import (
     same_protein_change,
 )
 from chd_atlas.mane import ManeTranscript, genome_position, genome_slice, transcript_position
-from chd_atlas.models.gene_literature import Variant
+from chd_atlas.models.gene_literature import Finding, Variant
 from chd_atlas.validate.mane import reverse_complement
-from chd_atlas.vocab import VariantPlacement
+from chd_atlas.vocab import (
+    FindingDesign,
+    FindingVariantClass,
+    VariantPlacement,
+    VariantZygosity,
+)
 
 Issue = tuple[str, str]
 
@@ -397,3 +408,184 @@ def reference_issues(variant: Variant, frame_entry: ManeTranscript | None) -> li
         issues += found
     issues += _lit025(variant, t, read_p)
     return sorted(issues)
+
+
+# (code, variant id or None for a finding-level issue, message)
+ShapeIssue = tuple[str, int | None, str]
+
+_HGVS_FIELDS = ("hgvs_c", "hgvs_p", "grch38")
+_ORIGINS = ("de_novo", "inherited", "origin_unknown")
+
+# What each placement must hold and must leave null (kind rules are separate).
+_MUST_HOLD: dict[VariantPlacement, tuple[str, ...]] = {
+    VariantPlacement.MANE: ("hgvs_c", "grch38", "normalisation"),
+    VariantPlacement.PROTEIN: ("hgvs_p",),
+    VariantPlacement.UNPLACED: ("review_status",),
+    VariantPlacement.STRUCTURAL: (),
+    VariantPlacement.OUTSIDE_REGION: (),
+}
+_MUST_BE_NULL: dict[VariantPlacement, tuple[str, ...]] = {
+    VariantPlacement.MANE: (),
+    VariantPlacement.PROTEIN: ("hgvs_c", "grch38", "normalisation"),
+    VariantPlacement.UNPLACED: ("hgvs_c", "grch38"),
+    VariantPlacement.STRUCTURAL: _HGVS_FIELDS,
+    VariantPlacement.OUTSIDE_REGION: _HGVS_FIELDS,
+}
+_KINDS: dict[VariantPlacement, frozenset[FindingVariantClass]] = {
+    VariantPlacement.MANE: frozenset({FindingVariantClass.SNV_INDEL}),
+    VariantPlacement.STRUCTURAL: frozenset(
+        {FindingVariantClass.CNV, FindingVariantClass.CHROMOSOMAL}
+    ),
+    VariantPlacement.OUTSIDE_REGION: frozenset({FindingVariantClass.SNV_INDEL}),
+}
+
+
+def _components(variants: list[Variant]) -> list[list[Variant]]:
+    """The `with` groups: connected components of the links that resolve, size >= 2.
+
+    Links are read as undirected, so an asymmetric link still groups its two
+    entries (LIT022 reports the asymmetry separately).
+    """
+    by_id = {v.id: v for v in variants}
+    parent = {v.id: v.id for v in variants}
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for v in variants:
+        for other in v.with_:
+            if other in by_id and other != v.id:
+                parent[find(v.id)] = find(other)
+    groups: dict[int, list[Variant]] = {}
+    for v in variants:
+        groups.setdefault(find(v.id), []).append(v)
+    return [sorted(g, key=lambda v: v.id) for _, g in sorted(groups.items()) if len(g) > 1]
+
+
+def _placement_issues(
+    finding: Finding, v: Variant, normalisation_ids: set[int]
+) -> list[ShapeIssue]:
+    out: list[ShapeIssue] = []
+
+    def bad(message: str) -> None:
+        out.append(("LIT022", v.id, message))
+
+    placed = v.placement.value
+    for name in _MUST_HOLD[v.placement]:
+        if getattr(v, name) is None:
+            bad(f"a {placed} variant needs {name}")
+    for name in _MUST_BE_NULL[v.placement]:
+        if getattr(v, name) is not None:
+            bad(f"a {placed} variant must leave {name} null")
+    allowed = _KINDS.get(v.placement)
+    if allowed is not None and v.kind not in allowed:
+        names = " or ".join(sorted(k.value for k in allowed))
+        bad(f"a {placed} variant is kind {names}, not {v.kind.value}")
+    if v.kind not in finding.variant_classes:
+        bad(f"kind {v.kind.value} is not among the finding's variant_classes")
+    if v.normalisation is not None and v.normalisation not in normalisation_ids:
+        bad(f"normalisation {v.normalisation} is not in this file's normalisations")
+    if finding.design is FindingDesign.COMMON_VARIANT_ASSOCIATION:
+        if v.carriers is not None:
+            bad("carriers on a common_variant_association finding, which counts cases and controls")
+    elif v.carriers is None:
+        bad(f"carriers are required on a {finding.design.value} finding")
+    return out
+
+
+def _link_issues(variants: list[Variant]) -> list[ShapeIssue]:
+    out: list[ShapeIssue] = []
+    by_id = {v.id: v for v in variants}
+
+    def bad(v: Variant, message: str) -> None:
+        out.append(("LIT022", v.id, message))
+
+    for v in variants:
+        for other_id in v.with_:
+            other = by_id.get(other_id)
+            if other_id == v.id:
+                bad(v, "with names the variant itself")
+            elif other is None:
+                bad(v, f"with names variant {other_id}, which this finding does not have")
+            elif v.id not in other.with_:
+                bad(v, f"with names variant {other_id}, which does not name {v.id} back")
+        if v.phase is not None and not v.with_:
+            bad(v, "phase is only for a variant with a with link")
+        if v.with_ and v.zygosity in (VariantZygosity.HOMOZYGOUS, VariantZygosity.HEMIZYGOUS):
+            bad(v, f"a {v.zygosity.value} variant has no partner, so it cannot have a with link")
+        elif v.with_ and v.zygosity is not VariantZygosity.HETEROZYGOUS:
+            bad(v, "a variant with a with link must be heterozygous")
+    for group in _components(variants):
+        ids = ", ".join(str(v.id) for v in group)
+        if len({v.phase for v in group}) > 1:
+            out.append(("LIT022", group[0].id, f"variants {ids} are linked but differ in phase"))
+        totals = {v.carriers.total for v in group if v.carriers is not None}
+        if len(totals) > 1:
+            out.append(
+                ("LIT022", group[0].id, f"variants {ids} are linked but carry different totals")
+            )
+    return out
+
+
+def _carrier_issues(finding: Finding) -> list[ShapeIssue]:
+    """LIT023: variant carriers never exceed the finding's, a `with` group counted once."""
+    if finding.carriers is None:
+        return []
+    grouped = {v.id for group in _components(finding.variants) for v in group}
+    unlinked = [v for v in finding.variants if v.id not in grouped and v.carriers is not None]
+    out: list[ShapeIssue] = []
+    for origin in _ORIGINS:
+        named = sum(getattr(v.carriers, origin) for v in unlinked if v.carriers is not None)
+        held = getattr(finding.carriers, origin)
+        if named > held:
+            out.append(
+                (
+                    "LIT023",
+                    None,
+                    f"unlinked variants name {named} {origin} carrier(s), more than the "
+                    f"finding's {held}",
+                )
+            )
+    group_totals = [
+        max((v.carriers.total for v in group if v.carriers is not None), default=0)
+        for group in _components(finding.variants)
+    ]
+    named_total = sum(v.carriers.total for v in unlinked if v.carriers is not None) + sum(
+        group_totals
+    )
+    if named_total > finding.carriers.total:
+        out.append(
+            (
+                "LIT023",
+                None,
+                f"variants name {named_total} carrier(s) (each with group counted once), "
+                f"more than the finding's {finding.carriers.total}",
+            )
+        )
+    return out
+
+
+def shape_issues(finding: Finding, normalisation_ids: set[int]) -> list[ShapeIssue]:
+    """LIT022-LIT024 for one finding's variants, sorted; each is `(code, variant id, message)`.
+
+    The variant id is None for an issue about the finding's variants as a whole
+    (LIT023). Nothing here needs the MANE frame, so it runs whether or not the
+    frame loaded.
+    """
+    variants = finding.variants
+    out: list[ShapeIssue] = []
+    for number in sorted({v.id for v in variants if sum(w.id == v.id for w in variants) > 1}):
+        out.append(("LIT022", number, f"variant id {number} is used more than once"))
+    for v in variants:
+        out += _placement_issues(finding, v, normalisation_ids)
+        for pheno in v.phenotypes:
+            if pheno not in finding.phenotypes:
+                out.append(
+                    ("LIT024", v.id, f"phenotype {pheno} is not among the finding's phenotypes")
+                )
+    out += _link_issues(variants)
+    out += _carrier_issues(finding)
+    return sorted(out, key=lambda i: (i[0], -1 if i[1] is None else i[1], i[2]))
