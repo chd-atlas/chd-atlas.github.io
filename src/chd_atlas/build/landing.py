@@ -427,7 +427,8 @@ def _render(
     Developmental expression is the <strong>EMBL-EBI Expression Atlas</strong>'s
     (E-MTAB-6814), under EMBL-EBI's Terms of Use. Cell-type expression is the UCSC Cell
     Browser data of Farah et al. 2024. Each gene's MANE Select transcript is checked against
-    MANE v1.5 (NCBI and EMBL-EBI) where the atlas holds its row, under NCBI's data policy.
+    MANE v1.5 (NCBI and EMBL-EBI), under NCBI's data policy, wherever the atlas's copy of
+    MANE includes that gene.
     Rare-variant results come from the supplements of Audain et al. 2026 and Sierant et
     al. 2025, both CC BY 4.0, and of Audain et al. 2021, CC0.
     <a href="sources.json">sources.json</a> identifies each mirrored file and its licence terms.</p>
