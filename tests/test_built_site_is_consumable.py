@@ -2221,11 +2221,12 @@ def test_every_why_link_on_a_gene_page_lands_on_one_element_of_its_register(
     written, or whose anchor the register spells differently, is a link that
     scrolls nowhere beside a label promising a reason.
 
-    Measured on the real corpus (method: this sweep's own count over a build of
-    the committed curation): 33 links, 25 on TBX5's page and 8 on NR2F2's, each
-    one finding's own mark; no variant carries a question there yet. A number
-    that moves means a question was added or approved: re-measure, do not edit
-    the figure to make the test green.
+    Measured 2026-11-18, independently of this sweep: `chd-atlas literature
+    questions` gave 25 questions for TBX5 and 8 for NR2F2, and the registers'
+    "Open questions (25)" and "(8)" headings agree; 33 in all. Every
+    finding-level question on the real corpus is one record, so the count of
+    links equals the count of questions. Re-measure when a question is added or
+    approved, and do not edit the figure to make the test green.
     """
     checked = 0
     for page_path in sorted((site / "genes").glob("HGNC_*.html")):

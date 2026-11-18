@@ -1867,7 +1867,8 @@ def _card_literature(
 ) -> str:
     """The card's literature line: what the approved findings amount to, by paper.
 
-    Every count is of distinct papers (`literature_tallies`), so no figure here
+    Every count is of distinct papers (`literature_tallies`) except the closing
+    link's, which counts open questions, so no figure here
     sums carriers across papers: those cohorts may overlap and the atlas publishes
     no pooled statistic. The lesion counts are the lesions each paper's findings
     name, which for a screen that found no carrier, an association study, or a
@@ -1882,9 +1883,11 @@ def _card_literature(
     holding them. Above 0 the paragraph ends with one link to that page's
     `#questions` heading; a question needs an approved finding, so a gene with
     one has a paper and the link never stands alone. Raises if there are
-    questions and no page to link.
+    questions and no page to link, or questions and no paper (the link would vanish).
     """
     if tallies["papers"] == 0:
+        if questions:
+            raise ValueError(f"{questions} open questions on a gene whose tallies hold no paper")
         return ""
     first, last = tallies["first_year"], tallies["last_year"]
     span = f"{first}" if first == last else f"{first} to {last}"
@@ -2043,7 +2046,7 @@ def _rail(
     literature: GeneLiterature = EMPTY_GENE_LITERATURE,
     mechanisms: tuple[str, ...] = (),
     anchored_assertions: tuple[str, ...] = (),
-    register: str | None = None,
+    register: str,
 ) -> str:
     """The clinician card: the summary column, for every gene whether curated here or not.
 
@@ -2057,7 +2060,8 @@ def _rail(
     study's block; the atlas-curation sentence (`_card_curation`); the
     mechanism sentence (`_card_mechanism`, from the gene's lesion assertions);
     the literature line (`_card_literature`, papers by design, lesion group,
-    carrier origin and review state); the approved "In short" narrative
+    carrier origin and review state, ending with a link counting the gene's open
+    questions into its register page); the approved "In short" narrative
     (`_card_synthesis`, when the gene has a current approved one, linking each
     cited assertion in `anchored_assertions` to its heading); and a last
     line linking the top of `methods.html` as "How to read this page" (P1,
@@ -7104,8 +7108,8 @@ def _variant_partner(report: VariantReport, register: str) -> str:
     """The zygosity, or the partner a linked entry is carried with; `""` if heterozygous alone.
 
     Returns markup: an `unclear` zygosity or phase reads `unclear · why` and links
-    that field's question on the register. A linked entry whose zygosity is also
-    unclear says so after its partner phrase, so the question is not silent there.
+    that field's question on the register. A linked entry whose zygosity is
+    not heterozygous raises: LIT022 refuses it, and a bypassed gate must not publish.
     """
     finding, variant = report["finding"], report["variant"]
     unclear_zygosity = f"unclear \u00b7 {_unclear_why(register, finding, variant, 'zygosity')}"
@@ -7120,7 +7124,8 @@ def _variant_partner(report: VariantReport, register: str) -> str:
             phase = html.escape(words)
         text = f"with {html.escape(' and '.join(_bare(name) for name in partners))} ({phase})"
         if report["zygosity"] == "unclear":
-            text += f"; zygosity {unclear_zygosity}"
+            # LIT022 refuses a linked variant with an unclear zygosity.
+            raise ValueError(f"{finding}: a linked variant has an unclear zygosity")
         return text
     if report["zygosity"] == "heterozygous":
         return ""
@@ -7297,8 +7302,9 @@ def _literature_section(
     the exclusion tally and every search folded with its exact query. The
     timeline and the list cover approved findings only, which is all the bundle
     carries; the `await approval` clause is what stops the unapproved ones being
-    invisible. A finding's `review_status` and `review_note` are rendered beside
-    its summary (ruling R24): the mark qualifies a published finding and never hides it.
+    invisible. A finding's `review_status` is rendered beside
+    its summary as its label and a "why" link to the register, which holds the
+    note (ruling R24): the mark qualifies a published finding and never hides it.
 
     `publications` supplies each paper's year; `_paper_groups` raises on an
     unregistered paper, because validation refuses one (LIT011).
@@ -7447,7 +7453,7 @@ def build_gene_pages(
         curated = fact.atlas_curation is AtlasCuration.CURATED
         # From `genes/`, where this page sits, to the gene's register. The page
         # exists exactly when `open_questions` is non-empty (`build_register_pages`),
-        # and only a marked record links to it.
+        # and the card's literature line and every marked record link to it.
         register = "../" + register_page_path(HgncId(gene))
         body = (
             '<div class="layout">'

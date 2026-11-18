@@ -28,6 +28,7 @@ from chd_atlas.build.gene_literature import (
     GeneLiterature,
     LiteratureTallies,
     PublishedSynthesis,
+    VariantReport,
     gene_literature,
 )
 from chd_atlas.build.identity import GeneIdentity
@@ -54,6 +55,7 @@ from chd_atlas.build.pages import (
     _study_finding_summary,
     _study_label,
     _tissue_percentile,
+    _variant_partner,
     build_gene_index_page,
     build_gene_pages,
     build_register_pages,
@@ -10356,7 +10358,8 @@ def _lit(
         },
         pending_approval=waiting,
         findings=findings or [],
-        tallies=EMPTY_GENE_LITERATURE["tallies"],
+        # Papers in the tallies, as the real build's are whenever a finding exists.
+        tallies=_tallies() if findings else EMPTY_GENE_LITERATURE["tallies"],
         synthesis=None,
     )
 
@@ -10853,6 +10856,16 @@ def test_a_listed_variant_says_unclear_only_when_a_field_is(tmp_path: Path) -> N
                 3,
                 "structural",
                 kind="cnv",
+                as_reported="delta",
+                carriers=_carried(de_novo=1),
+                phase="unclear",
+                unclear={"phase": reason},
+                **{"with": [2]},
+            ),
+            _pv(
+                4,
+                "structural",
+                kind="cnv",
                 as_reported="gamma",
                 carriers=_carried(de_novo=1),
                 zygosity="homozygous",
@@ -10862,10 +10875,11 @@ def test_a_listed_variant_says_unclear_only_when_a_field_is(tmp_path: Path) -> N
     section = _variant_section_html(_lit_page(tmp_path, _lit([finding])))
     items = re.findall(r"<li>(.*?)</li>", section)
     base = "../register/HGNC_4173.html#q-chda-lit-0000001"
-    assert [i.split(" · ")[0] for i in items] == ["beta", "gamma", "alpha"]
+    assert [i.split(" · ")[0] for i in items] == ["beta", "delta", "gamma", "alpha"]
     assert items[0].endswith(f' · phase unclear · <a href="{base}-v2-phase">why</a>')
-    assert items[2].endswith(f' · zygosity unclear · <a href="{base}-v1-zygosity">why</a>')
-    assert items[1].endswith("</a>") and "unclear" not in items[1] and "why" not in items[1]
+    assert items[1].endswith(f' · phase unclear · <a href="{base}-v3-phase">why</a>')
+    assert items[3].endswith(f' · zygosity unclear · <a href="{base}-v1-zygosity">why</a>')
+    assert items[2].endswith("</a>") and "unclear" not in items[2] and "why" not in items[2]
 
 
 def test_the_card_links_its_open_questions_only_when_the_gene_has_one(tmp_path: Path) -> None:
@@ -10904,6 +10918,72 @@ def test_the_card_links_its_open_questions_only_when_the_gene_has_one(tmp_path: 
         else:
             assert card.count("open question") == 1
             assert f'<a href="../register/HGNC_4173.html#questions">{expected}</a></p>' in card
+
+
+def test_a_with_group_of_three_is_one_card_question_and_three_partner_anchors(
+    tmp_path: Path,
+) -> None:
+    """The card counts questions, not records: one shared unclear phase over three
+    linked variants is "1 open question" while each member's partner cell links its
+    own `-vN-phase` anchor. Through the real approval filter, as the register's tests."""
+    reason = {"reason": "Phase is not stated.", "settled_by": "authors"}
+    variants = [
+        _reg_variant(
+            n,
+            placement="mane",
+            hgvs_c=f"NM_181486.4:c.{800 + n}C>T",
+            grch38=f"12:{114366300 + n}:C:T",
+            carriers={"de_novo": 0, "inherited": 1, "origin_unknown": 0},
+            phase="unclear",
+            unclear={"phase": reason},
+            **{"with": [m for m in (1, 2, 3) if m != n]},
+        )
+        for n in (1, 2, 3)
+    ]
+    finding = _raw_finding(1, "PMID:11", review_status=None, review_note=None, variants=variants)
+    corpus = Corpus(
+        root=Path("."),
+        publications=tuple(_reg_pubs().values()),
+        literature=((Path("a.yaml"), _lit_file(GATA4, [finding])),),
+    )
+    page = _expression_page(
+        tmp_path, {}, literature=gene_literature(corpus), publications=_reg_pubs()
+    )
+    card = page[page.index('<aside class="rail">') : page.index("</aside>")]
+    assert card.count("open question") == 1
+    assert '#questions">1 open question</a></p>' in card
+    rows = re.findall(r"<tr><td>.*?</tr>", _variant_section_html(_literature_html(page)))
+    anchors = [re.findall(r'href="[^"]*#(q-[^"]*)">why', row) for row in rows]
+    assert anchors == [
+        ["q-chda-lit-0000001-v1-phase"],
+        ["q-chda-lit-0000001-v2-phase"],
+        ["q-chda-lit-0000001-v3-phase"],
+    ]
+
+
+def test_a_linked_variant_with_an_unclear_zygosity_and_a_questioned_card_with_no_paper_raise() -> (
+    None
+):
+    report = VariantReport(
+        finding="CHDA:LIT:0000001",
+        variant=1,
+        publication="PMID:1",
+        design="case_report",
+        hgvs_c=None,
+        hgvs_p=None,
+        count_unit="probands",
+        carriers=None,
+        zygosity="unclear",
+        with_names=["c.2A>G"],
+        phase="trans",
+        phenotypes=[],
+        review_status=None,
+        review_note=None,
+    )
+    with pytest.raises(ValueError, match="unclear zygosity"):
+        _variant_partner(report, "../register/X.html")
+    with pytest.raises(ValueError, match="no paper"):
+        _card_literature(EMPTY_GENE_LITERATURE["tallies"], 1, "../register/X.html")
 
 
 def test_a_cohort_note_still_renders_in_full_on_the_gene_page(
@@ -10959,7 +11039,9 @@ def test_the_section_reads_line_timeline_papers_exclusions_searches(tmp_path: Pa
     assert [section.count(fold) for fold in parts[2:]] == [1, 1, 1]
 
 
-def test_a_summary_a_review_note_a_query_and_a_curator_name_are_escaped(tmp_path: Path) -> None:
+def test_a_summary_and_a_curator_name_are_escaped_and_a_review_note_is_not_on_the_page(
+    tmp_path: Path,
+) -> None:
     hostile = _lit_finding(
         summary='A<b> & "C" <script>',
         review_status="pending_review",

@@ -2120,7 +2120,7 @@ lesions each paper's findings name, which for a screen that found no carrier, an
 association study, or a paper that never states the carriers' lesions, are the
 cohort's lesions rather than carriers'), the
 papers reporting de novo and inherited carriers, and the papers read from the
-abstract only or pending review. Every figure counts papers. The card never
+abstract only or pending review. Every figure counts papers except the closing link, which counts open questions. The card never
 states a carrier count summed across papers, because those cohorts may overlap, and it names a common-variant
 association apart from the Mendelian designs ("not Mendelian evidence").
 
