@@ -10921,9 +10921,11 @@ def test_the_variant_table_has_one_row_per_variant_and_one_sub_row_per_finding(
     )
     # Last in the Literature section, after the searches fold, under its caption.
     assert section.startswith(
-        '<h3>Reported variants</h3><p class="method">One row per variant and one line per '
-        "finding that names it. Carriers are never summed across findings, because two "
-        'findings can count the same people. <a href="../methods.html#literature-variants">'
+        '<h3>Reported variants</h3><p class="method">One row per variant, one line per '
+        "report; a change named by position in one finding and by protein alone in another "
+        "is two rows. Carriers are never summed across findings, "
+        "because two findings can count the same people. "
+        '<a href="../methods.html#literature-variants">'
         'How variants are checked</a>.</p><div class="scroll"><table>'
     )
     assert section.endswith("</table></div>")

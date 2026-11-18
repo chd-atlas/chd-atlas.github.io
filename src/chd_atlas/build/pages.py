@@ -7131,8 +7131,9 @@ def _variant_section(
 
     `""` unless some approved finding names a variant (ruling D15, spec 7.5: no
     variants, no table). Each row is one variant, named without accessions, with
-    the number of distinct papers; under it one line per finding that names it,
-    with that finding's own carriers. No row carries a total of carriers: two
+    the number of distinct papers; under it one line per report of it (a finding
+    can give two, when it names the variant alone and with a partner), each with
+    that report's own carriers. No row carries a total of carriers: two
     findings may count the same people (D33). Below the table, the variants
     outside the checked region, then those with no position (structural, then
     unplaced), each as reported with its paper; then the findings that count
@@ -7162,8 +7163,10 @@ def _variant_section(
         groups.append(f"<tbody>{''.join(lines)}</tbody>")
     # The caption describes the table, so it renders only with one (4.27).
     caption = (
-        "One row per variant and one line per finding that names it. Carriers are never "
-        "summed across findings, because two findings can count the same people. "
+        "One row per variant, one line per report; a change named by position in one "
+        "finding and by protein alone in another is two rows. "
+        "Carriers are never summed across findings, because two findings can count the "
+        "same people. "
         if groups
         else ""
     )
