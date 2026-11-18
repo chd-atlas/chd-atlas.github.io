@@ -7163,9 +7163,9 @@ def _variant_section(
         groups.append(f"<tbody>{''.join(lines)}</tbody>")
     # The caption describes the table, so it renders only with one (4.27).
     caption = (
-        "One row per variant, one line per report. One change can take two rows: named by "
-        "its DNA change in one finding and by protein alone in another, or as a frameshift "
-        "written short in one and in full in another. "
+        "One row per variant, one line per report. One change can take more than one row: "
+        "named by its DNA change in one finding and by protein alone in another, or as a "
+        "frameshift written in different forms. "
         "Carriers are never summed across findings, because two findings can count the "
         "same people. "
         if groups
