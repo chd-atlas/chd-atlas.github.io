@@ -588,7 +588,11 @@ _SHAPE_CASES: list[tuple[list[dict[str, Any]], dict[str, Any], str]] = [
     # `with` rules
     ([_linked(1, 9), _sv(2)], {}, "names variant 9, which this finding does not have"),
     ([_linked(1, 1)], {}, "names the variant itself"),
-    ([_linked(1, 2, phase=None), _sv(2, zygosity="heterozygous")], {}, "does not name 1 back"),
+    (
+        [_linked(1, 2, phase="not_stated"), _sv(2, zygosity="heterozygous")],
+        {},
+        "does not name 1 back",
+    ),
     ([_linked(1, 2, phase="cis"), _linked(2, 1)], {}, "differ in phase"),
     ([_sv(1, phase="trans")], {}, "phase is only for a variant with a with link"),
     ([_linked(1, 2, zygosity="not_stated"), _linked(2, 1)], {}, "must be heterozygous"),
@@ -601,6 +605,26 @@ _SHAPE_CASES: list[tuple[list[dict[str, Any]], dict[str, Any], str]] = [
         ],
         {},
         "carry different totals",
+    ),
+    # D9: three variants cannot be pairwise in trans on a diploid genome.
+    (
+        [
+            _linked(1, 2, **{"with": [2, 3]}),
+            _linked(2, 1, **{"with": [1, 3]}),
+            _linked(3, 1, **{"with": [1, 2]}),
+        ],
+        {},
+        "cannot hold more than two variants pairwise in trans",
+    ),
+    # A chain 1-2, 2-3 with no 1-3: `with` lists every other entry the same carriers carry.
+    (
+        [
+            _linked(1, 2, phase="cis"),
+            _linked(2, 1, phase="cis", **{"with": [1, 3]}),
+            _linked(3, 2, phase="cis"),
+        ],
+        {},
+        "neither names the other",
     ),
 ]
 
@@ -691,17 +715,23 @@ def test_a_finding_whose_variants_name_fewer_carriers_than_it_is_valid() -> None
     )
 
 
-def test_variants_naming_more_carriers_than_the_finding_fire_lit023() -> None:
+@pytest.mark.parametrize("origin", ["de_novo", "inherited"])
+def test_variants_naming_more_carriers_than_the_finding_fire_lit023(origin: str) -> None:
+    named = {"de_novo": 0, "inherited": 0, "origin_unknown": 0, origin: 1}
+    other = "inherited" if origin == "de_novo" else "de_novo"
     inherited = {"de_novo": 0, "inherited": 1, "origin_unknown": 0}
     unknown = {"de_novo": 0, "inherited": 0, "origin_unknown": 1}
-    # Each origin is checked on its own: three inherited against the finding's one,
-    # with a total (3) that is well inside its six.
-    per_origin = _shape([_sv(i, carriers=inherited) for i in (1, 2, 3)])
-    assert [(code, "inherited" in message) for code, _, message in per_origin] == [("LIT023", True)]
+    # Each origin is checked on its own: three of this origin against the finding's
+    # one, with a total (3) that is well inside the finding's six.
+    finding = {"carriers": {"de_novo": 1, "inherited": 1, "origin_unknown": 4}}
+    per_origin = _shape([_sv(i, carriers=named) for i in (1, 2, 3)], **finding)
+    assert [(code, origin in message) for code, _, message in per_origin] == [("LIT023", True)]
+    assert other not in per_origin[0][2]
     assert per_origin[0][1] is None  # about the finding's variants as a whole
     # The total is checked on its own: every origin fits, the sum does not. The
     # finding names {1, 0, 0}; one unlinked de novo plus one linked pair is two
-    # people, and the pair's own origins are not checked per origin.
+    # people, and the pair (one inherited allele, one unknown) adds nothing to any
+    # origin's lower bound.
     pair = [
         _linked(2, 3, carriers=inherited),
         _linked(3, 2, carriers=unknown),
@@ -711,8 +741,8 @@ def test_variants_naming_more_carriers_than_the_finding_fire_lit023() -> None:
     )
     assert [(code, "carrier(s)" in message) for code, _, message in total] == [("LIT023", True)]
     assert "name 2 carrier" in total[0][2] and "finding's 1" in total[0][2]
-    # A group counts once, however many entries it has: three linked entries are
-    # one person, so two groups of three beside the finding's 2 de novo fit.
+    # A linked pair is one person: the pair and two unlinked entries name three
+    # people, which the finding's three de novo carriers cover.
     assert (
         _shape(
             [
@@ -734,3 +764,133 @@ def test_a_variant_phenotype_outside_the_findings_fires_lit024() -> None:
     )
     assert [(code, number) for code, number, _ in issues] == [("LIT024", 2)]
     assert "HP:0009999" in issues[0][2]
+
+
+_ONE = {"de_novo": 1, "inherited": 0, "origin_unknown": 0}
+_INH = {"de_novo": 0, "inherited": 1, "origin_unknown": 0}
+_UNK = {"de_novo": 0, "inherited": 0, "origin_unknown": 1}
+
+
+@pytest.mark.parametrize("counted_as", [_ONE, _INH])
+def test_a_mixed_origin_compound_heterozygote_passes_however_the_finding_counts_it(
+    counted_as: dict[str, int],
+) -> None:
+    """One de novo allele and one inherited: the finding may call the person either."""
+    pair = [_linked(1, 2, carriers=_ONE), _linked(2, 1, carriers=_INH)]
+    assert _shape(pair, carriers=counted_as, screened=1) == []
+
+
+def test_origin_unknown_claims_no_origin_and_draws_only_on_the_total() -> None:
+    """D10, a departure from spec 7.2's literal "per origin".
+
+    A paper reporting "1 de novo, 1 inherited" overall with two variants of unstated
+    origin is consistent; naming a per-variant origin would be invented. Two such
+    variants against a total of one are still too many. A linked pair of unknown
+    origin carries no per-origin lower bound either.
+    """
+    both = {"carriers": {"de_novo": 1, "inherited": 1, "origin_unknown": 0}, "screened": 2}
+    assert _shape([_sv(1, carriers=_UNK), _sv(2, carriers=_UNK)], **both) == []
+    one = {"carriers": _ONE, "screened": 1}
+    issues = _shape([_sv(1, carriers=_UNK), _sv(2, carriers=_UNK)], **one)
+    assert [(code, "carrier(s)" in message) for code, _, message in issues] == [("LIT023", True)]
+    three = {"carriers": {"de_novo": 3, "inherited": 0, "origin_unknown": 0}, "screened": 3}
+    pair = [
+        _linked(1, 2, carriers=_UNK | {"origin_unknown": 3}),
+        _linked(2, 1, carriers=_UNK | {"origin_unknown": 3}),
+    ]
+    assert _shape(pair, **three) == []
+
+
+def test_trans_needs_two_entries_but_cis_may_span_three() -> None:
+    """D9, and a full three-way `with` is the only way to link three entries."""
+    everyone = {1: [2, 3], 2: [1, 3], 3: [1, 2]}
+    cis = [_linked(i, 0, phase="cis", **{"with": w}) for i, w in everyone.items()]
+    assert _shape(cis) == []
+    trans = [_linked(i, 0, phase="trans", **{"with": w}) for i, w in everyone.items()]
+    assert [code for code, _, _ in _shape(trans)] == ["LIT022"]
+
+
+def test_a_linked_entry_must_state_a_phase_even_if_it_is_not_stated() -> None:
+    silent = [_linked(1, 2, phase=None), _linked(2, 1, phase=None)]
+    issues = _shape(silent)
+    assert [(code, number) for code, number, _ in issues] == [("LIT022", 1), ("LIT022", 2)]
+    assert all("needs a phase" in message for _, _, message in issues)
+    # One entry silent and its partner stating a phase also disagree on the group's phase.
+    mixed = _shape([_linked(1, 2, phase=None), _linked(2, 1)])
+    assert sorted(message[:30] for _, _, message in mixed) == [
+        "a variant with a with link nee",
+        "variants 1, 2 are linked but d",
+    ]
+    stated = [_linked(1, 2, phase="not_stated"), _linked(2, 1, phase="not_stated")]
+    assert _shape(stated) == []
+
+
+def test_a_repeated_id_builds_no_false_group_and_the_duplicate_refuses_the_file() -> None:
+    """With two entries sharing an id a link names no one entry, so no group is built and
+    LIT023 is skipped; the repeated id's own LIT022 still refuses the file."""
+    issues = _shape([_sv(1), _sv(1), _sv(2)], carriers=_ONE, screened=1)
+    assert [(code, number) for code, number, _ in issues] == [("LIT022", 1)]
+    assert "more than once" in issues[0][2]
+
+
+def _pair(first: dict[str, int], second: dict[str, int]) -> list[dict[str, Any]]:
+    return [_linked(1, 2, carriers=first), _linked(2, 1, carriers=second)]
+
+
+_DN2 = {"de_novo": 2, "inherited": 0, "origin_unknown": 0}
+_IH2 = {"de_novo": 0, "inherited": 2, "origin_unknown": 0}
+
+
+@pytest.mark.parametrize(
+    ("variants", "finding_carriers", "fragment"),
+    [
+        # D8: {de novo 2} in each of two linked entries, two people: both are de novo
+        # on every allele, and the finding names none.
+        (_pair(_DN2, _DN2), _IH2, "at least 2 de_novo carrier(s)"),
+        (_pair(_IH2, _IH2), _DN2, "at least 2 inherited carrier(s)"),
+        # The pigeonhole bound is exact: {de novo 2} with {de novo 1, inherited 1}
+        # forces one person de novo on both alleles.
+        (
+            _pair(_DN2, {"de_novo": 1, "inherited": 1, "origin_unknown": 0}),
+            _IH2,
+            "at least 1 de_novo",
+        ),
+    ],
+)
+def test_a_with_group_that_forces_an_origin_the_finding_lacks_fires_lit023(
+    variants: list[dict[str, Any]], finding_carriers: dict[str, int], fragment: str
+) -> None:
+    issues = _shape(variants, carriers=finding_carriers, screened=2)
+    assert [(code, fragment in message) for code, _, message in issues] == [("LIT023", True)], (
+        issues
+    )
+    # The same group is clean once the finding counts those people with that origin.
+    ok = {"de_novo": 2, "inherited": 0, "origin_unknown": 0}
+    ok = ok if "de_novo" in fragment else {"de_novo": 0, "inherited": 2, "origin_unknown": 0}
+    assert _shape(variants, carriers=ok, screened=2) == []
+    # A group of unstated origin forces nothing (D10).
+    unknown = {"de_novo": 0, "inherited": 0, "origin_unknown": 3}
+    assert (
+        _shape(
+            _pair(unknown, unknown),
+            carriers={"de_novo": 3, "inherited": 0, "origin_unknown": 0},
+            screened=3,
+        )
+        == []
+    )
+
+
+def test_a_groups_surplus_in_one_origin_never_offsets_another_entrys_claim() -> None:
+    """The lower bound is floored at zero per group.
+
+    A pair of inherited entries has a de novo bound of 0 - 1 = -1, floored to 0:
+    unfloored, that -1 would hide one of the two unlinked de novo carriers against
+    a finding that names a single de novo carrier, with every total still fitting.
+    """
+    variants = [*_pair(_INH, _INH), _sv(3, carriers=_ONE), _sv(4, carriers=_ONE)]
+    issues = _shape(
+        variants, carriers={"de_novo": 1, "inherited": 2, "origin_unknown": 0}, screened=4
+    )
+    assert [(code, "at least 2 de_novo" in message) for code, _, message in issues] == [
+        ("LIT023", True)
+    ]

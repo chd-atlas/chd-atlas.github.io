@@ -523,7 +523,11 @@ def test_a_missing_frame_skips_the_reference_checks_with_one_error_and_one_warni
 def test_the_shape_checks_still_run_without_a_frame_and_only_needed_variants_skip() -> None:
     """The skip is for the frame's checks alone; LIT022 needs no frame."""
     raw = _with_variants(_variant(1, normalisation=7))
-    assert [i.code for i in _run(raw, mane=None)] == ["MAN005", "MAN000", "LIT022"]
+    # A second finding's shape error is reached too (a `break` for `continue` stops at the first).
+    raw["findings"][1]["variants"] = [_variant(1, normalisation=8)]
+    issues = _run(raw, mane=None)
+    assert [i.code for i in issues] == ["MAN005", "MAN000", "LIT022", "LIT022"]
+    assert [i.location.split(":finding ")[1][:16] for i in issues[2:]] == [F1, F2]
     # Nothing waiting on a frame: no skip (§4.41), whether the file has no variants
     # or only variants that need none.
     assert _run(_base(), mane=None) == []

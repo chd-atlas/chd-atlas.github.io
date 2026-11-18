@@ -63,8 +63,9 @@ def validate_gene_literature(
       with a variant whose reference checks need the frame (`mane`, `protein`, or
       `unplaced` keeping an `hgvs_p`) then reports MAN005 (error, naming that count)
       beside MAN000 (warning), once; a file with none of them reports neither. A frame
-      that loads but holds no row for the file's gene is not None: its variants are
-      LIT016 and the curator lists them `unplaced`.
+      that loads but holds no row for the file's gene is not None: a `mane` or `protein`
+      variant, or an `unplaced` one keeping an `hgvs_p`, is then LIT016 (the curator
+      lists them `unplaced` with no `hgvs_p`: with no row, no `hgvs_p` can pass).
     - `burden_studies` (gene -> the studies `mirrors/burden.tsv` has rows for) None
       skips LIT014; it is None only when that table is unreadable, which TBL000 or
       TBL001 reports. A missing table is `{}`: a finding linking a burden study then

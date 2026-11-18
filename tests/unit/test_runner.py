@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -575,8 +576,14 @@ def _variants_without_a_mane_mirror(root: Path) -> None:
         (root / "mirrors" / name).unlink()
     sources = root / "mirrors" / "sources.yaml"
     text = sources.read_text(encoding="utf-8")
-    start = text.index("    package:\n      version: '1.5'\n")
-    sources.write_text(text[:start], encoding="utf-8")
+    # Cut the `package:` pin out of the `mane_select` entry only, wherever it sits.
+    entry = text.index("  - id: mane_select\n")
+    end = text.find("\n  - id: ", entry)
+    end = len(text) if end == -1 else end
+    pin = re.compile(r"    package:\n      version: [^\n]+\n      manifest_sha256: [0-9a-f]{64}\n")
+    block, count = pin.subn("", text[entry:end])
+    assert count == 1, "the mane_select entry must carry exactly one pin"
+    sources.write_text(text[:entry] + block + text[end:], encoding="utf-8")
 
 
 @pytest.mark.parametrize(

@@ -32,8 +32,10 @@ first base beyond the VCF anchor.
 `shape_issues` is the other half (LIT022-LIT024): it needs no frame, only the finding
 itself. LIT022 is the fields against `placement`, the `with` links and the carrier
 shape; LIT023 is a finding's variant carriers against its own (a compound
-heterozygote is one person, so a `with` group counts once); LIT024 is a variant's
-phenotypes against the finding's.
+heterozygote is one person, so a `with` group counts once; per-origin counts cover
+`de_novo` and `inherited` only, a departure from spec 7.2's literal "per origin"
+because an `origin_unknown` variant claims no origin and forcing one would invent it);
+LIT024 is a variant's phenotypes against the finding's.
 
 LIT025 compares the paper's `p.` with `hgvs_p` where both number residues on the
 MANE protein, and fires when `hgvs_p` is absent while the paper's `p.` names a
@@ -63,6 +65,7 @@ from chd_atlas.validate.mane import reverse_complement
 from chd_atlas.vocab import (
     FindingDesign,
     FindingVariantClass,
+    Phase,
     VariantPlacement,
     VariantZygosity,
 )
@@ -414,7 +417,12 @@ def reference_issues(variant: Variant, frame_entry: ManeTranscript | None) -> li
 ShapeIssue = tuple[str, int | None, str]
 
 _HGVS_FIELDS = ("hgvs_c", "hgvs_p", "grch38")
-_ORIGINS = ("de_novo", "inherited", "origin_unknown")
+# Origins reconciled per origin. `origin_unknown` is deliberately absent: such a
+# variant claims no origin, so it draws on the finding's total only. Reading spec
+# 7.2 literally ("per origin") would force a curator to invent an origin for it,
+# since a paper reporting "1 de novo, 1 inherited" overall rarely says which of
+# two variants is which.
+_ORIGINS = ("de_novo", "inherited")
 
 # What each placement must hold and must leave null (kind rules are separate).
 _MUST_HOLD: dict[VariantPlacement, tuple[str, ...]] = {
@@ -444,8 +452,13 @@ def _components(variants: list[Variant]) -> list[list[Variant]]:
     """The `with` groups: connected components of the links that resolve, size >= 2.
 
     Links are read as undirected, so an asymmetric link still groups its two
-    entries (LIT022 reports the asymmetry separately).
+    entries and a chain 1-2, 2-3 groups all three; LIT022 reports the asymmetry
+    and the missing 1-3 link separately. Empty when two entries share an id: a
+    link then names no one entry, so no group can be built (LIT022 reports the
+    duplicate itself).
     """
+    if len({v.id for v in variants}) != len(variants):
+        return []
     by_id = {v.id: v for v in variants}
     parent = {v.id: v.id for v in variants}
 
@@ -514,14 +527,38 @@ def _link_issues(variants: list[Variant]) -> list[ShapeIssue]:
                 bad(v, f"with names variant {other_id}, which does not name {v.id} back")
         if v.phase is not None and not v.with_:
             bad(v, "phase is only for a variant with a with link")
+        if v.phase is None and v.with_:
+            bad(v, "a variant with a with link needs a phase (not_stated when the paper is silent)")
         if v.with_ and v.zygosity in (VariantZygosity.HOMOZYGOUS, VariantZygosity.HEMIZYGOUS):
             bad(v, f"a {v.zygosity.value} variant has no partner, so it cannot have a with link")
         elif v.with_ and v.zygosity is not VariantZygosity.HETEROZYGOUS:
             bad(v, "a variant with a with link must be heterozygous")
     for group in _components(variants):
         ids = ", ".join(str(v.id) for v in group)
-        if len({v.phase for v in group}) > 1:
+        phases = {v.phase for v in group if v.with_}
+        if len(phases) > 1:
             out.append(("LIT022", group[0].id, f"variants {ids} are linked but differ in phase"))
+        if len(group) > 2 and Phase.TRANS in phases:
+            out.append(
+                (
+                    "LIT022",
+                    group[0].id,
+                    f"variants {ids} are linked in trans, but a diploid genome cannot hold "
+                    "more than two variants pairwise in trans",
+                )
+            )
+        for i, a in enumerate(group):
+            for b in group[i + 1 :]:
+                if b.id not in a.with_ and a.id not in b.with_:
+                    out.append(
+                        (
+                            "LIT022",
+                            a.id,
+                            f"variants {a.id} and {b.id} are in one group through other entries, "
+                            "but with lists every other entry the same carriers carry; "
+                            f"neither names the other",
+                        )
+                    )
         totals = {v.carriers.total for v in group if v.carriers is not None}
         if len(totals) > 1:
             out.append(
@@ -531,27 +568,50 @@ def _link_issues(variants: list[Variant]) -> list[ShapeIssue]:
 
 
 def _carrier_issues(finding: Finding) -> list[ShapeIssue]:
-    """LIT023: variant carriers never exceed the finding's, a `with` group counted once."""
+    """LIT023: variant carriers never exceed the finding's, a `with` group counted once.
+
+    - Unlinked entries count per origin (`de_novo`, `inherited`) and in total.
+    - A `with` group is the same people, so it adds one shared total, not one per
+      entry. Its origins are per allele and may differ between its entries, so a
+      group adds to an origin only the pigeonhole lower bound: of its N people,
+      each entry names `m.o` carriers of origin o, so at least
+      `sum(m.o) - (k - 1) * N` people have every one of their k alleles from o.
+      A compound heterozygote with one de novo and one inherited allele adds 0 to
+      both.
+    - `origin_unknown` claims no origin, so it enters the total check only.
+
+    Skipped when two entries share an id (no group can be built; LIT022 says so).
+    """
     if finding.carriers is None:
         return []
-    grouped = {v.id for group in _components(finding.variants) for v in group}
+    if len({v.id for v in finding.variants}) != len(finding.variants):
+        return []
+    groups = _components(finding.variants)
+    grouped = {v.id for group in groups for v in group}
     unlinked = [v for v in finding.variants if v.id not in grouped and v.carriers is not None]
     out: list[ShapeIssue] = []
     for origin in _ORIGINS:
         named = sum(getattr(v.carriers, origin) for v in unlinked if v.carriers is not None)
+        for group in groups:
+            carried = [v.carriers for v in group if v.carriers is not None]
+            if len(carried) == len(group):
+                shared = max(c.total for c in carried)
+                named += max(
+                    0, sum(getattr(c, origin) for c in carried) - (len(group) - 1) * shared
+                )
         held = getattr(finding.carriers, origin)
         if named > held:
             out.append(
                 (
                     "LIT023",
                     None,
-                    f"unlinked variants name {named} {origin} carrier(s), more than the "
+                    f"variants name at least {named} {origin} carrier(s), more than the "
                     f"finding's {held}",
                 )
             )
     group_totals = [
         max((v.carriers.total for v in group if v.carriers is not None), default=0)
-        for group in _components(finding.variants)
+        for group in groups
     ]
     named_total = sum(v.carriers.total for v in unlinked if v.carriers is not None) + sum(
         group_totals
