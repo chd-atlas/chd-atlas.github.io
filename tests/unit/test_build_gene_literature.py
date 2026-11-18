@@ -26,6 +26,7 @@ from chd_atlas.build.gene_literature import (
     gene_literature,
     literature_census,
     literature_tallies,
+    variant_table,
 )
 from chd_atlas.corpus import Corpus
 from chd_atlas.models.assertion import LesionAssertion
@@ -540,3 +541,221 @@ def test_a_synthesis_goes_stale_through_its_genes_assertions_only() -> None:
     assert (
         gene_literature(_with_assertions(corpus, own, edited_other))[TBX5]["synthesis"] is not None
     )
+
+
+# --- variant_table -----------------------------------------------------------
+
+
+def _var(vid: int, placement: str = "mane", **changes: Any) -> dict[str, Any]:
+    """A published variant dict, as ``Finding.model_dump(by_alias=True)`` writes it."""
+    base: dict[str, Any] = {
+        "id": vid,
+        "as_reported": f"var{vid}",
+        "placement": placement,
+        "reported": {"transcript": None, "c": None, "p": None, "rsid": None},
+        "hgvs_c": None,
+        "hgvs_p": None,
+        "grch38": None,
+        "zygosity": "heterozygous",
+        "with": [],
+        "phase": None,
+        "carriers": None,
+        "phenotypes": [],
+        "review_status": None,
+        "review_note": None,
+    }
+    base.update(changes)
+    return base
+
+
+def _pub(fid: int, pmid: str, variants: list[dict[str, Any]], **changes: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "id": f"CHDA:LIT:{fid:07d}",
+        "publication": pmid,
+        "design": "case_report",
+        "count_unit": "probands",
+        "carriers": None,
+        "variants": variants,
+    }
+    base.update(changes)
+    return base
+
+
+def _mane(vid: int, c: str, g: str, **changes: Any) -> dict[str, Any]:
+    return _var(vid, "mane", hgvs_c=c, grch38=g, **changes)
+
+
+def test_one_variant_in_two_papers_is_one_row_with_two_reports_and_no_summed_carriers() -> None:
+    first = {"de_novo": 2, "inherited": 0, "origin_unknown": 0}
+    second = {"de_novo": 0, "inherited": 3, "origin_unknown": 1}
+    other = _mane(2, "c.700A>G", "12:1:A:G")
+    table = variant_table(
+        [
+            # arrival order is (year, PMID, id): finding 2 arrives before finding 1.
+            _pub(
+                2,
+                "PMID:5",
+                [
+                    _mane(1, "c.100C>T", "12:9:C:T", carriers=first, phenotypes=["HP:0001631"]),
+                    _mane(3, "c.5C>T", "12:8:C:T", **{"with": [4]}, phase="in_trans"),
+                    _mane(4, "c.6C>T", "12:7:C:T", hgvs_p="p.Arg2Ter"),
+                ],
+            ),
+            _pub(1, "PMID:7", [_mane(1, "c.100C>T", "12:9:C:T", carriers=second), other]),
+            _pub(3, "PMID:7", [_mane(1, "c.100C>T", "12:9:C:T")]),
+        ]
+    )
+    row = next(r for r in table["rows"] if r["key"] == "g:12:9:C:T")
+    assert set(row) == {"key", "hgvs_c", "hgvs_p", "papers", "reports"}
+    assert row["papers"] == 2  # three reports, two distinct publications
+    assert [r["finding"] for r in row["reports"]] == [
+        "CHDA:LIT:0000002",
+        "CHDA:LIT:0000001",
+        "CHDA:LIT:0000003",
+    ]
+    assert [r["carriers"] for r in row["reports"]] == [first, second, None]
+    assert row["reports"][0]["phenotypes"] == ["HP:0001631"]
+    assert row["reports"][0]["count_unit"] == "probands"
+    assert row["reports"][0]["design"] == "case_report"
+    assert row["reports"][0]["publication"] == "PMID:5"
+    # a partner is named by its hgvs_c, scoped to its own finding
+    partnered = next(r for r in table["rows"] if r["key"] == "g:12:8:C:T")
+    assert partnered["reports"][0]["with_names"] == ["c.6C>T"]
+    assert partnered["reports"][0]["phase"] == "in_trans"
+    assert row["reports"][1]["with_names"] == []
+    # no total of any kind: the only counts in the table are per-report
+    assert "carriers" not in row and "total" not in row
+
+
+def test_a_partner_is_named_by_hgvs_c_then_hgvs_p_then_as_reported() -> None:
+    table = variant_table(
+        [
+            _pub(
+                1,
+                "PMID:1",
+                [
+                    _mane(1, "c.10A>G", "1:1:A:G", **{"with": [2, 3, 4]}),
+                    _mane(2, "c.20A>G", "1:2:A:G", hgvs_p="p.Lys7Arg"),
+                    _var(3, "protein", hgvs_p="p.Lys9Arg"),
+                    _var(4, "unplaced"),
+                ],
+            )
+        ]
+    )
+    row = next(r for r in table["rows"] if r["key"] == "g:1:1:A:G")
+    assert row["reports"][0]["with_names"] == ["c.20A>G", "p.Lys9Arg", "var4"]
+
+
+def test_the_same_deletion_named_at_two_shifted_positions_is_one_row() -> None:
+    table = variant_table(
+        [
+            _pub(1, "PMID:1", [_mane(1, "c.100_101del", "5:50:AGT:A")]),
+            _pub(2, "PMID:2", [_mane(1, "c.101_102del", "5:50:AGT:A")]),
+        ]
+    )
+    assert [r["key"] for r in table["rows"]] == ["g:5:50:AGT:A"]
+    assert table["rows"][0]["hgvs_c"] == "c.100_101del"
+    assert table["rows"][0]["papers"] == 2
+
+
+def test_a_protein_row_is_never_merged_into_a_mane_row_with_the_same_p() -> None:
+    table = variant_table(
+        [
+            _pub(1, "PMID:1", [_mane(1, "c.7C>T", "1:7:C:T", hgvs_p="p.Arg3Cys")]),
+            _pub(2, "PMID:2", [_var(1, "protein", hgvs_p="p.Arg3Cys")]),
+        ]
+    )
+    assert [(r["key"], r["papers"]) for r in table["rows"]] == [
+        ("g:1:7:C:T", 1),
+        ("p:p.Arg3Cys", 1),
+    ]
+
+
+def test_rows_sort_by_transcript_position_with_protein_rows_at_their_codon() -> None:
+    # Arrival order is scrambled; the literal expected order is below. Protein
+    # Arg100 sits at c.298 (3*100-2): after c.-20, before c.300-3; Gly101 at
+    # c.301, after c.300+5 (offset is compared after base, not before).
+    table = variant_table(
+        [
+            _pub(
+                1,
+                "PMID:1",
+                [
+                    _mane(1, "c.*5A>G", "1:9:A:G"),
+                    _mane(2, "c.300+5A>G", "1:5:A:G"),
+                    _var(3, "protein", hgvs_p="p.Gly101Arg"),
+                    _mane(4, "c.300A>G", "1:4:A:G"),
+                    _mane(5, "c.300-3A>G", "1:3:A:G"),
+                    _var(6, "protein", hgvs_p="p.Arg100Cys"),
+                    _mane(7, "c.-20A>G", "1:1:A:G"),
+                    _mane(8, "c.-5A>G", "1:2:A:G"),
+                ],
+            )
+        ]
+    )
+    assert [r["key"] for r in table["rows"]] == [
+        "g:1:1:A:G",  # c.-20
+        "g:1:2:A:G",  # c.-5
+        "p:p.Arg100Cys",  # c.298
+        "g:1:3:A:G",  # c.300-3
+        "g:1:4:A:G",  # c.300
+        "g:1:5:A:G",  # c.300+5
+        "p:p.Gly101Arg",  # c.301
+        "g:1:9:A:G",  # c.*5
+    ]
+
+
+def test_the_lists_hold_outside_region_then_structural_then_unplaced_variants() -> None:
+    table = variant_table(
+        [
+            _pub(
+                1,
+                "PMID:1",
+                [
+                    _var(
+                        1,
+                        "unplaced",
+                        as_reported="u1",
+                        review_status="pending_review",
+                        review_note="n",
+                    ),
+                    _var(2, "structural", as_reported="s1"),
+                    _var(3, "outside_region", as_reported="o1", reported={"rsid": "rs12"}),
+                ],
+            ),
+            _pub(
+                2,
+                "PMID:2",
+                [_var(1, "unplaced", as_reported="u2"), _var(2, "structural", as_reported="s2")],
+            ),
+        ]
+    )
+    assert table["rows"] == []
+    assert [v["as_reported"] for v in table["outside_region"]] == ["o1"]
+    assert table["outside_region"][0] == {
+        "as_reported": "o1",
+        "rsid": "rs12",
+        "publication": "PMID:1",
+        "finding": "CHDA:LIT:0000001",
+        "review_status": None,
+        "review_note": None,
+    }
+    assert [v["as_reported"] for v in table["no_position"]] == ["s1", "s2", "u1", "u2"]
+    assert table["no_position"][2]["review_status"] == "pending_review"
+    assert table["no_position"][2]["review_note"] == "n"
+
+
+def test_findings_naming_no_variant_counts_only_carrying_non_association_findings() -> None:
+    carriers = {"de_novo": 0, "inherited": 0, "origin_unknown": 1}
+    zero = {"de_novo": 0, "inherited": 0, "origin_unknown": 0}
+    table = variant_table(
+        [
+            _pub(1, "PMID:1", [], carriers=carriers),  # counted
+            _pub(2, "PMID:2", [], carriers=carriers, design="cohort_screen"),  # counted
+            _pub(3, "PMID:3", [], carriers=zero),
+            _pub(4, "PMID:4", [], carriers=None),
+            _pub(5, "PMID:5", [], carriers=carriers, design="common_variant_association"),
+            _pub(6, "PMID:6", [_var(1, "unplaced")], carriers=carriers),
+        ]
+    )
+    assert table["findings_naming_no_variant"] == 2
