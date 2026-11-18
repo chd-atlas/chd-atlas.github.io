@@ -162,6 +162,7 @@ def test_an_indel_named_three_prime_shifted_matches_its_left_aligned_key(
     ("key", "reason"),
     [
         ("1:1015:AA:A", "not left-aligned: 1:1014:GA:G is the same change"),
+        ("1:1018:AA:A", "not left-aligned: 1:1014:GA:G is the same change"),
         ("1:1015:A:AA", "not left-aligned: 1:1014:G:GA is the same change"),
         ("2:3006:TT:T", "not left-aligned: 2:3005:CT:C is the same change"),
         ("1:1014:GAA:GA", "not minimal: ref and alt end in one base"),
@@ -171,6 +172,16 @@ def test_an_indel_named_three_prime_shifted_matches_its_left_aligned_key(
 def test_a_key_not_left_aligned_is_refused(key: str, reason: str) -> None:
     gene = _run_gene("+" if key.startswith("1:") else "-")
     assert reference_issues(_variant(grch38=key), gene) == [("LIT018", f"grch38 {key} is {reason}")]
+
+
+def test_a_key_not_left_aligned_is_refused_where_two_windows_meet(frame: ManeFrame) -> None:
+    # NM_003737.4 (HGNC:13681, `-`): exon 9's window ends at 11:6631260 and exon
+    # 8's begins at 6631261, so no one window holds the key and its shifted
+    # twin. Ending in one base is the rule, not a comparison inside a window.
+    key = "11:6631261:C:CC"
+    assert reference_issues(_variant(grch38=key), frame["HGNC:13681"]) == [
+        ("LIT018", f"grch38 {key} is not left-aligned: 11:6631260:G:GC is the same change")
+    ]
 
 
 def test_a_paper_on_another_transcript_does_not_trip_lit025(frame: ManeFrame) -> None:
@@ -232,6 +243,9 @@ def test_a_variant_on_a_gene_outside_the_frame_is_lit016_until_it_is_unplaced(
         # D5: the paper's short frameshift against VariantValidator's long form.
         ("NP_852259.1:p.(Arg279GlyfsTer5)", "p.R279fs", []),
         ("NP_852259.1:p.(Arg279GlyfsTer5)", "p.R280fs", ["LIT025"]),
+        # D5': a counted frameshift naming no new residue, as a TBX5 pilot paper
+        # wrote c.1333delC.
+        ("NP_852259.1:p.(His445MetfsTer137)", "p.H445fsX136", []),
     ],
 )
 def test_lit025_compares_only_what_both_names_state(
@@ -251,30 +265,90 @@ def _with(**changes: Any) -> dict[str, Any]:
 
 
 @pytest.mark.parametrize(
+    ("gene", "fields"),
+    [
+        # `+`-strand intron: NR2F2 c.442 ends exon 1 (96332547); c.442+1 is
+        # 96332548, where GRCh38 has G (and T at +2: the GT donor).
+        (NR2F2, {"hgvs_c": "NM_021005.4:c.442+1G>A", "grch38": "15:96332548:G:A"}),
+        # The 5' UTR: TBX5 c.-1 is transcript base 555, C (GRCh38 G at 114403899).
+        (TBX5, {"hgvs_c": "NM_181486.4:c.-1C>A", "grch38": "12:114403899:G:T"}),
+        # delins on `-`: c.835_836 read CG on both strands, so TT is AA forward.
+        (TBX5, {"hgvs_c": "NM_181486.4:c.835_836delinsTT", "grch38": "12:114366311:CG:AA"}),
+        # The stop, one past the 518 residues, named as itself and as a stop-loss.
+        (TBX5, {"placement": "protein", "hgvs_p": "NP_852259.1:p.(Ter519=)"}),
+        (TBX5, {"placement": "protein", "hgvs_p": "NP_852259.1:p.(Ter519GlnextTer?)"}),
+        # D7: off the transcript's ends but inside the end exons' windows, on
+        # each strand. TBX5 c.-560 is 5 bp upstream (GRCh38 T, A on TBX5's
+        # strand) and c.*1622 1 bp downstream (GRCh38 A, T on its strand);
+        # NR2F2 c.-1410 is 4 bp upstream (C) and c.*2640 4 bp downstream (A).
+        (TBX5, {"hgvs_c": "NM_181486.4:c.-560A>G", "grch38": "12:114406149:T:C"}),
+        (TBX5, {"hgvs_c": "NM_181486.4:c.*1622T>C", "grch38": "12:114353910:A:G"}),
+        (NR2F2, {"hgvs_c": "NM_021005.4:c.-1410C>T", "grch38": "15:96330696:C:T"}),
+        (NR2F2, {"hgvs_c": "NM_021005.4:c.*2640A>G", "grch38": "15:96340262:A:G"}),
+    ],
+)
+def test_names_that_agree_with_the_frame_pass(
+    frame: ManeFrame, gene: str, fields: dict[str, Any]
+) -> None:
+    assert reference_issues(_variant(**fields), frame[gene]) == []
+
+
+@pytest.mark.parametrize(
     ("fields", "code"),
     [
         (_with(hgvs_c="NM_181486.3:c.835C>T"), "LIT016"),
         (_with(hgvs_p="NP_852259.2:p.(Arg279Ter)"), "LIT016"),
+        # A bare name states no transcript or protein, so it is not the MANE one.
+        (_with(hgvs_c="c.835C>T"), "LIT016"),
+        ({"placement": "protein", "hgvs_p": "p.Arg279Ter"}, "LIT016"),
         (_with(hgvs_c="NM_181486.4:c.835A>T"), "LIT017"),
-        # c.663 is exon 6's last base, so c.663-1 is anchored on no intron. Read
-        # as if it were, it would land on an A (measured), so only the anchor
-        # check can refuse it.
+        # c.835 is C, so a dup naming A misstates it.
+        ({"hgvs_c": "NM_181486.4:c.835dupA"}, "LIT017"),
+        # Offsets with no intron to point into. Each names the base its position
+        # would land on if read anyway (measured), so only the anchor check
+        # refuses it: c.663 ends exon 6, read as c.663-1 it would land on an A;
+        # c.*1621 ends the last exon (T below it on TBX5's strand) and c.-555
+        # starts exon 1 (C above it); D7 places those as c.*1622 and c.-556.
         ({"hgvs_c": "NM_181486.4:c.663-1A>G"}, "LIT017"),
+        ({"hgvs_c": "NM_181486.4:c.*1621+1T>G"}, "LIT017"),
+        ({"hgvs_c": "NM_181486.4:c.-555-1C>T"}, "LIT017"),
+        ({"hgvs_c": "NM_181486.4:c.-560+1A>G"}, "LIT017"),
+        # D7: c.-560 is placed 5 bp upstream, so its base is checked (A, not G).
+        ({"hgvs_c": "NM_181486.4:c.-560G>A"}, "LIT017"),
         (_with(grch38="12:114366312:G:C"), "LIT018"),
         # The right alt on a wrong ref: the two edits agree, so only the ref check sees it.
         (_with(grch38="12:114366312:C:A"), "LIT018"),
+        # A correct key for another variant, in another window: the two names
+        # lie in different places.
+        (_with(grch38="12:114398572:C:T"), "LIT018"),
         (_with(hgvs_p="NP_852259.1:p.(Gln279Ter)", reported={"c": "c.835C>T"}), "LIT019"),
         ({"placement": "protein", "hgvs_p": "NP_852259.1:p.Arg600Ter"}, "LIT019"),
+        # A stop-loss names the stop; residue 518 is not one.
+        ({"placement": "protein", "hgvs_p": "NP_852259.1:p.(Ter518GlnextTer?)"}, "LIT019"),
         ({"hgvs_c": "NM_181486.4:c.510+60G>A"}, "LIT020"),
         ({"hgvs_c": "NM_181486.4:c.*1700C>T"}, "LIT020"),
-        ({"hgvs_c": "NM_181486.4:c.-600G>A"}, "LIT020"),
-        ({"hgvs_c": "NM_181486.4:c.1600G>A"}, "LIT020"),
+        # 95 bp upstream: beyond exon 1's window, which ends 50 bp out.
+        ({"hgvs_c": "NM_181486.4:c.-650G>A"}, "LIT020"),
         (_with(grch38="12:114370000:G:A"), "LIT020"),
+        (_with(grch38="11:114366312:G:A"), "LIT020"),
         (_with(hgvs_c="NM_181486.4:c.835_836inv"), "LIT021"),
-        (_with(hgvs_p="NP_852259.1:p.Ter519GlnextTer?"), "LIT021"),
+        # Past the 1,557-base coding sequence, where a position is written c.*N.
+        ({"hgvs_c": "NM_181486.4:c.1600G>A"}, "LIT021"),
+        ({"hgvs_c": "NM_181486.4:c.836_835del"}, "LIT021"),
+        ({"hgvs_c": "NM_181486.4:c.834_836insA"}, "LIT021"),
+        (_with(hgvs_p="NP_852259.1:p.Met1ext-5"), "LIT021"),
         (_with(grch38="chr12:114366312:G:A"), "LIT021"),
         (_with(reported={"c": "c.835C>T", "p": "p.R279Q"}), "LIT025"),
         ({"hgvs_c": "NM_181486.4:c.510+1G>A", "reported": {"p": "p.R279X"}}, "LIT025"),
+        # A paper p. the checker cannot read still names something.
+        (
+            {
+                "hgvs_c": "NM_181486.4:c.510+1G>A",
+                "grch38": "12:114398572:C:T",
+                "reported": {"p": "p.R279X;R280X"},
+            },
+            "LIT025",
+        ),
     ],
 )
 def test_each_reference_code_fires_alone(

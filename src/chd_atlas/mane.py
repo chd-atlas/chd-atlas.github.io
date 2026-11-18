@@ -80,8 +80,8 @@ def transcript_position(t: ManeTranscript, p: CPosition) -> int:
     """The 1-based transcript position a `c.` position is anchored on, offset ignored.
 
     `c.N` is `cds_start + N - 1`; `c.-N` is `cds_start - N` (there is no c.0);
-    `c.*N` is `cds_end + N`. The result may lie outside the transcript; the
-    caller checks it against `len(t.sequence)`.
+    `c.*N` is `cds_end + N`. A position off the transcript's ends comes out
+    below 1 or above its length; `genome_position` still places it.
     """
     if p.region == "cds":
         return t.cds_start + p.base - 1
@@ -95,11 +95,30 @@ def genome_position(t: ManeTranscript, p: CPosition) -> int:
 
     The anchor's exon gives the coordinate; an intronic offset then moves away
     from it in the transcript's direction, which on `-` is towards lower
-    coordinates. Raises `ValueError` when the anchor lies in no exon, or when an
-    offset is not anchored on an intron's edge: `+M` needs the exon's 3' end and
-    an exon after it, `-M` its 5' end and an exon before it.
+    coordinates. A position off the transcript's ends (a `c.-N` past the 5' UTR,
+    a `c.*N` past the 3' UTR) is measured outward from exon 1's 5' end or the
+    last exon's 3' end (owner ruling D7); whether a window holds it is the
+    caller's check. Raises `ValueError` when there are no exons, or when an
+    offset is not anchored on an intron's edge: `+M` needs an exon's 3' end and
+    an exon after it, `-M` an exon's 5' end and an exon before it, so a position
+    off the transcript's ends takes no offset.
     """
+    if not t.exons:
+        raise ValueError(f"{t.transcript} has no exons")
     tx = transcript_position(t, p)
+    first, last = t.exons[0], t.exons[-1]
+    outside = tx < first.transcript_start or tx > last.transcript_end
+    if outside and p.offset:
+        raise ValueError(
+            f"an offset of {p.offset:+d} needs an exon edge; a position off the "
+            "transcript's ends is written c.-N or c.*N"
+        )
+    if tx < first.transcript_start:
+        away = first.transcript_start - tx
+        return first.genomic_start - away if t.strand == "+" else first.genomic_end + away
+    if tx > last.transcript_end:
+        away = tx - last.transcript_end
+        return last.genomic_end + away if t.strand == "+" else last.genomic_start - away
     for index, exon in enumerate(t.exons):
         if not exon.transcript_start <= tx <= exon.transcript_end:
             continue

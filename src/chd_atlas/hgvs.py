@@ -12,14 +12,16 @@ exonic, UTR and intronic positions:
   `ins<bases>` or `delins<bases>`, the bases uppercase `ACGT`;
 - a `p.` description names its reference residue(s) as in `Arg279Ter`,
   `(Arg279Ter)`, `R279X`, `Arg279=`, `Met1?`, `Gln70dup`, `Lys5_Gly8del`,
-  `Lys2_Gly3insArg`, `Lys5_Gly8delinsTrp` or a frameshift `Arg279GlyfsTer5`;
+  `Lys2_Gly3insArg`, `Lys5_Gly8delinsTrp`, a frameshift `Arg279GlyfsTer5` or a
+  stop-loss `Ter519GlnextTer?` (whose reference residue is the stop);
   `p.?`, `p.=` and `p.0` (with or without parentheses) name no residue and read
   as none.
 
 Everything else raises `HgvsUnsupported`: alleles (`;`, `[...]`), uncertain
-positions (`(?_-1)`, `?`), `inv`, `con`, repeat and counted insertions, `ext`,
-a stated deleted sequence on `delins`, and a `c.` substitution of a base by
-itself. It is refused, never read as something nearby.
+positions (`(?_-1)`, `?`), `inv`, `con`, repeat and counted insertions, any
+`ext` but a stop-loss, a stated deleted sequence on `delins`, a `c.`
+substitution of a base by itself, and anything after the description, even a
+newline. It is refused, never read as something nearby.
 """
 
 from __future__ import annotations
@@ -116,33 +118,35 @@ _AA = rf"(?:{_THREE}|[ACDEFGHIKLMNPQRSTVWYU*X])"
 _STOP = r"(?:Ter|\*|X)"
 
 _POS = r"([-*]?)(\d+)(?:([+-])(\d+))?"
+# Every pattern is applied with `fullmatch`: `$` would also accept a trailing newline.
 _C_RE: Final = re.compile(
-    rf"^(?:(?P<acc>[^:\s]+):)?c\.(?P<start>{_POS})(?:_(?P<end>{_POS}))?"
+    rf"(?:(?P<acc>[^:\s]+):)?c\.(?P<start>{_POS})(?:_(?P<end>{_POS}))?"
     r"(?:(?P<sub_ref>[ACGT])>(?P<sub_alt>[ACGT])"
     r"|delins(?P<delins>[ACGT]+)"
     r"|del(?P<del>[ACGT]*)"
     r"|dup(?P<dup>[ACGT]*)"
-    r"|ins(?P<ins>[ACGT]+))$"
+    r"|ins(?P<ins>[ACGT]+))"
 )
-_ONE_POS: Final = re.compile(rf"^{_POS}$")
+_ONE_POS: Final = re.compile(_POS)
 
-_P_RE: Final = re.compile(r"^(?:(?P<acc>[^:\s]+):)?p\.(?P<body>\S+)$")
+_P_RE: Final = re.compile(r"(?:(?P<acc>[^:\s]+):)?p\.(?P<body>\S+)")
 _P_RESIDUES: Final = re.compile(
-    rf"^(?P<a1>{_AA})(?P<p1>\d+)(?:_(?P<a2>{_AA})(?P<p2>\d+))?(?P<edit>.*)$"
+    rf"(?P<a1>{_AA})(?P<p1>\d+)(?:_(?P<a2>{_AA})(?P<p2>\d+))?(?P<edit>.*)"
 )
 _P_SINGLE_EDIT: Final = re.compile(
-    rf"^(?:{_AA}|=|\?|del|dup|delins(?:{_AA})+|(?:{_AA})?fs(?:{_STOP}(?:\d+|\?))?)$"
+    rf"{_AA}|=|\?|del|dup|delins(?:{_AA})+|(?:{_AA})?fs(?:{_STOP}(?:\d+|\?))?"
+    rf"|(?P<ext>{_AA}ext{_STOP}(?:\d+|\?))"
 )
-_P_RANGE_EDIT: Final = re.compile(rf"^(?:del|dup|delins(?:{_AA})+|ins(?:{_AA})+)$")
+_P_RANGE_EDIT: Final = re.compile(rf"del|dup|delins(?:{_AA})+|ins(?:{_AA})+")
 _P_NO_RESIDUE: Final = frozenset({"?", "=", "0", "0?"})
 
 _KEY_RE: Final = re.compile(
-    r"^(?P<chrom>[1-9]|1\d|2[0-2]|X|Y|MT):(?P<pos>\d+):(?P<ref>[ACGT]+):(?P<alt>[ACGT]+)$"
+    r"(?P<chrom>[1-9]|1\d|2[0-2]|X|Y|MT):(?P<pos>\d+):(?P<ref>[ACGT]+):(?P<alt>[ACGT]+)"
 )
 
 
 def _position(text: str) -> CPosition:
-    match = _ONE_POS.match(text)
+    match = _ONE_POS.fullmatch(text)
     if match is None:
         raise HgvsUnsupported(f"position {text!r} is not N, -N, *N or N+M/N-M")
     prefix, number, sign, offset_text = match.groups()
@@ -167,7 +171,7 @@ def _position(text: str) -> CPosition:
 
 def parse_c(text: str) -> CVariant:
     """Read one `c.` description in the subset, or raise `HgvsUnsupported`."""
-    match = _C_RE.match(text)
+    match = _C_RE.fullmatch(text)
     if match is None:
         raise HgvsUnsupported(f"{text!r} is not a c. description in the subset the atlas reads")
     start = _position(match["start"])
@@ -196,7 +200,7 @@ def _one_letter(code: str) -> str:
 
 def parse_p(text: str) -> PVariant:
     """Read one `p.` description in the subset, or raise `HgvsUnsupported`."""
-    match = _P_RE.match(text)
+    match = _P_RE.fullmatch(text)
     if match is None:
         raise HgvsUnsupported(f"{text!r} is not a p. description")
     body = match["body"]
@@ -204,18 +208,21 @@ def parse_p(text: str) -> PVariant:
         body = body[1:-1]
     if body in _P_NO_RESIDUE:
         return PVariant(match["acc"], ())
-    parts = _P_RESIDUES.match(body)
+    parts = _P_RESIDUES.fullmatch(body)
     if parts is None:
         raise HgvsUnsupported(f"{text!r} is not a p. description in the subset the atlas reads")
     first = (_one_letter(parts["a1"]), int(parts["p1"]))
     edit = parts["edit"]
     if parts["a2"] is None:
-        if _P_SINGLE_EDIT.match(edit) is None:
+        single = _P_SINGLE_EDIT.fullmatch(edit)
+        if single is None:
             raise HgvsUnsupported(f"{text!r}: edit {edit!r} is outside the subset")
+        if single["ext"] is not None and first[0] != "*":
+            raise HgvsUnsupported(f"{text!r}: only a stop-loss extension is read")
         residues: tuple[tuple[str, int], ...] = (first,)
     else:
         second = (_one_letter(parts["a2"]), int(parts["p2"]))
-        if _P_RANGE_EDIT.match(edit) is None:
+        if _P_RANGE_EDIT.fullmatch(edit) is None:
             raise HgvsUnsupported(f"{text!r}: edit {edit!r} on a range is outside the subset")
         if second[1] <= first[1]:
             raise HgvsUnsupported(f"{text!r}: a range must run from a lower position to a higher")
@@ -235,10 +242,9 @@ def _protein_change(text: str) -> str:
     return body.replace("X", "*")
 
 
-# A frameshift after normalising: reference residue, position, then the rest.
-_FRAMESHIFT: Final = re.compile(r"^([A-Z*])(\d+)([A-Z*]?fs.*)$")
-# The short form, `fs` alone or with a stop and no count (`fs`, `fs*`).
-_SHORT_FS: Final = frozenset({"fs", "fs*"})
+# A frameshift after normalising: reference residue, position, the new residue
+# (empty when the description names none), then the rest.
+_FRAMESHIFT: Final = re.compile(r"([A-Z*])(\d+)([A-Z*]?)fs(.*)")
 
 
 def same_protein_change(a: str, b: str) -> bool:
@@ -248,20 +254,21 @@ def same_protein_change(a: str, b: str) -> bool:
     stripped, three-letter codes mapped to one-letter, and `Ter`, `*` and `X`
     equal.
 
-    A short frameshift (`R279fs`, `R279fsX`) equals any frameshift at the same
-    residue and position, because papers abbreviate what the normaliser spells
-    out (owner ruling D5); two long forms still compare in full.
+    A frameshift naming no new residue (`R279fs`, `H445fsX136`) equals any
+    frameshift at the same residue and position, because papers abbreviate it
+    and count its stop differently from the normaliser (owner rulings D5, D5');
+    two frameshifts that both name the new residue still compare in full.
     """
     first, second = _protein_change(a), _protein_change(b)
-    one, two = _FRAMESHIFT.match(first), _FRAMESHIFT.match(second)
-    if one and two and (one[3] in _SHORT_FS or two[3] in _SHORT_FS):
+    one, two = _FRAMESHIFT.fullmatch(first), _FRAMESHIFT.fullmatch(second)
+    if one and two and (not one[3] or not two[3]):
         return one.group(1, 2) == two.group(1, 2)
     return first == second
 
 
 def parse_grch38(text: str) -> GenomeKey:
     """Read `chrom:pos:ref:alt` (chromosome without `chr`), or raise `HgvsUnsupported`."""
-    match = _KEY_RE.match(text)
+    match = _KEY_RE.fullmatch(text)
     if match is None:
         raise HgvsUnsupported(f"{text!r} is not chrom:pos:ref:alt on GRCh38")
     pos = int(match["pos"])

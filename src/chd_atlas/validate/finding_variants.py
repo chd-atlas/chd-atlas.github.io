@@ -14,25 +14,31 @@ What runs, by placement:
 - `structural` and `outside_region`: nothing; they carry no names to check.
 
 A field that cannot be read (LIT021) or names another accession (LIT016) is not
-checked further, because its positions would be read on the wrong sequence.
+checked further, because its positions would be read on the wrong sequence. A
+`c.N` past the coding sequence is LIT021 too: on this transcript that place is
+written `c.*N`.
+
+LIT020 means a position no pinned window holds: beyond an exon ±50 bp, or a key
+on another chromosome. A `c.-N` or `c.*N` off the transcript's ends but inside
+the first or last exon's window is placed and its base checked (owner ruling D7).
 
 LIT018 compares changes, not coordinates. The `c.` edit and the VCF edit are
 each applied to the forward-strand window around them, and the two resulting
 sequences must be equal; so `c.` named 3'-shifted (as HGVS requires) and a
 left-aligned VCF key agree on an indel in a repeat. The key itself must also be
-minimal and left-aligned: moving an indel one base left must not give the same
-sequence.
+minimal and left-aligned: ref and alt must not end in one base, nor share a
+first base beyond the VCF anchor.
 
-LIT025 compares the paper's `p.` with `hgvs_p` only where both number residues
-on the MANE protein: an `hgvs_p` naming no residue (`p.?`, `p.=`, `p.0`) has
-nothing to compare (owner ruling D6), and a short frameshift matches any
-frameshift at its residue (D5, in `same_protein_change`).
+LIT025 compares the paper's `p.` with `hgvs_p` where both number residues on the
+MANE protein, and fires when `hgvs_p` is absent while the paper's `p.` names a
+residue. An `hgvs_p` naming no residue (`p.?`, `p.=`, `p.0`) has nothing to
+compare (owner ruling D6), and a frameshift naming no new residue matches any
+frameshift at its residue (D5, D5', in `same_protein_change`).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final
 
 from chd_atlas.hgvs import (
     CPosition,
@@ -51,10 +57,6 @@ from chd_atlas.validate.mane import reverse_complement
 from chd_atlas.vocab import VariantPlacement
 
 Issue = tuple[str, str]
-
-# Bases of reference either side of a change when two edits are compared. Any
-# context covering both edits gives the same answer; this one is for reading.
-_CONTEXT: Final = 25
 
 
 class _Refused(Exception):
@@ -105,15 +107,11 @@ def _place(text: str, t: ManeTranscript, p: CPosition) -> tuple[int, int]:
     cds_length = t.cds_end - t.cds_start + 1
     if p.region == "cds" and p.base > cds_length:
         raise _Refused(
-            "LIT020", f"{where} lies past the {cds_length}-base coding sequence of {t.transcript}"
+            "LIT021",
+            f"{where} lies past the {cds_length}-base coding sequence of {t.transcript}, "
+            "where a position is written c.*N",
         )
     tx = transcript_position(t, p)
-    if tx < 1 or tx > len(t.sequence):
-        end = "5'" if tx < 1 else "3'"
-        raise _Refused(
-            "LIT020",
-            f"{where} lies past the {end} end of {t.transcript} ({len(t.sequence)} bases)",
-        )
     try:
         return tx, genome_position(t, p)
     except ValueError as error:
@@ -139,7 +137,8 @@ def _c_change(text: str, cv: CVariant, t: ManeTranscript) -> tuple[list[Issue], 
         )
     if cv.edit == "ins":
         return [], _Change(hi, hi, _forward(t, _new_bases(cv)))
-    one_exon = cv.start.offset == 0 and cv.end.offset == 0 and hi - lo == tx2 - tx1
+    in_transcript = tx1 >= 1 and tx2 <= len(t.sequence)
+    one_exon = in_transcript and cv.start.offset == cv.end.offset == 0 and hi - lo == tx2 - tx1
     if one_exon:
         reference, source = t.sequence[tx1 - 1 : tx2], t.transcript
     else:
@@ -182,34 +181,37 @@ def _c_issues(text: str, t: ManeTranscript) -> tuple[list[Issue], _Change | None
 
 
 def _same_sequence(t: ManeTranscript, a: _Change, b: _Change) -> bool | None:
-    """Whether two edits give one sequence; None when no one window holds both."""
+    """Whether two edits give one sequence; None when no one window holds both.
+
+    Compared over the bases from the first either edit touches to the last:
+    outside that span both sequences are the reference.
+    """
     first = min(a.start, b.start)
     last = max(a.end - 1, b.end - 1, first)
     window = next((e for e in t.exons if e.window_start <= first and last <= e.window_end), None)
     if window is None:
         return None
-    low = max(window.window_start, first - _CONTEXT)
-    high = min(window.window_end, last + _CONTEXT)
-    context = window.window_sequence[low - window.window_start : high - window.window_start + 1]
+    span = window.window_sequence[first - window.window_start : last - window.window_start + 1]
 
     def apply(c: _Change) -> str:
-        return context[: c.start - low] + c.alt + context[c.end - low :]
+        return span[: c.start - first] + c.alt + span[c.end - first :]
 
     return apply(a) == apply(b)
 
 
-def _left_shifted(t: ManeTranscript, key: GenomeKey) -> GenomeKey | None:
-    """The same indel written one base to the left, or None if the window ends there."""
-    before = genome_slice(t, key.pos - 1, key.pos - 1)
-    if before is None:
-        return None
-    if len(key.ref) > len(key.alt):
-        ref = genome_slice(t, key.pos - 1, key.pos + len(key.ref) - 2)
-        if ref is None:
+def _left_aligned(t: ManeTranscript, key: GenomeKey) -> GenomeKey | None:
+    """A pure indel moved left as far as it goes, or None if the pinned bases end first.
+
+    While ref and alt end in one base the indel moves one base left: the base
+    before it becomes the anchor and the last base of each allele drops off.
+    """
+    pos, ref, alt = key.pos, key.ref, key.alt
+    while ref[-1] == alt[-1]:
+        before = genome_slice(t, pos - 1, pos - 1)
+        if before is None:
             return None
-        return GenomeKey(key.chrom, key.pos - 1, ref, before)
-    # The inserted bases rotate by one: `A` + I after pos becomes `before` + A + I[:-1].
-    return GenomeKey(key.chrom, key.pos - 1, before, before + key.alt[:-1])
+        pos, ref, alt = pos - 1, before + ref[:-1], before + alt[:-1]
+    return GenomeKey(key.chrom, pos, ref, alt)
 
 
 def _key_change(key: GenomeKey) -> _Change:
@@ -240,23 +242,21 @@ def _key_issues(text: str, t: ManeTranscript) -> tuple[list[Issue], _Change | No
     issues: list[Issue] = []
     if key.ref != genome:
         issues.append(("LIT018", f"grch38 {text} states ref {key.ref} but GRCh38 has {genome}"))
-    # A pure indel (one allele is the anchor alone) is left-aligned when moving it
-    # one base left gives another sequence. For such a key that is the same test
-    # as "ref and alt end in different bases", which is what every other key, and
-    # an indel at a window's edge, is held to.
-    pure_indel = key.ref[0] == key.alt[0] and min(len(key.ref), len(key.alt)) == 1
-    shifted = _left_shifted(t, key) if pure_indel else None
-    if shifted is not None:
-        if _same_sequence(t, _key_change(key), _key_change(shifted)):
-            issues.append(
-                (
-                    "LIT018",
-                    f"grch38 {text} is not left-aligned: "
-                    f"{shifted.chrom}:{shifted.pos}:{shifted.ref}:{shifted.alt} is the same change",
-                )
+    # Minimal and left-aligned: ref and alt must not end in one base, nor share a
+    # first base beyond the VCF anchor. For a pure indel (one allele is the anchor
+    # alone), ending in one base is exactly "it can move one base left" (20,000 of
+    # 20,000 random indels agreed), so the message names where it moves to.
+    if key.ref[-1] == key.alt[-1]:
+        pure_indel = key.ref[0] == key.alt[0] and min(len(key.ref), len(key.alt)) == 1
+        aligned = _left_aligned(t, key) if pure_indel else None
+        if aligned is not None:
+            reason = (
+                f"not left-aligned: {aligned.chrom}:{aligned.pos}:{aligned.ref}:{aligned.alt} "
+                "is the same change"
             )
-    elif key.ref[-1] == key.alt[-1]:
-        issues.append(("LIT018", f"grch38 {text} is not minimal: ref and alt end in one base"))
+        else:
+            reason = "not minimal: ref and alt end in one base"
+        issues.append(("LIT018", f"grch38 {text} is {reason}"))
     elif len(key.ref) > 1 and len(key.alt) > 1 and key.ref[0] == key.alt[0]:
         issues.append(
             (
