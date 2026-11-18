@@ -44,7 +44,7 @@ def _pair(first: dict[str, Any], second: dict[str, Any]) -> FindingDiff:
 
 
 def test_the_compared_set_is_pinned() -> None:
-    """The 17 fields a second pass is compared on.
+    """The 18 fields a second pass is compared on.
 
     chd-atlas/curator keeps a twin of this pin, `test_the_compared_set_is_pinned`
     in its `tests/test_diff.py`, because `chd-curator diff` compares the same set
@@ -62,6 +62,7 @@ def test_the_compared_set_is_pinned() -> None:
         "screened",
         "carriers",
         "variant_classes",
+        "variants",
         "cases",
         "controls",
         "p_value",
@@ -220,3 +221,34 @@ def test_the_report_is_sorted() -> None:
         "odds_ratio",
         "screened",
     ]  # model field order puts screened first; the report is alphabetical
+
+
+def _variant(vid: int, as_reported: str, **changes: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "id": vid,
+        "as_reported": as_reported,
+        "locator": {"kind": "in_text", "element": f"Table {vid}"},
+        "kind": "snv_indel",
+        "placement": "protein",
+        "with": [],
+    }
+    base.update(changes)
+    return base
+
+
+def test_variant_order_and_local_ids_do_not_count_as_a_difference() -> None:
+    first = [_variant(1, "p.Arg1Trp"), _variant(2, "p.Gly2Ser", zygosity="homozygous", with_=[1])]
+    second = [
+        _variant(7, "p.Gly2Ser", zygosity="homozygous", normalisation=3, review_note=None),
+        _variant(5, "p.Arg1Trp", locator={"kind": "in_text", "element": "Figure 9"}),
+    ]
+    first[1]["with"] = [1]
+    del first[1]["with_"]
+    second[0]["with"] = [5]
+    diff = _pair({"variants": first}, {"variants": second})
+    assert diff.fields == {} and diff.agreed == ("CHDA:LIT:0000001",)
+
+    changed = _pair(
+        {"variants": first}, {"variants": [second[1], {**second[0], "zygosity": "hemizygous"}]}
+    )
+    assert [name for name, _, _ in changed.fields["CHDA:LIT:0000001"]] == ["variants"]

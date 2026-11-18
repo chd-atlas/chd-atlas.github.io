@@ -354,3 +354,71 @@ def test_a_synthesis_approval_names_a_person_with_the_findings_messages() -> Non
         Synthesis.model_validate(
             _synthesis(approved_by=" Agent:x", approved_on="2026-11-05", approved_digest="sha256:a")
         )
+
+
+def _variant_entry(**changes: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "id": 2,
+        "as_reported": "p.Arg9Cys",
+        "locator": {"kind": "in_text", "element": "Table 1"},
+        "kind": "snv_indel",
+        "placement": "protein",
+        "with": [3],
+    }
+    base.update(changes)
+    return base
+
+
+def test_a_variant_round_trips_with_its_with_key_and_defaults_omitted() -> None:
+    from chd_atlas.models.gene_literature import Variant
+
+    entry = _variant_entry()
+    variant = Variant.model_validate(entry)
+    assert variant.with_ == [3]
+    # exclude_defaults also drops the locator's own default `kind`, as it does
+    # for every finding locator in the digest.
+    expected = {**entry, "locator": {"element": "Table 1"}}
+    assert variant.model_dump(mode="json", by_alias=True, exclude_defaults=True) == expected
+
+
+def test_a_variant_review_note_without_a_status_is_refused() -> None:
+    with pytest.raises(ValidationError, match="variant 2: a review_note needs a review_status"):
+        Finding.model_validate(_rare(variants=[_variant_entry(review_note="open")]))
+    with pytest.raises(ValidationError, match="variant 2: review_status"):
+        Finding.model_validate(_rare(variants=[_variant_entry(review_status="pending_review")]))
+
+
+def test_duplicate_normalisation_ids_are_refused_and_variants_follow_variant_classes() -> None:
+    run = {
+        "tool": "variantvalidator",
+        "version": "v",
+        "hgvs_version": "h",
+        "vvta": "t",
+        "vvdb": "d",
+        "seqrepo": "s",
+        "run_on": "2026-11-17",
+    }
+    with pytest.raises(ValidationError, match="duplicate normalisation ids"):
+        GeneLiteratureFile.model_validate(
+            _file(normalisations=[{"id": 1, **run}, {"id": 1, **run}])
+        )
+    assert (
+        list(Finding.model_fields)[list(Finding.model_fields).index("variant_classes") + 1]
+        == "variants"
+    )
+
+
+def test_with_findings_updated_places_a_whole_variants_list_after_variant_classes() -> None:
+    from io import StringIO
+
+    from ruamel.yaml import YAML
+
+    from chd_atlas.gene_literature_io import dump_bytes, load_round_trip, with_findings_updated
+
+    raw_file = _file(findings=[_rare()])
+    data = load_round_trip(dump_bytes(raw_file))
+    out = with_findings_updated(
+        dump_bytes(data), {"CHDA:LIT:0000001": {"variants": [_variant_entry()]}}
+    )
+    keys = list(YAML().load(StringIO(out.decode()))["findings"][0])
+    assert keys.index("variants") == keys.index("variant_classes") + 1
