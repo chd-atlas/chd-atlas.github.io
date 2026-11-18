@@ -48,7 +48,11 @@ from chd_atlas.build.literature import build_literature, build_sources, withheld
 from chd_atlas.build.manifest import source_commit, write_manifest
 from chd_atlas.build.methods import build_methods
 from chd_atlas.build.omics import build_omics
-from chd_atlas.build.pages import build_gene_index_page, build_gene_pages
+from chd_atlas.build.pages import (
+    build_gene_index_page,
+    build_gene_pages,
+    build_register_pages,
+)
 from chd_atlas.build.profiles import (
     build_profile_quantiles,
     gene_expression_profiles,
@@ -521,6 +525,14 @@ def build_site(root: Path, out: Path) -> dict[str, str]:
         # The registry itself, for the card's line on a syndrome a ClinGen
         # panel scoped (R5): it reads each term's `syndrome` mark and authority.
         scope_terms={str(e.id): e for e in corpus.chd_scope},
+    )
+    # One back page per gene with an open literature question, from the same
+    # `literature` mapping the gene pages and bundles read.
+    build_register_pages(
+        emitter,
+        literature=literature,
+        symbols=symbols,
+        publications={publication.id: publication for publication in corpus.publications},
     )
     # `validity` again, and the same object `build_gene_pages` was handed: the
     # browse row's `definitive for` cell and the gene page's `definitive for`

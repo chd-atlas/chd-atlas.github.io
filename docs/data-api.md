@@ -328,7 +328,7 @@ wrong by the next one.
 ## The site root: `index.html`
 
 The page a person opens directly rather than fetches as JSON, and the entry
-point to the other 121. It carries the same development-status and
+point to the other 123. It carries the same development-status and
 research-use statement `status` above is the machine-readable half of, as every
 page does, and is a doorway rather than the census (since 2026-10-27): it says
 what the atlas is, states the figures a first-time reader needs, and sends
@@ -364,8 +364,8 @@ request, no build timestamp, byte-identical between two builds of one commit
 like everything else here.
 
 **Every page is checksummed in `manifest.json` exactly like a payload.** The
-build behind this document publishes 122 of them — this one, `genes/index.html`,
-[`methods.html`](#methodshtml) and one per published gene — and each has an entry
+build behind this document publishes 124 of them — this one, `genes/index.html`,
+[`methods.html`](#methodshtml), one per published gene and one register per gene with an open literature question — and each has an entry
 in `files` giving the sha256 of the bytes served at it. A page is published
 output, so it is verifiable output.
 
@@ -2146,6 +2146,13 @@ the machine-readable contract: the page's markup is not one.
 the JSON; the route to the page is the link on `genes/index.html`, which is why
 the slug rule stays an implementation detail (see
 [Reading this API](#reading-this-api)).
+
+## `register/<slug>.html`
+
+One HTML page per gene that has at least one open question on its approved
+literature findings, and none for a gene without one. It lists each question
+with its reason and what would settle it. It is a view of the gene bundle's
+`literature.findings`, so it adds no data.
 
 ## `omics/<modality>/<accession>.json`
 

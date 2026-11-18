@@ -55,6 +55,7 @@ from chd_atlas.build.pages import (
     _tissue_percentile,
     build_gene_index_page,
     build_gene_pages,
+    build_register_pages,
 )
 from chd_atlas.build.paths import gene_page_path
 from chd_atlas.build.profiles import (
@@ -72,6 +73,7 @@ from chd_atlas.build.validity import GeneValidity, ValidityRecord
 from chd_atlas.models.assertion import Evidence, InTextLocator, LesionAssertion
 from chd_atlas.models.cohort import Cohort
 from chd_atlas.models.dataset import Dataset, Stage
+from chd_atlas.models.gene_literature import Finding
 from chd_atlas.models.literature import Publication
 from chd_atlas.models.phases import CardiacPhase, CardiacPhaseFile, EndBasis
 from chd_atlas.models.review import ReviewStatus
@@ -11777,3 +11779,187 @@ def test_a_cited_assertion_links_to_its_heading_on_the_same_page(
     gata4 = _page(tmp_path, "HGNC_4173.html")
     assert "<strong>In short.</strong> Septal (CHDA:AST:0000002).</p>" in _rail_of(gata4)
     assert 'id="chda-ast-0000002"' not in gata4
+
+
+# --- The register (back page) ---------------------------------------------------------
+
+
+def _reg_finding(number: int, pmid: str, **changes: object) -> dict[str, object]:
+    base: dict[str, object] = {
+        "id": f"CHDA:LIT:{number:07d}",
+        "publication": pmid,
+        "design": "cohort_screen",
+        "methods": ["exome"],
+        "count_unit": "probands",
+        "screened": 7,
+        "carriers": {"de_novo": 2, "inherited": 1, "origin_unknown": 3},
+        "variant_classes": ["snv_indel"],
+        "phenotypes": ["HP:0001631"],
+        "lesion_groups": ["septal"],
+        "syndromic": "both",
+        "shares_probands_with": "unknown",
+        "locators": [{"kind": "in_text", "element": "Table 2"}],
+        "summary": f"Summary {number}.",
+        "extracted_by": "agent:extract/test",
+    }
+    base.update(changes)
+    return Finding.model_validate(base).model_dump(mode="json", by_alias=True)
+
+
+def _reg_variant(number: int, **changes: object) -> dict[str, object]:
+    base: dict[str, object] = {
+        "id": number,
+        "as_reported": f"as printed {number}",
+        "locator": {"kind": "in_text", "element": "Table 1"},
+        "kind": "snv_indel",
+        "placement": "protein",
+    }
+    base.update(changes)
+    return base
+
+
+def _reg_pubs() -> dict[str, Publication]:
+    def pub(pmid: str, author: str, year: int) -> Publication:
+        return Publication(
+            id=pmid,  # type: ignore[arg-type]
+            title=f"Title of {pmid}",
+            journal="J",
+            year=year,
+            authors=[author],
+            study_type="case_report",  # type: ignore[arg-type]
+        )
+
+    return {
+        "PMID:11": pub("PMID:11", "Alpha A", 2001),
+        "PMID:12": pub("PMID:12", "Beta B", 2002),
+        "PMID:13": pub("PMID:13", "Gamma G", 2003),
+    }
+
+
+def _register(
+    tmp_path: Path, findings: list[dict[str, object]], *, pending: int = 0, gene: str = TBX5
+) -> Path:
+    literature = {
+        gene: GeneLiterature(
+            searches=[],
+            triage={"included": 0, "excluded": {}, "pending": 0},  # type: ignore[typeddict-item]
+            pending_approval=pending,
+            findings=findings,
+            normalisations=[],
+            tallies=EMPTY_GENE_LITERATURE["tallies"],
+            synthesis=None,
+        )
+    }
+    build_register_pages(
+        Emitter(root=tmp_path),
+        literature=literature,
+        symbols={TBX5: "TBX5"},
+        publications=_reg_pubs(),
+    )
+    return tmp_path / "register"
+
+
+def _register_rows(page: str) -> list[list[str]]:
+    body = _slice_between(page, "<tbody>", ("</tbody>",))
+    return [re.findall(r"<td>(.*?)</td>", row) for row in body.split("<tr>")[1:]]
+
+
+def test_a_gene_with_no_open_question_gets_no_register_page(tmp_path: Path) -> None:
+    # One finding with no mark, and one gene absent from the mapping's questions.
+    folder = _register(tmp_path, [_reg_finding(1, "PMID:11")], pending=4)
+    assert not folder.exists() or list(folder.iterdir()) == []
+
+
+def test_the_register_groups_identical_questions_into_one_row_and_names_every_record(
+    tmp_path: Path,
+) -> None:
+    abstract = {"review_status": "not_accessible", "review_note": "Only the abstract was read."}
+    findings = [
+        _reg_finding(1, "PMID:11", **abstract),
+        _reg_finding(2, "PMID:12", **abstract),
+        _reg_finding(
+            3,
+            "PMID:13",
+            variants=[
+                _reg_variant(
+                    4,
+                    hgvs_c="NM_000192.4:c.25C>T",
+                    zygosity="unclear",
+                    unclear={"zygosity": {"reason": "Het or hom.", "settled_by": "authors"}},
+                )
+            ],
+        ),
+    ]
+    page = (_register(tmp_path, findings) / f"{TBX5.replace(':', '_')}.html").read_text("utf-8")
+
+    assert "<title>TBX5 register</title>" in page
+    assert (
+        '<h1>TBX5 register</h1><p><a href="../genes/HGNC_11604.html">TBX5 gene page</a></p>' in page
+    )
+    assert '<h2 id="questions">Open questions (3)</h2>' in page
+    rows = _register_rows(page)
+    assert len(rows) == 2  # 3 questions, 2 rows: the abstract-only pair merges
+    # Rows run by settler: the full text before the authors.
+    assert rows[1][1:] == ["Zygosity unclear", "Het or hom.", "the authors"]
+    assert rows[1][0] == (
+        '<span id="q-chda-lit-0000003-v4-zygosity">'
+        '<a href="https://pubmed.ncbi.nlm.nih.gov/13/" title="Title of PMID:13">'
+        "Gamma G et al. 2003</a> · c.25C&gt;T</span>"
+    )
+    assert "NM_000192" not in page
+    assert rows[0][1:] == ["Source not accessible", "Only the abstract was read.", "the full text"]
+    assert rows[0][0].count("<span id=") == 2
+    assert 'id="q-chda-lit-0000001"' in rows[0][0] and 'id="q-chda-lit-0000002"' in rows[0][0]
+    assert "<br>" in rows[0][0]
+    assert "<details" not in page and '<div class="scroll"><table>' in page
+
+
+def test_a_papers_second_finding_is_named_by_its_id_on_the_register(tmp_path: Path) -> None:
+    mark = {"review_status": "not_accessible", "review_note": "Abstract only."}
+    findings = [
+        _reg_finding(1, "PMID:11", **mark),
+        _reg_finding(2, "PMID:11"),
+        _reg_finding(3, "PMID:12", **mark),
+    ]
+    page = (_register(tmp_path, findings) / "HGNC_11604.html").read_text("utf-8")
+    cell = _register_rows(page)[0][0]
+    spans = cell.split("<br>")
+    assert spans[0].endswith("Alpha A et al. 2001</a> · CHDA:LIT:0000001</span>")
+    assert spans[1].endswith("Beta B et al. 2002</a></span>")
+
+
+def test_a_reason_with_markup_characters_is_escaped(tmp_path: Path) -> None:
+    findings = [
+        _reg_finding(
+            1,
+            "PMID:11",
+            review_status="pending_review",
+            review_note='Counts <b>differ</b> & "disagree".',
+            review_settled_by="expert",
+        )
+    ]
+    page = (_register(tmp_path, findings) / "HGNC_11604.html").read_text("utf-8")
+    assert (
+        _register_rows(page)[0][2] == "Counts &lt;b&gt;differ&lt;/b&gt; &amp; &quot;disagree&quot;."
+    )
+    assert "<b>" not in page
+
+
+def test_the_register_shows_approved_findings_only(tmp_path: Path) -> None:
+    # The mapping's `findings` is the approved set; waiting findings are a count.
+    # A gene whose only marked findings are still awaiting approval has none here.
+    folder = _register(tmp_path, [_reg_finding(1, "PMID:11")], pending=9)
+    assert not (folder / "HGNC_11604.html").exists()
+    page = (
+        _register(
+            tmp_path / "b",
+            [
+                _reg_finding(
+                    2, "PMID:12", review_status="not_accessible", review_note="Abstract only."
+                )
+            ],
+            pending=9,
+        )
+        / "HGNC_11604.html"
+    ).read_text("utf-8")
+    assert "Open questions (1)" in page and "CHDA:LIT:0000001" not in page

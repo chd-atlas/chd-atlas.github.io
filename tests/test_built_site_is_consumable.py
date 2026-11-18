@@ -155,7 +155,10 @@ def test_every_html_page_the_build_writes_carries_the_research_use_notice(site: 
     """
     pages = sorted(site.rglob("*.html"))
     bundles = sorted((site / "genes").glob("HGNC_*.json"))
-    expected = len(bundles) + 3
+    # Plus one register page per gene with an open literature question
+    # (`register/`), counted by name in `test_the_register_exists_for_exactly_...`.
+    registers = len(list((site / "register").glob("HGNC_*.html")))
+    expected = len(bundles) + 3 + registers
 
     assert len(bundles) > 1, "the build published no gene bundles; the fixture is broken"
     assert len(pages) == expected, (
@@ -2812,3 +2815,20 @@ def test_no_finding_card_states_a_mechanism_or_a_null_its_rows_do_not(site: Path
     for card in cards:
         for phrase in ("aploinsufficiency", "ain-of-function", "ain-of-Function", "no enrichment"):
             assert phrase not in card, (phrase, card)
+
+
+def test_the_register_exists_for_exactly_the_genes_with_open_questions(site: Path) -> None:
+    """`register/` holds TBX5's and NR2F2's back pages and nothing else (measured 2026-11-18).
+
+    Those are the two genes with approved findings that carry a mark. Every
+    anchor on a register is unique, so a gene page's "why" link names one record.
+    The link sweep above already walks `register/*.html`, since it globs every
+    page in the site.
+    """
+    files = sorted(path.name for path in (site / "register").glob("*"))
+    assert files == ["HGNC_11604.html", "HGNC_7976.html"]
+    for name in files:
+        page = (site / "register" / name).read_text(encoding="utf-8")
+        ids = re.findall(r' id="([^"]+)"', page)
+        assert ids and len(ids) == len(set(ids)), name
+        assert f'href="../genes/{name}"' in page

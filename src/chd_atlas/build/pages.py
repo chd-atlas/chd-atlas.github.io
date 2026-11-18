@@ -108,7 +108,12 @@ from chd_atlas.build.gene_literature import (
     variant_table,
 )
 from chd_atlas.build.identity import EMPTY_IDENTITY, GeneIdentity, external_links
-from chd_atlas.build.paths import GENE_INDEX_PAGE, gene_bundle_path, gene_page_path
+from chd_atlas.build.paths import (
+    GENE_INDEX_PAGE,
+    gene_bundle_path,
+    gene_page_path,
+    register_page_path,
+)
 from chd_atlas.build.profiles import (
     EMPTY_EXPRESSION_PROFILE,
     DatasetProfileEntry,
@@ -118,6 +123,12 @@ from chd_atlas.build.profiles import (
     ProfileGap,
     StageProfileEntry,
     TissueProfileEntry,
+)
+from chd_atlas.build.questions import (
+    QUESTION_LABELS,
+    SETTLED_LABELS,
+    open_questions,
+    question_rows,
 )
 from chd_atlas.build.render import (
     EVIDENCE_POWER_CAVEAT,
@@ -7437,6 +7448,77 @@ def build_gene_pages(
         emitter.write_text(
             gene_page_path(HgncId(gene)),
             document(title=f"{symbol} — CHD Atlas", root="../", body=body),
+        )
+
+
+_REGISTER_HEADERS: Final = ("Record", "Question", "Reason", "Would be settled by")
+_REGISTER_INTRO: Final = (
+    "The open questions on this gene's approved literature findings, each with "
+    "its reason. A question stays open until what the last column names settles "
+    "it; the gene page marks each one."
+)
+
+
+def build_register_pages(
+    emitter: Emitter,
+    *,
+    literature: Mapping[str, GeneLiterature],
+    symbols: Mapping[str, str],
+    publications: Mapping[str, Publication],
+) -> None:
+    """Emit `register/<slug>.html`: a gene's open literature questions.
+
+    One page per gene with at least one open question on its published
+    (approved) findings, none otherwise. It renders `literature[gene]
+    ["findings"]` through `questions.open_questions` and `question_rows`, the
+    same functions the curators' command reads, so the two cannot disagree. N in
+    the heading counts questions; the table has one row per merged group.
+
+    Every anchor is visible (no `<details>`), so a "why" link on the gene page
+    always lands on a row naming its record. Every curator string is escaped.
+    """
+    for gene in sorted(literature):
+        findings = literature[gene]["findings"]
+        questions = open_questions(findings)
+        if not questions:
+            continue
+        symbol = symbols.get(gene, gene)
+        papers: dict[str, int] = {}
+        for finding in findings:
+            papers[finding["publication"]] = papers.get(finding["publication"], 0) + 1
+        rows: list[Row] = []
+        for question in question_rows(questions):
+            spans = []
+            for record in question["records"]:
+                parts = [_paper_link(record["publication"], publications).html]
+                if papers[record["publication"]] > 1:
+                    parts.append(html.escape(record["finding"]))
+                if record["variant_name"] is not None:
+                    parts.append(html.escape(_bare(record["variant_name"])))
+                spans.append(
+                    f'<span id="{html.escape(record["anchor"])}">{" · ".join(parts)}</span>'
+                )
+            rows.append(
+                Row(
+                    cells=(
+                        Markup("<br>".join(spans)),
+                        QUESTION_LABELS[question["kind"]],
+                        question["reason"],
+                        SETTLED_LABELS[question["settled_by"]],
+                    )
+                )
+            )
+        slug_page = html.escape(f"../{gene_page_path(HgncId(gene))}")
+        body = (
+            f"<h1>{html.escape(symbol)} register</h1>"
+            f'<p><a href="{slug_page}">{html.escape(symbol)} gene page</a></p>'
+            f"<p>{html.escape(_REGISTER_INTRO)}</p>"
+            f'<h2 id="questions">Open questions ({len(questions)})</h2>'
+            f'<div class="scroll">{data_table(_REGISTER_HEADERS, rows)}</div>'
+        )
+        emitter.write_text(
+            register_page_path(HgncId(gene)),
+            document(title=f"{symbol} register", root="../", body=body),
         )
 
 
