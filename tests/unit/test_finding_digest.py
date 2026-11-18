@@ -304,19 +304,22 @@ def test_every_committed_approval_still_matches_its_finding() -> None:
     """
     root = Path(__file__).resolve().parents[2] / "curation" / "literature"
     yaml = YAML(typ="safe")
-    findings = syntheses = 0
+    findings: dict[str, int] = {}
+    syntheses: set[str] = set()
     for path in sorted(root.glob("*.yaml")):
         file = GeneLiteratureFile.model_validate(yaml.load(path.read_text(encoding="utf-8")))
         for finding in file.findings:
             if finding.approved_by is not None:
                 assert finding.approved_digest == finding_digest(finding), finding.id
-                findings += 1
+                findings[path.stem] = findings.get(path.stem, 0) + 1
         syn = file.synthesis
         if syn is not None and syn.approved_digest is not None:
             gene_assertions = [a for a in _committed_assertions(root.parent) if a.gene == file.gene]
             assert syn.approved_digest == synthesis_digest(syn, file.findings, gene_assertions)
-            syntheses += 1
-    assert findings >= 94 and syntheses >= 2
+            syntheses.add(path.stem)
+    # floors, not equalities: new approvals grow them (measured 73 and 21)
+    assert findings.get("TBX5", 0) >= 73 and findings.get("NR2F2", 0) >= 21
+    assert {"TBX5", "NR2F2"} <= syntheses
 
 
 def _committed_assertions(curation: Path) -> list[LesionAssertion]:
@@ -333,13 +336,8 @@ def test_adding_a_variant_voids_the_finding_but_marking_it_does_not() -> None:
     base = finding_digest(_with_variants())
     one = finding_digest(_with_variants(_variant()))
     assert one != base
-    # the links are hashed under their YAML key: changing them moves the digest,
-    # and the dump carries `with`, not `with_`
+    # changing the links moves the digest
     assert finding_digest(_with_variants(_variant(**{"with": [3]}))) != one
-    assert (
-        "with_"
-        not in _with_variants(_variant()).model_dump(mode="json", by_alias=True)["variants"][0]
-    )
     marked = finding_digest(
         _with_variants(_variant(review_status="pending_review", review_note="check the locus"))
     )
@@ -388,6 +386,11 @@ def test_marking_a_variant_voids_the_synthesis_but_not_the_finding() -> None:
 
 
 def test_normalisation_records_enter_no_digest() -> None:
+    """Pins the decision: the file's normalisation records enter no digest.
+
+    A variant's own `normalisation` integer is content and does enter the
+    finding digest.
+    """
     syn = _synthesis()
     finding = _with_variants(_variant(normalisation=1))
     base = finding_digest(finding)

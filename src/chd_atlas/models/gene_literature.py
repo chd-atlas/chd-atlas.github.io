@@ -84,7 +84,7 @@ _DIGEST_EXCLUDED: Final[frozenset[str]] = frozenset(
 )
 
 # A variant's review mark is not an edit to what the finding says, as the
-# finding's own is not; the synthesis covers it (`_covered_finding`).
+# finding's own mark is not; the synthesis covers it (`_covered_finding`).
 _VARIANT_DIGEST_EXCLUDED: Final[frozenset[str]] = frozenset({"review_status", "review_note"})
 
 
