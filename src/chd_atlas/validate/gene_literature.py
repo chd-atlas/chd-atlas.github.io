@@ -60,9 +60,11 @@ def validate_gene_literature(
     - `known_publications` None skips LIT011; `known_cohorts` None skips LIT012.
     - `published_genes` None skips LIT013.
     - `mane` None skips the variants' reference checks (LIT016-LIT021, LIT025); a file
-      with a `mane` or `protein` variant then reports MAN005 (error) beside MAN000
-      (warning), once. A frame that loads but holds no row for the file's gene is not
-      None: its variants are LIT016 and the curator lists them `unplaced`.
+      with a variant whose reference checks need the frame (`mane`, `protein`, or
+      `unplaced` keeping an `hgvs_p`) then reports MAN005 (error, naming that count)
+      beside MAN000 (warning), once; a file with none of them reports neither. A frame
+      that loads but holds no row for the file's gene is not None: its variants are
+      LIT016 and the curator lists them `unplaced`.
     - `burden_studies` (gene -> the studies `mirrors/burden.tsv` has rows for) None
       skips LIT014; it is None only when that table is unreadable, which TBL000 or
       TBL001 reports. A missing table is `{}`: a finding linking a burden study then
@@ -191,13 +193,14 @@ def _check_file(
         for finding in literature.findings
         for variant in finding.variants
         if variant.placement in (VariantPlacement.MANE, VariantPlacement.PROTEIN)
+        or (variant.placement is VariantPlacement.UNPLACED and variant.hgvs_p is not None)
     )
     if mane is None and needing_frame:
         error(
             "MAN005",
             here,
-            f"{needing_frame} variant(s) need the MANE frame, but mirrors/mane_transcripts.tsv "
-            "and mirrors/mane_exons.tsv did not load",
+            f"{needing_frame} variant(s) have reference checks that need the MANE frame, but "
+            "mirrors/mane_transcripts.tsv and mirrors/mane_exons.tsv did not load",
         )
         add(
             "MAN000",
