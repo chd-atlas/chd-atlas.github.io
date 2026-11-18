@@ -1633,6 +1633,16 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
     assert set(variant) - {"…"} <= {f.alias or n for n, f in Variant.model_fields.items()}
     run = shown["normalisations"][0]
     assert set(run) - {"…"} <= set(Normalisation.model_fields)
+    # Required by name, so an example that drops one cannot pass as a subset.
+    assert {"id", "as_reported", "placement", "grch38", "normalisation", "with", "phase"} <= set(
+        variant
+    )
+    assert {"id", "tool", "run_on"} <= set(run)
+    # `with` and `normalisation` resolve as the prose says: within the finding, mutually,
+    # and to a run the example publishes.
+    pair = shown["findings"][0]["variants"]
+    assert [(v["id"], v["with"]) for v in pair] == [(1, [2]), (2, [1])]
+    assert {v["normalisation"] for v in pair} == {run["id"]}
     empty_count = len(bundles) - len(with_record)
     prose = " ".join(section.split())
     assert f"as {empty_count} of the {len(bundles)} published genes do today" in prose
@@ -1641,7 +1651,13 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
         "`pending_approval` counts findings no named person has approved",
         "sorted by publication year, then numeric PMID, then finding id",
         "A finding carrying a `review_status` is published with it",
-        "A consumer groups on `grch38`",
+        "A consumer groups on `grch38` for these.",
+        "`protein`: `hgvs_p` only, no genomic coordinates; group on `hgvs_p`.",
+        "`unplaced`: a review mark, never grouped, and at most a checked `hgvs_p`.",
+        "`mane`: `hgvs_c`, `grch38` and `normalisation`, and `hgvs_p` where the change has one.",
+        "`structural` and `outside_region`: listed only, with no coordinates or HGVS.",
+        "`phase` (`trans`, `cis` or `not_stated`) is non-null exactly when `with` is non-empty",
+        "`version`, `hgvs_version`, `vvta`, `vvdb`, `seqrepo` and `run_on`",
     ):
         assert needle in prose, needle
 

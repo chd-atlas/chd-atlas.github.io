@@ -312,8 +312,9 @@ wrong by the next one.
   short" narrative, `null` where the gene has none, or its approval is missing
   or stale (see each field's own description). The gene page card reads from
   both. Additive.
-  `2.24` added `variants` to every finding in `literature.findings` and
-  `normalisations` to `literature`. Additive.
+  `2.24` added `normalisations` to every gene bundle's `literature`, and the
+  `with` key to a variant, which can now be populated: `variants` was already `[]`
+  on every finding. Additive.
 - `status` is the atlas's own readiness, so a program can read it without
   scraping `index.html`'s prose. Today it is always `"in-development"` — one
   curated gene-disease assertion alongside mirrored ClinGen/GenCC validity for
@@ -1686,15 +1687,24 @@ TBX5's, abridged:
   not yet approved, which is then in no bundle, so the id resolves nowhere in the
   published data. `carriers` and `screened` are counted in `count_unit`: with
   `families`, `screened` is families and each origin count is carrier families.
-- `variants` (since `2.24`) lists the variants a finding names, `[]` for none.
-  Each carries `as_reported`, `placement`, `hgvs_c`, `hgvs_p`, `grch38`,
-  `zygosity`, `with` (ids of variants it was found with), `reported` (the paper's
-  own names, unchecked) and `normalisation`, the id of a run in `normalisations`.
-  A variant outside the checked region has no coordinates. A consumer groups on
-  `grch38`, never on `as_reported`.
+- `variants` (since `2.24`) lists a finding's variants, `[]` for none. A variant's
+  `id` and the ids in its `with` are per finding: `with` names only the same
+  finding's variants, and links are mutual. `phase` (`trans`, `cis` or
+  `not_stated`) is non-null exactly when `with` is non-empty. `zygosity` is
+  `heterozygous`, `homozygous`, `hemizygous` or `not_stated`; `kind` is
+  `snv_indel`, `cnv` or `chromosomal`; `locator` says where the paper states it;
+  `carriers` counts by origin; `phenotypes` are HPO ids within the finding's;
+  `reported` holds the paper's own names, unchecked; `review_status` and
+  `review_note` publish as on a finding. `placement` sets what a variant
+  carries. `mane`: `hgvs_c`, `grch38` and `normalisation`, and `hgvs_p` where the
+  change has one. A consumer groups on `grch38` for these. `protein`: `hgvs_p`
+  only, no genomic coordinates; group on `hgvs_p`. `unplaced`: a review mark,
+  never grouped, and at most a checked `hgvs_p`. `structural` and
+  `outside_region`: listed only, with no coordinates or HGVS.
 - `normalisations` (since `2.24`) lists the normaliser runs that published
-  variants cite, by `id`: `tool`, the tool, database and sequence versions, and
-  `run_on`. A run no published variant cites is not published.
+  variants cite, by `id`, which a variant's `normalisation` names: `tool`,
+  `version`, `hgvs_version`, `vvta`, `vvdb`, `seqrepo` and `run_on`. A run no
+  published variant cites is not published.
 - `tallies` (since `2.23`) counts the approved findings by paper (distinct `publication`), never
   carriers: papers may share probands, so no carrier total across papers is
   published. A paper with several findings counts once in each category, so the
@@ -1726,12 +1736,18 @@ TBX5's, abridged:
   "1990s", "3x"), a numeric symbol such as "½", and a fixed list of number words,
   alone or glued to "fold"; counts are in `tallies` and the findings.
 
-A finding with one variant (a made-up example, not TBX5's), and the run it cites, abridged:
+A finding with two linked variants (a made-up example, not TBX5's), and the run
+they cite, abridged. The variant ids restart in each finding; `normalisation` is
+the id of a run in the gene's `normalisations`:
 
 ```json
-{ "findings": [ { "id": "CHDA:LIT:0000015", "variants": [ { "id": 1, "as_reported": "p.R279X",
-                    "placement": "mane", "grch38": "12:114366312:G:A", "normalisation": 1,
-                    "with": [], … } ], … } ],
+{ "findings": [ { "id": "CHDA:LIT:0000015",
+    "variants": [ { "id": 1, "as_reported": "p.R279X", "placement": "mane",
+                    "grch38": "12:114366312:G:A", "normalisation": 1,
+                    "with": [2], "phase": "trans", … },
+                  { "id": 2, "as_reported": "c.100del", "placement": "mane",
+                    "grch38": "12:114400000:CA:C", "normalisation": 1,
+                    "with": [1], "phase": "trans", … } ], … } ],
   "normalisations": [ { "id": 1, "tool": "variantvalidator", "run_on": "2026-11-17", … } ] }
 ```
 
