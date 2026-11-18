@@ -312,9 +312,9 @@ wrong by the next one.
   short" narrative, `null` where the gene has none, or its approval is missing
   or stale (see each field's own description). The gene page card reads from
   both. Additive.
-  `2.24` added `normalisations` to every gene bundle's `literature`, and the
-  `with` key to a variant, which can now be populated: `variants` was already `[]`
-  on every finding. Additive.
+  `2.24` added `variants` to every finding (`[]` for none) and `normalisations`
+  to every gene bundle's `literature`, and a variant's links publish as `with`.
+  Additive.
 - `status` is the atlas's own readiness, so a program can read it without
   scraping `index.html`'s prose. Today it is always `"in-development"` — one
   curated gene-disease assertion alongside mirrored ClinGen/GenCC validity for
@@ -1700,12 +1700,19 @@ TBX5's, abridged:
   `not_stated`) is non-null exactly when `with` is non-empty. `zygosity` is
   `heterozygous`, `homozygous`, `hemizygous` or `not_stated`; `kind` is
   `snv_indel`, `cnv` or `chromosomal`; `locator` says where the paper states it;
-  `carriers` counts by origin; `phenotypes` are HPO ids within the finding's;
-  `reported` holds the paper's own names, unchecked; `review_status` and
+  `as_reported` is the variant as the paper prints it; `carriers` counts by
+  origin, and is `null` on a common-variant finding; `phenotypes` are HPO ids
+  within the finding's; `reported` holds the paper's own names (`transcript`, `c`,
+  `p`, `rsid`), each `null` when not given. They are not copied into `hgvs_c` or
+  `hgvs_p`: only `reported.p` is checked, by LIT025 against `hgvs_p`, and only
+  when `reported.transcript` is absent or is the gene's MANE Select. `review_status` and
   `review_note` publish as on a finding. `placement` sets what a variant
   carries. `mane`: `hgvs_c`, `grch38` and `normalisation`, and `hgvs_p` where the
   change has one. A consumer groups on `grch38` for these. `protein`: `hgvs_p`
-  only, no genomic coordinates; group on `hgvs_p`. `unplaced`: a review mark,
+  only, no genomic coordinates; group on its canonical reading: accession and
+  parentheses dropped, one-letter residues, `Ter` and `X` as `*`, so
+  `NP_852259.1:p.(Gly80Arg)` and `NP_852259.1:p.G80R` are one group (a `protein`
+  and a `mane` variant never share one, even for the same change). `unplaced`: a review mark,
   never grouped, and at most a checked `hgvs_p`. `structural` and
   `outside_region`: listed only, with no coordinates or HGVS.
 - `normalisations` (since `2.24`) lists the normaliser runs that published
@@ -1743,17 +1750,23 @@ TBX5's, abridged:
   "1990s", "3x"), a numeric symbol such as "½", and a fixed list of number words,
   alone or glued to "fold"; counts are in `tallies` and the findings.
 
-A finding with two linked variants (a made-up example, not TBX5's), and the run
-they cite, abridged. The variant ids restart in each finding; `normalisation` is
-the id of a run in the gene's `normalisations`:
+A finding with two linked variants (an invented example: no published finding
+has this id), and the run they cite, abridged. Both variants were run through
+`reference_issues` against the committed MANE mirrors for TBX5 and gave no issue.
+The variant ids restart in each finding; `normalisation` is the id of a run in
+the gene's `normalisations`:
 
 ```json
-{ "findings": [ { "id": "CHDA:LIT:0000015",
-    "variants": [ { "id": 1, "as_reported": "p.R279X", "placement": "mane",
+{ "findings": [ { "id": "CHDA:LIT:9999999",
+    "variants": [ { "id": 1, "as_reported": "R279X", "placement": "mane",
+                    "hgvs_c": "NM_181486.4:c.835C>T",
+                    "hgvs_p": "NP_852259.1:p.(Arg279Ter)",
                     "grch38": "12:114366312:G:A", "normalisation": 1,
                     "with": [2], "phase": "trans", … },
-                  { "id": 2, "as_reported": "c.100del", "placement": "mane",
-                    "grch38": "12:114400000:CA:C", "normalisation": 1,
+                  { "id": 2, "as_reported": "R279Q", "placement": "mane",
+                    "hgvs_c": "NM_181486.4:c.836G>A",
+                    "hgvs_p": "NP_852259.1:p.(Arg279Gln)",
+                    "grch38": "12:114366311:C:T", "normalisation": 1,
                     "with": [1], "phase": "trans", … } ], … } ],
   "normalisations": [ { "id": 1, "tool": "variantvalidator", "run_on": "2026-11-17", … } ] }
 ```
@@ -1779,7 +1792,8 @@ findings yet." and draws no timeline. Folded after those are the exclusion tally
 by reason and every search with its date, hits and exact query. Last, on a gene
 whose approved findings name a variant, *Reported variants*: a table with one
 row per placed variant (its `c.` and `p.` names and how many papers report it)
-and, under it, one line per finding with the paper, design, that finding's own
+and, under it, one line per report of it (a finding names a variant once, or
+twice when it reports it alone and with a partner) with the paper, design, that report's own
 carriers by origin, zygosity or partner, and the carriers' heart defects as HPO
 labels. No line or row sums carriers across findings. After it come the variants
 listed as reported (outside the checked region, then with no position), and how

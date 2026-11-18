@@ -34,6 +34,7 @@ from chd_atlas.build.profiles import LOOKUP_RULE, TAU_METHOD, TAU_SCALE
 from chd_atlas.build.runner import build_site
 from chd_atlas.build.validity import GeneValidity, gene_validity
 from chd_atlas.corpus import load_curation
+from chd_atlas.hgvs import protein_key
 from chd_atlas.models.dataset import Dataset, Stage
 from chd_atlas.models.gene_literature import Normalisation, Variant
 from chd_atlas.tables import TABLE_SCHEMAS, read_table
@@ -1652,14 +1653,26 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
         "sorted by publication year, then numeric PMID, then finding id",
         "A finding carrying a `review_status` is published with it",
         "A consumer groups on `grch38` for these.",
-        "`protein`: `hgvs_p` only, no genomic coordinates; group on `hgvs_p`.",
+        "`protein`: `hgvs_p` only, no genomic coordinates; group on its canonical reading",
         "`unplaced`: a review mark, never grouped, and at most a checked `hgvs_p`.",
         "`mane`: `hgvs_c`, `grch38` and `normalisation`, and `hgvs_p` where the change has one.",
         "`structural` and `outside_region`: listed only, with no coordinates or HGVS.",
         "`phase` (`trans`, `cis` or `not_stated`) is non-null exactly when `with` is non-empty",
         "`version`, `hgvs_version`, `vvta`, `vvdb`, `seqrepo` and `run_on`",
+        "group on its canonical reading: accession and parentheses dropped, one-letter "
+        "residues, `Ter` and `X` as `*`",
+        "`NP_852259.1:p.(Gly80Arg)` and `NP_852259.1:p.G80R` are one group",
+        "only `reported.p` is checked, by LIT025 against `hgvs_p`",
+        "`carriers` counts by origin, and is `null` on a common-variant finding",
     ):
         assert needle in prose, needle
+    assert (
+        "`2.24` added `variants` to every finding (`[]` for none) and `normalisations` to "
+        "every gene bundle's `literature`, and a variant's links publish as `with`."
+    ) in " ".join(doc.split())
+    # The canonical reading those words describe is `protein_key`'s.
+    assert protein_key("NP_852259.1:p.(Gly80Arg)") == protein_key("NP_852259.1:p.G80R") == "G80R"
+    assert protein_key("p.Arg279Ter") == protein_key("p.R279X") == "R279*"
 
 
 def test_the_doc_describes_the_literature_section_and_what_publishes_before_approval(
