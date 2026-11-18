@@ -20,6 +20,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+import pytest
 import typer
 from ruamel.yaml import YAML
 
@@ -329,3 +330,176 @@ def test_the_readme_points_at_curator() -> None:
         "until a named person approves it here with `chd-atlas literature review`."
     ) in flat
     assert "Nothing it writes is published" not in flat
+
+
+def _entry(**fields: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "id": 1,
+        "as_reported": "x",
+        "locator": {"kind": "in_text", "element": "Table 1"},
+        "kind": "snv_indel",
+        "placement": "mane",
+        "zygosity": "heterozygous",
+        "carriers": {"de_novo": 0, "inherited": 0, "origin_unknown": 1},
+    }
+    return {**base, **fields}
+
+
+def _verdict(*entries: dict[str, Any]) -> list[str]:
+    finding = Finding.model_validate(
+        {
+            "id": "CHDA:LIT:0000001",
+            "publication": "PMID:10000001",
+            "design": "cohort_screen",
+            "methods": ["targeted_sequencing"],
+            "count_unit": "probands",
+            "screened": 100,
+            "carriers": {"de_novo": 0, "inherited": 0, "origin_unknown": 50},
+            "variant_classes": ["snv_indel", "cnv"],
+            "variants": list(entries),
+            "phenotypes": ["HP:0001631"],
+            "lesion_groups": ["septal"],
+            "syndromic": "isolated",
+            "shares_probands_with": "unknown",
+            "locators": [{"kind": "in_text", "element": "Table 1"}],
+            "summary": "Illustrative.",
+            "extracted_by": "agent:literature-extract/model",
+        }
+    )
+    return [m for _, _, m in shape_issues(finding, {1})]
+
+
+_FILLED = {"hgvs_c": "c", "grch38": "g", "normalisation": 1, "hgvs_p": "p"}
+_MARK = {
+    "review_status": "pending_review",
+    "review_note": "n",
+    "review_settled_by": "atlas_model",
+}
+
+
+@pytest.mark.parametrize(
+    ("sentence", "entry", "needle"),
+    [
+        ("`mane` holds `hgvs_c`, `grch38` and `normalisation`", _entry(), "needs hgvs_c"),
+        (
+            "`protein` holds `hgvs_p` and leaves `hgvs_c`, `grch38` and `normalisation` null",
+            _entry(placement="protein", hgvs_p="p", hgvs_c="c"),
+            "must leave hgvs_c null",
+        ),
+        (
+            "`protein` holds `hgvs_p` and leaves `hgvs_c`, `grch38` and `normalisation` null",
+            _entry(placement="protein", hgvs_p="p", normalisation=1),
+            "must leave normalisation null",
+        ),
+        (
+            "`structural` and `outside_region` leave `hgvs_c`, `hgvs_p` and `grch38` null",
+            _entry(placement="structural", kind="cnv", grch38="g"),
+            "must leave grch38 null",
+        ),
+        (
+            "`structural` and `outside_region` leave `hgvs_c`, `hgvs_p` and `grch38` null",
+            _entry(placement="outside_region", hgvs_p="p"),
+            "must leave hgvs_p null",
+        ),
+        (
+            "`unplaced` holds `review_status` and leaves `hgvs_c` and `grch38` null",
+            _entry(placement="unplaced", grch38="g", **_MARK),
+            "must leave grch38 null",
+        ),
+        (
+            "`unplaced` holds `review_status` and leaves `hgvs_c` and `grch38` null",
+            _entry(placement="unplaced"),
+            "needs review_status",
+        ),
+        (
+            "Links are mutual",
+            _entry(id=1, with_=[2], phase="trans"),
+            "does not name 1 back",
+        ),
+        (
+            "a group of more than two is never `trans`",
+            [_entry(id=i, **{"with": [j for j in (1, 2, 3) if j != i]}, phase="trans")
+             for i in (1, 2, 3)],
+            "more than two variants pairwise in trans",
+        ),
+    ],
+)  # fmt: skip
+def test_each_stated_hold_null_and_link_rule_is_the_validators(
+    sentence: str, entry: Any, needle: str
+) -> None:
+    assert sentence in " ".join(_text(RULES).split()), sentence
+    entries = entry if isinstance(entry, list) else [entry]
+    entries = [{("with" if k == "with_" else k): v for k, v in e.items()} for e in entries]
+    if not isinstance(entry, list) and entry.get("with_"):
+        entries.append(_entry(id=2, placement="mane", **_FILLED))
+    assert any(needle in m for m in _verdict(*entries)), _verdict(*entries)
+
+
+def test_a_group_of_two_may_be_trans_and_a_mane_entry_with_every_name_is_clean() -> None:
+    pair = [
+        _entry(id=1, **_FILLED, **{"with": [2]}, phase="trans"),
+        _entry(id=2, **{**_FILLED, "grch38": "h"}, **{"with": [1]}, phase="trans"),
+    ]
+    assert _verdict(*pair) == []
+
+
+@pytest.mark.parametrize(
+    ("entry", "settled", "ok"),
+    [
+        ({"placement": "unplaced"}, "atlas_model", True),  # rsID alone, or a `g.` name alone
+        ({"placement": "unplaced"}, "expert", True),  # `normalise` could not place it
+        ({"placement": "unplaced"}, None, False),
+    ],
+)
+def test_pending_review_needs_a_settler_and_not_accessible_takes_none(
+    entry: dict[str, Any], settled: str | None, ok: bool
+) -> None:
+    mark = {"review_status": "pending_review", "review_note": "n"}
+    if settled:
+        mark["review_settled_by"] = settled
+    try:
+        Variant.model_validate(_entry(**entry, **mark))
+    except ValueError:
+        assert not ok
+    else:
+        assert ok
+    with pytest.raises(ValueError, match="not_accessible takes no review_settled_by"):
+        Variant.model_validate(
+            _entry(
+                review_status="not_accessible",
+                review_note="n",
+                review_settled_by="full_text",
+            )
+        )
+
+
+def test_the_settler_sentence_and_the_with_rule_are_stated_literally() -> None:
+    rules = " ".join(_text(RULES).split())
+    for phrase in (
+        "An `unplaced` variant named by an rsID or a `g.` name alone that the paper does "
+        "not place is `atlas_model`; a `protein` variant whose "
+        "residue is refused is `authors`, or `atlas_model` when its `p.` names no residue; "
+        "a `mane` variant `normalise` cannot place becomes `unplaced` with `expert`.",
+        "a `protein` variant's `hgvs_p` is the agent's, and is checked at the first `validate`",
+        "needs them on every design but `common_variant_association`",
+        "a `protein` variant whose residue validate then refuses",
+        "whatever names it: a `c.`, an rsID, a `g.` position or a description",
+        "Position beats naming, and a position is never looked up in dbSNP, a genome "
+        "browser or the agent's own knowledge",
+        'A coding-DNA name printed without its `c.` prefix ("456delC", "998G>T") is still '
+        "a `c.` name: write it `mane` with `reported.c` exactly as printed; `normalise` "
+        "decides, and an agent never marks it `unplaced` itself",
+        "for a variant named by an rsID or a `g.` name alone that the paper does not place",
+    ):
+        assert phrase in rules, phrase
+
+
+def test_an_outside_region_variant_named_by_a_g_position_alone_validates() -> None:
+    """R-F2: position beats naming, so a `g.`-only `reported` needs no mark."""
+    entry = _entry(
+        placement="outside_region",
+        as_reported="g.12345678A>G",
+        reported={"rsid": None, "c": None},
+    )
+    assert _verdict(entry) == []
+    assert _verdict(_entry(placement="outside_region", reported={"rsid": "rs1"})) == []

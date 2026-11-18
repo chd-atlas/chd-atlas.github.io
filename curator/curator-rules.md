@@ -136,7 +136,9 @@ convention only a person can check.
 A finding's `variants` list the variants its paper names, each placed on the gene's MANE
 Select frame, which `chd-atlas literature frame <SYMBOL>` prints. `LIT016`, `LIT017`,
 `LIT018`, `LIT019`, `LIT020` and `LIT021` check an entry's `hgvs_c`, `hgvs_p` and `grch38`
-against that frame; `chd-curator normalise` writes them, so they matter once it has run.
+against that frame. `chd-curator normalise` writes `hgvs_c`, `grch38` and `normalisation`
+of a `mane` variant, so those checks matter once it has run; a `protein` variant's
+`hgvs_p` is the agent's, and is checked at the first `validate`.
 `LIT022` checks an entry's shape, `LIT023` its carriers, `LIT024` its phenotypes and
 `LIT025` that `hgvs_p` agrees with the paper's own `p.` name. The model's own pairings
 (a `pending_review` without `review_settled_by`, an `unclear` value without its entry
@@ -156,14 +158,19 @@ and the reverse) are `SCHEMA001`.
   - `structural` for a CNV or chromosomal change, even written in `c.` notation, with
     `kind` `cnv` or `chromosomal`;
   - `mane` for a `c.` name within the exons ±50 bp, with or without an rsID, with `kind`
-    `snv_indel`;
-  - `outside_region` for a `c.` with an intronic offset beyond 50, or a variant named by
-    rsID alone that the paper places outside the exons, with `kind` `snv_indel`;
+    `snv_indel`. A coding-DNA name printed without its `c.` prefix ("456delC", "998G>T")
+    is still a `c.` name: write it `mane` with `reported.c` exactly as printed; `normalise`
+    decides, and an agent never marks it `unplaced` itself;
+  - `outside_region` for a variant the paper places outside the exons ±50 bp (an intron
+    beyond 50, upstream or the promoter, downstream, an enhancer), whatever names it: a
+    `c.`, an rsID, a `g.` position or a description, with `kind` `snv_indel`. Position
+    beats naming, and a position is never looked up in dbSNP, a genome browser or the
+    agent's own knowledge;
   - `protein` for a `p.` name alone, with `hgvs_p` on the MANE protein in three-letter
     code in parentheses;
-  - `unplaced` for an rsID alone inside the exons or of unstated position, a `g.` name
-    alone, a `protein` variant whose residue validate refuses, or one whose `p.` names no
-    residue.
+  - `unplaced` for a variant named by an rsID or a `g.` name alone that the paper does not
+    place (inside the exons, or of unstated position), or a `protein` variant whose residue validate then refuses (or whose `p.` names
+    no residue), which moves to `unplaced`.
 - What each placement holds and leaves null (`LIT022`):
   - `mane` holds `hgvs_c`, `grch38` and `normalisation`, all written by `normalise`; an
     agent writes none of them, nor `hgvs_p` of a `mane` variant;
@@ -172,9 +179,9 @@ and the reverse) are `SCHEMA001`.
   - `unplaced` holds `review_status` and leaves `hgvs_c` and `grch38` null; it may keep an
     `hgvs_p`, which is still checked, but a refused one is removed and the note states
     only the mismatch.
-- `carriers` per variant, in the finding's `count_unit`. A variant on a rare-variant
-  design needs them, and none the paper gives no carrier for is named; a variant with 0
-  is refused (`LIT022`). The variants' `de_novo` and `inherited` carriers may not exceed
+- `carriers` per variant, in the finding's `count_unit`. A variant needs
+  them on every design but `common_variant_association`, and none the paper gives no
+  carrier for is named; a variant with 0 is refused (`LIT022`). The variants' `de_novo` and `inherited` carriers may not exceed
   the finding's, nor may their total, a `with` group counted once (`LIT023`). A
   `common_variant_association` names each variant it tested and has no `carriers`
   (`LIT022`).
@@ -197,8 +204,9 @@ and the reverse) are `SCHEMA001`.
 - A settler names what would settle the question: `full_text` (only the abstract was
   read), `authors` (the paper contradicts itself or the reference sequence), `expert` (a
   domain judgement the paper cannot supply) or `atlas_model` (the paper is clear and the
-  atlas's record cannot hold it). An rsID alone is `atlas_model`; a `protein` variant
-  whose residue is refused is `authors`, or `atlas_model` when its `p.` names no residue;
+  atlas's record cannot hold it). An `unplaced` variant named by an rsID or a `g.` name alone that the paper does not
+  place is `atlas_model`; a `protein` variant whose residue is
+  refused is `authors`, or `atlas_model` when its `p.` names no residue;
   a `mane` variant `normalise` cannot place becomes `unplaced` with `expert`.
 
 One entry in each placement state, as an agent writes it. A `mane` entry (here and in
