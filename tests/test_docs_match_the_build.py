@@ -1684,7 +1684,8 @@ def test_the_doc_defines_unclear_and_every_settler() -> None:
     text = " ".join(DOC.read_text().split())
     for needle in (
         "`unclear` means the paper says something about the value that cannot be written "
-        "as one value, and `not_stated` means it says nothing",
+        "as one value on that line, or says two incompatible things about it, and "
+        "`not_stated` means it says nothing",
         "`not_accessible` is settled by the full text",
         "`2.25` added `review_settled_by`",
     ):

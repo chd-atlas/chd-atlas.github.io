@@ -1713,12 +1713,13 @@ TBX5's, abridged:
   `outside_region`: listed only, with no coordinates or HGVS.
 - `review_settled_by` (since `2.25`), on a finding and on a variant, is `null` or
   what would settle its open question: `full_text`, `authors`, `expert` or
-  `atlas_model`. A `pending_review` mark always carries one. `not_accessible`
-  is settled by the full text and carries none. A variant's `unclear` is `{}`
-  unless its `zygosity` or `phase` is `unclear`; then it holds that field's
+  `atlas_model`. A finding's or variant's `pending_review` mark always carries
+  one. `not_accessible` is settled by the full text and carries none. A
+  variant's `unclear` is `{}` unless its `zygosity` or `phase` is `unclear`;
+  then it maps `"zygosity"` and/or `"phase"`, whichever is `unclear`, to
   `{"reason", "settled_by"}`. `unclear` means the paper says something about the
-  value that cannot be written as one value, and `not_stated` means it says
-  nothing.
+  value that cannot be written as one value on that line, or says two
+  incompatible things about it, and `not_stated` means it says nothing.
 - `normalisations` (since `2.24`) lists the normaliser runs that published
   variants cite, by `id`, which a variant's `normalisation` names: `tool`,
   `version`, `hgvs_version`, `vvta`, `vvdb`, `seqrepo` and `run_on`. A run no
