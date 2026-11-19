@@ -155,3 +155,22 @@ def test_parse_grch38_reads_a_vcf_key_and_refuses_the_rest() -> None:
 def test_same_protein_change_equates_one_and_three_letter_forms(a: str, b: str, same: bool) -> None:
     assert same_protein_change(a, b) is same
     assert same_protein_change(b, a) is same
+
+
+@pytest.mark.parametrize(
+    ("a", "b", "same"),
+    [
+        ("V205V", "NP_852259.1:p.(Val205=)", True),
+        ("p.V205V", "NP_852259.1:p.(Val205=)", True),
+        ("p.Val205Val", "NP_852259.1:p.(Val205=)", True),
+        ("p.(Val205Val)", "NP_852259.1:p.(Val205=)", True),
+        ("p.(Val205=)", "NP_852259.1:p.(Val205=)", True),
+        ("V205A", "NP_852259.1:p.(Val205=)", False),
+        ("V205V", "NP_852259.1:p.(Val206=)", False),
+    ],
+)
+def test_same_protein_change_reads_a_repeated_residue_as_synonymous(
+    a: str, b: str, same: bool
+) -> None:
+    assert same_protein_change(a, b) is same
+    assert same_protein_change(b, a) is same
