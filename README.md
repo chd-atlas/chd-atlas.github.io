@@ -146,6 +146,7 @@ it), which is kept as it was.
 Searching PubMed, triaging hits, extracting findings and the blind second pass
 live in [chd-atlas/curator](https://github.com/chd-atlas/curator) (`chd-curator`
 and its Claude plugin). The searches it records are published as they are, but no
-finding is published until a named person approves it here with
-`chd-atlas literature review`. The rules it follows are in
+finding is published until a named person approves it here, with
+`chd-atlas literature review` or with `chd-atlas literature apply-review` on the
+decisions file of a review page that person has finished. The rules it follows are in
 `curator/curator-rules.md`.

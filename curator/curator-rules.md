@@ -316,12 +316,16 @@ variants:
   (`SCHEMA001`) and by `chd-atlas literature review`. `approved_by`, `approved_on` and
   `approved_digest` are set together (`SCHEMA001`).
 - `approved_digest` is a hash of the finding as it was approved; `literature review
-  --approve` writes it. Editing any field it covers (the id, counts, summary, locators,
+  --approve` and `literature apply-review` both write it. Editing any field it covers (the id, counts, summary, locators,
   anything but the approval, `verified_by` and the review mark) leaves the approval
   stale: the validator reports `LIT015` and the build refuses until the three approval
   fields are deleted and a person approves again. Never write or copy a digest by hand.
-- An agent never runs `literature review --approve` and never writes `approved_by`. That
-  is a convention: the command cannot tell a person's name from an agent's invented one.
+- An agent never runs `literature review --approve` and never writes `approved_by`. An
+  agent runs `literature apply-review` only on a decisions file the review page produced,
+  after the reviewer pressed "I'm done", with `--by` the reviewer's name; it never writes
+  or edits that file. That is a convention: `apply-review` refuses a `--by` that is not the
+  file's reviewer, an unfinished session and a second opinion, but cannot tell who produced
+  the file, and `review --approve` cannot tell a person's name from an agent's invented one.
 - Approval is not dated before the search that found the paper (`LIT008`).
 - A review mark (`pending_review` or `not_accessible`, with its `review_note`) is
   published with the finding. It does not withdraw an approval.
