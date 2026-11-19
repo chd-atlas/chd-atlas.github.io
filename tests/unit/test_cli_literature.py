@@ -1958,3 +1958,36 @@ def test_digests_refuses_an_unknown_gene_and_a_gene_without_a_file(root: Path) -
 def test_digests_exits_one_on_an_unparsable_file(root: Path, lit_path: Path) -> None:
     lit_path.write_text("gene: [unclosed\n")
     assert _digests(root, "TBX5").exit_code == 1
+
+
+def test_digests_look_each_finding_paper_up_in_publications(root: Path, lit_path: Path) -> None:
+    """A finding whose paper is in publications.yaml hashes with its study_type and own_lab."""
+    from chd_atlas.models.gene_literature import shown_digest
+    from chd_atlas.models.literature import Publication
+
+    record = {
+        "id": "PMID:8988165",
+        "title": "Third paper.",
+        "journal": "Journal Three",
+        "year": 1997,
+        "authors": ["Cc C"],
+        "study_type": "gwas",
+        "own_lab": True,
+    }
+    (root / "curation" / "publications.yaml").write_text(
+        PUBLICATIONS
+        + "  - id: PMID:8988165\n    title: Third paper.\n    journal: Journal Three\n"
+        + "    year: 1997\n    authors:\n      - Cc C\n    study_type: gwas\n    own_lab: true\n"
+    )
+    out = json.loads(_digests(root, "TBX5").stdout)
+    raw = {f["id"]: f for f in YAML(typ="safe").load(lit_path.read_text())["findings"]}
+    paper = Publication.model_validate(record)
+    checked = 0
+    for printed in out["findings"]:
+        parsed = Finding.model_validate(raw[printed["id"]])
+        if parsed.publication != "PMID:8988165":
+            continue
+        checked += 1
+        assert printed["shown_digest"] == shown_digest(parsed, paper)
+        assert printed["shown_digest"] != shown_digest(parsed, None)
+    assert checked >= 1
