@@ -6,6 +6,15 @@ searches:
     run_on: 2026-11-03
     hits: 32
     new_hits: 32
+normalisations:
+  - id: 1
+    tool: variantvalidator
+    version: 4.0.1.dev7+gbdab9c72f
+    hgvs_version: 4.0.0
+    vvta: vvta_2025_02
+    vvdb: vvdb_2025_3
+    seqrepo: VV_SR_2025_02/master
+    run_on: 2026-11-19
 triage:
   - pmid: PMID:17404209
     search: 1
@@ -134,6 +143,71 @@ findings:
     screened: 125
     carriers: {de_novo: 2, inherited: 2, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.1022C>A p.Ser341Tyr
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.3, c: c.1022C>A, p: p.Ser341Tyr}
+        hgvs_c: NM_021005.4:c.1022C>A
+        hgvs_p: NP_066285.1:p.(Ser341Tyr)
+        grch38: 15:96337399:C:A
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001674]
+      - id: 2
+        as_reported: c.614A>T p.Asn205Ile
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.3, c: c.614A>T, p: p.Asn205Ile}
+        hgvs_c: NM_021005.4:c.614A>T
+        hgvs_p: NP_066285.1:p.(Asn205Ile)
+        grch38: 15:96334247:A:T
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0011576]
+      - id: 3
+        as_reported: c.753G>C p.Glu251Asp
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.3, c: c.753G>C, p: p.Glu251Asp}
+        hgvs_c: NM_021005.4:c.753G>C
+        hgvs_p: NP_066285.1:p.(Glu251Asp)
+        grch38: 15:96334386:G:C
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+      - id: 4
+        as_reported: c.1234G>T p.Ala412Ser
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.3, c: c.1234G>T, p: p.Ala412Ser}
+        hgvs_c: NM_021005.4:c.1234G>T
+        hgvs_p: NP_066285.1:p.(Ala412Ser)
+        grch38: 15:96337611:G:T
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001674]
+      - id: 5
+        as_reported: c.509A>T p.Asp170Val
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.3, c: c.509A>T, p: p.Asp170Val}
+        hgvs_c: NM_021005.4:c.509A>T
+        hgvs_p: NP_066285.1:p.(Asp170Val)
+        grch38: 15:96334142:A:T
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0011577]
     cases: 125
     controls: 5194
     p_value: 7.7e-07
@@ -181,6 +255,33 @@ findings:
     screened: 370
     carriers: {de_novo: 2, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.1022C>A p.Ser341Tyr
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.3, c: c.1022C>A, p: p.Ser341Tyr}
+        hgvs_c: NM_021005.4:c.1022C>A
+        hgvs_p: NP_066285.1:p.(Ser341Tyr)
+        grch38: 15:96337399:C:A
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001674]
+      - id: 2
+        as_reported: c.614A>T p.Asn205Ile
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.3, c: c.614A>T, p: p.Asn205Ile}
+        hgvs_c: NM_021005.4:c.614A>T
+        hgvs_p: NP_066285.1:p.(Asn205Ile)
+        grch38: 15:96334247:A:T
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0011576]
     p_value: 4.8e-05
     phenotypes: [HP:0001674, HP:0011576]
     lesion_groups: [avsd]
@@ -193,6 +294,7 @@ findings:
         element: Results, Burden of Rare Missense Variants Analysis (de novo status of c.1022C>A and c.614A>T)
     summary: Two of 370 individuals with atrioventricular septal defects (125 by exome, 245 by capillary sequencing) carried a de novo missense variant in NR2F2, a Poisson p of 4.8e-5 given the authors' estimate of the gene's mutation rate.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
     approved_digest: sha256:9594d687befd0b64d6e9f459d3a872287b5c8067727291474c2d2920c7a6baa4
@@ -204,6 +306,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.220_222dup p.Gln75dup
+        locator: {kind: in_text, element: 'Table 1, family 1'}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.3, c: c.220_222dup, p: p.Gln75dup}
+        hgvs_c: NM_021005.4:c.222_224dup
+        hgvs_p: NP_066285.1:p.(Gln75dup)
+        grch38: 15:96332313:A:AAGC
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001636, HP:0001674, HP:0001650, HP:0001629]
     phenotypes: [HP:0001636, HP:0001674, HP:0001650, HP:0001629]
     lesion_groups: [conotruncal, avsd, lvoto, septal]
     syndromic: isolated
@@ -232,6 +348,15 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [chromosomal]
+    variants:
+      - id: 1
+        as_reported: 46,XY,t(14;15)(q23;q26.3)
+        locator: {kind: in_text, element: 'Results, De Novo and Inherited NR2F2 Mutations in Non-AVSD Congenital Heart Defect-Affected Families'}
+        kind: chromosomal
+        placement: structural
+        zygosity: not_stated
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001680]
     phenotypes: [HP:0001680]
     lesion_groups: [lvoto]
     syndromic: isolated
@@ -243,6 +368,7 @@ findings:
         element: Table 1, family 8 (II:1, CoA, balanced translocation, de novo)
     summary: A previously reported child with coarctation of the aorta and a de novo balanced translocation 46,XY,t(14;15)(q23;q26.3) had the breakpoint fine-mapped by flow-sorted derivative chromosomes to the first intron of NR2F2, predicted by the authors to truncate all annotated transcripts.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
     approved_digest: sha256:c0a628a9b7e2c39fbaf11af500deba763b9eeab44e8f8be20c6ab0ab2e5347fb
@@ -254,6 +380,20 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.970+1G>A
+        locator: {kind: in_text, element: 'Table 1, family 7'}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.3, c: c.970+1G>A}
+        hgvs_c: NM_021005.4:c.970+1G>A
+        hgvs_p: NP_066285.1:p.?
+        grch38: 15:96334604:G:A
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0004383]
     phenotypes: [HP:0004383]
     lesion_groups: [lvoto]
     syndromic: isolated
@@ -265,6 +405,7 @@ findings:
         element: Table 1, family 7 (II:1, HLHS, splice donor, de novo)
     summary: A de novo splice donor variant in NR2F2 was found in a trio with an affected child with hypoplastic left heart syndrome; the authors predict that it skips the third exon.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
     approved_digest: sha256:e1b930c67b025c1cea5d8f7a53f6dbb7da973326758b1029e636f53de09a6237
@@ -279,6 +420,20 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.92_98delGCCCGCC
+        locator: {kind: in_text, element: Materials and Methods}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.3, c: c.92_98delGCCCGCC, p: p.Pro33AlafsTer77}
+        hgvs_c: NM_021005.4:c.97_103del
+        hgvs_p: NP_066285.1:p.(Pro33AlafsTer77)
+        grch38: 15:96332196:GGCCCGCC:G
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001631]
     phenotypes: [HP:0001631]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -327,6 +482,33 @@ findings:
     screened: 79
     carriers: {de_novo: 2, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.103_109delGGCGCCC (p.Gly35Argfs∗75)
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.3, c: c.103_109delGGCGCCC, p: p.Gly35Argfs*75}
+        hgvs_c: NM_021005.4:c.103_109del
+        hgvs_p: NP_066285.1:p.(Gly35ArgfsTer75)
+        grch38: 15:96332202:CCGCCCGG:C
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0004383]
+      - id: 2
+        as_reported: c.97_103delCCGCCCG (p.Pro33Alafs∗77)
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.3, c: c.97_103delCCGCCCG, p: p.Pro33Alafs*77}
+        hgvs_c: NM_021005.4:c.97_103del
+        hgvs_p: NP_066285.1:p.(Pro33AlafsTer77)
+        grch38: 15:96332196:GGCCCGCC:G
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001684, HP:0001629]
     phenotypes: [HP:0004383, HP:0001684, HP:0001629]
     lesion_groups: [lvoto, septal]
     syndromic: syndromic
@@ -338,6 +520,7 @@ findings:
         element: Table 1 (individuals 1 to 3, cardiac findings and mutation, origin de novo, de novo, not available)
     summary: In 79 children with 46,XX SRY-negative differences of sex development (not selected for heart disease), three carried a heterozygous frameshift in NR2F2 (p.Gly35Argfs*75 de novo, p.Pro33Alafs*77 de novo, and p.Pro33Alafs*77 of unknown origin); all three had congenital heart disease (hypoplastic left heart, atrial septal defect, ventricular septal defect), one also had a left diaphragmatic hernia.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
     approved_digest: sha256:8d796f0b697abcd89ff51d7f7ed38119606a1a1e4381a9d1d132bacba7df03be
@@ -349,6 +532,20 @@ findings:
     screened: 176
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: 'NM_021005.3: c.288C>A; p.(Cys96*)'
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.3, c: c.288C>A, p: p.(Cys96*)}
+        hgvs_c: NM_021005.4:c.288C>A
+        hgvs_p: NP_066285.1:p.(Cys96Ter)
+        grch38: 15:96332393:C:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0031119]
     phenotypes: [HP:0031119]
     lesion_groups: [lvoto]
     syndromic: isolated
@@ -372,6 +569,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: 'NM_021005.3: c.288C>A; p.(Cys96*)'
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.3, c: c.288C>A, p: p.(Cys96*)}
+        hgvs_c: NM_021005.4:c.288C>A
+        hgvs_p: NP_066285.1:p.(Cys96Ter)
+        grch38: 15:96332393:C:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001629, HP:0031119]
     phenotypes: [HP:0001629, HP:0031119]
     lesion_groups: [lvoto, septal]
     syndromic: isolated
@@ -397,6 +608,15 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [cnv]
+    variants:
+      - id: 1
+        as_reported: arr[GRCh37]15q26.2(95127653_98146649)×1
+        locator: {kind: in_text, element: Genetic and Immunohistochemistry Analyses}
+        kind: cnv
+        placement: structural
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001680]
     phenotypes: [HP:0001680]
     lesion_groups: [lvoto]
     syndromic: syndromic
@@ -420,6 +640,20 @@ findings:
     screened: 111
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: NR2F2 (NM_021005.3) c.671T>A, p.(Val224Asp)
+        locator: {kind: in_text, element: Table 2}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.3, c: c.671T>A, p: p.(Val224Asp)}
+        hgvs_c: NM_021005.4:c.671T>A
+        hgvs_p: NP_066285.1:p.(Val224Asp)
+        grch38: 15:96334304:T:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001680, HP:0001647, HP:0011623]
     phenotypes: [HP:0001680, HP:0001647, HP:0011623]
     lesion_groups: [lvoto, septal]
     syndromic: syndromic
@@ -433,7 +667,6 @@ findings:
         element: Results, Small nucleotide variants (ventricular septal defect, aortic coarctation, neurological symptoms)
     summary: Genome sequencing of 111 unrelated probands with paediatric heart disease at one centre found one NR2F2 carrier, a de novo missense variant c.671T>A p.(Val224Asp) classed likely pathogenic, in a proband with coarctation of the aorta, bicuspid aortic valve, muscular ventricular septal defect and extracardiac features.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-03
     approved_digest: sha256:6272c453f8bedb6f5ca2ec9797ba33c1866d9c786baaa80637223ca191a76dd3
@@ -445,6 +678,15 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [cnv]
+    variants:
+      - id: 1
+        as_reported: terminal 9.15 Mb deletion at subband 15q26.1-q26.3
+        locator: {kind: in_text, element: Abstract}
+        kind: cnv
+        placement: structural
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001631]
     phenotypes: [HP:0001631]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -469,6 +711,15 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [cnv]
+    variants:
+      - id: 1
+        as_reported: segmental monosomy of the 15(q26.2-->qter) region
+        locator: {kind: in_text, element: Abstract}
+        kind: cnv
+        placement: structural
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001627]
     phenotypes: [HP:0001627]
     lesion_groups: [other]
     syndromic: syndromic
@@ -491,6 +742,15 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [cnv]
+    variants:
+      - id: 1
+        as_reported: 5.78 Mb terminal deletion of chromosome 15q
+        locator: {kind: in_text, element: Abstract}
+        kind: cnv
+        placement: structural
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001627]
     phenotypes: [HP:0001627]
     lesion_groups: [other]
     syndromic: syndromic
@@ -500,7 +760,6 @@ findings:
         element: Abstract
     summary: A girl with congenital heart defects had a 5.78 Mb terminal deletion of chromosome 15q detected by array-CGH; the authors consider NR2F2 a candidate gene within it. The abstract does not give the heart lesion or the deletion's origin.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
     approved_digest: sha256:bcd48088ecccf1d902305338e5558f543dd7f37322f5faab56c0adad2a5b223b
@@ -514,6 +773,20 @@ findings:
     screened: 168
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.247G > T, equivalent to p.G83X
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.247G>T, p: p.G83X}
+        hgvs_c: NM_021005.4:c.247G>T
+        hgvs_p: NP_066285.1:p.(Gly83Ter)
+        grch38: 15:96332352:G:T
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001719, HP:0001629]
     phenotypes: [HP:0001719, HP:0001629]
     lesion_groups: [conotruncal, septal]
     syndromic: isolated
@@ -537,6 +810,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.247G > T, equivalent to p.G83X
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.247G>T, p: p.G83X}
+        hgvs_c: NM_021005.4:c.247G>T
+        hgvs_p: NP_066285.1:p.(Gly83Ter)
+        grch38: 15:96332352:G:T
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001719, HP:0001629]
     phenotypes: [HP:0001719, HP:0001629]
     lesion_groups: [conotruncal, septal]
     syndromic: isolated
@@ -546,6 +833,7 @@ findings:
         element: Abstract
     summary: The p.G83X variant was present in all affected and absent from unaffected members of the index patient's family, co-segregating with CHD as an autosomal dominant trait with complete penetrance. The abstract gives no number of family members.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
     approved_digest: sha256:f78fc1309117bf8f240c6b43ff87a4402acaf8da57d22dd78bb3774610f7834d
@@ -582,6 +870,196 @@ findings:
     screened: 16
     carriers: {de_novo: 13, inherited: 1, origin_unknown: 2}
     variant_classes: [snv_indel, cnv]
+    variants:
+      - id: 1
+        as_reported: c.933G>C p.Glu311Asp
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.4, c: c.933G>C, p: p.Glu311Asp}
+        hgvs_c: NM_021005.4:c.933G>C
+        hgvs_p: NP_066285.1:p.(Glu311Asp)
+        grch38: 15:96334566:G:C
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+      - id: 2
+        as_reported: c.287G>T p.Cys96Phe
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.4, c: c.287G>T, p: p.Cys96Phe}
+        hgvs_c: NM_021005.4:c.287G>T
+        hgvs_p: NP_066285.1:p.(Cys96Phe)
+        grch38: 15:96332392:G:T
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+      - id: 3
+        as_reported: c.257C>G p.Ser86Trp
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.4, c: c.257C>G, p: p.Ser86Trp}
+        hgvs_c: NM_021005.4:c.257C>G
+        hgvs_p: NP_066285.1:p.(Ser86Trp)
+        grch38: 15:96332362:C:G
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+      - id: 4
+        as_reported: c.1019del p.Lys340SerfsTer39
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.4, c: c.1019del, p: p.Lys340SerfsTer39}
+        hgvs_c: NM_021005.4:c.1019del
+        hgvs_p: NP_066285.1:p.(Lys340SerfsTer39)
+        grch38: 15:96337392:GA:G
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+      - id: 5
+        as_reported: c.746G>A p.Trp249Ter
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.4, c: c.746G>A, p: p.Trp249Ter, rsid: rs1567138573}
+        hgvs_c: NM_021005.4:c.746G>A
+        hgvs_p: NP_066285.1:p.(Trp249Ter)
+        grch38: 15:96334379:G:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+      - id: 6
+        as_reported: c.558dup p.Arg187AlafsTer122
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.4, c: c.558dup, p: p.Arg187AlafsTer122}
+        hgvs_c: NM_021005.4:c.558dup
+        hgvs_p: NP_066285.1:p.(Arg187AlafsTer122)
+        grch38: 15:96334190:T:TG
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+      - id: 7
+        as_reported: c.269A>G p.His90Arg
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.4, c: c.269A>G, p: p.His90Arg}
+        hgvs_c: NM_021005.4:c.269A>G
+        hgvs_p: NP_066285.1:p.(His90Arg)
+        grch38: 15:96332374:A:G
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+      - id: 8
+        as_reported: c.287G>A p.Cys96Tyr
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.4, c: c.287G>A, p: p.Cys96Tyr}
+        hgvs_c: NM_021005.4:c.287G>A
+        hgvs_p: NP_066285.1:p.(Cys96Tyr)
+        grch38: 15:96332392:G:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+      - id: 9
+        as_reported: c.1022C>A p.Ser341Tyr
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.4, c: c.1022C>A, p: p.Ser341Tyr, rsid: rs587777371}
+        hgvs_c: NM_021005.4:c.1022C>A
+        hgvs_p: NP_066285.1:p.(Ser341Tyr)
+        grch38: 15:96337399:C:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0006695]
+      - id: 10
+        as_reported: c.313C>A p.Arg105Ser
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.4, c: c.313C>A, p: p.Arg105Ser}
+        hgvs_c: NM_021005.4:c.313C>A
+        hgvs_p: NP_066285.1:p.(Arg105Ser)
+        grch38: 15:96332418:C:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+      - id: 11
+        as_reported: c.382C>T p.Arg128Cys
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.4, c: c.382C>T, p: p.Arg128Cys, rsid: rs1596425042}
+        hgvs_c: NM_021005.4:c.382C>T
+        hgvs_p: NP_066285.1:p.(Arg128Cys)
+        grch38: 15:96332487:C:T
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+      - id: 12
+        as_reported: c.1133_1134dup p.Glu379Ter
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.4, c: c.1133_1134dup, p: p.Glu379Ter}
+        hgvs_c: NM_021005.4:c.1133_1134dup
+        hgvs_p: NP_066285.1:p.(Glu379Ter)
+        grch38: 15:96337508:C:CAT
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+      - id: 13
+        as_reported: c.275G>T p.Gly92Val
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.4, c: c.275G>T, p: p.Gly92Val}
+        hgvs_c: NM_021005.4:c.275G>T
+        hgvs_p: NP_066285.1:p.(Gly92Val)
+        grch38: 15:96332380:G:T
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+      - id: 14
+        as_reported: c.23G>A p.Trp8Ter
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.4, c: c.23G>A, p: p.Trp8Ter}
+        hgvs_c: NM_021005.4:c.23G>A
+        hgvs_p: NP_066285.1:p.(Trp8Ter)
+        grch38: 15:96332128:G:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001680, HP:0031632]
+      - id: 15
+        as_reported: c.1097G>C p.Arg366Pro
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_021005.4, c: c.1097G>C, p: p.Arg366Pro}
+        hgvs_c: NM_021005.4:c.1097G>C
+        hgvs_p: NP_066285.1:p.(Arg366Pro)
+        grch38: 15:96337474:G:C
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+      - id: 16
+        as_reported: arr[GRCh37] 15q26.2q26.3(96755103_98628389)x1
+        locator: {kind: in_text, element: 'Table 1, case 12'}
+        kind: cnv
+        placement: structural
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     phenotypes: [HP:0001631, HP:0001680, HP:0001629, HP:0012303, HP:0006695, HP:0034350, HP:0034349, HP:0031253, HP:0031632, HP:0001647]
     lesion_groups: [septal, lvoto, avsd, other, rvoto]
     syndromic: syndromic
@@ -598,7 +1076,6 @@ findings:
         element: Table 1
     summary: "A series ascertained for the variant, not a CHD cohort: 16 unrelated probands, each with congenital heart disease and a rare heterozygous NR2F2 variant (15 single-nucleotide variants, one 1.87 Mb deletion of the whole gene), reported by clinicians from many centres; trio exome sequencing for all but case 8 (father untested) and case 12 (chromosomal microarray). The series was gathered because of the variant, so no number of people screened exists and screened equals the carriers counted. The heart lesions are the series' own, with counts over all 17 individuals the paper describes (the 16 probands and the proband's mildly affected mosaic mother), namely atrial septal defect 8, coarctation of the aorta 8, ventricular septal defect 5, aortic arch anomalies 3, atrioventricular septal defect 2, plus valvular and supravalvular pulmonic stenosis, an aberrant left subclavian artery, tricuspid regurgitation and bicuspid aortic valve among the less common defects, and an aberrant right subclavian artery seen prenatally in individual 15. Two of the variants were found in the DDD study. Origin is derived, not printed as such. Individual 5-1's variant was inherited from a mosaic mother, and the paper says the inheritance of two others is unknown (from the text, individuals 8 and 9), so de novo is the 16 probands less those 3."
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
     approved_on: 2026-11-09
     approved_digest: sha256:6f2bb0e7083c6140036793c008848d03789c732df44aee9d8427f99f8c6b2a51
@@ -613,6 +1090,17 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: p.(Gly98Ser)
+        locator: {kind: in_text, element: Figure 1 legend}
+        kind: snv_indel
+        placement: protein
+        reported: {p: p.(Gly98Ser)}
+        hgvs_p: NP_066285.1:p.(Gly98Ser)
+        zygosity: not_stated
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001684]
     phenotypes: [HP:0001684]
     lesion_groups: [septal]
     syndromic: isolated
