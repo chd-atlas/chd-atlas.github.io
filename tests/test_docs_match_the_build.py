@@ -407,7 +407,16 @@ def test_the_documented_uncurated_sentences_are_the_ones_the_card_actually_shows
         for bundle in sorted((site / "genes").glob("*.json"))
         if bundle.name != "index.json"
     ]
-    uncurated = [b for b in bundles if b["atlas_curation"] == "not_yet_curated"]
+    # The card says "Curated by the atlas" for a gene with approved literature
+    # findings and no assertion, while `atlas_curation` stays `not_yet_curated`
+    # (pages.py `_card_curation`). The two counts were one figure (117) until
+    # MMP21's literature was approved on 2026-11-19 (section 4.30); the doc's
+    # sentence counts the pages that render it, so this does too.
+    uncurated = [
+        b
+        for b in bundles
+        if b["atlas_curation"] == "not_yet_curated" and not b["literature"]["findings"]
+    ]
     by_panel = sum(1 for b in uncurated if b["validity_state"] == "expert_curated")
     by_agreement = sum(1 for b in uncurated if b["validity_state"] == "submitter_curated")
     marker = (
@@ -439,6 +448,7 @@ def test_the_documented_uncurated_sentences_are_the_ones_the_card_actually_shows
         for bundle in sorted((site / "genes").glob("*.json"))
         if bundle.name != "index.json"
         and json.loads(bundle.read_text())["validity_state"] == "submitter_curated"
+        and not json.loads(bundle.read_text())["literature"]["findings"]
     )
     ungraded_html = ungraded.with_suffix(".html").read_text()
     assert agreement_quote.replace("**", "") == _card_curation(ungraded_html)
@@ -1761,7 +1771,8 @@ def test_the_doc_describes_the_literature_section_and_what_publishes_before_appr
     symbols = sorted(b["symbol"] for b in _bundles(site) if b["literature"]["searches"])
     assert (
         f"Today {['no', 'one', 'two', 'three'][counts['literature_genes']]} genes carry a "
-        f"literature record, {' and '.join(symbols)}, with {counts['literature_findings']} "
+        f"literature record, {', '.join(symbols[:-1])} and {symbols[-1]}, with "
+        f"{counts['literature_findings']} "
         "approved findings between them."
     ) in doc
     assert "`case_report`, `cohort_sequencing`, `gwas` and `candidate_variant`" in doc

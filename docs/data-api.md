@@ -52,8 +52,8 @@ What the build produced, and a checksum for every file in it.
     "assertions": 2, "burden_combined": 108, "burden_rows": 1219,
     "burden_surviving_genes": 32, "cell_type_datasets": 1, "cell_type_genes": 118,
     "cohort_families": 2, "cohorts": 20, "datasets": 2, "featured": 1, "functional": 0,
-    "genes": 119, "literature_findings": 94, "literature_genes": 2, "phenotypes": 8, "profile_datasets": 1, "profile_genes": 119,
-    "publications": 86, "scope_terms": 104
+    "genes": 119, "literature_findings": 102, "literature_genes": 3, "phenotypes": 8, "profile_datasets": 1, "profile_genes": 119,
+    "publications": 93, "scope_terms": 104
   },
   "files": {
     "genes/index.json": "sha256:<64 hex>",
@@ -138,8 +138,8 @@ wrong by the next one.
     [`literature`](#the-bundles-literature-object-searches-a-triage-tally-paper-tallies-approved-findings-and-the-synthesis)
     records at least one search.
   - `literature_findings` (since `2.21`) is the number of approved findings in
-    those bundles. Today two genes carry a literature record, NR2F2 and TBX5, with
-    94 approved findings between them.
+    those bundles. Today three genes carry a literature record, MMP21, NR2F2 and
+    TBX5, with 102 approved findings between them.
 
   Each of the eleven counts only what the published genes' bundles carry, except
   `cohort_families`, which groups the whole burden mirror's cohorts: restricting
@@ -328,7 +328,7 @@ wrong by the next one.
 ## The site root: `index.html`
 
 The page a person opens directly rather than fetches as JSON, and the entry
-point to the other 123. It carries the same development-status and
+point to the other 124. It carries the same development-status and
 research-use statement `status` above is the machine-readable half of, as every
 page does, and is a doorway rather than the census (since 2026-10-27): it says
 what the atlas is, states the figures a first-time reader needs, and sends
@@ -364,7 +364,7 @@ request, no build timestamp, byte-identical between two builds of one commit
 like everything else here.
 
 **Every page is checksummed in `manifest.json` exactly like a payload.** The
-build behind this document publishes 124 of them — this one, `genes/index.html`,
+build behind this document publishes 125 of them — this one, `genes/index.html`,
 [`methods.html`](#methodshtml), one per published gene and one register per published gene with an open literature question — and each has an entry
 in `files` giving the sha256 of the bytes served at it. A page is published
 output, so it is verifiable output.
@@ -1640,7 +1640,7 @@ abridged:
 ### The bundle's `literature` object: searches, a triage tally, paper tallies, approved findings and the synthesis
 
 On every gene bundle (since `2.21`). Always present; a gene with no
-`curation/literature` file carries exactly the empty shape below, as 117 of the
+`curation/literature` file carries exactly the empty shape below, as 116 of the
 119 published genes do today.
 
 ```json
@@ -2086,14 +2086,14 @@ fixed bins wherever the grid draws one. Every figure is in the tables folded und
 stages* (the count is the dataset's): one per cardiac tissue sampled, or one of
 stages where none is, and one for the other organs.
 
-For the 117 genes published today with no curation here, the card's curation
+For the 116 genes published today with no curation here, the card's curation
 sentence says exactly that:
 
 > Not yet curated by the atlas: every classification on this page is a ClinGen
 > expert panel's or a named curator's.
 
-That wording renders on 98 of those 117 pages, the genes a ClinGen panel holds
-an in-scope record for. The 19 admitted on submitter agreement have no panel
+That wording renders on 98 of those 116 pages, the genes a ClinGen panel holds
+an in-scope record for. The 18 admitted on submitter agreement have no panel
 classification to describe, and say so instead:
 
 > Not yet curated by the atlas, and no ClinGen expert panel has graded this
@@ -2101,7 +2101,7 @@ classification to describe, and say so instead:
 > Curation Coalition submitters it is admitted by independently assert it.
 
 The scope in that second sentence is part of the claim. Unscoped it is false for
-five of the 19: ClinGen grades ACTC1 Definitive for hypertrophic cardiomyopathy
+five of the 18: ClinGen grades ACTC1 Definitive for hypertrophic cardiomyopathy
 and ELN Definitive for cutis laxa, for instance, and those diseases are outside
 this atlas's remit, so their records are not on the page to contradict it.
 
