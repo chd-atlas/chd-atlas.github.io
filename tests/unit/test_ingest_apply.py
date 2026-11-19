@@ -104,21 +104,19 @@ def unpinned(raw: bytes) -> bytes:
 
 
 def copy_repo(target: Path) -> Path:
-    """The committed corpus with every pin, package manifest and MANE mirror removed."""
+    """The committed corpus with every pin and package manifest removed (the MANE mirrors stay)."""
     for item in ("curation", "mirrors", "ontologies"):
         shutil.copytree(REPO_ROOT / item, target / item)
     sources = target / "mirrors" / "sources.yaml"
     sources.write_bytes(unpinned(sources.read_bytes()))
     shutil.rmtree(target / "mirrors" / "packages", ignore_errors=True)
-    # The MANE mirrors are an every-gene package's rows, and this repository has
-    # no `mane_select` pin or cache. The `Repinned` fixtures grow the registry
-    # with SLC11A1 (HGNC:10907), which MAN004 then reports as absent from the
-    # frame; the real `ingest --all` re-filters `mane_select` from its cache, as
-    # it does every every-gene package. These fixtures test validity repins and
-    # carry no `mane_select` pin or cache, so the frame is removed for isolation
-    # (the repin tests also pass without this, now that MAN004 is a warning).
-    for name in ("mane_transcripts.tsv", "mane_exons.tsv"):
-        (target / "mirrors" / name).unlink()
+    # The MANE mirrors are kept. They are an every-gene package's rows, and this
+    # repository has no `mane_select` pin or cache, so ingest never touches them.
+    # They must stay: since the literature findings carry variants, a repository
+    # with no frame fails MAN005 (an error), and ingest refuses it with ING010.
+    # The `Repinned` fixtures grow the registry with SLC11A1 (HGNC:10907), which
+    # MAN004 reports as absent from the frame; MAN004 is a warning, so the repin
+    # still applies.
     return target
 
 
