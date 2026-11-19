@@ -510,8 +510,10 @@ def literature_digests_command(
     `finding_digest` is what an approval binds to; `shown_digest` also covers
     the review marks and the paper's study type and own-lab mark, so a review
     page can tell that a card changed after it was shown. `approved` is true for
-    any finding carrying an approval, void or not. Exit 2 for an unknown symbol
-    or a gene with no literature file, 1 for an unparsable file.
+    any finding carrying an approval, void or not; `approval_void` is true only
+    when the approval no longer matches the finding (LIT015). Exit 2 for an
+    unknown symbol or a gene with no literature file, 1 for an unparsable
+    literature file or a `curation/publications.yaml` that does not load.
     """
     _require_root(root)
     approved_symbol, path = _require_literature_file(root, symbol)
@@ -520,13 +522,14 @@ def literature_digests_command(
         record = parse_literature(raw)
     except LiteratureFileError as exc:
         raise _fail(f"{path}: {exc}", 1) from None
-    papers = {p.id: p for p in load_curation(root)[0].publications}
+    papers = _publications_by_id(root)
     findings = [
         {
             "id": f.id,
             "finding_digest": finding_digest(f),
             "shown_digest": shown_digest(f, papers.get(f.publication)),
             "approved": f.approved_by is not None,
+            "approval_void": _approval_void(f),
             "verified": f.verified_by is not None,
         }
         for f in sorted(record.findings, key=lambda f: f.id)
@@ -539,6 +542,20 @@ def literature_digests_command(
         "findings": findings,
     }
     typer.echo(json.dumps(out, sort_keys=True, ensure_ascii=False))
+
+
+def _publications_by_id(root: Path) -> dict[str, Publication]:
+    """`curation/publications.yaml` by paper id; exit 1 naming the file if it did not load.
+
+    `load_curation` reports an unreadable file as an issue and returns no
+    publications. Continuing would hash every finding with `publication: null`,
+    so an edit to a paper's study type would go unnoticed.
+    """
+    corpus, issues = load_curation(root)
+    broken = [i for i in issues if "publications.yaml" in i.location]
+    if broken:
+        raise _fail(f"{broken[0].location}: {broken[0].message}", 1)
+    return {p.id: p for p in corpus.publications}
 
 
 def _require_literature_file(root: Path, symbol: str) -> tuple[str, Path]:
@@ -1190,13 +1207,20 @@ def literature_apply_review(
     unreadable or invalid file, a file for another gene, a session never
     finished (`session.finished_at` empty), a reviewer who is a second opinion
     (never applied as approvals), `--by` differing from the reviewer's name or
-    naming an agent, a finding id absent from the literature file, `--on` in the
-    future or before the search that found a paper (LIT008). Then per `approve`:
-    already approved and sound, printed and skipped; its current `shown_digest`
-    differs from the file's, printed as `stale` and skipped (exit 1 once the
-    others are written); else approved, as `review --approve --allow-unverified`
-    would. All approvals go in one write. `fix`, `later`, triage flips and
-    `papers_seen` are printed and written nowhere.
+    naming an agent, a finding id absent from the literature file (on any
+    decision), `--on` in the future or before the date the page was built (local
+    time: an approval cannot predate the page that showed it), and, found only
+    for a finding about to be approved, after the stale and already-approved
+    sort, `--on` before the search that found its paper (LIT008). A
+    `curation/publications.yaml` that does not load exits 1 before any of this
+    is applied. Then per `approve`: already approved and sound, printed and
+    skipped; its current `shown_digest` differs from the file's, printed as
+    `stale` and skipped (exit 1 once the others are written); else approved, as
+    `review --approve --allow-unverified` would, so a finding no verifier has
+    compared is approved. All approvals go in one write. Written nowhere, only
+    printed: the `next round:` lines for a `fix`, a `later`, and a triage
+    review that is not `approve` (with its flips), `note on approved` lines for
+    a note left on an `approve` decision, and `papers_seen`.
     """
     _require_root(root)
     try:
@@ -1241,8 +1265,16 @@ def literature_apply_review(
         raise _fail(f"--on {on!r} is not a YYYY-MM-DD date", 2) from None
     if when > _today():
         raise _fail(f"--on {when.isoformat()} is in the future", 2)
+    built = review.page.built_on
+    built_on = (built.astimezone() if built.tzinfo is not None else built).date()
+    if when < built_on:
+        raise _fail(
+            f"--on {when.isoformat()} is before the page was built on {built_on.isoformat()}; "
+            "an approval cannot predate the page that showed it",
+            2,
+        )
 
-    papers = {p.id: p for p in load_curation(root)[0].publications}
+    papers = _publications_by_id(root)
     to_approve: list[str] = []
     lines: list[str] = []
     stale = 0
@@ -1270,7 +1302,13 @@ def literature_apply_review(
     for item in review.findings:
         if item.decision is not Decision.APPROVE:
             lines.append(f"next round: {item.decision.value} {item.id}: {item.note.strip()}")
+        elif item.note.strip():
+            lines.append(f"note on approved {item.id}: {item.note.strip()}")
     if review.triage is not None:
+        if review.triage.decision is not Decision.APPROVE:
+            lines.append(
+                f"next round: triage {review.triage.decision.value}: {review.triage.note.strip()}"
+            )
         for flip in review.triage.flips:
             lines.append(f"next round: triage {flip.pmid} -> {flip.to}: {flip.note}")
     if review.papers_seen:

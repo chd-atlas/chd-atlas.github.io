@@ -11,6 +11,19 @@
     },
     "FindingDecision": {
       "additionalProperties": false,
+      "if": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "fix",
+              "later"
+            ]
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
       "properties": {
         "active_ms": {
           "minimum": 0,
@@ -61,6 +74,16 @@
         "active_ms",
         "decided_at"
       ],
+      "then": {
+        "properties": {
+          "note": {
+            "pattern": "\\S"
+          }
+        },
+        "required": [
+          "note"
+        ]
+      },
       "title": "FindingDecision",
       "type": "object"
     },
@@ -197,6 +220,19 @@
     },
     "TriageReview": {
       "additionalProperties": false,
+      "if": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "fix",
+              "later"
+            ]
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
       "properties": {
         "active_ms": {
           "minimum": 0,
@@ -224,6 +260,16 @@
         "decision",
         "active_ms"
       ],
+      "then": {
+        "properties": {
+          "note": {
+            "pattern": "\\S"
+          }
+        },
+        "required": [
+          "note"
+        ]
+      },
       "title": "TriageReview",
       "type": "object"
     }
@@ -257,7 +303,8 @@
         "type": "string"
       },
       "title": "Papers Seen",
-      "type": "array"
+      "type": "array",
+      "uniqueItems": true
     },
     "reviewer": {
       "$ref": "#/$defs/Reviewer"

@@ -6,16 +6,18 @@ A decision names the finding it is about by id and by the digest of what the
 reviewer was shown, so a finding edited after the page was built can be
 detected. This module defines the shape only; it records no approval.
 
-JSON Schema cannot express the cross-field rules here (a `fix` or `later`
-needs a note; finding ids and papers seen are unique), so they live in model
-validators and the exported schema checks well-formedness only.
+The exported schema states the rules JSON Schema can express: a `fix` or
+`later` needs a note with a non-space character (an `if`/`then`), and papers
+seen are unique (`uniqueItems`). Only finding-id uniqueness is beyond it, as
+it is a property of one field of the list's objects; it is checked by the model
+validator alone.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated, Any, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -52,6 +54,14 @@ class PageProvenance(_Strict):
     literature_sha256: _Sha256
 
 
+# JSON Schema's statement of `_require_note`: a `fix` or `later` carries a note
+# with at least one non-space character.
+_NOTE_REQUIRED_FOR_FIX_OR_LATER: Final[dict[str, Any]] = {
+    "if": {"properties": {"decision": {"enum": ["fix", "later"]}}, "required": ["decision"]},
+    "then": {"properties": {"note": {"pattern": r"\S"}}, "required": ["note"]},
+}
+
+
 def _require_note(decision: Decision, note: str) -> None:
     """A `fix` or `later` says why; only `approve` may go without."""
     if decision is not Decision.APPROVE and not note.strip():
@@ -59,6 +69,8 @@ def _require_note(decision: Decision, note: str) -> None:
 
 
 class FindingDecision(_Strict):
+    model_config = ConfigDict(extra="forbid", json_schema_extra=_NOTE_REQUIRED_FOR_FIX_OR_LATER)
+
     id: LiteratureFindingId
     shown_digest: _Sha256
     decision: Decision
@@ -80,6 +92,8 @@ class TriageFlip(_Strict):
 
 
 class TriageReview(_Strict):
+    model_config = ConfigDict(extra="forbid", json_schema_extra=_NOTE_REQUIRED_FOR_FIX_OR_LATER)
+
     decision: Decision
     note: str = ""
     flips: list[TriageFlip] = []
@@ -104,7 +118,7 @@ class ReviewDecisions(_Strict):
     page: PageProvenance
     reviewer: Reviewer
     session: ReviewSession
-    papers_seen: list[Pmid] = []
+    papers_seen: list[Pmid] = Field(default=[], json_schema_extra={"uniqueItems": True})
     findings: list[FindingDecision]
     triage: TriageReview | None = None
 
