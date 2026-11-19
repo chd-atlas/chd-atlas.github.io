@@ -110,7 +110,7 @@ def test_curator_holds_only_the_rules_file() -> None:
     assert sorted(p.name for p in CURATOR.iterdir()) == ["curator-rules.md"]
 
 
-def test_the_literature_commands_are_review_questions_target_and_frame() -> None:
+def test_the_literature_commands_are_the_six_the_rules_may_name() -> None:
     assert set(_literature_commands()) == {
         "review",
         "questions",

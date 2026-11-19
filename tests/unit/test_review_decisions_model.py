@@ -20,7 +20,7 @@ _DIGEST = "sha256:" + "ab" * 32
 def _sample() -> dict[str, Any]:
     return {
         "format": 1,
-        "gene": "HGNC:11634",
+        "gene": "HGNC:11604",
         "symbol": "TBX5",
         "page": {
             "built_on": "2026-11-19T13:00:00.000Z",
@@ -137,3 +137,44 @@ def test_the_schema_is_registered_and_committed() -> None:
     assert EXPORTED_MODELS["review_decisions"] is ReviewDecisions
     path = Path(__file__).parents[2] / "schemas" / "review_decisions.schema.json"
     assert path.is_file()
+
+
+def _schema() -> dict[str, Any]:
+    import json
+
+    path = Path(__file__).parents[2] / "schemas" / "review_decisions.schema.json"
+    loaded: dict[str, Any] = json.loads(path.read_text())
+    return loaded
+
+
+def _note_rule_refuses(definition: dict[str, Any], value: dict[str, Any]) -> bool:
+    """Apply the committed `if`/`then` to one object, as a JSON Schema validator would.
+
+    `jsonschema` is not installed in the atlas venv (measured: ModuleNotFoundError),
+    so this evaluates only the two keywords the note rule uses.
+    """
+    import re
+
+    cond, then = definition["if"], definition["then"]
+    applies = value.get("decision") in cond["properties"]["decision"]["enum"]
+    if not applies:
+        return False
+    if "note" not in value:
+        return "note" in then["required"]
+    return re.search(then["properties"]["note"]["pattern"], value["note"]) is None
+
+
+def test_the_committed_schema_states_the_rules_json_schema_can() -> None:
+    schema = _schema()
+    assert schema["properties"]["papers_seen"]["uniqueItems"] is True
+    base = {"decision": "fix", "note": "why", "active_ms": 1}
+    for name in ("FindingDecision", "TriageReview"):
+        rule = schema["$defs"][name]
+        refused = {
+            "fix-no-note": {"decision": "fix"},
+            "later-blank-note": {"decision": "later", "note": "   "},
+        }
+        for case, value in refused.items():
+            assert _note_rule_refuses(rule, value), f"{name} {case}"
+        for value in (base, {"decision": "later", "note": "x"}, {"decision": "approve"}):
+            assert not _note_rule_refuses(rule, value), f"{name} {value}"

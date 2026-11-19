@@ -1949,6 +1949,47 @@ def test_digests_prints_one_line_per_finding_sorted_by_id(root: Path, lit_path: 
         assert printed["approved"] is ("approved_by" in entry)
         assert printed["verified"] is ("verified_by" in entry)
     assert {f["approved"] for f in out["findings"]} == {True, False}
+    assert all(f["approval_void"] is False for f in out["findings"])  # every approval is sound
+
+
+def test_digests_flag_an_approval_whose_finding_was_edited_and_sort_by_id(
+    root: Path, lit_path: Path
+) -> None:
+    """`approved` stays true for a void approval; `approval_void` is true only for it.
+
+    The fixture holds one approved finding (0000003) and three unapproved, and the
+    file lists its findings in reverse id order, so a dropped sort also fails here.
+    """
+    text = lit_path.read_text().replace("summary: A proband.\n", "summary: An edited proband.\n")
+    blocks = _blocks(text)
+    ordered = sorted(k for k in blocks if k != "head")
+    lit_path.write_text(blocks["head"] + "".join(blocks[k] for k in reversed(ordered)))
+    assert [m.group(1) for m in FINDING_ID.finditer(lit_path.read_text())] == ordered[::-1]
+
+    out = json.loads(_digests(root, "TBX5").stdout)
+
+    assert [f["id"] for f in out["findings"]] == ordered
+    flags = {f["id"]: (f["approved"], f["approval_void"]) for f in out["findings"]}
+    assert flags["CHDA:LIT:0000003"] == (True, True)
+    assert {v for k, v in flags.items() if k != "CHDA:LIT:0000003"} == {(False, False)}
+
+
+def test_digests_and_apply_review_refuse_a_publications_file_that_did_not_load(
+    root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    """Hashing with `publication: null` would hide an edit to a paper's study type."""
+    a = _open_ids(root)[0]
+    data = _decisions(root, {a: ("approve", "")})
+    (root / "curation" / "publications.yaml").write_text("publications: [unclosed\n")
+    before = lit_path.read_bytes()
+
+    digests = _digests(root, "TBX5")
+    applied = _apply(root, tmp_path, data)
+
+    for result in (digests, applied):
+        assert result.exit_code == 1, result.stdout
+        assert "publications.yaml" in result.stdout
+    assert lit_path.read_bytes() == before
 
 
 def test_digests_refuses_an_unknown_gene_and_a_gene_without_a_file(root: Path) -> None:
@@ -2017,6 +2058,7 @@ def _decisions(
     finished: str | None = _FINISHED,
     papers_seen: list[str] | None = None,
     flips: list[dict[str, str]] | None = None,
+    built_on: str = "2026-11-19T09:00:00Z",
 ) -> dict[str, Any]:
     """A decisions file whose digests are the real ones, as `literature digests` prints them."""
     out = json.loads(_digests(root, "TBX5").stdout)
@@ -2026,7 +2068,7 @@ def _decisions(
         "gene": gene or out["gene"],
         "symbol": "TBX5",
         "page": {
-            "built_on": "2026-11-19T09:00:00Z",
+            "built_on": built_on,
             "atlas_commit": None,
             "literature_sha256": out["literature_sha256"],
         },
@@ -2101,6 +2143,73 @@ def test_apply_review_approves_what_the_page_showed_and_nothing_else(
     assert "papers seen: PMID:111, PMID:222" in result.stdout
 
 
+def test_apply_review_leaves_fix_and_later_unapproved_and_prints_every_note(
+    root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    """Only `approve` approves; a `later`, a triage `fix` and a note on an approval are shown."""
+    a, b, c = _open_ids(root)[:3]
+    before = set(_approved_on_disk(lit_path))
+    data = _decisions(
+        root,
+        {
+            a: ("approve", "checked against Table 2"),
+            b: ("later", "ask the authors"),
+            c: ("fix", "n"),
+        },
+    )
+    data["triage"] = {
+        "decision": "later",
+        "note": "second search first",
+        "flips": [],
+        "active_ms": 1,
+    }
+
+    result = _apply(root, tmp_path, data)
+
+    assert result.exit_code == 0, result.stdout
+    assert set(_approved_on_disk(lit_path)) == before | {a}
+    lines = result.stdout.splitlines()
+    assert f"next round: later {b}: ask the authors" in lines
+    assert "next round: triage later: second search first" in lines
+    assert f"note on approved {a}: checked against Table 2" in lines
+    assert lines.index(f"note on approved {a}: checked against Table 2") > next(
+        i for i, line in enumerate(lines) if line.startswith(f"approved {a} ")
+    )
+
+
+def test_apply_review_approves_again_a_finding_whose_approval_went_void(
+    root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    lit_path.write_text(
+        lit_path.read_text().replace("summary: A proband.\n", "summary: An edited proband.\n")
+    )
+    data = _decisions(root, {"CHDA:LIT:0000003": ("approve", "")})
+
+    result = _apply(root, tmp_path, data, "--by", "Dr. Grace Hopper", "--on", "2026-11-19")
+
+    assert result.exit_code == 0, result.stdout
+    assert (
+        "re-approved CHDA:LIT:0000003 (Dr. Grace Hopper, 2026-11-19; "
+        "was Dr. Ada Curator on 2026-10-01)" in result.stdout
+    )
+    now = _approved_on_disk(lit_path)["CHDA:LIT:0000003"]
+    assert now.approved_by == "Dr. Grace Hopper" and now.approved_digest == finding_digest(now)
+
+
+def test_apply_review_refuses_an_unreadable_decisions_file(
+    root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    before = lit_path.read_bytes()
+    result = runner.invoke(
+        app,
+        ["literature", "apply-review", "TBX5", "--decisions", str(tmp_path), "--by", "x"]
+        + ["--root", str(root)],
+    )
+    assert result.exit_code == 2, result.stdout
+    assert "cannot be applied" in result.stdout
+    assert lit_path.read_bytes() == before
+
+
 def test_apply_review_refuses_a_finding_marked_after_the_page_was_built(
     root: Path, lit_path: Path, tmp_path: Path
 ) -> None:
@@ -2126,6 +2235,9 @@ _FRAGMENT = {
     "future_date": "is in the future",
     "predates_search": "(LIT008)",
     "invalid_json": "cannot be applied",
+    "unknown_id_on_fix": "no such finding CHDA:LIT:0009999",
+    "before_page": "an approval cannot predate the page that showed it",
+    "bad_on": "is not a YYYY-MM-DD date",
 }
 
 
@@ -2151,6 +2263,22 @@ def _bad_decisions(case: str, root: Path, a: str) -> tuple[Any, list[str]]:
         ]
     if case == "invalid_json":
         return "{not json", []
+    if case == "unknown_id_on_fix":
+        return _decisions(root, {a: ("approve", ""), "CHDA:LIT:0009999": ("fix", "why")}), []
+    if case == "before_page":
+        return _decisions(root, {a: ("approve", "")}), [
+            "--by",
+            "Dr. Grace Hopper",
+            "--on",
+            "2026-11-18",
+        ]
+    if case == "bad_on":
+        return _decisions(root, {a: ("approve", "")}), [
+            "--by",
+            "Dr. Grace Hopper",
+            "--on",
+            "2026-13-45",
+        ]
     if case == "predates_search":
         b = _open_ids(root)[1]
         return (
@@ -2161,6 +2289,7 @@ def _bad_decisions(case: str, root: Path, a: str) -> tuple[Any, list[str]]:
                     b: ("fix", "check the count"),
                     "CHDA:LIT:0000003": ("approve", ""),
                 },
+                built_on="2026-10-30T12:00:00Z",
             ),
             ["--by", "Dr. Grace Hopper", "--on", "2026-11-01"],
         )
@@ -2179,6 +2308,9 @@ def _bad_decisions(case: str, root: Path, a: str) -> tuple[Any, list[str]]:
         "future_date",
         "predates_search",
         "invalid_json",
+        "unknown_id_on_fix",
+        "before_page",
+        "bad_on",
     ],
 )
 def test_apply_review_refuses_and_writes_nothing(
@@ -2186,6 +2318,31 @@ def test_apply_review_refuses_and_writes_nothing(
 ) -> None:
     a = _open_ids(root)[0]
     data, args = _bad_decisions(case, root, a)
+    if isinstance(data, dict):
+        # Give every refusal something of each kind to print had it run: a stale
+        # finding, an already-approved one, a fix, and papers seen.
+        present = {f["id"] for f in data["findings"]}
+        template = data["findings"][0]
+        real = {
+            f["id"]: f["shown_digest"]
+            for f in json.loads(_digests(root, "TBX5").stdout)["findings"]
+        }
+        for fid, decision, note, shown in (
+            ("CHDA:LIT:0000004", "approve", "", "sha256:" + "1" * 64),  # stale
+            ("CHDA:LIT:0000003", "approve", "", real["CHDA:LIT:0000003"]),  # already approved
+            ("CHDA:LIT:0000002", "fix", "recount", real["CHDA:LIT:0000002"]),  # next round
+        ):
+            if fid not in present:
+                data["findings"].append(
+                    {
+                        **template,
+                        "id": fid,
+                        "decision": decision,
+                        "note": note,
+                        "shown_digest": shown,
+                    }
+                )
+        data["papers_seen"] = ["PMID:111"]
     before = lit_path.read_bytes()
 
     result = _apply(root, tmp_path, data, *args)
