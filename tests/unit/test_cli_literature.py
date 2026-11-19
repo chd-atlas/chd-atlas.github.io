@@ -1914,3 +1914,47 @@ def test_questions_with_no_symbol_covers_every_file_and_an_unknown_symbol_exits_
     unknown = _questions(root, "NOSUCHGENE")
     assert unknown.exit_code == 2 and "NOSUCHGENE" in unknown.stdout
     assert _questions(root, "BRCA1").exit_code == 2  # a gene with no literature file
+
+
+# --------------------------------------------------------------------------
+# digests
+# --------------------------------------------------------------------------
+
+
+def _digests(root: Path, *args: str) -> Any:
+    return runner.invoke(app, ["literature", "digests", *args, "--root", str(root)])
+
+
+def test_digests_prints_one_line_per_finding_sorted_by_id(root: Path, lit_path: Path) -> None:
+    import hashlib
+
+    from chd_atlas.models.gene_literature import shown_digest
+
+    result = _digests(root, "HOS")
+    assert result.exit_code == 0, result.output
+    assert len(result.stdout.splitlines()) == 1
+    out = json.loads(result.stdout)
+    ids = [f["id"] for f in out["findings"]]
+    assert out["format"] == 1 and out["gene"] == "HGNC:11604" and out["symbol"] == "TBX5"
+    assert len(ids) >= 2 and ids == sorted(ids)
+    assert out["literature_sha256"] == "sha256:" + hashlib.sha256(lit_path.read_bytes()).hexdigest()
+    raw = {f["id"]: f for f in YAML(typ="safe").load(lit_path.read_text())["findings"]}
+    first = out["findings"][0]
+    parsed = Finding.model_validate(raw[first["id"]])
+    assert first["finding_digest"] == finding_digest(parsed)
+    assert first["shown_digest"] == shown_digest(parsed, None)  # PMID:8988165 is not in the fixture
+    for printed in out["findings"]:
+        entry = raw[printed["id"]]
+        assert printed["approved"] is ("approved_by" in entry)
+        assert printed["verified"] is ("verified_by" in entry)
+    assert {f["approved"] for f in out["findings"]} == {True, False}
+
+
+def test_digests_refuses_an_unknown_gene_and_a_gene_without_a_file(root: Path) -> None:
+    assert _digests(root, "NOPE").exit_code == 2
+    assert _digests(root, "TBX5").exit_code == 2
+
+
+def test_digests_exits_one_on_an_unparsable_file(root: Path, lit_path: Path) -> None:
+    lit_path.write_text("gene: [unclosed\n")
+    assert _digests(root, "TBX5").exit_code == 1

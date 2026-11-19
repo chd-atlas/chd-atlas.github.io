@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
@@ -51,6 +52,7 @@ from chd_atlas.models.gene_literature import (
     GeneLiteratureFile,
     Variant,
     finding_digest,
+    shown_digest,
     synthesis_digest,
 )
 from chd_atlas.models.literature import Publication
@@ -495,6 +497,47 @@ def literature_frame_command(
     except TargetError as exc:
         raise _fail(str(exc), 2) from None
     typer.echo(json.dumps(frame.as_json(), sort_keys=True, ensure_ascii=False))
+
+
+@literature_app.command("digests")
+def literature_digests_command(
+    symbol: str = typer.Argument(..., help="Gene symbol (approved, alias or previous)."),
+    root: Path = typer.Option(Path("."), help="Repository root."),
+) -> None:
+    """Print each finding's digests and the file's sha256 as one JSON line. Read-only.
+
+    `finding_digest` is what an approval binds to; `shown_digest` also covers
+    the review marks and the paper's study type and own-lab mark, so a review
+    page can tell that a card changed after it was shown. `approved` is true for
+    any finding carrying an approval, void or not. Exit 2 for an unknown symbol
+    or a gene with no literature file, 1 for an unparsable file.
+    """
+    _require_root(root)
+    approved_symbol, path = _require_literature_file(root, symbol)
+    raw = path.read_bytes()
+    try:
+        record = parse_literature(raw)
+    except LiteratureFileError as exc:
+        raise _fail(f"{path}: {exc}", 1) from None
+    papers = {p.id: p for p in load_curation(root)[0].publications}
+    findings = [
+        {
+            "id": f.id,
+            "finding_digest": finding_digest(f),
+            "shown_digest": shown_digest(f, papers.get(f.publication)),
+            "approved": f.approved_by is not None,
+            "verified": f.verified_by is not None,
+        }
+        for f in sorted(record.findings, key=lambda f: f.id)
+    ]
+    out = {
+        "format": 1,
+        "gene": str(record.gene),
+        "symbol": approved_symbol,
+        "literature_sha256": "sha256:" + hashlib.sha256(raw).hexdigest(),
+        "findings": findings,
+    }
+    typer.echo(json.dumps(out, sort_keys=True, ensure_ascii=False))
 
 
 def _require_literature_file(root: Path, symbol: str) -> tuple[str, Path]:

@@ -1,6 +1,7 @@
 # tests/unit/test_gene_literature_model.py
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 import pytest
@@ -13,6 +14,8 @@ from chd_atlas.models.gene_literature import (
     Synthesis,
     TriageEntry,
 )
+from chd_atlas.models.review import ReviewStatus
+from chd_atlas.vocab import StudyType
 
 
 def _rare(**changes: Any) -> dict[str, Any]:
@@ -431,7 +434,7 @@ def test_with_findings_updated_places_a_whole_variants_list_after_variant_classe
     [
         ({"review_settled_by": "authors"}, "review_settled_by needs a review_status"),
         (
-            {"review_status": "pending_review", "review_note": "open"},
+            {"review_status": ReviewStatus.PENDING_REVIEW, "review_note": "open"},
             "pending_review needs a review_settled_by",
         ),
         (
@@ -455,7 +458,11 @@ def test_a_pending_review_needs_review_settled_by_and_not_accessible_refuses_it(
             Finding.model_validate(_rare(variants=[_variant_entry(**mark)]))
     # the paired marks load
     ok = (
-        {"review_status": "pending_review", "review_note": "open", "review_settled_by": "authors"}
+        {
+            "review_status": ReviewStatus.PENDING_REVIEW,
+            "review_note": "open",
+            "review_settled_by": "authors",
+        }
         if record == "finding"
         else {}
     )
@@ -484,3 +491,88 @@ def test_an_unclear_value_and_its_entry_come_together(field: str) -> None:
         Finding.model_validate(
             _rare(variants=[_variant_entry(**{field: "unclear", "unclear": {field: blank}})])
         )
+
+
+def _shown_pair() -> tuple[Finding, Any]:
+    from chd_atlas.models.literature import Publication
+
+    unclear = {"reason": "Table 2 and the text disagree.", "settled_by": "atlas_model"}
+    finding = Finding.model_validate(
+        _rare(
+            variants=[_variant_entry(phase="unclear", unclear={"phase": unclear}, **{"with": []})]
+        )
+    )
+    paper = Publication.model_validate(
+        {
+            "id": "PMID:8988165",
+            "title": "T",
+            "journal": "J",
+            "year": 1997,
+            "authors": ["A A"],
+            "study_type": "case_report",
+        }
+    )
+    return finding, paper
+
+
+def _edited(edit: str) -> tuple[Finding, Any]:
+    finding, paper = _shown_pair()
+    variant = finding.variants[0]
+    if edit == "finding review_note":
+        finding = finding.model_copy(
+            update={
+                "review_status": ReviewStatus.PENDING_REVIEW,
+                "review_note": "Text and table differ.",
+            }
+        )
+    elif edit == "variant review_note":
+        mark = {"review_status": ReviewStatus.PENDING_REVIEW, "review_note": "Name unchecked."}
+        finding = finding.model_copy(update={"variants": [variant.model_copy(update=mark)]})
+    elif edit == "variant unclear reason":
+        entry = variant.unclear["phase"].model_copy(update={"reason": "Only the text says so."})
+        changed = variant.model_copy(update={"unclear": {"phase": entry}})
+        finding = finding.model_copy(update={"variants": [changed]})
+    elif edit == "verified_by":
+        finding = finding.model_copy(update={"verified_by": "agent:verify/blind"})
+    elif edit == "publication study_type":
+        paper = paper.model_copy(update={"study_type": StudyType.GWAS})
+    elif edit == "publication own_lab":
+        paper = paper.model_copy(update={"own_lab": True})
+    elif edit == "summary":
+        finding = finding.model_copy(update={"summary": "Another sentence."})
+    return finding, paper
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        "finding review_note",
+        "variant review_note",
+        "variant unclear reason",
+        "verified_by",
+        "publication study_type",
+        "publication own_lab",
+        "summary",
+    ],
+)
+def test_the_shown_digest_moves_with_every_field_the_page_shows(edit: str) -> None:
+    from chd_atlas.models.gene_literature import shown_digest
+
+    before = shown_digest(*_shown_pair())
+    assert before.startswith("sha256:")
+    assert shown_digest(*_edited(edit)) != before
+
+
+def test_approving_does_not_move_the_shown_digest_and_a_missing_paper_does() -> None:
+    from chd_atlas.models.gene_literature import shown_digest
+
+    finding, paper = _shown_pair()
+    approved = finding.model_copy(
+        update={
+            "approved_by": "E.A.M",
+            "approved_on": date(2026, 11, 19),
+            "approved_digest": "sha256:a",
+        }
+    )
+    assert shown_digest(approved, paper) == shown_digest(finding, paper)
+    assert shown_digest(finding, None) != shown_digest(finding, paper)
