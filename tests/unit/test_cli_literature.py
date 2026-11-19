@@ -2171,8 +2171,8 @@ def test_apply_review_leaves_fix_and_later_unapproved_and_prints_every_note(
     lines = result.stdout.splitlines()
     assert f"next round: later {b}: ask the authors" in lines
     assert "next round: triage later: second search first" in lines
-    assert f"note on approved {a}: checked against Table 2" in lines
-    assert lines.index(f"note on approved {a}: checked against Table 2") > next(
+    assert f"note on {a}: checked against Table 2" in lines
+    assert lines.index(f"note on {a}: checked against Table 2") > next(
         i for i, line in enumerate(lines) if line.startswith(f"approved {a} ")
     )
 

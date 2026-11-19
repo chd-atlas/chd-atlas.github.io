@@ -1212,15 +1212,14 @@ def literature_apply_review(
     time: an approval cannot predate the page that showed it), and, found only
     for a finding about to be approved, after the stale and already-approved
     sort, `--on` before the search that found its paper (LIT008). A
-    `curation/publications.yaml` that does not load exits 1 before any of this
-    is applied. Then per `approve`: already approved and sound, printed and
-    skipped; its current `shown_digest` differs from the file's, printed as
-    `stale` and skipped (exit 1 once the others are written); else approved, as
-    `review --approve --allow-unverified` would, so a finding no verifier has
-    compared is approved. All approvals go in one write. Written nowhere, only
-    printed: the `next round:` lines for a `fix`, a `later`, and a triage
-    review that is not `approve` (with its flips), `note on approved` lines for
-    a note left on an `approve` decision, and `papers_seen`.
+    `curation/publications.yaml` that does not load exits 1 before any approval is written.
+    Then per `approve`: already approved and sound, printed and skipped; its current
+    `shown_digest` differs from the file's, printed as `stale` and skipped (exit 1 once the
+    others are written); else approved, as `review --approve --allow-unverified` would, so a
+    finding no verifier has compared is approved. All approvals go in one write. Written
+    nowhere, only printed: the `next round:` lines for a `fix`, a `later`, and a triage
+    review that is not `approve` (with its flips), `note on <id>` lines for a note left on
+    an `approve` decision (whatever became of it), and `papers_seen`.
     """
     _require_root(root)
     try:
@@ -1303,7 +1302,7 @@ def literature_apply_review(
         if item.decision is not Decision.APPROVE:
             lines.append(f"next round: {item.decision.value} {item.id}: {item.note.strip()}")
         elif item.note.strip():
-            lines.append(f"note on approved {item.id}: {item.note.strip()}")
+            lines.append(f"note on {item.id}: {item.note.strip()}")
     if review.triage is not None:
         if review.triage.decision is not Decision.APPROVE:
             lines.append(
