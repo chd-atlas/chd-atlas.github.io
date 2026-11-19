@@ -1991,3 +1991,194 @@ def test_digests_look_each_finding_paper_up_in_publications(root: Path, lit_path
         assert printed["shown_digest"] == shown_digest(parsed, paper)
         assert printed["shown_digest"] != shown_digest(parsed, None)
     assert checked >= 1
+
+
+# --------------------------------------------------------------------------
+# apply-review
+# --------------------------------------------------------------------------
+
+_FINISHED = "2026-11-19T10:00:00Z"
+
+
+def _open_ids(root: Path) -> list[str]:
+    """Ids of the fixture's findings no one has approved, from the digests command."""
+    out = json.loads(_digests(root, "TBX5").stdout)
+    return [f["id"] for f in out["findings"] if not f["approved"]]
+
+
+def _decisions(
+    root: Path,
+    decide: dict[str, tuple[str, str]],
+    *,
+    name: str = "Dr. Grace Hopper",
+    role: str = "owner",
+    gene: str | None = None,
+    finished: str | None = _FINISHED,
+    papers_seen: list[str] | None = None,
+    flips: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
+    """A decisions file whose digests are the real ones, as `literature digests` prints them."""
+    out = json.loads(_digests(root, "TBX5").stdout)
+    shown = {f["id"]: f["shown_digest"] for f in out["findings"]}
+    data: dict[str, Any] = {
+        "format": 1,
+        "gene": gene or out["gene"],
+        "symbol": "TBX5",
+        "page": {
+            "built_on": "2026-11-19T09:00:00Z",
+            "atlas_commit": None,
+            "literature_sha256": out["literature_sha256"],
+        },
+        "reviewer": {"name": name, "role": role},
+        "session": {"started_at": "2026-11-19T09:30:00Z", "finished_at": finished, "active_ms": 1},
+        "papers_seen": papers_seen or [],
+        "findings": [
+            {
+                "id": fid,
+                "shown_digest": shown.get(fid, "sha256:" + "0" * 64),
+                "decision": decision,
+                "note": note,
+                "active_ms": 1,
+                "decided_at": _FINISHED,
+            }
+            for fid, (decision, note) in decide.items()
+        ],
+    }
+    if flips is not None:
+        data["triage"] = {"decision": "fix", "note": "n", "flips": flips, "active_ms": 1}
+    return data
+
+
+def _apply(root: Path, tmp_path: Path, data: Any, *args: str) -> Any:
+    path = tmp_path / "decisions.json"
+    path.write_text(data if isinstance(data, str) else json.dumps(data))
+    argv = list(args) if args else ["--by", "Dr. Grace Hopper"]
+    return runner.invoke(
+        app,
+        [
+            "literature",
+            "apply-review",
+            "TBX5",
+            "--decisions",
+            str(path),
+            *argv,
+            "--root",
+            str(root),
+        ],
+    )
+
+
+def _approved_on_disk(path: Path) -> dict[str, Finding]:
+    record = YAML(typ="safe").load(path.read_text())
+    findings = [Finding.model_validate(f) for f in record["findings"]]
+    return {f.id: f for f in findings if f.approved_by is not None}
+
+
+def test_apply_review_approves_what_the_page_showed_and_nothing_else(
+    root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    a, b, c = _open_ids(root)[:3]
+    before = set(_approved_on_disk(lit_path))
+    data = _decisions(
+        root,
+        {a: ("approve", ""), b: ("approve", ""), c: ("fix", "the count is wrong")},
+        papers_seen=["PMID:111", "PMID:222"],
+        flips=[{"pmid": "PMID:333", "to": "included", "note": "reports a variant"}],
+    )
+
+    result = _apply(root, tmp_path, data, "--by", " Dr. Grace Hopper ", "--on", "2026-11-19")
+
+    assert result.exit_code == 0, result.stdout
+    now = _approved_on_disk(lit_path)
+    assert set(now) == before | {a, b}
+    for fid in (a, b):
+        assert now[fid].approved_by == "Dr. Grace Hopper"
+        assert now[fid].approved_on == date(2026, 11, 19)
+        assert now[fid].approved_digest == finding_digest(now[fid])
+    assert f"next round: fix {c}: the count is wrong" in result.stdout
+    assert "next round: triage PMID:333 -> included: reports a variant" in result.stdout
+    assert "papers seen: PMID:111, PMID:222" in result.stdout
+
+
+def test_apply_review_refuses_a_finding_marked_after_the_page_was_built(
+    root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    a, b = _open_ids(root)[:2]
+    data = _decisions(root, {a: ("approve", ""), b: ("approve", "")})
+    marked = _review(root, "--pending-review", b, "--note", "n", "--settled-by", "expert")
+    assert marked.exit_code == 0, marked.stdout
+
+    result = _apply(root, tmp_path, data)
+
+    assert result.exit_code == 1, result.stdout
+    assert set(_approved_on_disk(lit_path)) - {"CHDA:LIT:0000003"} == {a}
+    assert f"stale {b}: changed since the page was built; review it again" in result.stdout
+
+
+def _bad_decisions(case: str, root: Path, a: str) -> tuple[Any, list[str]]:
+    if case == "second_opinion":
+        return _decisions(root, {a: ("approve", "")}, role="second_opinion"), []
+    if case == "name_mismatch":
+        return _decisions(root, {a: ("approve", "")}), ["--by", "Dr. Someone Else"]
+    if case == "agent_name":
+        return _decisions(root, {a: ("approve", "")}, name="agent:x"), ["--by", "agent:x"]
+    if case == "other_gene":
+        return _decisions(root, {a: ("approve", "")}, gene="HGNC:4173"), []
+    if case == "unknown_id":
+        return _decisions(root, {a: ("approve", ""), "CHDA:LIT:0009999": ("approve", "")}), []
+    if case == "not_finished":
+        return _decisions(root, {a: ("approve", "")}, finished=None), []
+    if case == "future_date":
+        return _decisions(root, {a: ("approve", "")}), [
+            "--by",
+            "Dr. Grace Hopper",
+            "--on",
+            "2999-01-01",
+        ]
+    if case == "invalid_json":
+        return "{not json", []
+    raise AssertionError(case)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "second_opinion",
+        "name_mismatch",
+        "agent_name",
+        "other_gene",
+        "unknown_id",
+        "not_finished",
+        "future_date",
+        "invalid_json",
+    ],
+)
+def test_apply_review_refuses_and_writes_nothing(
+    case: str, root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    a = _open_ids(root)[0]
+    data, args = _bad_decisions(case, root, a)
+    before = lit_path.read_bytes()
+
+    result = _apply(root, tmp_path, data, *args)
+
+    assert result.exit_code == 2, result.stdout
+    assert lit_path.read_bytes() == before
+    if case == "not_finished":
+        assert "session.finished_at is empty" in result.stdout
+
+
+def test_apply_review_twice_changes_nothing_the_second_time(
+    root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    a, b = _open_ids(root)[:2]
+    data = _decisions(root, {a: ("approve", ""), b: ("approve", "")})
+    first = _apply(root, tmp_path, data)
+    assert first.exit_code == 0, first.stdout
+    after_first = lit_path.read_bytes()
+
+    second = _apply(root, tmp_path, data)
+
+    assert second.exit_code == 0, second.stdout
+    assert f"already approved {a} by Dr. Grace Hopper" in second.stdout
+    assert lit_path.read_bytes() == after_first
