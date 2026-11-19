@@ -324,7 +324,7 @@ def _card(page: str) -> str:
             "other 28. "
             "De novo carriers in 11 papers; inherited carriers in 24 papers. "
             "From the abstract only: 21 papers; pending review: 3 papers.",
-            25,
+            42,
             id="TBX5",
         ),
         pytest.param(
@@ -349,12 +349,14 @@ def test_the_card_states_a_curated_genes_literature_by_paper_and_its_mechanism(
 
     Literals measured on a build of the committed corpus (2026-11-14) by an
     independent script over the gene bundles, except the open-question figures
-    (25 for TBX5, 8 for NR2F2), measured 2026-11-18 with `chd-atlas literature
-    questions`, which lists no unapproved finding on that corpus. Sliced to the card, so a copy of
-    either sentence elsewhere on the page cannot satisfy it, and so deleting the
-    `mechanisms=` argument or the `_card_literature` call fails here. The three
-    paragraphs are asserted as one contiguous run, so reordering them or
-    interposing an element between them fails too.
+    (42 for TBX5, 8 for NR2F2), measured 2026-11-19 with `chd-atlas literature
+    questions`, which lists no unapproved finding on that corpus. TBX5 was 25
+    until its approved variants arrived: 17 unplaced variants (rsID alone, no
+    position) each carry a `pending_review` mark, one question apiece. Sliced to
+    the card, so a copy of either sentence elsewhere on the page cannot satisfy
+    it, and so deleting the `mechanisms=` argument or the `_card_literature`
+    call fails here. The three paragraphs are asserted as one contiguous run, so
+    reordering them or interposing an element between them fails too.
     """
     card = html.unescape(_card((site / "genes" / f"{gene}.html").read_text(encoding="utf-8")))
     assert (
@@ -1089,11 +1091,14 @@ def test_exactly_the_four_records_the_owner_marked_carry_an_open_question(site: 
     nowhere else on the page. A scope term's question is published in
     `scope.json` only, so its note is asserted absent from every page.
 
-    Literature findings are records of another kind and carry their own marks,
-    rendered beside their summaries in the Literature section (TBX5's and
-    NR2F2's pending reviews, since the pilot's findings were published). The
-    page-wide count adds those the gene's bundle publishes, so a cohort note
-    leaking outside its fold still fails.
+    Literature findings and their variants are records of another kind and
+    carry their own marks, rendered beside their summaries in the Literature
+    section (TBX5's and NR2F2's pending reviews, since the pilot's findings were
+    published; a variant's own mark since the C0 backfill, 17 on TBX5). The
+    page-wide count adds those the gene's bundle publishes, counted apart from
+    the cohort notes, whose own count stays exact, so a cohort note leaking
+    outside its fold still fails and the owner's four marked records are still
+    the only cohort or scope marks.
     """
     cohorts = {cohort["id"]: cohort for cohort in _read(site, "cohorts.json")["cohorts"]}
     terms = {term["id"]: term for term in _read(site, "scope.json")["terms"]}
@@ -1161,7 +1166,17 @@ def test_exactly_the_four_records_the_owner_marked_carry_an_open_question(site: 
             for finding in bundle["literature"]["findings"]
             if finding["review_status"] == "pending_review"
         )
-        assert page.count("Pending review") == expected + literature, entry["gene"]
+        variants = sum(
+            1
+            for finding in bundle["literature"]["findings"]
+            for variant in finding["variants"]
+            if variant["review_status"] == "pending_review"
+        )
+        assert page.count("Pending review") == expected + literature + variants, entry["gene"]
+        if entry["gene"] in {"TBX5", "NR2F2"}:
+            # Measured 2026-11-19 on the published bundles: TBX5 3 findings and 17
+            # variants (the unplaced ones), NR2F2 3 findings and no variant.
+            assert (literature, variants) == {"TBX5": (3, 17), "NR2F2": (3, 0)}[entry["gene"]]
         carrying += bool(expected)
     assert carrying == 77
     for path in sorted(site.rglob("*.html")):
@@ -2234,12 +2249,15 @@ def test_every_why_link_on_a_gene_page_lands_on_one_element_of_its_register(
     written, or whose anchor the register spells differently, is a link that
     scrolls nowhere beside a label promising a reason.
 
-    Measured 2026-11-18, independently of this sweep: `chd-atlas literature
-    questions` gave 25 questions for TBX5 and 8 for NR2F2, and the registers'
-    "Open questions (25)" and "(8)" headings agree; 33 in all. Every
-    finding-level question on the real corpus is one record, so the count of
-    links equals the count of questions. Re-measure when a question is added or
-    approved, and do not edit the figure to make the test green.
+    Measured 2026-11-19, independently of this sweep: `chd-atlas literature
+    questions` gave 42 questions for TBX5 and 8 for NR2F2, and the registers'
+    "Open questions (42)" and "(8)" headings agree; 50 in all (33 on
+    2026-11-18, when TBX5 had 25). The 17 added are variant-level questions:
+    since the C0 backfill a variant carries its own review mark, and an unplaced
+    one (rsID alone) is a question of its own. Every question on the real corpus
+    is one record, so the count of links equals the count of questions.
+    Re-measure when a question is added or approved, and do not edit the figure
+    to make the test green.
     """
     checked = 0
     for page_path in sorted((site / "genes").glob("HGNC_*.html")):
@@ -2253,7 +2271,7 @@ def test_every_why_link_on_a_gene_page_lands_on_one_element_of_its_register(
             assert ids.count(fragment) == 1, (
                 f"{page_path.name} -> {href}: {ids.count(fragment)} ids"
             )
-    assert checked == 33, f"{checked} why links on the gene pages; 33 measured"
+    assert checked == 50, f"{checked} why links on the gene pages; 50 measured"
 
 
 def test_the_front_page_declares_exactly_the_study_blocks_the_gene_pages_declare(

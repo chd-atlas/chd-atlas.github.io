@@ -259,6 +259,17 @@ def protein_key(text: str) -> str:
 _FRAMESHIFT: Final = re.compile(r"([A-Z*])(\d+)([A-Z*]?)fs(.*)")
 
 
+# A substitution whose new residue repeats its reference residue (`V205V`).
+_SAME_RESIDUE: Final = re.compile(r"([A-Z*])(\d+)\1")
+
+
+def _comparable(text: str) -> str:
+    """`_protein_change`, with a same-residue substitution written `X#=`."""
+    change = _protein_change(text)
+    match = _SAME_RESIDUE.fullmatch(change)
+    return f"{match[1]}{match[2]}=" if match else change
+
+
 def same_protein_change(a: str, b: str) -> bool:
     """Whether two `p.` descriptions state the same change.
 
@@ -266,12 +277,17 @@ def same_protein_change(a: str, b: str) -> bool:
     stripped, three-letter codes mapped to one-letter, and `Ter`, `*` and `X`
     equal.
 
+    A synonymous change written with its residue repeated (`V205V`,
+    `Val205Val`) equals the same change written `Val205=`, the form the
+    normaliser returns; a different new residue (`V205A`) stays different.
+    `protein_key` applies no such reading.
+
     A frameshift naming no new residue (`R279fs`, `H445fsX136`) equals any
     frameshift at the same residue and position, because papers abbreviate it
     and count its stop differently from the normaliser (owner rulings D5, D5');
     two frameshifts that both name the new residue still compare in full.
     """
-    first, second = _protein_change(a), _protein_change(b)
+    first, second = _comparable(a), _comparable(b)
     one, two = _FRAMESHIFT.fullmatch(first), _FRAMESHIFT.fullmatch(second)
     if one and two and (not one[3] or not two[3]):
         return one.group(1, 2) == two.group(1, 2)

@@ -1628,9 +1628,17 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
     _agrees(_abridged(blocks[0]), empty["literature"], "literature (empty)")
     tbx5 = json.loads((site / "genes" / "HGNC_11604.json").read_text())
     _agrees(_abridged(blocks[1]), tbx5["literature"], "literature (TBX5)")
-    # TBX5 has no variant, so the third example cannot be held to a published one:
-    # hold its keys to the models' own, so a renamed field breaks the doc.
+    # The third example is invented (no published finding has its id) and cannot be
+    # held value by value: TBX5's only linked pair (CHDA:LIT:0000061, measured
+    # 2026-11-19) is `unplaced`, so it has no coordinates and no normalisation run.
+    # Hold its keys to the models' own, so a renamed field breaks the doc, and to
+    # TBX5's published variants and run, so a key the build no longer publishes does too.
     shown = _abridged(blocks[2])
+    published_variants = [v for f in tbx5["literature"]["findings"] for v in f["variants"]]
+    assert set(shown["findings"][0]["variants"][0]) - {"…"} <= set(published_variants[0])
+    assert set(shown["normalisations"][0]) - {"…"} <= set(tbx5["literature"]["normalisations"][0])
+    linked = [v for v in published_variants if v["with"]]
+    assert linked and {v["phase"] for v in linked} == {"trans"}
     variant = shown["findings"][0]["variants"][0]
     assert set(variant) - {"…"} <= {f.alias or n for n, f in Variant.model_fields.items()}
     run = shown["normalisations"][0]
