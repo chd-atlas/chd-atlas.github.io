@@ -322,7 +322,7 @@ variants:
   fields are deleted and a person approves again. Never write or copy a digest by hand.
 - An agent never runs `literature review --approve` and never writes `approved_by` by
   hand. `literature apply-review` writes it, so an agent runs it only on a decisions file
-  the review page downloaded or `chd-curator review-decisions` converted, after the
+  the review page downloaded, or one curator converted from the page's store, after the
   reviewer pressed "I'm done", with `--by` the reviewer's name; it never writes or edits
   that file by hand. That is a convention: `apply-review` refuses a `--by` that is not the
   file's reviewer or that names an agent, an unfinished session and a second opinion, but
