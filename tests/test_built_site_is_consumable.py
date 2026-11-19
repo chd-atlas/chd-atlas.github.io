@@ -2250,8 +2250,9 @@ def test_every_why_link_on_a_gene_page_lands_on_one_element_of_its_register(
     scrolls nowhere beside a label promising a reason.
 
     Measured 2026-11-19, independently of this sweep: `chd-atlas literature
-    questions` gave 42 questions for TBX5 and 8 for NR2F2, and the registers'
-    "Open questions (42)" and "(8)" headings agree; 50 in all (33 on
+    questions` gave 42 questions for TBX5, 8 for NR2F2 and 9 for MMP21, and the
+    registers' "Open questions (42)", "(8)" and "(9)" headings agree; 59 in all
+    (50 before MMP21's literature was approved the same day; 33 on
     2026-11-18, when TBX5 had 25). The 17 added are variant-level questions:
     since the C0 backfill a variant carries its own review mark, and an unplaced
     one (rsID alone) is a question of its own. Every question on the real corpus
@@ -2271,7 +2272,7 @@ def test_every_why_link_on_a_gene_page_lands_on_one_element_of_its_register(
             assert ids.count(fragment) == 1, (
                 f"{page_path.name} -> {href}: {ids.count(fragment)} ids"
             )
-    assert checked == 50, f"{checked} why links on the gene pages; 50 measured"
+    assert checked == 59, f"{checked} why links on the gene pages; 59 measured"
 
 
 def test_the_front_page_declares_exactly_the_study_blocks_the_gene_pages_declare(
@@ -2885,15 +2886,16 @@ def test_no_finding_card_states_a_mechanism_or_a_null_its_rows_do_not(site: Path
 
 
 def test_the_register_exists_for_exactly_the_genes_with_open_questions(site: Path) -> None:
-    """`register/` holds TBX5's and NR2F2's back pages and nothing else (measured 2026-11-18).
+    """`register/` holds TBX5's, NR2F2's and MMP21's back pages and nothing else.
 
-    Those are the two genes with approved findings that carry a mark. Every
+    Measured 2026-11-19: those are the three genes with approved findings that
+    carry a mark (TBX5 and NR2F2 since 2026-11-18, MMP21 since its pilot review). Every
     anchor on a register is unique, so a gene page's "why" link names one record.
     The link sweep above already walks `register/*.html`, since it globs every
     page in the site.
     """
     files = sorted(path.name for path in (site / "register").glob("*"))
-    assert files == ["HGNC_11604.html", "HGNC_7976.html"]
+    assert files == ["HGNC_11604.html", "HGNC_14357.html", "HGNC_7976.html"]
     for name in files:
         page = (site / "register" / name).read_text(encoding="utf-8")
         ids = re.findall(r' id="([^"]+)"', page)
