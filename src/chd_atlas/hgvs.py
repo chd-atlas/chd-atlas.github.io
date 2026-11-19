@@ -260,7 +260,7 @@ _FRAMESHIFT: Final = re.compile(r"([A-Z*])(\d+)([A-Z*]?)fs(.*)")
 
 
 # A substitution whose new residue repeats its reference residue (`V205V`).
-_SAME_RESIDUE: Final = re.compile(r"([A-Z])(\d+)\1")
+_SAME_RESIDUE: Final = re.compile(r"([A-Z*])(\d+)\1")
 
 
 def _comparable(text: str) -> str:
