@@ -14,7 +14,8 @@ mapping indent 4 changed in 19 lines for one added line).
 
 Of the writers that once lived here, ``chd-atlas/curator`` now owns the ones
 that append searches and publications; this module keeps the reader and
-``with_findings_updated`` that ``literature review`` uses for approvals.
+``with_findings_updated`` that ``literature review`` and ``literature apply-review``
+use for approvals.
 
 `with_findings_updated` sets fields on named findings under the same rule: on a
 file in the canonical style the lines it adds are the only change, and a blank

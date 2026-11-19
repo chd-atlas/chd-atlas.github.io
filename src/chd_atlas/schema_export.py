@@ -1,7 +1,8 @@
 """Deterministic schema export, written to the committed ``schemas/`` directory.
 
-JSON Schema for the YAML record models and for a source package's
-``manifest.json`` (`EXPORTED_MODELS`), and a Frictionless-style Table Schema
+JSON Schema for the YAML record models, for a source package's
+``manifest.json`` and for the review decisions file a review page writes
+(`EXPORTED_MODELS`), and a Frictionless-style Table Schema
 per mirror table (`export_table_schemas`), which is also the format of a
 package's tables.
 """

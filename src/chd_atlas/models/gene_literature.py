@@ -413,7 +413,7 @@ def finding_digest(finding: Finding) -> str:
     return _canonical_digest(content)
 
 
-# Only the approval is outside what a review card shows: unlike `finding_digest`,
+# Only the approval is left out of the finding as recorded: unlike `finding_digest`,
 # the shown digest keeps the finding's and each variant's review marks, the
 # `unclear` entries and `verified_by`.
 _SHOWN_EXCLUDED: Final[frozenset[str]] = frozenset(
@@ -422,7 +422,7 @@ _SHOWN_EXCLUDED: Final[frozenset[str]] = frozenset(
 
 
 def shown_digest(finding: Finding, publication: Publication | None) -> str:
-    """`sha256:` and the hex digest of everything a review card shows for a finding.
+    """`sha256:` and the hex digest of a finding as recorded, minus its approval, with its paper.
 
     The canonical JSON of `{"finding": ..., "publication": ...}`. `finding` is
     `model_dump(mode="json", exclude_defaults=True, by_alias=True)` without

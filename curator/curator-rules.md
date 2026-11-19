@@ -313,19 +313,22 @@ variants:
 - `extracted_by` and `verified_by` are `agent:<skill>/<model>`. The verifier is a
   different model from the extractor, in a fresh context.
 - `approved_by` is a human's name. A value starting `agent:` is refused by the model
-  (`SCHEMA001`) and by `chd-atlas literature review`. `approved_by`, `approved_on` and
+  (`SCHEMA001`) and by `chd-atlas literature review` and `literature apply-review`. `approved_by`, `approved_on` and
   `approved_digest` are set together (`SCHEMA001`).
 - `approved_digest` is a hash of the finding as it was approved; `literature review
   --approve` and `literature apply-review` both write it. Editing any field it covers (the id, counts, summary, locators,
   anything but the approval, `verified_by` and the review mark) leaves the approval
   stale: the validator reports `LIT015` and the build refuses until the three approval
   fields are deleted and a person approves again. Never write or copy a digest by hand.
-- An agent never runs `literature review --approve` and never writes `approved_by`. An
-  agent runs `literature apply-review` only on a decisions file the review page produced,
-  after the reviewer pressed "I'm done", with `--by` the reviewer's name; it never writes
-  or edits that file. That is a convention: `apply-review` refuses a `--by` that is not the
-  file's reviewer, an unfinished session and a second opinion, but cannot tell who produced
-  the file, and `review --approve` cannot tell a person's name from an agent's invented one.
+- An agent never runs `literature review --approve` and never writes `approved_by` by
+  hand. `literature apply-review` writes it, so an agent runs it only on a decisions file
+  the review page downloaded or `chd-curator review-decisions` converted, after the
+  reviewer pressed "I'm done", with `--by` the reviewer's name; it never writes or edits
+  that file by hand. That is a convention: `apply-review` refuses a `--by` that is not the
+  file's reviewer or that names an agent, an unfinished session and a second opinion, but
+  cannot tell who produced the file, and `review --approve` cannot tell a person's name
+  from an agent's invented one. `apply-review` passes `allow_unverified=True`, so it
+  approves findings no verifier has compared; the reviewer's decision is the check.
 - Approval is not dated before the search that found the paper (`LIT008`).
 - A review mark (`pending_review` or `not_accessible`, with its `review_note`) is
   published with the finding. It does not withdraw an approval.

@@ -11,7 +11,8 @@ keys, and the evidence locator's discriminated union.
 ## What these do NOT check
 
 Every cross-field rule. A record can satisfy these schemas and still be rejected by
-`chd-atlas validate` — for example omics evidence with no dataset accession, a syndromic assertion
+`chd-atlas validate` (and a review decisions file by `chd-atlas literature apply-review`;
+`validate` never reads one, and finding ids repeated in it pass the schema) — for example omics evidence with no dataset accession, a syndromic assertion
 listing no extracardiac features, a GEO accession filed under PRIDE, mass-spectrometry technology in
 a sequencing archive, a review date preceding its curation date, or morpholino perturbation in a
 mammal.
