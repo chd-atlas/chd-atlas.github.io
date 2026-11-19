@@ -1,0 +1,502 @@
+gene: HGNC:14357
+searches:
+  - id: 1
+    source: pubmed
+    query: ("MMP21"[tiab]) AND ("Heart Defects, Congenital"[mh] OR "congenital heart"[tiab] OR "heart defect"[tiab] OR "heart defects"[tiab] OR "cardiac defect"[tiab] OR "cardiac defects"[tiab] OR "heart malformation"[tiab] OR "heart malformations"[tiab] OR "cardiac malformation"[tiab] OR "cardiac malformations"[tiab] OR "septal defect"[tiab] OR "septal defects"[tiab] OR "tetralogy of Fallot"[tiab] OR "transposition of the great arteries"[tiab] OR "hypoplastic left heart"[tiab] OR "heterotaxy"[tiab] OR "conotruncal"[tiab] OR "outflow tract"[tiab] OR "atrioventricular septal defect"[tiab] OR "coarctation"[tiab] OR "heterotaxy, visceral, 7, autosomal"[tiab]) NOT preprint[pt] NOT review[pt]
+    run_on: 2026-11-19
+    hits: 12
+    new_hits: 12
+normalisations:
+  - id: 1
+    tool: variantvalidator
+    version: 4.0.1.dev7+gbdab9c72f
+    hgvs_version: 4.0.0
+    vvta: vvta_2025_02
+    vvdb: vvdb_2025_3
+    seqrepo: VV_SR_2025_02/master
+    run_on: 2026-11-19
+triage:
+  - pmid: PMID:26429889
+    search: 1
+    decision: included
+  - pmid: PMID:26437028
+    search: 1
+    decision: included
+  - pmid: PMID:29263817
+    search: 1
+    decision: included
+  - pmid: PMID:30622330
+    search: 1
+    decision: excluded
+    reason: full_text_not_accessible
+    note: the abstract names MMP21 among genes with candidate variants but gives no MMP21 carrier count or variant
+  - pmid: PMID:33131162
+    search: 1
+    decision: excluded
+    reason: full_text_not_accessible
+    note: the abstract names MMP21 among six recessive genes but gives no MMP21 carrier count or variant
+  - pmid: PMID:33240936
+    search: 1
+    decision: included
+  - pmid: PMID:36123719
+    search: 1
+    decision: included
+  - pmid: PMID:39513328
+    search: 1
+    decision: excluded
+    reason: full_text_not_accessible
+    note: the abstract names MMP21 among eight genes but gives no MMP21 carrier count, variant or zygosity
+  - pmid: PMID:39753129
+    search: 1
+    decision: excluded
+    reason: no_finding_in_gene
+  - pmid: PMID:39976347
+    search: 1
+    decision: included
+  - pmid: PMID:40467998
+    search: 1
+    decision: excluded
+    reason: full_text_not_accessible
+    note: the abstract names MMP21 among known pathogenic genes but gives no MMP21 carrier count or variant
+  - pmid: PMID:40679208
+    search: 1
+    decision: included
+findings:
+  - id: CHDA:LIT:0000109
+    publication: PMID:26429889
+    design: family_segregation
+    methods: [exome, targeted_sequencing]
+    count_unit: families
+    screened: 1
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: "NM_147191: c.1024_1025delAA, p. K342fs"
+        locator: {kind: in_text, element: Results - Whole exome sequencing and genetic analysis of variants}
+        kind: snv_indel
+        reported: {transcript: NM_147191, c: c.1024_1025delAA, p: p.K342fs}
+        placement: unplaced
+        hgvs_p: NP_671724.1:p.(Lys342fs)
+        normalisation: 1
+        zygosity: homozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0030853, HP:0001651, HP:0011538, HP:0001674, HP:0001669, HP:0004935, HP:0031834, HP:0033379]
+        review_status: pending_review
+        review_note: 'VariantValidator refused NM_147191:c.1024_1025delAA: VariantSyntaxError: Removing redundant reference bases from variant description'
+        review_settled_by: expert
+    phenotypes: [HP:0030853, HP:0001651, HP:0011538, HP:0001674, HP:0001669, HP:0004935, HP:0031834, HP:0033379]
+    lesion_groups: [heterotaxy, conotruncal, avsd, rvoto, other]
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - {kind: in_text, element: Results - Patients}
+      - {kind: in_text, element: Results - Whole exome sequencing and genetic analysis of variants}
+    summary: In one consanguineous Arab family, exome sequencing and Sanger segregation testing found a homozygous 2 bp deletion in MMP21 (c.1024_1025delAA) in two siblings with heterotaxy and complex heart disease (complete atrioventricular canal defect and transposition with pulmonary atresia in both, dextrocardia in one, bilateral superior vena cava in the other) and in a third homozygous sibling with situs inversus totalis. The parents were heterozygous.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-19
+    approved_digest: sha256:b7ed6b2c4d4aa8dcedec28b624bfdeae75d71641e52b34f332cd956ff11e4c1a
+  - id: CHDA:LIT:0000110
+    publication: PMID:26437028
+    design: family_segregation
+    methods: [exome, genome]
+    count_unit: families
+    screened: 2
+    carriers: {de_novo: 0, inherited: 2, origin_unknown: 0}
+    variant_classes: [snv_indel, cnv]
+    variants:
+      - id: 1
+        as_reported: "c.677T>C, p.(Ile226Thr)"
+        locator: {kind: in_text, element: Results - family 1}
+        kind: snv_indel
+        reported: {transcript: NM_147191.1, c: c.677T>C, p: "p.(Ile226Thr)"}
+        placement: mane
+        hgvs_c: NM_147191.1:c.677T>C
+        hgvs_p: NP_671724.1:p.(Ile226Thr)
+        grch38: 10:125773851:A:G
+        normalisation: 1
+        zygosity: heterozygous
+        with: [2]
+        phase: trans
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0030853, HP:0001627]
+      - id: 2
+        as_reported: "c.1203G>A, p.(Trp401*)"
+        locator: {kind: in_text, element: Results - family 1}
+        kind: snv_indel
+        reported: {transcript: NM_147191.1, c: c.1203G>A, p: "p.(Trp401*)", rsid: rs137955225}
+        placement: mane
+        hgvs_c: NM_147191.1:c.1203G>A
+        hgvs_p: NP_671724.1:p.(Trp401Ter)
+        grch38: 10:125770368:C:T
+        normalisation: 1
+        zygosity: heterozygous
+        with: [1]
+        phase: trans
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0030853, HP:0001627]
+      - id: 3
+        as_reported: deletion of MMP21 exons 1-3
+        locator: {kind: in_text, element: Results - family 2}
+        kind: cnv
+        placement: structural
+        zygosity: heterozygous
+        with: [4]
+        phase: trans
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0030853, HP:0001627]
+      - id: 4
+        as_reported: "c.365delT, p.(Met122Serfs*55)"
+        locator: {kind: in_text, element: Results - family 2}
+        kind: snv_indel
+        reported: {c: c.365delT, p: "p.(Met122Serfs*55)"}
+        placement: mane
+        hgvs_c: NM_147191.1:c.365del
+        hgvs_p: NP_671724.1:p.(Met122SerfsTer55)
+        grch38: 10:125774162:CA:C
+        normalisation: 1
+        zygosity: heterozygous
+        with: [3]
+        phase: trans
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0030853, HP:0001627]
+    phenotypes: [HP:0030853, HP:0001627]
+    lesion_groups: [heterotaxy, other]
+    syndromic: isolated
+    shares_probands_with: [CHDA:LIT:0000112]
+    locators:
+      - {kind: in_text, element: Results - family 1}
+      - {kind: in_text, element: Results - family 2}
+    summary: Two non-consanguineous families with recurrent heterotaxy including congenital heart defects had biallelic MMP21 variants, family 1 two variants found by exome sequencing whose segregation indicated recessive inheritance, and family 2 by genome sequencing an exon 1-3 deletion from the mother with a frameshift from the father. The paper gives the heart lesions only in its figure and supplementary tables, which were not read.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-19
+    approved_digest: sha256:29eec3a0f9560fca1c1f891528f6ba8933a7f8933a3128dbcb77e0eeb4f1c8f0
+  - id: CHDA:LIT:0000111
+    publication: PMID:26437028
+    design: cohort_screen
+    methods: [targeted_sequencing]
+    count_unit: probands
+    screened: 264
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 7}
+    variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: "p.(Ala321Pro)"
+        locator: {kind: in_text, element: Results - mouse CRISPR/Cas9 knock-in}
+        kind: snv_indel
+        reported: {p: "p.(Ala321Pro)"}
+        placement: protein
+        hgvs_p: NP_671724.1:p.(Ala321Pro)
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+      - id: 2
+        as_reported: "p.(Arg360Cys)"
+        locator: {kind: in_text, element: Results - MMP21 domain structure}
+        kind: snv_indel
+        reported: {p: "p.(Arg360Cys)"}
+        placement: protein
+        hgvs_p: NP_671724.1:p.(Arg360Cys)
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        review_status: pending_review
+        review_note: The text names this variant among the series' variants but gives no family, carrier count or zygosity for it, so whether its carrier is among the seven counted (families 3-9) is not stated; the per-family variants are in Supplementary Table 2, which was not available.
+        review_settled_by: full_text
+      - id: 3
+        as_reported: "p.(Arg375His)"
+        locator: {kind: in_text, element: Results - MMP21 domain structure}
+        kind: snv_indel
+        reported: {p: "p.(Arg375His)"}
+        placement: protein
+        hgvs_p: NP_671724.1:p.(Arg375His)
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        review_status: pending_review
+        review_note: The text names this variant among the series' variants but gives no family, carrier count or zygosity for it, so whether its carrier is among the seven counted (families 3-9) is not stated; the per-family variants are in Supplementary Table 2, which was not available.
+        review_settled_by: full_text
+      - id: 4
+        as_reported: "p.(Arg408Gly)"
+        locator: {kind: in_text, element: Results - MMP21 domain structure}
+        kind: snv_indel
+        reported: {p: "p.(Arg408Gly)"}
+        placement: protein
+        hgvs_p: NP_671724.1:p.(Arg408Gly)
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        review_status: pending_review
+        review_note: The text names this variant among the series' variants but gives no family, carrier count or zygosity for it, so whether its carrier is among the seven counted (families 3-9) is not stated; the per-family variants are in Supplementary Table 2, which was not available.
+        review_settled_by: full_text
+    phenotypes: [HP:0030853, HP:0001627]
+    lesion_groups: [heterotaxy, other]
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - {kind: in_text, element: Results - HaloPlex sequencing of 264 index cases}
+    summary: HaloPlex sequencing of MMP21 in 264 index cases with heterotaxy (154) or non-heterotaxy congenital heart disease (110) found nine cases (families 3-11) with rare biallelic variants predicted to affect protein function; the authors judge the variants of families 10 and 11 unlikely to be causal (one variant seen homozygous in ExAC), so seven carriers (families 3-9, nine less two) are counted. The text ties only p.(Ala321Pro) to a family (family 6) and names p.(Arg360Cys), p.(Arg375His), p.(Arg408Gly) and residue Glu215 without a family; the per-family variants and the carriers' lesions are in Supplementary Table 2 and Figure 1, not read, so the lesions are the series'.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-19
+    approved_digest: sha256:eb5806d2cac43640114538f89625d6d1ec1131b3274f9697bd77d01639b9bdd9
+  - id: CHDA:LIT:0000112
+    publication: PMID:29263817
+    design: family_segregation
+    methods: [genome]
+    count_unit: families
+    screened: 1
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+    variant_classes: [snv_indel, cnv]
+    variants:
+      - id: 1
+        as_reported: 5,904 bp heterozygous DSV of MMP21 exons 1–3
+        locator: {kind: in_text, element: Results - Case 1}
+        kind: cnv
+        placement: structural
+        zygosity: heterozygous
+        with: [2]
+        phase: trans
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0030853, HP:0031348, HP:0001629, HP:0011720, HP:0001651, HP:0010882, HP:0011671]
+      - id: 2
+        as_reported: c.365del (p.Met122SerfsTer55)
+        locator: {kind: in_text, element: Results - Case 1}
+        kind: snv_indel
+        reported: {c: c.365del, p: p.Met122SerfsTer55}
+        placement: mane
+        hgvs_c: NM_147191.1:c.365del
+        hgvs_p: NP_671724.1:p.(Met122SerfsTer55)
+        grch38: 10:125774162:CA:C
+        normalisation: 1
+        zygosity: heterozygous
+        with: [1]
+        phase: trans
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0030853, HP:0031348, HP:0001629, HP:0011720, HP:0001651, HP:0010882, HP:0011671]
+    phenotypes: [HP:0030853, HP:0031348, HP:0001629, HP:0011720, HP:0001651, HP:0010882, HP:0011671]
+    lesion_groups: [heterotaxy, conotruncal, septal, anomalous_venous_return, rvoto, other]
+    syndromic: isolated
+    shares_probands_with: [CHDA:LIT:0000110]
+    locators:
+      - {kind: in_text, element: Results - Case 1}
+      - {kind: in_text, element: Abstract}
+      - {kind: supplementary, file: npjgenmed201626-s7.xlsx, sheet: Sheet1, row: 53}
+      - {kind: supplementary, file: npjgenmed201626-s7.xlsx, sheet: Sheet1, row: 54}
+      - {kind: supplementary, file: npjgenmed201626-s7.xlsx, sheet: Sheet1, row: 55}
+      - {kind: supplementary, file: npjgenmed201626-s7.xlsx, sheet: Sheet1, row: 57}
+      - {kind: supplementary, file: npjgenmed201626-s7.xlsx, sheet: Sheet1, row: 58}
+    summary: Two brothers with visceral heterotaxy, dextro-transposition of the great arteries and total anomalous pulmonary venous return carried a maternal 5,904 bp deletion of MMP21 exons 1-3 in trans with a paternal frameshift (c.365del), found by whole-genome sequencing of the quartet; the frameshift was called apparently homozygous, which the authors attribute to the deletion of the maternal allele. The ventricular septal defect, dextrocardia, pulmonary valve atresia and interrupted inferior vena cava are from the supplementary sample table (rows 53-58), which names BCL9L, not MMP21, as the brothers' causal gene.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-19
+    approved_digest: sha256:00086d849570e23c4d3210bc9f17cb2aeae3799ca230a38ddab02424ab6507ae
+    review_status: pending_review
+    review_note: The text gives the brothers' diagnosis as MMP21 (an exon 1-3 deletion in trans with c.365del); the supplementary sample table (npjgenmed201626-s7.xlsx, Sheet1, rows 53-62) names BCL9L (NM_182557.2:c.2102G>A and c.554C>T, recessive) as the causal gene for CMH184 and CMH185 and lists no MMP21 variant.
+    review_settled_by: authors
+  - id: CHDA:LIT:0000113
+    publication: PMID:33240936
+    design: cohort_screen
+    methods: [exome]
+    count_unit: probands
+    screened: 78
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.G496T; p.G166*
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        reported: {transcript: NM_147191, c: c.496G>T, p: p.G166*}
+        placement: unplaced
+        hgvs_p: NP_671724.1:p.(Gly166Ter)
+        normalisation: 1
+        zygosity: homozygous
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001651, HP:0001750, HP:0001642, HP:0001669]
+        review_status: pending_review
+        review_note: 'VariantValidator refused NM_147191:c.496G>T: RefSeq variant accession numbers MUST include a version number'
+        review_settled_by: expert
+    phenotypes: [HP:0001651, HP:0001750, HP:0001642, HP:0001669]
+    lesion_groups: [conotruncal, rvoto, complex, heterotaxy]
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - {kind: in_text, element: Case Presentation}
+      - {kind: in_text, element: Identification of MMP21 Variation}
+      - {kind: in_text, element: Abstract}
+      - {kind: in_text, element: Table 1}
+    summary: One of 78 patients with dextrocardia screened by exome sequencing carried a homozygous stopgain variant in MMP21; the carrier had mirror-image dextrocardia, single ventricle, pulmonary stenosis and transposition of the great arteries, and the parents' genotypes are not stated.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-19
+    approved_digest: sha256:6e9b303231f144afd9d7d459f4f2d22e429590da92e2b674b4fc232adb6bc4c3
+  - id: CHDA:LIT:0000114
+    publication: PMID:36123719
+    design: cohort_screen
+    methods: [exome]
+    count_unit: probands
+    screened: 81
+    carriers: {de_novo: 3, inherited: 0, origin_unknown: 0}
+    variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.G731A p. G244E
+        locator: {kind: in_text, element: Table 2}
+        kind: snv_indel
+        reported: {transcript: NM_147191.1, c: c.731G>A, p: p.G244E}
+        placement: mane
+        hgvs_c: NM_147191.1:c.731G>A
+        hgvs_p: NP_671724.1:p.(Gly244Glu)
+        grch38: 10:125772717:C:T
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0030853, HP:0001651, HP:0011540, HP:0001629, HP:0001642]
+      - id: 2
+        as_reported: c.C829T p. L277F
+        locator: {kind: in_text, element: Table 2}
+        kind: snv_indel
+        reported: {transcript: NM_147191.1, c: c.829C>T, p: p.L277F, rsid: rs1850462241}
+        placement: mane
+        hgvs_c: NM_147191.1:c.829C>T
+        hgvs_p: NP_671724.1:p.(Leu277Phe)
+        grch38: 10:125772619:G:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0030853, HP:0001651, HP:0011536, HP:0011565, HP:0001750, HP:0001642, HP:0005301, HP:0005160, HP:0012020]
+      - id: 3
+        as_reported: c.A1459G p. K487E
+        locator: {kind: in_text, element: Table 2}
+        kind: snv_indel
+        reported: {transcript: NM_147191.1, c: c.1459A>G, p: p.K487E, rsid: rs779248373}
+        placement: mane
+        hgvs_c: NM_147191.1:c.1459A>G
+        hgvs_p: NP_671724.1:p.(Lys487Glu)
+        grch38: 10:125766913:T:C
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0030853, HP:0011536, HP:0006695, HP:0001750, HP:0030966]
+        review_status: pending_review
+        review_note: Table 2 and 40246_2022_409_MOESM3_ESM.xlsx (sheet variants, row 6) give patient P61's cardiovascular malformations as PAD/AVSD/SV (pulmonary artery dysplasia, atrioventricular septal defect, single ventricle); 40246_2022_409_MOESM2_ESM.xlsx (sheet Variants, row 21) gives right atrium isomerism/aventricular septal defect/atrial septal defect/single ventricle, with no pulmonary artery dysplasia; 40246_2022_409_MOESM4_ESM.xlsx (sheet MMP21 variants, family 19) gives right atrial isomerism, pulmonary artery dysplasia and atrioventricular septal defect, with no single ventricle.
+        review_settled_by: authors
+    phenotypes: [HP:0030853, HP:0001651, HP:0011536, HP:0011565, HP:0001750, HP:0006695, HP:0011540, HP:0001629, HP:0001642, HP:0005301, HP:0005160, HP:0012020, HP:0030966]
+    lesion_groups: [heterotaxy, avsd, septal, conotruncal, rvoto, complex, anomalous_venous_return, other]
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators:
+      - {kind: in_text, element: Table 2}
+      - {kind: in_text, element: Results}
+      - {kind: supplementary, file: 40246_2022_409_MOESM2_ESM.xlsx, sheet: Variants, row: 19}
+      - {kind: supplementary, file: 40246_2022_409_MOESM2_ESM.xlsx, sheet: Variants, row: 4}
+      - {kind: supplementary, file: 40246_2022_409_MOESM2_ESM.xlsx, sheet: Variants, row: 21}
+      - {kind: supplementary, file: 40246_2022_409_MOESM3_ESM.xlsx, sheet: variants, row: 6}
+      - {kind: supplementary, file: 40246_2022_409_MOESM4_ESM.xlsx, sheet: MMP21 variants, row: 40}
+    summary: Exome sequencing of 81 children with heterotaxy and complex congenital heart defects found three heterozygous MMP21 missense variants, each in a different patient and each shown by Sanger sequencing to be de novo.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-19
+    approved_digest: sha256:68c4adab837a5715c1cb61c6599a49f09b7ecf67cd29f09e8abd98b8e88a1f12
+  - id: CHDA:LIT:0000115
+    publication: PMID:39976347
+    design: case_report
+    methods: [exome]
+    count_unit: probands
+    screened: 1
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+    variant_classes: [snv_indel, cnv]
+    variants:
+      - id: 1
+        as_reported: c.1544A>G (p.Tyr515Cys)
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        reported: {transcript: NM_147191.1, c: c.1544A>G, p: p.Tyr515Cys, rsid: rs370620506}
+        placement: mane
+        hgvs_c: NM_147191.1:c.1544A>G
+        hgvs_p: NP_671724.1:p.(Tyr515Cys)
+        grch38: 10:125766828:T:C
+        normalisation: 1
+        zygosity: heterozygous
+        with: [2]
+        phase: trans
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001629]
+      - id: 2
+        as_reported: "heterozygous deletion at 10q26.13‐q26.2 (chr10:124810583–129250903)"
+        locator: {kind: in_text, element: Variant Analysis and Validation}
+        kind: cnv
+        placement: structural
+        zygosity: heterozygous
+        with: [1]
+        phase: trans
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001629]
+        review_status: pending_review
+        review_note: The Results text gives the deletion as chr10:124810583–129250903; Table 1 gives Chr10:124811728–129272635 for the proband and the mother.
+        review_settled_by: authors
+    phenotypes: [HP:0001629]
+    lesion_groups: [septal]
+    syndromic: syndromic
+    shares_probands_with: unknown
+    locators:
+      - {kind: in_text, element: Abstract}
+      - {kind: in_text, element: Clinical Information and Ultrasound Findings}
+      - {kind: in_text, element: Variant Analysis and Validation}
+      - {kind: in_text, element: Table 1}
+    summary: Trio exome sequencing of a fetus with a ventricular septal defect found an apparent homozygous MMP21 missense variant inherited from the father, unmasked by a maternally inherited heterozygous deletion at 10q26.13-q26.2 that the authors interpret as leaving the variant hemizygous.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-19
+    approved_digest: sha256:ce5e2837eb0f85e62ddd77b915d3f85059a36dc8596fac6f7a6b7a9a531e8b62
+  - id: CHDA:LIT:0000116
+    publication: PMID:40679208
+    design: case_report
+    methods: [exome]
+    count_unit: probands
+    screened: 1
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.414del; p.(Arg139Glufs*38)
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        reported: {c: c.414del, p: p.(Arg139Glufs*38)}
+        placement: mane
+        hgvs_c: NM_147191.1:c.414del
+        hgvs_p: NP_671724.1:p.(Arg139GlufsTer38)
+        grch38: 10:125774113:TG:T
+        normalisation: 1
+        zygosity: heterozygous
+        with: [2]
+        phase: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0030853]
+      - id: 2
+        as_reported: c.980-16 T > A
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        reported: {c: c.980-16T>A}
+        placement: mane
+        hgvs_c: NM_147191.1:c.980-16T>A
+        hgvs_p: NP_671724.1:p.?
+        grch38: 10:125770607:A:T
+        normalisation: 1
+        zygosity: heterozygous
+        with: [1]
+        phase: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0030853]
+    phenotypes: [HP:0030853]
+    lesion_groups: [heterotaxy]
+    syndromic: isolated
+    shares_probands_with: unknown
+    locators: [{kind: in_text, element: Abstract}]
+    summary: Exome sequencing of a fetus diagnosed with heterotaxy found two novel compound heterozygous MMP21 variants, a frameshift and an intronic variant shown by minigene assay to alter splicing.
+    review_status: not_accessible
+    review_note: Only the abstract was read; the full text, tables and supplement were not accessible, so the variants' parental origin, the fetus's cardiac lesions and any extracardiac features were not read.
+    extracted_by: agent:literature-extract/claude-sonnet-5-5
+    approved_by: E.A.M
+    approved_on: 2026-11-19
+    approved_digest: sha256:e9e7da37d21a538743134bfc97ac310b59f652f90fcf3ecda0365a6aca4e601e
