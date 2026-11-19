@@ -329,20 +329,12 @@ def test_every_committed_approval_still_matches_its_finding() -> None:
     """The guard that adding variants voided no standing approval.
 
     Reads the real files, so a change to either digest that moves a committed
-    approval fails here before LIT015 or SYN004 report it. Every finding approval
-    must match. For syntheses, the genes whose approval no longer matches must be
-    exactly TBX5 and NR2F2: both are stale by design, because the unclear-register
-    fold-in (spec section 5.10) added `review_settled_by` to six marks a synthesis
-    covers, and the build withholds the text until the owner re-approves. The
-    assertion that every OTHER committed synthesis matches is vacuous today (there
-    are none). C0 Task 18's re-approval empties the stale set and moves this
-    assertion back to "none".
+    approval fails here before LIT015 or SYN004 report it.
     """
     root = Path(__file__).resolve().parents[2] / "curation" / "literature"
     yaml = YAML(typ="safe")
     findings: dict[str, int] = {}
-    approved_syntheses: set[str] = set()
-    stale: set[str] = set()
+    syntheses: set[str] = set()
     for path in sorted(root.glob("*.yaml")):
         file = GeneLiteratureFile.model_validate(yaml.load(path.read_text(encoding="utf-8")))
         for finding in file.findings:
@@ -352,29 +344,11 @@ def test_every_committed_approval_still_matches_its_finding() -> None:
         syn = file.synthesis
         if syn is not None and syn.approved_digest is not None:
             gene_assertions = [a for a in _committed_assertions(root.parent) if a.gene == file.gene]
-            approved_syntheses.add(path.stem)
-            if syn.approved_digest != synthesis_digest(syn, file.findings, gene_assertions):
-                stale.add(path.stem)
+            assert syn.approved_digest == synthesis_digest(syn, file.findings, gene_assertions)
+            syntheses.add(path.stem)
     # floors, not equalities: new approvals grow them (measured 73 and 21)
     assert findings.get("TBX5", 0) >= 73 and findings.get("NR2F2", 0) >= 21
-    assert {"TBX5", "NR2F2"} <= approved_syntheses
-    assert stale == {"NR2F2", "TBX5"}
-    # The cause: with the six settlers stripped, each stale approval matches again.
-    # Holds only until Stage F changes the findings; C0 Task 18 removes this with
-    # the stale set.
-    for symbol in stale:
-        file = GeneLiteratureFile.model_validate(
-            yaml.load((root / f"{symbol}.yaml").read_text(encoding="utf-8"))
-        )
-        assert file.synthesis is not None
-        stripped = [
-            f.model_copy(update={"review_settled_by": None}) if f.review_settled_by else f
-            for f in file.findings
-        ]
-        gene_assertions = [a for a in _committed_assertions(root.parent) if a.gene == file.gene]
-        assert file.synthesis.approved_digest == synthesis_digest(
-            file.synthesis, stripped, gene_assertions
-        ), symbol
+    assert {"TBX5", "NR2F2"} <= syntheses
 
 
 def _committed_assertions(curation: Path) -> list[LesionAssertion]:
