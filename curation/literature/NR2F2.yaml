@@ -224,8 +224,8 @@ findings:
     summary: Five rare missense variants in NR2F2 (two de novo, two inherited from an unaffected parent, one with parental DNA unavailable) were found among 125 exome-sequenced individuals with nonsyndromic atrioventricular septal defects, against 5,194 population-matched controls (Fisher's exact p = 7.7e-7, odds ratio 54.1).
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:0dec0caceff08a6ab7c9566b4c248ec3e7308b3ac985efaf9355df3efa56b3a1
+    approved_on: 2026-11-19
+    approved_digest: sha256:0ad07954a57f4db66afd50dcfd8e36b6247a6e941e123230ae81dc6abbd266f5
   - id: CHDA:LIT:0000002
     publication: PMID:24702954
     design: cohort_screen
@@ -296,8 +296,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:9594d687befd0b64d6e9f459d3a872287b5c8067727291474c2d2920c7a6baa4
+    approved_on: 2026-11-19
+    approved_digest: sha256:473f6073f75fbf654555182505d425e32b9837a294fcd70c4b6dc0f115f36b69
   - id: CHDA:LIT:0000004
     publication: PMID:24702954
     design: family_segregation
@@ -335,8 +335,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:9929df99d8f6983d2141c44afcae9b7cc81b2fa26ea45373bc49fd7fd40f242a
+    approved_on: 2026-11-19
+    approved_digest: sha256:f830f894167a61a449820b1c2ee5c52ded9c572932e46902d63898dab281ed3b
     review_status: pending_review
     review_note: The paper gives this duplication as c.220_222dup in Table 1 and as c.222_224dup in the Methods and Results, and the protein change as p.Gln75dup in Table 1 and Methods but p.Gln70dup in the luciferase results text.
     review_settled_by: authors
@@ -370,8 +370,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:c0a628a9b7e2c39fbaf11af500deba763b9eeab44e8f8be20c6ab0ab2e5347fb
+    approved_on: 2026-11-19
+    approved_digest: sha256:b3217027c8179d2db8e55bec72a1c3d11b2b2765d10353ed7233b07f5c967a13
   - id: CHDA:LIT:0000006
     publication: PMID:24702954
     design: case_report
@@ -407,8 +407,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:e1b930c67b025c1cea5d8f7a53f6dbb7da973326758b1029e636f53de09a6237
+    approved_on: 2026-11-19
+    approved_digest: sha256:a6fd2973b7170306e28c9bbcf5cb796da7b8230eee12a95958adffb015a40254
     review_status: pending_review
     review_note: The paper gives this splice donor variant as c.970+1G>A in Table 1 and as c.2359+1G>A in the Results text.
     review_settled_by: authors
@@ -447,8 +447,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:47ad9b3d679a867de45718e9b1cb54d95afe23abd7826cf238e3f878163d9390
+    approved_on: 2026-11-19
+    approved_digest: sha256:69336e0774376433125cdeb1b7d6842d6a5c000cdd06b921cfe7bd7457bb56ea
   - id: CHDA:LIT:0000008
     publication: PMID:29089047
     design: cohort_screen
@@ -522,8 +522,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:8d796f0b697abcd89ff51d7f7ed38119606a1a1e4381a9d1d132bacba7df03be
+    approved_on: 2026-11-19
+    approved_digest: sha256:e5092aebe876efc691994cb18b8d651f0e880bb66d19963b3cf6a60aa74b7673
   - id: CHDA:LIT:0000010
     publication: PMID:30720060
     design: cohort_screen
@@ -559,8 +559,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:c2995c4b66be5354b101ce13fe83ad00b98c30c8c573b267323dc7394f847f7f
+    approved_on: 2026-11-19
+    approved_digest: sha256:0ea54b88694bd1483e8ed2060c2cde88d5b8066f03dfd817b6888abd5a6c00ba
   - id: CHDA:LIT:0000011
     publication: PMID:30720060
     design: family_segregation
@@ -598,8 +598,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:aac5fa14ba353f82f96cb8ee6922fdd8141cdf2129a3d28942dbec084f64cdd5
+    approved_on: 2026-11-19
+    approved_digest: sha256:9ef4a590dac95c9e6b87ceb0b0613beb2de6ac4aba4807fd68b3d14e3c907944
   - id: CHDA:LIT:0000012
     publication: PMID:31687637
     design: case_report
@@ -630,8 +630,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:29510ef1889808a591b65be148073b8757ac137de44061938f871f76f510b2b0
+    approved_on: 2026-11-19
+    approved_digest: sha256:a4d81ad5376283ade09361dc58e3fba409281fd7c7a6361f63a859178258f701
   - id: CHDA:LIT:0000013
     publication: PMID:32037394
     design: cohort_screen
@@ -668,8 +668,8 @@ findings:
     summary: Genome sequencing of 111 unrelated probands with paediatric heart disease at one centre found one NR2F2 carrier, a de novo missense variant c.671T>A p.(Val224Asp) classed likely pathogenic, in a proband with coarctation of the aorta, bicuspid aortic valve, muscular ventricular septal defect and extracardiac features.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:6272c453f8bedb6f5ca2ec9797ba33c1866d9c786baaa80637223ca191a76dd3
+    approved_on: 2026-11-19
+    approved_digest: sha256:5bf465e64866f18d86beee9936d7bfa5f73f7dc42d4a657ff581a19dacdc5373
   - id: CHDA:LIT:0000014
     publication: PMID:34530895
     design: case_report
@@ -701,8 +701,8 @@ findings:
     summary: A 4-year-old girl with two atrial septal defects, growth restriction and intellectual disability had a de novo terminal 9.15 Mb deletion at 15q26.1-q26.3 that includes NR2F2 together with IGF1R, CHD2 and MEF2A, which the authors name as candidates.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:0fef0f1f738e358f2138a1111df506dea00022c204d6baa862dce742bb68f453
+    approved_on: 2026-11-19
+    approved_digest: sha256:e436707302b824e5d9f44a9550efd83945308278d4f31b6f3763e81d2480d183
   - id: CHDA:LIT:0000099
     publication: PMID:17931990
     design: case_report
@@ -730,8 +730,8 @@ findings:
     summary: A girl with growth retardation, congenital heart malformation and oculocutaneous albinism had a 6.87 Mb terminal 15q26.2-qter deletion that appeared to have arisen de novo and contains NR2F2 and IGF1R. The abstract does not give the heart lesion; the lesion shown is the generic term.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:97c4b8b4c124c37c323785a861af7b3430f93f5c9ce15fe3d0b5b5d15316f66d
+    approved_on: 2026-11-19
+    approved_digest: sha256:1081cdabdc741b640b6485b0ef53d5a8975258590f8e71838725d5094dec6876
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000100
@@ -761,8 +761,8 @@ findings:
     summary: A girl with congenital heart defects had a 5.78 Mb terminal deletion of chromosome 15q detected by array-CGH; the authors consider NR2F2 a candidate gene within it. The abstract does not give the heart lesion or the deletion's origin.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:bcd48088ecccf1d902305338e5558f543dd7f37322f5faab56c0adad2a5b223b
+    approved_on: 2026-11-19
+    approved_digest: sha256:473a7f72d7a6b2915e0cd3640e5b08a9184195f2ed60305e5ec6593a97a077a9
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000101
@@ -798,8 +798,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:eef89933ed065a71d2ce8c0a6c21aee3cca518d17b2d2d9a60b6fdd8125acdf1
+    approved_on: 2026-11-19
+    approved_digest: sha256:7cb7b7e219651f06a2aaa65d8c8600fe932bc36404e8edf3d620bc6d3f030d89
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000102
@@ -835,8 +835,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:f78fc1309117bf8f240c6b43ff87a4402acaf8da57d22dd78bb3774610f7834d
+    approved_on: 2026-11-19
+    approved_digest: sha256:2314e4845e790346c3fe14481303c3f55ae9f5dfc682e2a7f02b464e1a184797
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000103
@@ -1077,8 +1077,8 @@ findings:
     summary: "A series ascertained for the variant, not a CHD cohort: 16 unrelated probands, each with congenital heart disease and a rare heterozygous NR2F2 variant (15 single-nucleotide variants, one 1.87 Mb deletion of the whole gene), reported by clinicians from many centres; trio exome sequencing for all but case 8 (father untested) and case 12 (chromosomal microarray). The series was gathered because of the variant, so no number of people screened exists and screened equals the carriers counted. The heart lesions are the series' own, with counts over all 17 individuals the paper describes (the 16 probands and the proband's mildly affected mosaic mother), namely atrial septal defect 8, coarctation of the aorta 8, ventricular septal defect 5, aortic arch anomalies 3, atrioventricular septal defect 2, plus valvular and supravalvular pulmonic stenosis, an aberrant left subclavian artery, tricuspid regurgitation and bicuspid aortic valve among the less common defects, and an aberrant right subclavian artery seen prenatally in individual 15. Two of the variants were found in the DDD study. Origin is derived, not printed as such. Individual 5-1's variant was inherited from a mosaic mother, and the paper says the inheritance of two others is unknown (from the text, individuals 8 and 9), so de novo is the 16 probands less those 3."
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:6f2bb0e7083c6140036793c008848d03789c732df44aee9d8427f99f8c6b2a51
+    approved_on: 2026-11-19
+    approved_digest: sha256:efd4fbff33d05308830f5d9b67f6846d58838162628083098aeb6b2cd40d4587
     review_status: pending_review
     review_note: The Results text states 15 of 17 individuals had de novo variants, 1 inherited and 2 of unknown inheritance, which sums to 18 and not 17; de novo is written here as 13, the 16 probands less the 3 not shown to be de novo.
     review_settled_by: authors
@@ -1115,8 +1115,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:8167a9bc88c734062e8b384db7e2bb4701750de80b2ef6ae02f39c80d555efd6
+    approved_on: 2026-11-19
+    approved_digest: sha256:fbc2e78b3cc77183133a4f56beb9099f2ad6fbd92990e4fbb9500bc6fb1edb81
 synthesis:
   sentences:
     - text: Carriers' lesions include atrioventricular, atrial and ventricular septal defects, bicuspid aortic valve, coarctation, pulmonary stenosis, hypoplastic left heart and tetralogy of Fallot.
@@ -1160,5 +1160,5 @@ synthesis:
         - CHDA:LIT:0000102
   drafted_by: agent:gene-synthesis/claude-opus-5-5
   approved_by: E.A.M
-  approved_on: 2026-11-16
-  approved_digest: sha256:cfe85ab728c854274039bdfb071bc95b4bfc8242fa4fd4ac7a6b1e44e7527f28
+  approved_on: 2026-11-19
+  approved_digest: sha256:ab0673c7f0b661b1858b7cfb69806c758656ad62a5a26af1da71f712f77c80d5
