@@ -569,6 +569,7 @@ def test_approve_defaults_the_date_to_today_and_takes_several_ids(
         ),
         (["--approve", "CHDA:LIT:0000002", "--by", "A", "--on", "2999-01-01"], "future"),
         (["--approve", "CHDA:LIT:0000003", "--by", "Someone Else"], "already approved"),
+        (["--approve", "CHDA:LIT:0000009", "--by", "A"], "no such finding CHDA:LIT:0000009 in /"),
         (["--approve", "CHDA:LIT:0000001", "--by", "A"], "unverified"),
         # one bad id refuses the whole request: nothing is written for the good one
         (
@@ -2115,6 +2116,19 @@ def test_apply_review_refuses_a_finding_marked_after_the_page_was_built(
     assert f"stale {b}: changed since the page was built; review it again" in result.stdout
 
 
+_FRAGMENT = {
+    "second_opinion": "a second opinion is never applied",
+    "name_mismatch": "is not the reviewer's name",
+    "agent_name": "names an agent",
+    "other_gene": "is for HGNC:4173",
+    "unknown_id": "no such finding CHDA:LIT:0009999",
+    "not_finished": "session.finished_at is empty",
+    "future_date": "is in the future",
+    "predates_search": "(LIT008)",
+    "invalid_json": "cannot be applied",
+}
+
+
 def _bad_decisions(case: str, root: Path, a: str) -> tuple[Any, list[str]]:
     if case == "second_opinion":
         return _decisions(root, {a: ("approve", "")}, role="second_opinion"), []
@@ -2137,6 +2151,19 @@ def _bad_decisions(case: str, root: Path, a: str) -> tuple[Any, list[str]]:
         ]
     if case == "invalid_json":
         return "{not json", []
+    if case == "predates_search":
+        b = _open_ids(root)[1]
+        return (
+            _decisions(
+                root,
+                {
+                    a: ("approve", ""),
+                    b: ("fix", "check the count"),
+                    "CHDA:LIT:0000003": ("approve", ""),
+                },
+            ),
+            ["--by", "Dr. Grace Hopper", "--on", "2026-11-01"],
+        )
     raise AssertionError(case)
 
 
@@ -2150,6 +2177,7 @@ def _bad_decisions(case: str, root: Path, a: str) -> tuple[Any, list[str]]:
         "unknown_id",
         "not_finished",
         "future_date",
+        "predates_search",
         "invalid_json",
     ],
 )
@@ -2164,8 +2192,9 @@ def test_apply_review_refuses_and_writes_nothing(
 
     assert result.exit_code == 2, result.stdout
     assert lit_path.read_bytes() == before
-    if case == "not_finished":
-        assert "session.finished_at is empty" in result.stdout
+    assert _FRAGMENT[case] in result.stdout
+    for handled in ("already approved", "stale ", "next round", "papers seen"):
+        assert handled not in result.stdout
 
 
 def test_apply_review_twice_changes_nothing_the_second_time(

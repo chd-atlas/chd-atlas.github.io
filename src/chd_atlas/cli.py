@@ -824,6 +824,7 @@ def _approval_updates(
     by: str,
     when: date,
     allow_unverified: bool,
+    path: Path,
 ) -> tuple[dict[str, dict[str, Any]], list[str]]:
     """The approval fields for `ids` and one message per finding; exit 2 if any is refused.
 
@@ -837,7 +838,7 @@ def _approval_updates(
     for finding_id in ordered:
         target = by_id.get(finding_id)
         if target is None:
-            raise _fail(f"no such finding {finding_id} in the literature file", 2)
+            raise _fail(f"no such finding {finding_id} in {path}", 2)
         if target.approved_by is not None and not _approval_void(target):
             raise _fail(
                 f"{finding_id} is already approved by {target.approved_by}; "
@@ -1163,7 +1164,7 @@ def literature_review(
         messages = [f"marked {pending_review} pending_review"]
     else:
         updates, messages = _approval_updates(
-            record, approve, by, when, allow_unverified=allow_unverified
+            record, approve, by, when, allow_unverified=allow_unverified, path=path
         )
     try:
         content = with_findings_updated(raw, updates)
@@ -1243,20 +1244,21 @@ def literature_apply_review(
 
     papers = {p.id: p for p in load_curation(root)[0].publications}
     to_approve: list[str] = []
+    lines: list[str] = []
     stale = 0
     for item in review.findings:
         if item.decision is not Decision.APPROVE:
             continue
         finding = by_id[str(item.id)]
         if finding.approved_by is not None and not _approval_void(finding):
-            typer.echo(f"already approved {finding.id} by {finding.approved_by}")
+            lines.append(f"already approved {finding.id} by {finding.approved_by}")
         elif shown_digest(finding, papers.get(finding.publication)) != item.shown_digest:
-            typer.echo(f"stale {finding.id}: changed since the page was built; review it again")
+            lines.append(f"stale {finding.id}: changed since the page was built; review it again")
             stale += 1
         else:
             to_approve.append(finding.id)
     updates, messages = _approval_updates(
-        record, to_approve, review.reviewer.name, when, allow_unverified=True
+        record, to_approve, review.reviewer.name, when, allow_unverified=True, path=path
     )
     if updates:
         try:
@@ -1264,15 +1266,16 @@ def literature_apply_review(
         except LiteratureFileError as exc:
             raise _fail(str(exc), 1) from None
         _write_unless_changed(path, raw, content)
-    for message in messages:
-        typer.echo(message)
+    lines.extend(messages)
     for item in review.findings:
         if item.decision is not Decision.APPROVE:
-            typer.echo(f"next round: {item.decision.value} {item.id}: {item.note.strip()}")
+            lines.append(f"next round: {item.decision.value} {item.id}: {item.note.strip()}")
     if review.triage is not None:
         for flip in review.triage.flips:
-            typer.echo(f"next round: triage {flip.pmid} -> {flip.to}: {flip.note}")
+            lines.append(f"next round: triage {flip.pmid} -> {flip.to}: {flip.note}")
     if review.papers_seen:
-        typer.echo("papers seen: " + ", ".join(str(p) for p in review.papers_seen))
+        lines.append("papers seen: " + ", ".join(str(p) for p in review.papers_seen))
+    for line in lines:
+        typer.echo(line)
     if stale:
         raise typer.Exit(1)
