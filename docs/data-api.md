@@ -787,12 +787,15 @@ abridged, and each is documented in full further down.
     "pending_approval": 0,
     "findings": [ { "id": "CHDA:LIT:0000015", "publication": "PMID:12789647",
                     "design": "cohort_screen", … }, … ],
-    "normalisations": [],
+    "normalisations": [ { "id": 1, "tool": "variantvalidator", "run_on": "2026-11-19", … } ],
     "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
                  "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
                  "de_novo_papers": 11, "inherited_papers": 24,
                  "abstract_only_papers": 21, "pending_review_papers": 3 },
-    "synthesis": null
+    "synthesis": { "sentences": [ { "text": "Carriers' lesions include atrial and ventricular septal defects, double outlet right ventricle, hypoplastic left heart syndrome, anomalous pulmonary venous return and patent ductus arteriosus; tetralogy of Fallot, coarctation and atrioventricular septal defect rest on papers read from the abstract only.",
+                                    "cites": [ "CHDA:LIT:0000056", … ] }, … ],
+                   "drafted_by": "agent:gene-synthesis/claude-opus-5-5",
+                   "approved_by": "E.A.M", "approved_on": "2026-11-19" }
   }
 }
 ```
@@ -1659,13 +1662,16 @@ TBX5's, abridged:
   "findings": [ { "id": "CHDA:LIT:0000015", "publication": "PMID:12789647", "design": "cohort_screen",
                   "count_unit": "probands", "screened": 49,
                   "carriers": { "de_novo": 0, "inherited": 9, "origin_unknown": 8 },
-                  "variants": [], … }, … ],
-  "normalisations": [],
+                  "variants": [ { "id": 1, "as_reported": "456delC", "placement": "mane", … }, … ], … }, … ],
+  "normalisations": [ { "id": 1, "tool": "variantvalidator", "run_on": "2026-11-19", … } ],
   "tallies": { "papers": 66, "first_year": 2003, "last_year": 2026,
                "designs": { "case_report": 20, … }, "lesion_groups": { "avsd": 9, … },
                "de_novo_papers": 11, "inherited_papers": 24,
                "abstract_only_papers": 21, "pending_review_papers": 3 },
-  "synthesis": null }
+  "synthesis": { "sentences": [ { "text": "Carriers' lesions include atrial and ventricular septal defects, double outlet right ventricle, hypoplastic left heart syndrome, anomalous pulmonary venous return and patent ductus arteriosus; tetralogy of Fallot, coarctation and atrioventricular septal defect rest on papers read from the abstract only.",
+                                  "cites": [ "CHDA:LIT:0000056", … ] }, … ],
+                 "drafted_by": "agent:gene-synthesis/claude-opus-5-5",
+                 "approved_by": "E.A.M", "approved_on": "2026-11-19" } }
 ```
 
 - `searches` lists each recorded PubMed search: `source`, `query`, `run_on` (an
