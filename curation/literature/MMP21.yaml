@@ -470,7 +470,7 @@ findings:
         normalisation: 1
         zygosity: heterozygous
         with: [2]
-        phase: not_stated
+        phase: trans
         carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
         phenotypes: [HP:0030853]
       - id: 2
@@ -485,7 +485,7 @@ findings:
         normalisation: 1
         zygosity: heterozygous
         with: [1]
-        phase: not_stated
+        phase: trans
         carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
         phenotypes: [HP:0030853]
     phenotypes: [HP:0030853]
@@ -499,4 +499,4 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
     approved_on: 2026-11-19
-    approved_digest: sha256:e9e7da37d21a538743134bfc97ac310b59f652f90fcf3ecda0365a6aca4e601e
+    approved_digest: sha256:94ad8d82e2f53cd4d70025ccf5e65bd93fb9cb5a379b6af5167892334bbd2aee
