@@ -1,0 +1,296 @@
+{
+  "$defs": {
+    "Decision": {
+      "enum": [
+        "approve",
+        "fix",
+        "later"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "FindingDecision": {
+      "additionalProperties": false,
+      "properties": {
+        "active_ms": {
+          "minimum": 0,
+          "title": "Active Ms",
+          "type": "integer"
+        },
+        "decided_at": {
+          "format": "date-time",
+          "title": "Decided At",
+          "type": "string"
+        },
+        "decision": {
+          "$ref": "#/$defs/Decision"
+        },
+        "first_opened_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "First Opened At"
+        },
+        "id": {
+          "pattern": "^CHDA:LIT:\\d{7}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        },
+        "shown_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Shown Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "shown_digest",
+        "decision",
+        "active_ms",
+        "decided_at"
+      ],
+      "title": "FindingDecision",
+      "type": "object"
+    },
+    "PageProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "atlas_commit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Atlas Commit"
+        },
+        "built_on": {
+          "format": "date-time",
+          "title": "Built On",
+          "type": "string"
+        },
+        "literature_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Literature Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "built_on",
+        "atlas_commit",
+        "literature_sha256"
+      ],
+      "title": "PageProvenance",
+      "type": "object"
+    },
+    "ReviewSession": {
+      "additionalProperties": false,
+      "properties": {
+        "active_ms": {
+          "minimum": 0,
+          "title": "Active Ms",
+          "type": "integer"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Finished At"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Started At"
+        }
+      },
+      "required": [
+        "started_at",
+        "finished_at",
+        "active_ms"
+      ],
+      "title": "ReviewSession",
+      "type": "object"
+    },
+    "Reviewer": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/ReviewerRole"
+        }
+      },
+      "required": [
+        "name",
+        "role"
+      ],
+      "title": "Reviewer",
+      "type": "object"
+    },
+    "ReviewerRole": {
+      "enum": [
+        "owner",
+        "second_opinion"
+      ],
+      "title": "ReviewerRole",
+      "type": "string"
+    },
+    "TriageFlip": {
+      "additionalProperties": false,
+      "properties": {
+        "note": {
+          "minLength": 1,
+          "title": "Note",
+          "type": "string"
+        },
+        "pmid": {
+          "pattern": "^PMID:\\d+$",
+          "title": "Pmid",
+          "type": "string"
+        },
+        "to": {
+          "enum": [
+            "included",
+            "excluded"
+          ],
+          "title": "To",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pmid",
+        "to",
+        "note"
+      ],
+      "title": "TriageFlip",
+      "type": "object"
+    },
+    "TriageReview": {
+      "additionalProperties": false,
+      "properties": {
+        "active_ms": {
+          "minimum": 0,
+          "title": "Active Ms",
+          "type": "integer"
+        },
+        "decision": {
+          "$ref": "#/$defs/Decision"
+        },
+        "flips": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TriageFlip"
+          },
+          "title": "Flips",
+          "type": "array"
+        },
+        "note": {
+          "default": "",
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "decision",
+        "active_ms"
+      ],
+      "title": "TriageReview",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/FindingDecision"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "format": {
+      "const": 1,
+      "title": "Format",
+      "type": "integer"
+    },
+    "gene": {
+      "pattern": "^HGNC:\\d+$",
+      "title": "Gene",
+      "type": "string"
+    },
+    "page": {
+      "$ref": "#/$defs/PageProvenance"
+    },
+    "papers_seen": {
+      "default": [],
+      "items": {
+        "pattern": "^PMID:\\d+$",
+        "type": "string"
+      },
+      "title": "Papers Seen",
+      "type": "array"
+    },
+    "reviewer": {
+      "$ref": "#/$defs/Reviewer"
+    },
+    "session": {
+      "$ref": "#/$defs/ReviewSession"
+    },
+    "symbol": {
+      "minLength": 1,
+      "title": "Symbol",
+      "type": "string"
+    },
+    "triage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TriageReview"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "format",
+    "gene",
+    "symbol",
+    "page",
+    "reviewer",
+    "session",
+    "findings"
+  ],
+  "title": "ReviewDecisions",
+  "type": "object"
+}
