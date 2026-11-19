@@ -100,6 +100,12 @@ def _dup_id() -> dict[str, Any]:
         pytest.param(_edit(["findings", 0, "bogus"], 1), id="unknown-nested-key"),
         pytest.param(_edit(["format"], 2), id="format-2"),
         pytest.param(_edit(["findings", 0, "shown_digest"], "sha256:xyz"), id="bad-digest"),
+        pytest.param(
+            _edit(["findings", 0, "shown_digest"], "sha256:" + "ab" * 31), id="short-digest"
+        ),
+        pytest.param(
+            _edit(["findings", 0, "shown_digest"], "sha256:" + "ab" * 33), id="long-digest"
+        ),
         pytest.param(_edit(["page", "literature_sha256"], "sha256:" + "AB" * 32), id="upper-hex"),
         pytest.param(_edit(["findings", 0, "id"], "CHDA:LIT:1"), id="bad-finding-id"),
         pytest.param(_edit(["gene"], "TBX5"), id="bad-gene"),
@@ -108,6 +114,11 @@ def _dup_id() -> dict[str, Any]:
         pytest.param(_edit(["findings", 0, "active_ms"], -1), id="negative-ms"),
         pytest.param(_edit(["triage", "flips", 0, "note"], " "), id="blank-flip-note"),
         pytest.param(_edit(["triage", "flips", 0, "to"], "maybe"), id="bad-flip-target"),
+        pytest.param(_edit(["triage", "decision"], "fix"), id="triage-fix-no-note"),
+        pytest.param(
+            _edit(["triage"], {"decision": "later", "note": " ", "active_ms": 1}),
+            id="triage-later-blank-note",
+        ),
         pytest.param(_edit(["reviewer", "role"], "intern"), id="bad-role"),
         pytest.param(_edit(["reviewer", "name"], " "), id="blank-reviewer"),
     ],

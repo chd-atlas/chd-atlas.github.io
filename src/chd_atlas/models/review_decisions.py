@@ -52,6 +52,12 @@ class PageProvenance(_Strict):
     literature_sha256: _Sha256
 
 
+def _require_note(decision: Decision, note: str) -> None:
+    """A `fix` or `later` says why; only `approve` may go without."""
+    if decision is not Decision.APPROVE and not note.strip():
+        raise ValueError(f"a '{decision.value}' decision needs a non-blank note")
+
+
 class FindingDecision(_Strict):
     id: LiteratureFindingId
     shown_digest: _Sha256
@@ -63,8 +69,7 @@ class FindingDecision(_Strict):
 
     @model_validator(mode="after")
     def _a_fix_or_later_says_why(self) -> FindingDecision:
-        if self.decision is not Decision.APPROVE and not self.note.strip():
-            raise ValueError(f"a '{self.decision.value}' decision needs a non-blank note")
+        _require_note(self.decision, self.note)
         return self
 
 
@@ -79,6 +84,11 @@ class TriageReview(_Strict):
     note: str = ""
     flips: list[TriageFlip] = []
     active_ms: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def _a_fix_or_later_says_why(self) -> TriageReview:
+        _require_note(self.decision, self.note)
+        return self
 
 
 class ReviewSession(_Strict):
