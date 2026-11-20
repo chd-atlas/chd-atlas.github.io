@@ -569,6 +569,7 @@ def test_approve_defaults_the_date_to_today_and_takes_several_ids(
         ),
         (["--approve", "CHDA:LIT:0000002", "--by", "A", "--on", "2999-01-01"], "future"),
         (["--approve", "CHDA:LIT:0000003", "--by", "Someone Else"], "already approved"),
+        (["--approve", "CHDA:LIT:0000009", "--by", "A"], "no such finding CHDA:LIT:0000009 in /"),
         (["--approve", "CHDA:LIT:0000001", "--by", "A"], "unverified"),
         # one bad id refuses the whole request: nothing is written for the good one
         (
@@ -1914,3 +1915,456 @@ def test_questions_with_no_symbol_covers_every_file_and_an_unknown_symbol_exits_
     unknown = _questions(root, "NOSUCHGENE")
     assert unknown.exit_code == 2 and "NOSUCHGENE" in unknown.stdout
     assert _questions(root, "BRCA1").exit_code == 2  # a gene with no literature file
+
+
+# --------------------------------------------------------------------------
+# digests
+# --------------------------------------------------------------------------
+
+
+def _digests(root: Path, *args: str) -> Any:
+    return runner.invoke(app, ["literature", "digests", *args, "--root", str(root)])
+
+
+def test_digests_prints_one_line_per_finding_sorted_by_id(root: Path, lit_path: Path) -> None:
+    import hashlib
+
+    from chd_atlas.models.gene_literature import shown_digest
+
+    result = _digests(root, "HOS")
+    assert result.exit_code == 0, result.output
+    assert len(result.stdout.splitlines()) == 1
+    out = json.loads(result.stdout)
+    ids = [f["id"] for f in out["findings"]]
+    assert out["format"] == 1 and out["gene"] == "HGNC:11604" and out["symbol"] == "TBX5"
+    assert len(ids) >= 2 and ids == sorted(ids)
+    assert out["literature_sha256"] == "sha256:" + hashlib.sha256(lit_path.read_bytes()).hexdigest()
+    raw = {f["id"]: f for f in YAML(typ="safe").load(lit_path.read_text())["findings"]}
+    first = out["findings"][0]
+    parsed = Finding.model_validate(raw[first["id"]])
+    assert first["finding_digest"] == finding_digest(parsed)
+    assert first["shown_digest"] == shown_digest(parsed, None)  # PMID:8988165 is not in the fixture
+    for printed in out["findings"]:
+        entry = raw[printed["id"]]
+        assert printed["approved"] is ("approved_by" in entry)
+        assert printed["verified"] is ("verified_by" in entry)
+    assert {f["approved"] for f in out["findings"]} == {True, False}
+    assert all(f["approval_void"] is False for f in out["findings"])  # every approval is sound
+
+
+def test_digests_flag_an_approval_whose_finding_was_edited_and_sort_by_id(
+    root: Path, lit_path: Path
+) -> None:
+    """`approved` stays true for a void approval; `approval_void` is true only for it.
+
+    The fixture holds one approved finding (0000003) and three unapproved, and the
+    file lists its findings in reverse id order, so a dropped sort also fails here.
+    """
+    text = lit_path.read_text().replace("summary: A proband.\n", "summary: An edited proband.\n")
+    blocks = _blocks(text)
+    ordered = sorted(k for k in blocks if k != "head")
+    lit_path.write_text(blocks["head"] + "".join(blocks[k] for k in reversed(ordered)))
+    assert [m.group(1) for m in FINDING_ID.finditer(lit_path.read_text())] == ordered[::-1]
+
+    out = json.loads(_digests(root, "TBX5").stdout)
+
+    assert [f["id"] for f in out["findings"]] == ordered
+    flags = {f["id"]: (f["approved"], f["approval_void"]) for f in out["findings"]}
+    assert flags["CHDA:LIT:0000003"] == (True, True)
+    assert {v for k, v in flags.items() if k != "CHDA:LIT:0000003"} == {(False, False)}
+
+
+def test_digests_and_apply_review_refuse_a_publications_file_that_did_not_load(
+    root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    """Hashing with `publication: null` would hide an edit to a paper's study type."""
+    a = _open_ids(root)[0]
+    data = _decisions(root, {a: ("approve", "")})
+    (root / "curation" / "publications.yaml").write_text("publications: [unclosed\n")
+    before = lit_path.read_bytes()
+
+    digests = _digests(root, "TBX5")
+    applied = _apply(root, tmp_path, data)
+
+    for result in (digests, applied):
+        assert result.exit_code == 1, result.stdout
+        assert "publications.yaml" in result.stdout
+    assert lit_path.read_bytes() == before
+
+
+def test_digests_refuses_an_unknown_gene_and_a_gene_without_a_file(root: Path) -> None:
+    assert _digests(root, "NOPE").exit_code == 2
+    assert _digests(root, "TBX5").exit_code == 2
+
+
+def test_digests_exits_one_on_an_unparsable_file(root: Path, lit_path: Path) -> None:
+    lit_path.write_text("gene: [unclosed\n")
+    assert _digests(root, "TBX5").exit_code == 1
+
+
+def test_digests_look_each_finding_paper_up_in_publications(root: Path, lit_path: Path) -> None:
+    """A finding whose paper is in publications.yaml hashes with its study_type and own_lab."""
+    from chd_atlas.models.gene_literature import shown_digest
+    from chd_atlas.models.literature import Publication
+
+    record = {
+        "id": "PMID:8988165",
+        "title": "Third paper.",
+        "journal": "Journal Three",
+        "year": 1997,
+        "authors": ["Cc C"],
+        "study_type": "gwas",
+        "own_lab": True,
+    }
+    (root / "curation" / "publications.yaml").write_text(
+        PUBLICATIONS
+        + "  - id: PMID:8988165\n    title: Third paper.\n    journal: Journal Three\n"
+        + "    year: 1997\n    authors:\n      - Cc C\n    study_type: gwas\n    own_lab: true\n"
+    )
+    out = json.loads(_digests(root, "TBX5").stdout)
+    raw = {f["id"]: f for f in YAML(typ="safe").load(lit_path.read_text())["findings"]}
+    paper = Publication.model_validate(record)
+    checked = 0
+    for printed in out["findings"]:
+        parsed = Finding.model_validate(raw[printed["id"]])
+        if parsed.publication != "PMID:8988165":
+            continue
+        checked += 1
+        assert printed["shown_digest"] == shown_digest(parsed, paper)
+        assert printed["shown_digest"] != shown_digest(parsed, None)
+    assert checked >= 1
+
+
+# --------------------------------------------------------------------------
+# apply-review
+# --------------------------------------------------------------------------
+
+_FINISHED = "2026-11-19T10:00:00Z"
+
+
+def _open_ids(root: Path) -> list[str]:
+    """Ids of the fixture's findings no one has approved, from the digests command."""
+    out = json.loads(_digests(root, "TBX5").stdout)
+    return [f["id"] for f in out["findings"] if not f["approved"]]
+
+
+def _decisions(
+    root: Path,
+    decide: dict[str, tuple[str, str]],
+    *,
+    name: str = "Dr. Grace Hopper",
+    role: str = "owner",
+    gene: str | None = None,
+    finished: str | None = _FINISHED,
+    papers_seen: list[str] | None = None,
+    flips: list[dict[str, str]] | None = None,
+    built_on: str = "2026-11-19T09:00:00Z",
+) -> dict[str, Any]:
+    """A decisions file whose digests are the real ones, as `literature digests` prints them."""
+    out = json.loads(_digests(root, "TBX5").stdout)
+    shown = {f["id"]: f["shown_digest"] for f in out["findings"]}
+    data: dict[str, Any] = {
+        "format": 1,
+        "gene": gene or out["gene"],
+        "symbol": "TBX5",
+        "page": {
+            "built_on": built_on,
+            "atlas_commit": None,
+            "literature_sha256": out["literature_sha256"],
+        },
+        "reviewer": {"name": name, "role": role},
+        "session": {"started_at": "2026-11-19T09:30:00Z", "finished_at": finished, "active_ms": 1},
+        "papers_seen": papers_seen or [],
+        "findings": [
+            {
+                "id": fid,
+                "shown_digest": shown.get(fid, "sha256:" + "0" * 64),
+                "decision": decision,
+                "note": note,
+                "active_ms": 1,
+                "decided_at": _FINISHED,
+            }
+            for fid, (decision, note) in decide.items()
+        ],
+    }
+    if flips is not None:
+        data["triage"] = {"decision": "fix", "note": "n", "flips": flips, "active_ms": 1}
+    return data
+
+
+def _apply(root: Path, tmp_path: Path, data: Any, *args: str) -> Any:
+    path = tmp_path / "decisions.json"
+    path.write_text(data if isinstance(data, str) else json.dumps(data))
+    argv = list(args) if args else ["--by", "Dr. Grace Hopper"]
+    return runner.invoke(
+        app,
+        [
+            "literature",
+            "apply-review",
+            "TBX5",
+            "--decisions",
+            str(path),
+            *argv,
+            "--root",
+            str(root),
+        ],
+    )
+
+
+def _approved_on_disk(path: Path) -> dict[str, Finding]:
+    record = YAML(typ="safe").load(path.read_text())
+    findings = [Finding.model_validate(f) for f in record["findings"]]
+    return {f.id: f for f in findings if f.approved_by is not None}
+
+
+def test_apply_review_approves_what_the_page_showed_and_nothing_else(
+    root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    a, b, c = _open_ids(root)[:3]
+    before = set(_approved_on_disk(lit_path))
+    data = _decisions(
+        root,
+        {a: ("approve", ""), b: ("approve", ""), c: ("fix", "the count is wrong")},
+        papers_seen=["PMID:111", "PMID:222"],
+        flips=[{"pmid": "PMID:333", "to": "included", "note": "reports a variant"}],
+    )
+
+    result = _apply(root, tmp_path, data, "--by", " Dr. Grace Hopper ", "--on", "2026-11-19")
+
+    assert result.exit_code == 0, result.stdout
+    now = _approved_on_disk(lit_path)
+    assert set(now) == before | {a, b}
+    for fid in (a, b):
+        assert now[fid].approved_by == "Dr. Grace Hopper"
+        assert now[fid].approved_on == date(2026, 11, 19)
+        assert now[fid].approved_digest == finding_digest(now[fid])
+    assert f"next round: fix {c}: the count is wrong" in result.stdout
+    assert "next round: triage PMID:333 -> included: reports a variant" in result.stdout
+    assert "papers seen: PMID:111, PMID:222" in result.stdout
+
+
+def test_apply_review_leaves_fix_and_later_unapproved_and_prints_every_note(
+    root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    """Only `approve` approves; a `later`, a triage `fix` and a note on an approval are shown."""
+    a, b, c = _open_ids(root)[:3]
+    before = set(_approved_on_disk(lit_path))
+    data = _decisions(
+        root,
+        {
+            a: ("approve", "checked against Table 2"),
+            b: ("later", "ask the authors"),
+            c: ("fix", "n"),
+        },
+    )
+    data["triage"] = {
+        "decision": "later",
+        "note": "second search first",
+        "flips": [],
+        "active_ms": 1,
+    }
+
+    result = _apply(root, tmp_path, data)
+
+    assert result.exit_code == 0, result.stdout
+    assert set(_approved_on_disk(lit_path)) == before | {a}
+    lines = result.stdout.splitlines()
+    assert f"next round: later {b}: ask the authors" in lines
+    assert "next round: triage later: second search first" in lines
+    assert f"note on {a}: checked against Table 2" in lines
+    assert lines.index(f"note on {a}: checked against Table 2") > next(
+        i for i, line in enumerate(lines) if line.startswith(f"approved {a} ")
+    )
+
+
+def test_apply_review_approves_again_a_finding_whose_approval_went_void(
+    root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    lit_path.write_text(
+        lit_path.read_text().replace("summary: A proband.\n", "summary: An edited proband.\n")
+    )
+    data = _decisions(root, {"CHDA:LIT:0000003": ("approve", "")})
+
+    result = _apply(root, tmp_path, data, "--by", "Dr. Grace Hopper", "--on", "2026-11-19")
+
+    assert result.exit_code == 0, result.stdout
+    assert (
+        "re-approved CHDA:LIT:0000003 (Dr. Grace Hopper, 2026-11-19; "
+        "was Dr. Ada Curator on 2026-10-01)" in result.stdout
+    )
+    now = _approved_on_disk(lit_path)["CHDA:LIT:0000003"]
+    assert now.approved_by == "Dr. Grace Hopper" and now.approved_digest == finding_digest(now)
+
+
+def test_apply_review_refuses_an_unreadable_decisions_file(
+    root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    before = lit_path.read_bytes()
+    result = runner.invoke(
+        app,
+        ["literature", "apply-review", "TBX5", "--decisions", str(tmp_path), "--by", "x"]
+        + ["--root", str(root)],
+    )
+    assert result.exit_code == 2, result.stdout
+    assert "cannot be applied" in result.stdout
+    assert lit_path.read_bytes() == before
+
+
+def test_apply_review_refuses_a_finding_marked_after_the_page_was_built(
+    root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    a, b = _open_ids(root)[:2]
+    data = _decisions(root, {a: ("approve", ""), b: ("approve", "")})
+    marked = _review(root, "--pending-review", b, "--note", "n", "--settled-by", "expert")
+    assert marked.exit_code == 0, marked.stdout
+
+    result = _apply(root, tmp_path, data)
+
+    assert result.exit_code == 1, result.stdout
+    assert set(_approved_on_disk(lit_path)) - {"CHDA:LIT:0000003"} == {a}
+    assert f"stale {b}: changed since the page was built; review it again" in result.stdout
+
+
+_FRAGMENT = {
+    "second_opinion": "a second opinion is never applied",
+    "name_mismatch": "is not the reviewer's name",
+    "agent_name": "names an agent",
+    "other_gene": "is for HGNC:4173",
+    "unknown_id": "no such finding CHDA:LIT:0009999",
+    "not_finished": "session.finished_at is empty",
+    "future_date": "is in the future",
+    "predates_search": "(LIT008)",
+    "invalid_json": "cannot be applied",
+    "unknown_id_on_fix": "no such finding CHDA:LIT:0009999",
+    "before_page": "an approval cannot predate the page that showed it",
+    "bad_on": "is not a YYYY-MM-DD date",
+}
+
+
+def _bad_decisions(case: str, root: Path, a: str) -> tuple[Any, list[str]]:
+    if case == "second_opinion":
+        return _decisions(root, {a: ("approve", "")}, role="second_opinion"), []
+    if case == "name_mismatch":
+        return _decisions(root, {a: ("approve", "")}), ["--by", "Dr. Someone Else"]
+    if case == "agent_name":
+        return _decisions(root, {a: ("approve", "")}, name="agent:x"), ["--by", "agent:x"]
+    if case == "other_gene":
+        return _decisions(root, {a: ("approve", "")}, gene="HGNC:4173"), []
+    if case == "unknown_id":
+        return _decisions(root, {a: ("approve", ""), "CHDA:LIT:0009999": ("approve", "")}), []
+    if case == "not_finished":
+        return _decisions(root, {a: ("approve", "")}, finished=None), []
+    if case == "future_date":
+        return _decisions(root, {a: ("approve", "")}), [
+            "--by",
+            "Dr. Grace Hopper",
+            "--on",
+            "2999-01-01",
+        ]
+    if case == "invalid_json":
+        return "{not json", []
+    if case == "unknown_id_on_fix":
+        return _decisions(root, {a: ("approve", ""), "CHDA:LIT:0009999": ("fix", "why")}), []
+    if case == "before_page":
+        return _decisions(root, {a: ("approve", "")}), [
+            "--by",
+            "Dr. Grace Hopper",
+            "--on",
+            "2026-11-18",
+        ]
+    if case == "bad_on":
+        return _decisions(root, {a: ("approve", "")}), [
+            "--by",
+            "Dr. Grace Hopper",
+            "--on",
+            "2026-13-45",
+        ]
+    if case == "predates_search":
+        b = _open_ids(root)[1]
+        return (
+            _decisions(
+                root,
+                {
+                    a: ("approve", ""),
+                    b: ("fix", "check the count"),
+                    "CHDA:LIT:0000003": ("approve", ""),
+                },
+                built_on="2026-10-30T12:00:00Z",
+            ),
+            ["--by", "Dr. Grace Hopper", "--on", "2026-11-01"],
+        )
+    raise AssertionError(case)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "second_opinion",
+        "name_mismatch",
+        "agent_name",
+        "other_gene",
+        "unknown_id",
+        "not_finished",
+        "future_date",
+        "predates_search",
+        "invalid_json",
+        "unknown_id_on_fix",
+        "before_page",
+        "bad_on",
+    ],
+)
+def test_apply_review_refuses_and_writes_nothing(
+    case: str, root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    a = _open_ids(root)[0]
+    data, args = _bad_decisions(case, root, a)
+    if isinstance(data, dict):
+        # Give every refusal something of each kind to print had it run: a stale
+        # finding, an already-approved one, a fix, and papers seen.
+        present = {f["id"] for f in data["findings"]}
+        template = data["findings"][0]
+        real = {
+            f["id"]: f["shown_digest"]
+            for f in json.loads(_digests(root, "TBX5").stdout)["findings"]
+        }
+        for fid, decision, note, shown in (
+            ("CHDA:LIT:0000004", "approve", "", "sha256:" + "1" * 64),  # stale
+            ("CHDA:LIT:0000003", "approve", "", real["CHDA:LIT:0000003"]),  # already approved
+            ("CHDA:LIT:0000002", "fix", "recount", real["CHDA:LIT:0000002"]),  # next round
+        ):
+            if fid not in present:
+                data["findings"].append(
+                    {
+                        **template,
+                        "id": fid,
+                        "decision": decision,
+                        "note": note,
+                        "shown_digest": shown,
+                    }
+                )
+        data["papers_seen"] = ["PMID:111"]
+    before = lit_path.read_bytes()
+
+    result = _apply(root, tmp_path, data, *args)
+
+    assert result.exit_code == 2, result.stdout
+    assert lit_path.read_bytes() == before
+    assert _FRAGMENT[case] in result.stdout
+    for handled in ("already approved", "stale ", "next round", "papers seen"):
+        assert handled not in result.stdout
+
+
+def test_apply_review_twice_changes_nothing_the_second_time(
+    root: Path, lit_path: Path, tmp_path: Path
+) -> None:
+    a, b = _open_ids(root)[:2]
+    data = _decisions(root, {a: ("approve", ""), b: ("approve", "")})
+    first = _apply(root, tmp_path, data)
+    assert first.exit_code == 0, first.stdout
+    after_first = lit_path.read_bytes()
+
+    second = _apply(root, tmp_path, data)
+
+    assert second.exit_code == 0, second.stdout
+    assert f"already approved {a} by Dr. Grace Hopper" in second.stdout
+    assert lit_path.read_bytes() == after_first

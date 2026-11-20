@@ -18,7 +18,7 @@ import hashlib
 import json
 from collections.abc import Sequence
 from datetime import date
-from typing import Annotated, Any, Final, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -48,6 +48,9 @@ from chd_atlas.vocab import (
     VariantPlacement,
     VariantZygosity,
 )
+
+if TYPE_CHECKING:
+    from chd_atlas.models.literature import Publication
 
 _NonBlankStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -407,8 +410,39 @@ def finding_digest(finding: Finding) -> str:
             {k: v for k, v in variant.items() if k not in _VARIANT_DIGEST_EXCLUDED}
             for variant in content["variants"]
         ]
-    canonical = json.dumps(content, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
-    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return _canonical_digest(content)
+
+
+# Only the approval is left out of the finding as recorded: unlike `finding_digest`,
+# the shown digest keeps the finding's and each variant's review marks, the
+# `unclear` entries and `verified_by`.
+_SHOWN_EXCLUDED: Final[frozenset[str]] = frozenset(
+    {"approved_by", "approved_on", "approved_digest"}
+)
+
+
+def shown_digest(finding: Finding, publication: Publication | None) -> str:
+    """`sha256:` and the hex digest of a finding as recorded, minus its approval, with its paper.
+
+    The canonical JSON of `{"finding": ..., "publication": ...}`. `finding` is
+    `model_dump(mode="json", exclude_defaults=True, by_alias=True)` without
+    `approved_by`, `approved_on` and `approved_digest`; nothing is removed from
+    its variants, so review marks, `unclear` entries and `verified_by` are
+    covered, which `finding_digest` deliberately leaves out. `publication` is
+    `{"study_type", "own_lab"}` from publications.yaml, or null when the paper
+    is not there. Approving a finding does not move it.
+    """
+    content = {
+        k: v
+        for k, v in finding.model_dump(mode="json", exclude_defaults=True, by_alias=True).items()
+        if k not in _SHOWN_EXCLUDED
+    }
+    paper = (
+        None
+        if publication is None
+        else {"study_type": publication.study_type.value, "own_lab": publication.own_lab}
+    )
+    return _canonical_digest({"finding": content, "publication": paper})
 
 
 class SynthesisSentence(BaseModel):

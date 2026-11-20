@@ -110,8 +110,15 @@ def test_curator_holds_only_the_rules_file() -> None:
     assert sorted(p.name for p in CURATOR.iterdir()) == ["curator-rules.md"]
 
 
-def test_the_literature_commands_are_review_questions_target_and_frame() -> None:
-    assert set(_literature_commands()) == {"review", "questions", "target", "frame"}
+def test_the_literature_commands_are_the_six_the_rules_may_name() -> None:
+    assert set(_literature_commands()) == {
+        "review",
+        "questions",
+        "target",
+        "frame",
+        "digests",
+        "apply-review",
+    }
 
 
 def test_every_atlas_command_and_option_the_rules_name_exists() -> None:
@@ -327,7 +334,9 @@ def test_the_readme_points_at_curator() -> None:
     flat = " ".join(readme.split())
     assert (
         "The searches it records are published as they are, but no finding is published "
-        "until a named person approves it here with `chd-atlas literature review`."
+        "until a named person approves it here, with `chd-atlas literature review` or with "
+        "`chd-atlas literature apply-review` on the decisions file of a review page that "
+        "person has finished."
     ) in flat
     assert "Nothing it writes is published" not in flat
 
