@@ -9,10 +9,13 @@ on:
   workflow_dispatch:
 
 # The default token is read-only for contents; Pages deployment needs the rest.
+# `actions: read` lets the deploy job list its own run's artifacts (see the wait
+# step before `deploy-pages`).
 permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read
 
 # One deploy at a time. `cancel-in-progress: false` because cancelling a
 # half-finished Pages deployment can leave the site serving a partial upload.
@@ -113,6 +116,33 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+
+      # `deploy-pages` looks the artifact up in this run's artifact list once,
+      # with no retry. On 2026-11-24 two runs failed because that list was still
+      # empty under a second after the upload had finished ("Found 0
+      # artifact(s)"). So wait here until the list shows the artifact.
+      #
+      # Re-running a failed deploy job uploads a second `github-pages` artifact
+      # into the same run, and `deploy-pages` refuses two. This step stops with
+      # that reason; start a fresh run with workflow_dispatch instead.
+      - name: Wait until the uploaded site is listed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in $(seq 1 24); do
+            count=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?name=github-pages" --jq '.total_count')
+            if [ "$count" -eq 1 ]; then
+              echo "github-pages is listed (check ${attempt})"
+              exit 0
+            fi
+            if [ "$count" -gt 1 ]; then
+              echo "this run holds ${count} github-pages artifacts, so deploy-pages would refuse them; start a fresh run with workflow_dispatch instead of re-running this job" >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "github-pages was not listed within 2 minutes of the upload" >&2
+          exit 1
 
       - name: Deploy to GitHub Pages
         id: deployment
