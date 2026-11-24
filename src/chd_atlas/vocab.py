@@ -668,6 +668,50 @@ class FindingVariantClass(StrEnum):
     CHROMOSOMAL = "chromosomal"
 
 
+class VariantPlacement(StrEnum):
+    """Where a named variant sits on the MANE Select frame the atlas pins."""
+
+    MANE = "mane"
+    PROTEIN = "protein"
+    UNPLACED = "unplaced"
+    STRUCTURAL = "structural"
+    OUTSIDE_REGION = "outside_region"
+
+
+class VariantZygosity(StrEnum):
+    """The zygosity a paper states for a variant in its carriers."""
+
+    HETEROZYGOUS = "heterozygous"
+    HOMOZYGOUS = "homozygous"
+    HEMIZYGOUS = "hemizygous"
+    NOT_STATED = "not_stated"
+    UNCLEAR = "unclear"
+
+
+class Phase(StrEnum):
+    """Whether a paper states two variants lie on different alleles or the same one."""
+
+    TRANS = "trans"
+    CIS = "cis"
+    NOT_STATED = "not_stated"
+    UNCLEAR = "unclear"
+
+
+class SettledBy(StrEnum):
+    """What would settle an open question a literature record carries.
+
+    `FULL_TEXT`: only the abstract was read. `AUTHORS`: the paper contradicts
+    itself, or disagrees with the reference sequence. `EXPERT`: it needs a
+    domain judgement the paper cannot supply. `ATLAS_MODEL`: the paper is
+    clear and the atlas's record cannot hold it.
+    """
+
+    FULL_TEXT = "full_text"
+    AUTHORS = "authors"
+    EXPERT = "expert"
+    ATLAS_MODEL = "atlas_model"
+
+
 class TriageDecision(StrEnum):
     """What was decided about one PubMed hit."""
 

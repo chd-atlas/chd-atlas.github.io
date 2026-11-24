@@ -18,7 +18,7 @@ import hashlib
 import json
 from collections.abc import Sequence
 from datetime import date
-from typing import Annotated, Final, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -40,10 +40,17 @@ from chd_atlas.vocab import (
     FindingDesign,
     FindingVariantClass,
     LesionGroup,
+    Phase,
     ScreenUnit,
+    SettledBy,
     SyndromicStatus,
     TriageDecision,
+    VariantPlacement,
+    VariantZygosity,
 )
+
+if TYPE_CHECKING:
+    from chd_atlas.models.literature import Publication
 
 _NonBlankStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -77,8 +84,19 @@ _DIGEST_EXCLUDED: Final[frozenset[str]] = frozenset(
         "verified_by",
         "review_status",
         "review_note",
+        "review_settled_by",
     }
 )
+
+# A variant's review mark is not an edit to what the finding says, as the
+# finding's own mark is not; the synthesis covers it (`_covered_finding`). The
+# `unclear` entries (reason, settler) are part of the mark; the `unclear` VALUE
+# of zygosity or phase stays content.
+_VARIANT_DIGEST_EXCLUDED: Final[frozenset[str]] = frozenset(
+    {"review_status", "review_note", "review_settled_by", "unclear"}
+)
+
+UnclearField = Literal["zygosity", "phase"]
 
 
 class Search(BaseModel):
@@ -151,6 +169,123 @@ class Carriers(BaseModel):
         return self.de_novo + self.inherited + self.origin_unknown
 
 
+class ReportedNames(BaseModel):
+    """The names a paper itself gave a variant, as printed, none of them checked."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    transcript: _NonBlankStr | None = None
+    c: _NonBlankStr | None = None
+    p: _NonBlankStr | None = None
+    rsid: _NonBlankStr | None = None
+
+
+class Normalisation(BaseModel):
+    """One run of the normaliser, with the versions it ran against.
+
+    Variants point at it by `id`, so the versions are stated once per run.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: int = Field(ge=1)
+    tool: Literal["variantvalidator"]
+    version: _NonBlankStr
+    hgvs_version: _NonBlankStr
+    vvta: _NonBlankStr
+    vvdb: _NonBlankStr
+    seqrepo: _NonBlankStr
+    run_on: date
+
+
+class Unclear(BaseModel):
+    """Why a variant's zygosity or phase is `unclear`, and what would settle it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason: _NonBlankStr
+    settled_by: SettledBy
+
+
+def check_settled(record: str, status: ReviewStatus | None, settled_by: SettledBy | None) -> None:
+    """Refuse a review mark whose settler does not fit its status.
+
+    `pending_review` needs `settled_by`; `not_accessible` is settled by the full
+    text by definition, so it refuses one; a settler with no status marks no
+    question. Cohorts and scope terms do not call this (`check_review` alone).
+    """
+    if settled_by is not None and status is None:
+        raise ValueError(
+            f"{record}: review_settled_by needs a review_status saying which open question "
+            f"it settles"
+        )
+    if status is ReviewStatus.PENDING_REVIEW and settled_by is None:
+        raise ValueError(
+            f"{record}: review_status pending_review needs a review_settled_by saying what "
+            f"would settle it"
+        )
+    if status is ReviewStatus.NOT_ACCESSIBLE and settled_by is not None:
+        raise ValueError(
+            f"{record}: review_status not_accessible takes no review_settled_by; the full "
+            f"text settles it"
+        )
+
+
+class Variant(BaseModel):
+    """One variant a finding names, placed on the MANE Select frame.
+
+    The YAML key `with` is a Python keyword, so the field is `with_` and is
+    read and dumped through its alias. Only pairings are checked here: a
+    review status with its note, a review mark with its settler
+    (`check_settled`), and an `unclear` value with its entry, each way. Every
+    other rule is a validate code, so one bad variant costs one issue and not
+    the file.
+    """
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    id: int = Field(ge=1)
+    as_reported: _NonBlankStr
+    locator: Locator
+    kind: FindingVariantClass
+    placement: VariantPlacement
+    reported: ReportedNames = ReportedNames()
+    hgvs_c: _NonBlankStr | None = None
+    hgvs_p: _NonBlankStr | None = None
+    grch38: _NonBlankStr | None = None
+    normalisation: int | None = None
+    zygosity: VariantZygosity = VariantZygosity.NOT_STATED
+    with_: list[int] = Field(default_factory=list, alias="with")
+    phase: Phase | None = None
+    carriers: Carriers | None = None
+    phenotypes: list[PhenotypeId] = Field(default_factory=list)
+    review_status: ReviewStatus | None = None
+    review_note: _NonBlankStr | None = None
+    review_settled_by: SettledBy | None = None
+    unclear: dict[UnclearField, Unclear] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def review_pairing(self) -> Variant:
+        check_review(f"variant {self.id}", self.review_status, self.review_note)
+        check_settled(f"variant {self.id}", self.review_status, self.review_settled_by)
+        values = {
+            "zygosity": self.zygosity.value,
+            "phase": self.phase.value if self.phase else None,
+        }
+        for field, value in values.items():
+            if value == "unclear" and field not in self.unclear:
+                raise ValueError(
+                    f"variant {self.id}: {field} is unclear but has no unclear entry giving "
+                    f"its reason and settled_by"
+                )
+        for field in self.unclear:
+            if values[field] != "unclear":
+                raise ValueError(
+                    f"variant {self.id}: an unclear entry for {field}, which is not unclear"
+                )
+        return self
+
+
 class Finding(BaseModel):
     """What one paper reports about one gene, approved by a named person."""
 
@@ -166,6 +301,7 @@ class Finding(BaseModel):
     screened: int | None = Field(default=None, ge=1)
     carriers: Carriers | None = None
     variant_classes: list[FindingVariantClass] = Field(default_factory=list)
+    variants: list[Variant] = Field(default_factory=list)
     cases: int | None = Field(default=None, ge=1)
     controls: int | None = Field(default=None, ge=1)
     p_value: float | None = Field(default=None, gt=0, le=1, allow_inf_nan=False)
@@ -184,6 +320,7 @@ class Finding(BaseModel):
     approved_digest: _NonBlankStr | None = None
     review_status: ReviewStatus | None = None
     review_note: _NonBlankStr | None = None
+    review_settled_by: SettledBy | None = None
 
     @model_validator(mode="after")
     def design_rules(self) -> Finding:
@@ -245,6 +382,7 @@ class Finding(BaseModel):
         ):
             raise ValueError(f"{self.id}: approved_by names an agent; a person must approve")
         check_review(self.id, self.review_status, self.review_note)
+        check_settled(self.id, self.review_status, self.review_settled_by)
         return self
 
 
@@ -252,7 +390,11 @@ def finding_digest(finding: Finding) -> str:
     """`sha256:` and the hex digest of the finding's content, approval excluded.
 
     The canonical JSON (sorted keys, no ASCII escaping, compact separators) of
-    `model_dump(mode="json", exclude_defaults=True)` without `_DIGEST_EXCLUDED`.
+    `model_dump(mode="json", exclude_defaults=True, by_alias=True)` without
+    `_DIGEST_EXCLUDED`, and without each variant's review mark
+    (`_VARIANT_DIGEST_EXCLUDED`). `by_alias` keys a variant's links `with`, as
+    in the YAML. The file's `normalisations` are not on the finding and enter
+    no digest.
     An approval records this value, so a later edit to anything it covers no
     longer matches (LIT015). A field left at its default is not hashed, so a
     release that adds an optional field does not void standing approvals; the
@@ -260,11 +402,47 @@ def finding_digest(finding: Finding) -> str:
     """
     content = {
         k: v
-        for k, v in finding.model_dump(mode="json", exclude_defaults=True).items()
+        for k, v in finding.model_dump(mode="json", exclude_defaults=True, by_alias=True).items()
         if k not in _DIGEST_EXCLUDED
     }
-    canonical = json.dumps(content, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
-    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    if "variants" in content:
+        content["variants"] = [
+            {k: v for k, v in variant.items() if k not in _VARIANT_DIGEST_EXCLUDED}
+            for variant in content["variants"]
+        ]
+    return _canonical_digest(content)
+
+
+# Only the approval is left out of the finding as recorded: unlike `finding_digest`,
+# the shown digest keeps the finding's and each variant's review marks, the
+# `unclear` entries and `verified_by`.
+_SHOWN_EXCLUDED: Final[frozenset[str]] = frozenset(
+    {"approved_by", "approved_on", "approved_digest"}
+)
+
+
+def shown_digest(finding: Finding, publication: Publication | None) -> str:
+    """`sha256:` and the hex digest of a finding as recorded, minus its approval, with its paper.
+
+    The canonical JSON of `{"finding": ..., "publication": ...}`. `finding` is
+    `model_dump(mode="json", exclude_defaults=True, by_alias=True)` without
+    `approved_by`, `approved_on` and `approved_digest`; nothing is removed from
+    its variants, so review marks, `unclear` entries and `verified_by` are
+    covered, which `finding_digest` deliberately leaves out. `publication` is
+    `{"study_type", "own_lab"}` from publications.yaml, or null when the paper
+    is not there. Approving a finding does not move it.
+    """
+    content = {
+        k: v
+        for k, v in finding.model_dump(mode="json", exclude_defaults=True, by_alias=True).items()
+        if k not in _SHOWN_EXCLUDED
+    }
+    paper = (
+        None
+        if publication is None
+        else {"study_type": publication.study_type.value, "own_lab": publication.own_lab}
+    )
+    return _canonical_digest({"finding": content, "publication": paper})
 
 
 class SynthesisSentence(BaseModel):
@@ -334,16 +512,36 @@ def _covered_finding(finding: Finding) -> str:
     content, withholds the synthesis until it is approved again (GS5).
     `verified_by` stays out, as it does of the finding's own digest.
     """
-    return _canonical_digest(
-        {
-            "finding": finding_digest(finding),
-            "review_status": finding.review_status.value if finding.review_status else None,
-            "review_note": finding.review_note or None,
-            "approved_by": finding.approved_by,
-            "approved_on": finding.approved_on.isoformat() if finding.approved_on else None,
-            "approved_digest": finding.approved_digest,
-        }
-    )
+    covered: dict[str, Any] = {
+        "finding": finding_digest(finding),
+        "review_status": finding.review_status.value if finding.review_status else None,
+        "review_note": finding.review_note or None,
+        "approved_by": finding.approved_by,
+        "approved_on": finding.approved_on.isoformat() if finding.approved_on else None,
+        "approved_digest": finding.approved_digest,
+    }
+    if finding.review_settled_by is not None:
+        covered["review_settled_by"] = finding.review_settled_by.value
+    questions = [
+        [
+            v.id,
+            v.review_settled_by.value if v.review_settled_by else None,
+            {f: [u.reason, u.settled_by.value] for f, u in sorted(v.unclear.items())},
+        ]
+        for v in sorted(finding.variants, key=lambda v: v.id)
+        if v.review_settled_by is not None or v.unclear
+    ]
+    if questions:
+        # Only when a variant carries a settler or an unclear entry, so every
+        # other finding keeps its covered digest byte for byte.
+        covered["variant_questions"] = questions
+    if finding.variants:
+        # Only when there are variants, so a finding with none keeps its digest.
+        covered["variant_reviews"] = [
+            [v.id, v.review_status.value if v.review_status else None, v.review_note or None]
+            for v in sorted(finding.variants, key=lambda v: v.id)
+        ]
+    return _canonical_digest(covered)
 
 
 def synthesis_digest(
@@ -384,6 +582,7 @@ class GeneLiteratureFile(BaseModel):
 
     gene: HgncId
     searches: list[Search] = Field(min_length=1)
+    normalisations: list[Normalisation] = Field(default_factory=list)
     triage: list[TriageEntry] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
     synthesis: Synthesis | None = None
@@ -396,4 +595,7 @@ class GeneLiteratureFile(BaseModel):
         duplicate_searches = duplicates(s.id for s in self.searches)
         if duplicate_searches:
             raise ValueError(f"duplicate search ids: {duplicate_searches}")
+        duplicate_normalisations = duplicates(n.id for n in self.normalisations)
+        if duplicate_normalisations:
+            raise ValueError(f"duplicate normalisation ids: {duplicate_normalisations}")
         return self

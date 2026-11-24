@@ -11,6 +11,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from ruamel.yaml import YAML
 
 from chd_atlas.build.burden import BurdenCensus, BurdenRow, burden_census
 from chd_atlas.build.cell_types import CellTypeCensus
@@ -348,6 +349,22 @@ def real_build(tmp_path_factory: pytest.TempPathFactory) -> Path:
     out = base / "dist"
     build_site(root, out)
     return out
+
+
+def test_the_pages_name_the_mane_release_the_mirror_is_pinned_at(real_build: Path) -> None:
+    """The methods paragraph and the landing's Sources sentence write the MANE release by hand.
+
+    Both read "MANE v1.5" as literal text (not templated, so each stays a
+    pinned sentence). This reads the `mane_select` package version straight from
+    `mirrors/sources.yaml`, so a repin to 1.6 fails here until both are reworded.
+    """
+    sources = YAML(typ="safe").load(Path("mirrors/sources.yaml").read_text())["sources"]
+    (pin,) = (s["package"]["version"] for s in sources if s["id"] == "mane_select")
+    named = f"MANE v{pin}"
+    landing = " ".join((real_build / "index.html").read_text().split())
+    methods = " ".join((real_build / "methods.html").read_text().split())
+    assert f"checked against {named} (NCBI and EMBL-EBI)" in landing
+    assert f"transcript ({named}) and GRCh38" in methods
 
 
 def test_the_page_is_published_through_write_text_and_reaches_the_checksums(
@@ -1088,7 +1105,10 @@ def test_the_front_page_names_orphanet_and_attributes_it_as_its_licence_requires
         # `sources.json`.
         "Developmental expression is the <strong>EMBL-EBI Expression Atlas</strong>'s "
         "(E-MTAB-6814), under EMBL-EBI's Terms of Use. Cell-type expression is the UCSC Cell "
-        "Browser data of Farah et al. 2024. Rare-variant results come from the "
+        "Browser data of Farah et al. 2024. Each gene's MANE Select transcript is checked "
+        "against MANE v1.5 (NCBI and EMBL-EBI), under NCBI's data policy, wherever the "
+        "atlas's copy of MANE includes that gene. "
+        "Rare-variant results come from the "
         "supplements of Audain et al. 2026 and Sierant et al. 2025, both CC BY 4.0, and of "
         'Audain et al. 2021, CC0. <a href="sources.json">sources.json</a> identifies each '
         "mirrored file and its licence terms.</p> "

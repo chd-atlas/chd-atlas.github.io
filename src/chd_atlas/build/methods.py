@@ -524,8 +524,12 @@ _LITERATURE: Final = (
     "whatever the authors counted as one, in people or families as stated; the atlas "
     "records their counts and does not re-classify the variants. A named curator approves "
     "each finding before publication; findings awaiting approval are counted, not shown. "
-    "A review mark flags an open question for an expert (pending review) or a source "
-    "that could not be read (source not accessible).</p>"
+    "A review mark flags a question the atlas leaves open (pending review) or a source "
+    "that could not be read (source not accessible). "
+    'A variant\'s zygosity or phase reads "unclear" when the paper states it in a way '
+    "one value cannot hold, or states two incompatible things about it. "
+    "A gene with open literature questions has a register page giving each one's "
+    "reason and what would settle it.</p>"
     "<p>The gene card counts approved findings by paper and never sums carriers across "
     "papers, because cohorts can overlap. It names each paper's study design. "
     '"Lesions studied" counts the lesions a paper studied: for a screen with no carrier, '
@@ -533,14 +537,39 @@ _LITERATURE: Final = (
     "are the cohort's lesions. A common-variant association is never Mendelian "
     'evidence. "From the abstract only" counts papers with a finding whose source '
     "could not be read in "
-    'full; "pending review" counts papers with a finding that carries a question left open '
-    "for an expert.</p>"
+    'full; "pending review" counts papers with a finding that carries a question the '
+    "atlas leaves open.</p>"
     '<p>A gene card may also carry an "In short" paragraph of one to five sentences. '
     "An AI model drafts it, and its provenance line names the model. It draws only on "
     "the atlas's approved findings and the gene's lesion assertions, and each sentence "
     "cites the records it rests on. It states no figures. It is published only after a "
     "named person approves it. When anything it rests on changes, it is withheld until "
     "approved again.</p>"
+)
+
+
+# What a gene page's variant table rests on (spec 7.5; plan Task 14), each clause
+# read off the code: a `mane` placement holds an `hgvs_c` and a `grch38` and cites
+# a normalisation run, whose `tool` is `variantvalidator` (`Normalisation.tool`,
+# LIT022); a `protein` placement holds an `hgvs_p` alone; LIT016 holds both names
+# on the gene's MANE Select accessions, pinned at MANE v1.5 (`mane_select` in
+# `mirrors/sources.yaml`); LIT016-LIT021 and LIT025 read only
+# `mirrors/mane_transcripts.tsv` and `mirrors/mane_exons.tsv`, whose windows are
+# each exon's GRCh38 span plus 50 bases either side; an `outside_region` or
+# `structural` variant holds none of the three names and is listed by its
+# `as_reported` (`pages._variant_section`); an `unplaced` one leaves `hgvs_c` and
+# `grch38` null and must carry a review mark (LIT022). "Small" is the
+# `snv_indel` kind, the only one a `mane` or `outside_region` placement takes.
+# 87 words in the paragraph; the owner approves the wording in the PR.
+_LITERATURE_VARIANTS: Final = (
+    '<h2 id="literature-variants">Variants in findings</h2>'
+    "<p>A small variant an approved finding names is placed on the gene's MANE Select "
+    "transcript (MANE v1.5) and GRCh38 by VariantValidator, or on its protein alone when the "
+    "paper gives only a protein change. The atlas checks these placements offline against its "
+    "copy of the transcript, the protein and the genome within 50 bases of each exon. A "
+    "variant beyond that region, or a copy-number or chromosomal change, is listed as "
+    "reported, without coordinates; so is one whose names fail the check or disagree, flagged "
+    "for review.</p>"
 )
 
 
@@ -600,7 +629,7 @@ def _review_gloss(status: ReviewStatus) -> str:
     match status:
         case ReviewStatus.PENDING_REVIEW:
             return (
-                "carries a question about it that this atlas leaves open for an expert: its "
+                "carries a question about it that this atlas leaves open: its "
                 "note states what is unresolved, and the atlas takes no side."
             )
         case ReviewStatus.NOT_ACCESSIBLE:
@@ -881,6 +910,7 @@ def build_methods(emitter: Emitter, *, cohorts: Mapping[str, Cohort]) -> None:
         + _cohorts(cohorts)
         + _EXPRESSION
         + _LITERATURE
+        + _LITERATURE_VARIANTS
     )
     emitter.write_text(
         METHODS_PAGE,

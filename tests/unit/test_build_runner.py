@@ -3,6 +3,7 @@ import csv
 import gzip
 import hashlib
 import json
+import posixpath
 import re
 import shutil
 import subprocess
@@ -892,6 +893,75 @@ def test_a_literature_file_reaches_its_bundle_page_and_the_counts(
     counts = json.loads((out / "manifest.json").read_text())["counts"]
     assert counts["literature_genes"] == 1
     assert counts["literature_findings"] == 1
+
+
+def _marked_literature_file(gene: str, finding: str) -> str:
+    """One search, one included paper and one approved `not_accessible` finding."""
+    return stamped_yaml(f"""\
+gene: {gene}
+searches:
+  - {{id: 1, source: pubmed, query: q, run_on: 2026-11-02, hits: 1, new_hits: 1}}
+triage:
+  - {{pmid: PMID:8988165, search: 1, decision: included}}
+findings:
+  - id: {finding}
+    publication: PMID:8988165
+    design: cohort_screen
+    methods: [exome]
+    count_unit: probands
+    screened: 70
+    carriers: {{de_novo: 2, inherited: 1, origin_unknown: 4}}
+    variant_classes: [snv_indel]
+    phenotypes: [HP:0001631]
+    lesion_groups: [septal]
+    syndromic: both
+    shares_probands_with: unknown
+    locators: [{{kind: in_text, element: Table 2}}]
+    summary: Only the abstract was read.
+    extracted_by: agent:extract/test
+    review_status: not_accessible
+    review_note: Only the abstract was read.
+    approved_by: A. Curator
+    approved_on: 2026-11-05
+""")
+
+
+def test_a_register_is_written_for_published_genes_only_and_every_link_lands(
+    repo: Path, tmp_path: Path
+) -> None:
+    """RXRA (HGNC:10477) is registered and unpublished; its approved, marked finding
+    gets no register page, and the build passes the link sweep.
+
+    `gene_literature` returns every gene's record, published or not (validation only
+    warns, LIT013). Measured 2026-11-18 at 277b56b, before the fix: this build wrote
+    `register/HGNC_10477.html`, whose link back to `../genes/HGNC_10477.html` named a
+    page no builder wrote, and the manifest checksummed it. TBX5, published and
+    marked the same way, keeps its register, so a builder that wrote none passes
+    the sweep and fails here.
+    """
+    folder = repo / "curation" / "literature"
+    folder.mkdir()
+    (folder / "TBX5.yaml").write_text(_marked_literature_file("HGNC:11604", "CHDA:LIT:0000001"))
+    (folder / "RXRA.yaml").write_text(_marked_literature_file("HGNC:10477", "CHDA:LIT:0000002"))
+    out = tmp_path / "registers"
+    build_site(repo, out)
+
+    assert sorted(p.name for p in (out / "register").iterdir()) == ["HGNC_11604.html"]
+    files = json.loads((out / "manifest.json").read_text())["files"]
+    assert sorted(path for path in files if path.startswith("register/")) == [
+        "register/HGNC_11604.html"
+    ]
+    written = {p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file()}
+    broken = []
+    for page in sorted(out.rglob("*.html")):
+        here = page.relative_to(out).parent.as_posix()
+        for href in re.findall(r'href="([^"#]+)', page.read_text(encoding="utf-8")):
+            if href.startswith(("http://", "https://", "mailto:")):
+                continue
+            name = posixpath.normpath(posixpath.join(here, href))
+            if name not in written and f"{name}/index.html" not in written:
+                broken.append((page.relative_to(out).as_posix(), href))
+    assert broken == []
 
 
 def test_the_literature_census_is_published_under_its_own_keys(

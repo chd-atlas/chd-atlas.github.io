@@ -44,7 +44,7 @@ def _pair(first: dict[str, Any], second: dict[str, Any]) -> FindingDiff:
 
 
 def test_the_compared_set_is_pinned() -> None:
-    """The 17 fields a second pass is compared on.
+    """The 18 fields a second pass is compared on.
 
     chd-atlas/curator keeps a twin of this pin, `test_the_compared_set_is_pinned`
     in its `tests/test_diff.py`, because `chd-curator diff` compares the same set
@@ -62,6 +62,7 @@ def test_the_compared_set_is_pinned() -> None:
         "screened",
         "carriers",
         "variant_classes",
+        "variants",
         "cases",
         "controls",
         "p_value",
@@ -123,6 +124,7 @@ def test_fields_the_curator_reads_are_not_compared() -> None:
             "verified_by": "agent:verify/other",
             "review_status": "pending_review",
             "review_note": "a note",
+            "review_settled_by": "authors",
         },
     )
     assert diff.fields == {} and diff.agreed == ("CHDA:LIT:0000001",)
@@ -220,3 +222,77 @@ def test_the_report_is_sorted() -> None:
         "odds_ratio",
         "screened",
     ]  # model field order puts screened first; the report is alphabetical
+
+
+def _variant(vid: int, as_reported: str, **changes: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "id": vid,
+        "as_reported": as_reported,
+        "locator": {"kind": "in_text", "element": f"Table {vid}"},
+        "kind": "snv_indel",
+        "placement": "protein",
+        "with": [],
+    }
+    base.update(changes)
+    return base
+
+
+def test_variant_order_and_local_ids_do_not_count_as_a_difference() -> None:
+    """Seven bookkeeping keys differ between the passes: id, with, normalisation,
+    locator, review_status, review_note and review_settled_by. The eighth,
+    `unclear`, is covered by the next test."""
+    first = [
+        _variant(1, "p.Arg1Trp"),
+        _variant(2, "p.Gly2Ser", zygosity="homozygous", **{"with": [1]}),
+    ]
+    second = [
+        _variant(
+            7,
+            "p.Gly2Ser",
+            zygosity="homozygous",
+            normalisation=3,
+            review_status="pending_review",
+            review_note="the paper's table disagrees with its text",
+            review_settled_by="authors",
+            **{"with": [5]},
+        ),
+        _variant(5, "p.Arg1Trp", locator={"kind": "in_text", "element": "Figure 9"}),
+    ]
+    diff = _pair({"variants": first}, {"variants": second})
+    assert diff.fields == {} and diff.agreed == ("CHDA:LIT:0000001",)
+
+    changed = _pair(
+        {"variants": first}, {"variants": [second[1], {**second[0], "zygosity": "hemizygous"}]}
+    )
+    assert [name for name, _, _ in changed.fields["CHDA:LIT:0000001"]] == ["variants"]
+
+
+def test_two_passes_differing_only_in_settlers_or_unclear_reasons_agree() -> None:
+    reason = {"reason": "Table 2 and the text disagree.", "settled_by": "atlas_model"}
+    first = [_variant(1, "p.Arg1Trp", zygosity="unclear", unclear={"zygosity": reason})]
+    second = [
+        _variant(
+            4,
+            "p.Arg1Trp",
+            zygosity="unclear",
+            unclear={"zygosity": {"reason": "Worded again.", "settled_by": "authors"}},
+            review_status="pending_review",
+            review_note="open",
+            review_settled_by="expert",
+        )
+    ]
+    diff = _pair(
+        {
+            "variants": first,
+            "review_status": "pending_review",
+            "review_note": "n",
+            "review_settled_by": "authors",
+        },
+        {"variants": second},
+    )
+    assert diff.fields == {} and diff.agreed == ("CHDA:LIT:0000001",)
+    other = _pair(
+        {"variants": first},
+        {"variants": [_variant(1, "p.Arg1Trp", zygosity="not_stated")]},
+    )
+    assert [name for name, _, _ in other.fields["CHDA:LIT:0000001"]] == ["variants"]

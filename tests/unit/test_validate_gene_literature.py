@@ -18,6 +18,7 @@ import pytest
 from chd_atlas.corpus import Corpus
 from chd_atlas.genes import GeneRegistry
 from chd_atlas.issues import Severity, ValidationIssue
+from chd_atlas.mane import ManeFrame, read_mane_frame
 from chd_atlas.models.gene_literature import GeneLiteratureFile
 from chd_atlas.models.literature import PhenotypeTerm
 from chd_atlas.validate.gene_literature import validate_gene_literature
@@ -419,3 +420,169 @@ def test_findings_may_share_probands_across_files_and_order_is_deterministic() -
     # BRCA1's finding names a finding that lives in TBX5's file: resolved. Its
     # file leaves PMID:1002/1003 included-less, so only LIT-coverage is clean.
     assert "LIT007" not in _codes(issues)
+
+
+# ---- variants: shape always, reference checks against the frame (Stage D) ----------
+
+_REPO_ROOT = Path(__file__).parent.parent.parent
+_HERE = "/r/curation/literature/TBX5.yaml"
+_NORMALISATION = {
+    "id": 1,
+    "tool": "variantvalidator",
+    "version": "4.0.1.dev7+gbdab9c72f",
+    "hgvs_version": "4.0.0",
+    "vvta": "vvta_2025_02",
+    "vvdb": "vvdb_2025_3",
+    "seqrepo": "VV_SR_2025_02/master",
+    "run_on": "2026-11-17",
+}
+
+
+def _variant(vid: int = 1, **fields: Any) -> dict[str, Any]:
+    """Porto 2010's TBX5 R279X as VariantValidator normalised it, carried once."""
+    entry: dict[str, Any] = {
+        "id": vid,
+        "as_reported": "c.835C>T p.R279X",
+        "locator": {"kind": "in_text", "element": "Table 1"},
+        "kind": "snv_indel",
+        "placement": "mane",
+        "reported": {"c": "c.835C>T", "p": "p.R279X"},
+        "hgvs_c": "NM_181486.4:c.835C>T",
+        "hgvs_p": "NP_852259.1:p.(Arg279Ter)",
+        "grch38": "12:114366312:G:A",
+        "normalisation": 1,
+        "carriers": {"de_novo": 1, "inherited": 0, "origin_unknown": 0},
+    }
+    entry.update(fields)
+    return entry
+
+
+def _with_variants(*variants: dict[str, Any]) -> dict[str, Any]:
+    raw = _base()
+    raw["normalisations"] = [_NORMALISATION]
+    raw["findings"][0]["variants"] = list(variants)
+    return raw
+
+
+@pytest.fixture(scope="module")
+def mane_frame() -> ManeFrame:
+    frame, issues = read_mane_frame(_REPO_ROOT)
+    assert frame is not None and issues == []
+    return frame
+
+
+def test_a_variant_reaches_the_reference_checks_and_the_shape_checks(mane_frame: ManeFrame) -> None:
+    """A clean variant is clean; each bad one is located at its finding and variant."""
+    assert _run(_with_variants(_variant()), mane=mane_frame) == []
+
+    # grch38 names a different change than hgvs_c (LIT018, a reference check) and
+    # variant 2's normalisation does not resolve (LIT022, a shape check).
+    raw = _with_variants(_variant(1, grch38="12:114366312:G:C"), _variant(2, normalisation=7))
+    issues = _run(raw, mane=mane_frame)
+    assert sorted((i.code, i.severity, i.location) for i in issues) == [
+        ("LIT018", Severity.ERROR, f"{_HERE}:finding {F1}:variant 1"),
+        ("LIT022", Severity.ERROR, f"{_HERE}:finding {F1}:variant 2"),
+    ]
+    # A finding-level LIT023 carries no variant in its location.
+    raw = _with_variants(*[_variant(i) for i in (1, 2, 3)])
+    issues = _run(raw, mane=mane_frame)
+    # The three copies share one row key, so LIT022 also names variants 2 and 3.
+    assert sorted((i.code, i.location) for i in issues) == [
+        ("LIT022", f"{_HERE}:finding {F1}:variant 2"),
+        ("LIT022", f"{_HERE}:finding {F1}:variant 3"),
+        ("LIT023", f"{_HERE}:finding {F1}"),
+    ]
+
+
+def test_a_missing_frame_skips_the_reference_checks_with_one_error_and_one_warning() -> None:
+    """MAN005 and MAN000 arrive together, once per file, naming the variants that waited.
+
+    Two findings with variants, three needing the frame (a `structural` one does
+    not): one pair, not one per finding or per variant.
+    """
+    raw = _with_variants(
+        _variant(1),
+        _variant(2, placement="protein", hgvs_c=None, grch38=None, normalisation=None),
+        _variant(
+            3,
+            placement="structural",
+            kind="cnv",
+            hgvs_c=None,
+            hgvs_p=None,
+            grch38=None,
+            normalisation=None,
+            carriers={"de_novo": 0, "inherited": 1, "origin_unknown": 0},
+        ),
+    )
+    raw["findings"][0]["variant_classes"] = ["snv_indel", "cnv"]
+    raw["findings"][1]["variants"] = [_variant(1, hgvs_c="NM_181486.4:c.836C>T")]
+    issues = _run(raw, mane=None)
+    assert [(i.code, i.severity, i.location) for i in issues] == [
+        ("MAN005", Severity.ERROR, _HERE),
+        ("MAN000", Severity.WARNING, _HERE),
+    ]
+    assert "3 variant(s)" in issues[0].message
+    assert "pin and ingest the mane_select package" in issues[0].message
+    assert "skipped" in issues[1].message
+
+
+def test_the_shape_checks_still_run_without_a_frame_and_only_needed_variants_skip() -> None:
+    """The skip is for the frame's checks alone; LIT022 needs no frame."""
+    raw = _with_variants(_variant(1, normalisation=7))
+    # A second finding's shape error is reached too (a `break` for `continue` stops at the first).
+    raw["findings"][1]["variants"] = [_variant(1, normalisation=8)]
+    issues = _run(raw, mane=None)
+    assert [i.code for i in issues] == ["MAN005", "MAN000", "LIT022", "LIT022"]
+    assert [i.location.split(":finding ")[1][:16] for i in issues[2:]] == [F1, F2]
+    # Nothing waiting on a frame: no skip (§4.41), whether the file has no variants
+    # or only variants that need none.
+    assert _run(_base(), mane=None) == []
+    structural = _variant(
+        1, placement="structural", kind="cnv", hgvs_c=None, hgvs_p=None, grch38=None,
+        normalisation=None,
+    )  # fmt: skip
+    raw = _with_variants(structural)
+    raw["findings"][0]["variant_classes"] = ["snv_indel", "cnv"]
+    assert _run(raw, mane=None) == []
+
+
+def test_a_frame_with_no_row_for_the_gene_lists_its_variants_unplaceable_not_skipped(
+    mane_frame: ManeFrame,
+) -> None:
+    """MAN004 is a warning: a registry gene may have no MANE row (owner, D2).
+
+    The frame loaded, so no MAN005; each `mane` variant is LIT016 and the curator
+    lists it `unplaced`, after which the file is clean.
+    """
+    without = {gene: entry for gene, entry in mane_frame.items() if gene != TBX5}
+    assert without and TBX5 in mane_frame
+    issues = _run(_with_variants(_variant()), mane=without)
+    assert [(i.code, i.location) for i in issues] == [("LIT016", f"{_HERE}:finding {F1}:variant 1")]
+    unplaced = _variant(
+        placement="unplaced",
+        hgvs_c=None,
+        grch38=None,
+        normalisation=None,
+        hgvs_p=None,
+        review_status="pending_review",
+        review_note="the gene has no MANE Select row",
+        review_settled_by="authors",
+    )
+    assert _run(_with_variants(unplaced), mane=without) == []
+
+
+def test_an_unplaced_variant_waits_on_the_frame_only_when_it_keeps_an_hgvs_p() -> None:
+    """Its LIT016/LIT019 check needs the frame; with no `hgvs_p` there is nothing to skip."""
+    kept = _variant(
+        placement="unplaced",
+        hgvs_c=None,
+        grch38=None,
+        normalisation=None,
+        review_status="pending_review",
+        review_note="numbering differs",
+        review_settled_by="authors",
+    )
+    issues = _run(_with_variants(kept), mane=None)
+    assert [(i.code, i.location) for i in issues] == [("MAN005", _HERE), ("MAN000", _HERE)]
+    assert "1 variant(s)" in issues[0].message
+    assert _run(_with_variants({**kept, "hgvs_p": None}), mane=None) == []

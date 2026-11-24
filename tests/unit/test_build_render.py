@@ -198,6 +198,28 @@ def test_a_table_with_no_rows_still_renders_its_header() -> None:
     assert "<tbody></tbody>" in html
 
 
+def test_a_page_kinds_own_style_and_cell_labels_appear_only_when_asked_for() -> None:
+    """The register's stacked layout (ruling R-UP10) must change no other page's bytes:
+    `style` adds a second `<style>` after the shared one only when given, and
+    `labelled` adds each column's header to its cells only when set. A labelled row
+    with a cell too few is refused, since its labels would name the wrong columns."""
+    plain = document(title="t", root="", body="<p>b</p>")
+    assert plain.count("<style>") == 1
+    assert f"<style>{STYLESHEET}</style>\n</head>" in plain
+    own = document(title="t", root="", body="<p>b</p>", style="p { x: y; }")
+    assert f"<style>{STYLESHEET}</style>\n<style>p {{ x: y; }}</style>\n</head>" in own
+
+    rows = [Row(cells=("<1>", "2"))]
+    assert "<td><1>" not in data_table(["a", "b"], rows)
+    assert "<tr><td>&lt;1&gt;</td><td>2</td></tr>" in data_table(["a", "b"], rows)
+    assert (
+        '<tr><td data-label="a &amp; b">&lt;1&gt;</td><td data-label="c">2</td></tr>'
+        in data_table(["a & b", "c"], rows, labelled=True)
+    )
+    with pytest.raises(ValueError):
+        data_table(["a", "b", "c"], rows, labelled=True)
+
+
 def test_a_chip_and_a_definition_list_escape_their_values() -> None:
     assert "<i>" not in chip(text="<i>definitive</i>", kind="definitive")
     assert "<i>" not in definition_list([("<i>k</i>", "<i>v</i>")])

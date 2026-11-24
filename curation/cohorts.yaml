@@ -25,7 +25,7 @@
 # REVIEW STATUS (owner's standing rule, 2026-10-27; `models/review.py`). Where
 # this atlas leaves a question about a record open rather than settling it, the
 # record carries `review_status` -- `pending_review` (a question about the
-# record left open for an expert: a conflict between the sources it rests on,
+# record the atlas leaves open: a conflict between the sources it rests on,
 # or a clinical judgement) or `not_accessible` (a source the record rests on
 # could not be read) -- and a `review_note` stating exactly what is
 # unresolved, and nothing more. Never assert either side, never speculate,

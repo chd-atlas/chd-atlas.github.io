@@ -31,10 +31,13 @@ import pytest
 
 from chd_atlas.build.manifest import write_manifest
 from chd_atlas.build.profiles import LOOKUP_RULE, TAU_METHOD, TAU_SCALE
+from chd_atlas.build.questions import SETTLED_LABELS
 from chd_atlas.build.runner import build_site
 from chd_atlas.build.validity import GeneValidity, gene_validity
 from chd_atlas.corpus import load_curation
+from chd_atlas.hgvs import protein_key
 from chd_atlas.models.dataset import Dataset, Stage
+from chd_atlas.models.gene_literature import Normalisation, Variant
 from chd_atlas.tables import TABLE_SCHEMAS, read_table
 from chd_atlas.vocab import has_conflicting_evidence
 
@@ -404,7 +407,16 @@ def test_the_documented_uncurated_sentences_are_the_ones_the_card_actually_shows
         for bundle in sorted((site / "genes").glob("*.json"))
         if bundle.name != "index.json"
     ]
-    uncurated = [b for b in bundles if b["atlas_curation"] == "not_yet_curated"]
+    # The card says "Curated by the atlas" for a gene with approved literature
+    # findings and no assertion, while `atlas_curation` stays `not_yet_curated`
+    # (pages.py `_card_curation`). The two counts were one figure (117) until
+    # MMP21's literature was approved on 2026-11-19 (section 4.30); the doc's
+    # sentence counts the pages that render it, so this does too.
+    uncurated = [
+        b
+        for b in bundles
+        if b["atlas_curation"] == "not_yet_curated" and not b["literature"]["findings"]
+    ]
     by_panel = sum(1 for b in uncurated if b["validity_state"] == "expert_curated")
     by_agreement = sum(1 for b in uncurated if b["validity_state"] == "submitter_curated")
     marker = (
@@ -436,6 +448,7 @@ def test_the_documented_uncurated_sentences_are_the_ones_the_card_actually_shows
         for bundle in sorted((site / "genes").glob("*.json"))
         if bundle.name != "index.json"
         and json.loads(bundle.read_text())["validity_state"] == "submitter_curated"
+        and not json.loads(bundle.read_text())["literature"]["findings"]
     )
     ungraded_html = ungraded.with_suffix(".html").read_text()
     assert agreement_quote.replace("**", "") == _card_curation(ungraded_html)
@@ -1621,10 +1634,35 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
     section = doc[doc.index(heading) + len(heading) :]
     section = re.split(r"\n#{2,3} ", section)[0]
     blocks = re.findall(r"```json\n(.*?)```", section, re.S)
-    assert len(blocks) == 2, "the literature section shows the empty shape and TBX5's"
+    assert len(blocks) == 3, "the literature section shows the empty shape, TBX5's and a variant"
     _agrees(_abridged(blocks[0]), empty["literature"], "literature (empty)")
     tbx5 = json.loads((site / "genes" / "HGNC_11604.json").read_text())
     _agrees(_abridged(blocks[1]), tbx5["literature"], "literature (TBX5)")
+    # The third example is invented (no published finding has its id) and cannot be
+    # held value by value: TBX5's only linked pair (CHDA:LIT:0000061, measured
+    # 2026-11-19) is `unplaced`, so it has no coordinates and no normalisation run.
+    # Hold its keys to the models' own, so a renamed field breaks the doc, and to
+    # TBX5's published variants and run, so a key the build no longer publishes does too.
+    shown = _abridged(blocks[2])
+    published_variants = [v for f in tbx5["literature"]["findings"] for v in f["variants"]]
+    assert set(shown["findings"][0]["variants"][0]) - {"…"} <= set(published_variants[0])
+    assert set(shown["normalisations"][0]) - {"…"} <= set(tbx5["literature"]["normalisations"][0])
+    linked = [v for v in published_variants if v["with"]]
+    assert linked and {v["phase"] for v in linked} == {"trans"}
+    variant = shown["findings"][0]["variants"][0]
+    assert set(variant) - {"…"} <= {f.alias or n for n, f in Variant.model_fields.items()}
+    run = shown["normalisations"][0]
+    assert set(run) - {"…"} <= set(Normalisation.model_fields)
+    # Required by name, so an example that drops one cannot pass as a subset.
+    assert {"id", "as_reported", "placement", "grch38", "normalisation", "with", "phase"} <= set(
+        variant
+    )
+    assert {"id", "tool", "run_on"} <= set(run)
+    # `with` and `normalisation` resolve as the prose says: within the finding, mutually,
+    # and to a run the example publishes.
+    pair = shown["findings"][0]["variants"]
+    assert [(v["id"], v["with"]) for v in pair] == [(1, [2]), (2, [1])]
+    assert {v["normalisation"] for v in pair} == {run["id"]}
     empty_count = len(bundles) - len(with_record)
     prose = " ".join(section.split())
     assert f"as {empty_count} of the {len(bundles)} published genes do today" in prose
@@ -1633,8 +1671,63 @@ def test_the_doc_documents_the_literature_bundle_key(site: Path) -> None:
         "`pending_approval` counts findings no named person has approved",
         "sorted by publication year, then numeric PMID, then finding id",
         "A finding carrying a `review_status` is published with it",
+        "A consumer groups on `grch38` for these.",
+        "`protein`: `hgvs_p` only, no genomic coordinates; group on its canonical reading",
+        "`unplaced`: a review mark, never grouped, and at most a checked `hgvs_p`.",
+        "`mane`: `hgvs_c`, `grch38` and `normalisation`, and `hgvs_p` where the change has one.",
+        "`structural` and `outside_region`: listed only, with no coordinates or HGVS.",
+        "`phase` (`trans`, `cis`, `unclear` or `not_stated`) is non-null exactly when "
+        "`with` is non-empty",
+        "`version`, `hgvs_version`, `vvta`, `vvdb`, `seqrepo` and `run_on`",
+        "group on its canonical reading: accession and parentheses dropped, one-letter "
+        "residues, `Ter` and `X` as `*`",
+        "`NP_852259.1:p.(Gly80Arg)` and `NP_852259.1:p.G80R` are one group",
+        "only `reported.p` is checked, by LIT025 against `hgvs_p`",
+        "`carriers` counts by origin, and is `null` on a common-variant finding",
     ):
         assert needle in prose, needle
+    assert (
+        "`2.24` added `variants` to every finding (`[]` for none) and `normalisations` to "
+        "every gene bundle's `literature`, and a variant's links publish as `with`."
+    ) in " ".join(doc.split())
+    # The canonical reading those words describe is `protein_key`'s.
+    assert protein_key("NP_852259.1:p.(Gly80Arg)") == protein_key("NP_852259.1:p.G80R") == "G80R"
+    assert protein_key("p.Arg279Ter") == protein_key("p.R279X") == "R279*"
+
+
+def test_the_doc_defines_unclear_and_every_settler() -> None:
+    """The 2.25 additions are defined in the doc (spec section 5.5): `unclear` against
+    `not_stated`, each `SettledBy` value with its page label and when it applies (spec
+    section 5.2), that a `not_accessible` question is settled by the full text, and that
+    a `with` group's unclear phase is one question. The definitions are literals
+    (CLAUDE.md 4.38); the loop over `SettledBy` fails when a fifth value lands
+    undefined."""
+    from chd_atlas.vocab import SettledBy
+
+    text = " ".join(DOC.read_text(encoding="utf-8").split())
+    definitions = {
+        "full_text": '`full_text` ("the full text"), only the abstract was read;',
+        "authors": '`authors` ("the authors"), the paper contradicts itself, or disagrees '
+        "with the reference sequence;",
+        "expert": '`expert` ("an expert"), it needs a domain judgement the paper cannot supply;',
+        "atlas_model": '`atlas_model` ("a change to the atlas"), the paper is clear and the '
+        "atlas's record cannot hold it.",
+    }
+    assert sorted(definitions) == sorted(s.value for s in SettledBy)
+    # The labels the doc quotes are the ones the register prints.
+    for value, label in SETTLED_LABELS.items():
+        assert f'`{value}` ("{label}")' in definitions[value], value
+    for needle in (
+        *definitions.values(),
+        "`unclear` means the paper says something about the value that cannot be written "
+        "as one value on that line, or says two incompatible things about it, and "
+        "`not_stated` means it says nothing",
+        "`not_accessible` is settled by the full text",
+        "Every member of a `with` group whose `phase` is `unclear` carries the same entry: "
+        "it is one question.",
+        "`2.25` added `review_settled_by`",
+    ):
+        assert needle in text, needle
 
 
 def test_the_doc_describes_the_literature_section_and_what_publishes_before_approval(
@@ -1642,17 +1735,19 @@ def test_the_doc_describes_the_literature_section_and_what_publishes_before_appr
 ) -> None:
     """Final review S2, S3, S13, R32, R37: the sentences beside correct output (§4.20, §4.25).
 
-    Held against the build where a build can say it: the methods page has seven
-    `<h2 id>` sections (the doc said six), and the gene page's section order and
+    Held against the build where a build can say it: the methods page has eight
+    `<h2 id>` sections (the doc said six, then seven until `#literature-variants`
+    joined them, plan Task 14), and the gene page's section order and
     the literature counts are the build's. The page ended on Literature until
     the owner moved it beside the curated evidence (2026-11-09); expression is
     last again, and the doc says so.
     """
     doc = " ".join(DOC.read_text().split())
     methods = (site / "methods.html").read_text()
-    assert len(re.findall(r'<h2 id="[^"]+"', methods)) == 7
-    assert "It has seven sections, in this order" in doc and "six sections" not in doc
+    assert len(re.findall(r'<h2 id="[^"]+"', methods)) == 8
+    assert "It has eight sections, in this order" in doc and "seven sections" not in doc
     assert "- `#literature` says how a gene page's Literature section is built" in doc
+    assert "- `#literature-variants` says how the variants a finding names are placed" in doc
     # Literature sits with the atlas's own curation, before the mirrored layers
     # (owner, 2026-11-09); expression is last again. TBX5 has every section.
     page = (site / "genes" / "HGNC_11604.html").read_text()
@@ -1676,7 +1771,8 @@ def test_the_doc_describes_the_literature_section_and_what_publishes_before_appr
     symbols = sorted(b["symbol"] for b in _bundles(site) if b["literature"]["searches"])
     assert (
         f"Today {['no', 'one', 'two', 'three'][counts['literature_genes']]} genes carry a "
-        f"literature record, {' and '.join(symbols)}, with {counts['literature_findings']} "
+        f"literature record, {', '.join(symbols[:-1])} and {symbols[-1]}, with "
+        f"{counts['literature_findings']} "
         "approved findings between them."
     ) in doc
     assert "`case_report`, `cohort_sequencing`, `gwas` and `candidate_variant`" in doc

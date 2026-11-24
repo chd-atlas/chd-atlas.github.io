@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
@@ -9,6 +10,12 @@ from typing import Any, Final
 
 import typer
 
+from chd_atlas.build.questions import (
+    QUESTION_LABELS,
+    SETTLED_LABELS,
+    SETTLED_ORDER,
+    open_questions,
+)
 from chd_atlas.build.runner import BuildRefused, build_site
 from chd_atlas.changes import render_markdown, site_changes
 from chd_atlas.corpus import Corpus, load_curation
@@ -33,19 +40,28 @@ from chd_atlas.ingest.apply import (
 )
 from chd_atlas.ingest.package import IngestRefused
 from chd_atlas.issues import ValidationIssue
-from chd_atlas.literature_query import TargetError, literature_target, resolve_symbol
+from chd_atlas.literature_query import (
+    TargetError,
+    literature_frame,
+    literature_target,
+    resolve_symbol,
+)
 from chd_atlas.models.assertion import InTextLocator, Locator
 from chd_atlas.models.gene_literature import (
     Finding,
     GeneLiteratureFile,
+    Variant,
     finding_digest,
+    shown_digest,
     synthesis_digest,
 )
 from chd_atlas.models.literature import Publication
 from chd_atlas.models.review import ReviewStatus
+from chd_atlas.models.review_decisions import Decision, ReviewDecisions, ReviewerRole
 from chd_atlas.schema_export import TABLE_SCHEMA_DIR, export_schemas, export_table_schemas
 from chd_atlas.validate.gene_synthesis import validate_gene_synthesis
 from chd_atlas.validate.runner import validate_repository
+from chd_atlas.vocab import SettledBy
 
 app = typer.Typer(help="CHD Atlas curation tooling.", no_args_is_help=True)
 schemas_app = typer.Typer(help="JSON Schema utilities.", no_args_is_help=True)
@@ -470,6 +486,78 @@ def literature_target_command(
     typer.echo(json.dumps(target.as_json(), sort_keys=True, ensure_ascii=False))
 
 
+@literature_app.command("frame")
+def literature_frame_command(
+    symbol: str = typer.Argument(..., help="Gene symbol (approved, alias or previous)."),
+    root: Path = typer.Option(Path("."), help="Repository root."),
+) -> None:
+    """Print a gene's pinned MANE Select transcript and protein as one JSON line."""
+    _require_root(root)
+    try:
+        frame = literature_frame(root, symbol)
+    except TargetError as exc:
+        raise _fail(str(exc), 2) from None
+    typer.echo(json.dumps(frame.as_json(), sort_keys=True, ensure_ascii=False))
+
+
+@literature_app.command("digests")
+def literature_digests_command(
+    symbol: str = typer.Argument(..., help="Gene symbol (approved, alias or previous)."),
+    root: Path = typer.Option(Path("."), help="Repository root."),
+) -> None:
+    """Print each finding's digests and the file's sha256 as one JSON line. Read-only.
+
+    `finding_digest` is what an approval binds to; `shown_digest` also covers
+    the review marks and the paper's study type and own-lab mark, so a review
+    page can tell that a card changed after it was shown. `approved` is true for
+    any finding carrying an approval, void or not; `approval_void` is true only
+    when the approval no longer matches the finding (LIT015). Exit 2 for an
+    unknown symbol or a gene with no literature file, 1 for an unparsable
+    literature file or a `curation/publications.yaml` that does not load.
+    """
+    _require_root(root)
+    approved_symbol, path = _require_literature_file(root, symbol)
+    raw = path.read_bytes()
+    try:
+        record = parse_literature(raw)
+    except LiteratureFileError as exc:
+        raise _fail(f"{path}: {exc}", 1) from None
+    papers = _publications_by_id(root)
+    findings = [
+        {
+            "id": f.id,
+            "finding_digest": finding_digest(f),
+            "shown_digest": shown_digest(f, papers.get(f.publication)),
+            "approved": f.approved_by is not None,
+            "approval_void": _approval_void(f),
+            "verified": f.verified_by is not None,
+        }
+        for f in sorted(record.findings, key=lambda f: f.id)
+    ]
+    out = {
+        "format": 1,
+        "gene": str(record.gene),
+        "symbol": approved_symbol,
+        "literature_sha256": "sha256:" + hashlib.sha256(raw).hexdigest(),
+        "findings": findings,
+    }
+    typer.echo(json.dumps(out, sort_keys=True, ensure_ascii=False))
+
+
+def _publications_by_id(root: Path) -> dict[str, Publication]:
+    """`curation/publications.yaml` by paper id; exit 1 naming the file if it did not load.
+
+    `load_curation` reports an unreadable file as an issue and returns no
+    publications. Continuing would hash every finding with `publication: null`,
+    so an edit to a paper's study type would go unnoticed.
+    """
+    corpus, issues = load_curation(root)
+    broken = [i for i in issues if "publications.yaml" in i.location]
+    if broken:
+        raise _fail(f"{broken[0].location}: {broken[0].message}", 1)
+    return {p.id: p for p in corpus.publications}
+
+
 def _require_literature_file(root: Path, symbol: str) -> tuple[str, Path]:
     """`(approved symbol, path)` of an existing literature file, or exit 2 naming the path."""
     _, approved, _ = _resolve_gene(root, symbol)
@@ -525,11 +613,77 @@ def _today() -> date:
     return date.today()
 
 
+def _variant_line(variant: Variant) -> str:
+    """One variant as the person approving reads it, every digest-covered field but one.
+
+    Shown: the paper's own text, placement, the checked names, zygosity and
+    links, carriers, phenotypes, `kind`, the non-null `reported` names (labelled
+    transcript, c, p, rsid) and the locator (its kind, then its element or file).
+    Omitted on purpose: `normalisation`, the id of the normaliser run, which is
+    bookkeeping a person approving the finding has nothing to read in.
+    """
+    names = f"{variant.hgvs_c or '-'} {variant.hgvs_p or '-'} {variant.grch38 or '-'}"
+    zygosity = variant.zygosity.value
+    if variant.with_:
+        phase = f" ({variant.phase.value})" if variant.phase is not None else ""
+        zygosity += f" with {', '.join(str(i) for i in variant.with_)}{phase}"
+    c = variant.carriers
+    carriers = f"{c.de_novo}/{c.inherited}/{c.origin_unknown}" if c is not None else "not stated"
+    r = variant.reported
+    reported = (
+        ", ".join(
+            f"{label} {value}"
+            for label, value in (
+                ("transcript", r.transcript),
+                ("c", r.c),
+                ("p", r.p),
+                ("rsid", r.rsid),
+            )
+            if value is not None
+        )
+        or "none"
+    )
+    line = (
+        f"  variant {variant.id}: {variant.as_reported} | {variant.placement.value} | {names}"
+        f" | {zygosity} | carriers {carriers} | {', '.join(variant.phenotypes) or 'no phenotypes'}"
+        f" | kind {variant.kind.value} | reported {reported}"
+        f" | locator {variant.locator.kind} {_locator_text(variant.locator)}"
+    )
+    return line
+
+
+def _mark_text(
+    status: ReviewStatus | None, note: str | None, settled_by: SettledBy | None
+) -> str | None:
+    """`review: pending_review (settled by the authors): <note>`; a `not_accessible` mark
+    names no settler (the full text settles it by definition); None when unmarked."""
+    if status is None:
+        return None
+    if settled_by is None:
+        return f"review: {status.value}: {note}"
+    return f"review: {status.value} (settled by {SETTLED_LABELS[settled_by.value]}): {note}"
+
+
+def _variant_lines(variant: Variant) -> list[str]:
+    """The variant's line, then (indented) its own mark and one line per unclear field."""
+    lines = [_variant_line(variant)]
+    mark = _mark_text(variant.review_status, variant.review_note, variant.review_settled_by)
+    if mark is not None:
+        lines.append(f"    {mark}")
+    for field in ("zygosity", "phase"):
+        entry = variant.unclear.get(field)
+        if entry is not None:
+            lines.append(f"    unclear {field} ({entry.settled_by.value}): {entry.reason}")
+    return lines
+
+
 def _listing(finding: Finding, paper: Publication | None) -> list[str]:
-    """Every field of a finding a person approves, except the bookkeeping ones.
+    """Every field the approval digest covers, except the bookkeeping ones.
 
     Omitted on purpose: `id` and the link (the heading line), `approved_*`
-    (a listed finding has none) and `verified_by` (the heading line). Floats go
+    (a listed finding is unapproved, or its approval is void and `APPROVAL
+    VOID` stands in for it), `verified_by` (the heading line) and each
+    variant's `normalisation` id (see `_variant_line`). Floats go
     through `repr`, so 1.23456789e-9 is not shown as 1.23457e-09 (final review
     I2). The paper's `study_type` and `own_lab` come from publications.yaml,
     where an agent's reading of the design may be the only copy (R32).
@@ -541,13 +695,16 @@ def _listing(finding: Finding, paper: Publication | None) -> list[str]:
         own_lab = "yes" if paper.own_lab else "no"
         paper_line = f"paper: study_type {paper.study_type.value}; own_lab {own_lab}"
     shared = finding.shares_probands_with
+    void = "  APPROVAL VOID (LIT015)" if _approval_void(finding) else ""
     lines = [
-        f"{finding.id}  {link}  {finding.design.value}  {finding.verified_by or 'UNVERIFIED'}",
+        f"{finding.id}  {link}  {finding.design.value}  {finding.verified_by or 'UNVERIFIED'}"
+        f"{void}",
         f"  {paper_line}",
         f"  methods: {', '.join(m.value for m in finding.methods)}",
         f"  comparator: {finding.comparator.value if finding.comparator else 'none'}",
         f"  burden study: {finding.burden_study or 'none'}",
         f"  variant classes: {_ids([v.value for v in finding.variant_classes])}",
+        *(line for v in finding.variants for line in _variant_lines(v)),
         f"  {_counts_text(finding)}",
         f"  phenotypes: {', '.join(finding.phenotypes)}",
         f"  lesion groups: {', '.join(g.value for g in finding.lesion_groups)}",
@@ -556,8 +713,9 @@ def _listing(finding: Finding, paper: Publication | None) -> list[str]:
         f"  locators: {'; '.join(_locator_text(loc) for loc in finding.locators)}",
         f"  shares probands with: {shared if isinstance(shared, str) else _ids(shared)}",
     ]
-    if finding.review_status is not None:
-        lines.append(f"  review: {finding.review_status.value}: {finding.review_note}")
+    mark = _mark_text(finding.review_status, finding.review_note, finding.review_settled_by)
+    if mark is not None:
+        lines.append(f"  {mark}")
     lines.append(f"  extracted by: {finding.extracted_by}")
     lines.append(f"  {finding.summary}")
     return lines
@@ -584,13 +742,21 @@ def _approval_void(finding: Finding) -> bool:
     return finding.approved_by is not None and finding.approved_digest != finding_digest(finding)
 
 
-def _cited_state(finding: Finding) -> str:
-    """The mark after a cited finding: ` [unapproved]`, ` [approval void: LIT015]`, or
-    ` [<review mark>]`, in that precedence, else nothing."""
+def _approval_state(finding: Finding) -> str:
+    """` [unapproved]`, ` [approval void: LIT015]`, or nothing for a sound approval."""
     if finding.approved_by is None:
         return " [unapproved]"
     if _approval_void(finding):
         return " [approval void: LIT015]"
+    return ""
+
+
+def _cited_state(finding: Finding) -> str:
+    """The mark after a cited finding: ` [unapproved]`, ` [approval void: LIT015]`, or
+    ` [<review mark>]`, in that precedence, else nothing."""
+    state = _approval_state(finding)
+    if state:
+        return state
     if finding.review_status is not None:
         return f" [{finding.review_status.value}]"
     return ""
@@ -669,11 +835,128 @@ def _write_unless_changed(path: Path, read: bytes, content: bytes) -> None:
     write_bytes_atomically(path, content)
 
 
+def _approval_updates(
+    record: GeneLiteratureFile,
+    ids: Sequence[str],
+    by: str,
+    when: date,
+    allow_unverified: bool,
+    path: Path,
+) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """The approval fields for `ids` and one message per finding; exit 2 if any is refused.
+
+    Refused: an unknown id, a finding already soundly approved (approving again
+    would erase who approved it), a date before the search that found the paper
+    (LIT008), and an unverified finding unless `allow_unverified`. Nothing is
+    written here; the caller makes the one write.
+    """
+    by_id: dict[str, Finding] = {f.id: f for f in record.findings}
+    ordered = sorted(set(ids))
+    for finding_id in ordered:
+        target = by_id.get(finding_id)
+        if target is None:
+            raise _fail(f"no such finding {finding_id} in {path}", 2)
+        if target.approved_by is not None and not _approval_void(target):
+            raise _fail(
+                f"{finding_id} is already approved by {target.approved_by}; "
+                f"approving again would erase who approved it",
+                2,
+            )
+        found_on = _first_search_run_on(record, target)
+        if found_on is not None and when < found_on:
+            raise _fail(
+                f"--on {when.isoformat()} is before search {found_on.isoformat()} "
+                f"found {target.publication}; an approval cannot predate it (LIT008)",
+                2,
+            )
+        if target.verified_by is None and not allow_unverified:
+            raise _fail(
+                f"{finding_id} is unverified (no verified_by); "
+                f"run `chd-curator diff` or pass --allow-unverified",
+                2,
+            )
+    updates = {
+        i: {
+            "approved_by": by.strip(),
+            "approved_on": when,
+            "approved_digest": finding_digest(by_id[i]),
+        }
+        for i in ordered
+    }
+    messages = [
+        f"re-approved {i} ({by.strip()}, {when.isoformat()}; "
+        f"was {by_id[i].approved_by} on {by_id[i].approved_on})"
+        if by_id[i].approved_by is not None
+        else f"approved {i} ({by.strip()}, {when.isoformat()})"
+        for i in ordered
+    ]
+    return updates, messages
+
+
+@literature_app.command("questions")
+def literature_questions(
+    symbol: str | None = typer.Argument(
+        None, help="Gene symbol (approved, alias or previous); omit for every literature file."
+    ),
+    root: Path = typer.Option(Path("."), help="Repository root."),
+) -> None:
+    """List every open question in a gene's findings, approved or not. Read-only.
+
+    Per gene: `<SYMBOL>: N open questions`, then a heading per settler in the
+    order the atlas ranks them, `settled by <label> (K)`; N and every K count
+    questions, not records (a `with` group's shared unclear phase is one question
+    over several variants). A line names the finding (and `v<id>`), its PMID and the
+    question; a finding that is unapproved or whose approval is void is marked
+    exactly as `literature review` marks it. Exit 2 for an unknown symbol or a gene
+    with no literature file.
+    """
+    _require_root(root)
+    if symbol is not None:
+        approved, path = _require_literature_file(root, symbol)
+        files = [(approved, path)]
+    else:
+        directory = literature_path(root, "X").parent
+        files = (
+            [(p.stem, p) for p in sorted(directory.glob("*.yaml"))] if directory.is_dir() else []
+        )
+    for name, path in files:
+        try:
+            record = parse_literature(path.read_bytes())
+        except LiteratureFileError as exc:
+            raise _fail(f"{path}: {exc}", 1) from None
+        findings = sorted(record.findings, key=lambda f: f.id)
+        by_id: dict[str, Finding] = {f.id: f for f in findings}
+        questions = open_questions([f.model_dump(mode="json", by_alias=True) for f in findings])
+        count = len(questions)
+        typer.echo(f"{name}: {count} open question{'' if count == 1 else 's'}")
+        for settler in SETTLED_ORDER:
+            group = [q for q in questions if q["settled_by"] == settler]
+            if not group:
+                continue
+            typer.echo(f"settled by {SETTLED_LABELS[settler]} ({len(group)})")
+            for question in group:
+                for rec in question["records"]:
+                    where = (
+                        rec["finding"]
+                        if rec["variant"] is None
+                        else (f"{rec['finding']} v{rec['variant']}")
+                    )
+                    typer.echo(
+                        f"  {where}  {rec['publication']}  {QUESTION_LABELS[question['kind']]}"
+                        f"{_approval_state(by_id[rec['finding']])}"
+                    )
+                if question["kind"] != "not_accessible":
+                    typer.echo(f"    {question['reason']}")
+
+
 @literature_app.command("review")
 def literature_review(
     symbol: str = typer.Argument(..., help="Gene symbol (approved, alias or previous)."),
     approve: list[str] = typer.Option(
-        [], "--approve", help="A finding id to approve; repeat the option for several."
+        [],
+        "--approve",
+        help="A finding id to approve, or to approve again when its approval is void "
+        "(LIT015); repeat the option for several.",
     ),
     by: str = typer.Option("", "--by", help="The approving person's name."),
     on: str = typer.Option("", "--on", help="Approval date, YYYY-MM-DD (default today)."),
@@ -699,6 +982,12 @@ def literature_review(
         help="With --approve-synthesis: the digest the listing printed (12 or more hex digits).",
     ),
     note: str = typer.Option("", "--note", help="The measured disagreement, for --pending-review."),
+    settled_by: SettledBy | None = typer.Option(
+        None,
+        "--settled-by",
+        help="What would settle the question, for --pending-review: "
+        "full_text, authors, expert or atlas_model.",
+    ),
     root: Path = typer.Option(Path("."), help="Repository root."),
 ) -> None:
     """List the findings awaiting approval (and the synthesis, if any), approve some, or mark one.
@@ -709,7 +998,9 @@ def literature_review(
     refused while any approved finding of the file fails LIT015. A review mark is
     published with the finding; it does not withdraw an approval, and a marked
     finding can still be approved. A finding carries one mark: a second is
-    refused rather than overwriting the first note. Every write is refused if the
+    refused rather than overwriting the first note. A finding whose approval is
+    void (LIT015) is listed, marked `APPROVAL VOID`, and may be approved again;
+    the output names the approval it replaced. Every write is refused if the
     file changed since this command read it.
     """
     _require_root(root)
@@ -729,6 +1020,8 @@ def literature_review(
         )
     if not pending_review and note:
         raise _fail("--note only applies with --pending-review", 2)
+    if not pending_review and settled_by is not None:
+        raise _fail("--settled-by only applies with --pending-review", 2)
     if not approve_synthesis and digest:
         raise _fail("--digest only applies with --approve-synthesis", 2)
     if against is not None and (approve or pending_review or approve_synthesis):
@@ -753,6 +1046,13 @@ def literature_review(
         )
     if pending_review and not note.strip():
         raise _fail("--note (the measured disagreement) is required with --pending-review", 2)
+    if pending_review and settled_by is None:
+        raise _fail(
+            "--settled-by (what would settle the question: "
+            + ", ".join(v.value for v in SettledBy)
+            + ") is required with --pending-review",
+            2,
+        )
 
     approved_symbol, path = _require_literature_file(root, symbol)
     raw = path.read_bytes()
@@ -763,7 +1063,10 @@ def literature_review(
     by_id: dict[str, Finding] = {f.id: f for f in record.findings}
 
     if not approve and not pending_review and not approve_synthesis:
-        waiting = sorted((f for f in record.findings if f.approved_by is None), key=lambda f: f.id)
+        waiting = sorted(
+            (f for f in record.findings if f.approved_by is None or _approval_void(f)),
+            key=lambda f: f.id,
+        )
         if not waiting:
             typer.echo(f"{approved_symbol}: no findings awaiting approval")
         curation = load_curation(root)[0]
@@ -872,43 +1175,14 @@ def literature_review(
             pending_review: {
                 "review_status": ReviewStatus.PENDING_REVIEW.value,
                 "review_note": note.strip(),
+                "review_settled_by": settled_by.value if settled_by else None,
             }
         }
         messages = [f"marked {pending_review} pending_review"]
     else:
-        ids = sorted(set(approve))
-        for finding_id in ids:
-            target = by_id.get(finding_id)
-            if target is None:
-                raise _fail(f"no such finding {finding_id} in {path}", 2)
-            if target.approved_by is not None:
-                raise _fail(
-                    f"{finding_id} is already approved by {target.approved_by}; "
-                    f"approving again would erase who approved it",
-                    2,
-                )
-            found_on = _first_search_run_on(record, target)
-            if found_on is not None and when < found_on:
-                raise _fail(
-                    f"--on {when.isoformat()} is before search {found_on.isoformat()} "
-                    f"found {target.publication}; an approval cannot predate it (LIT008)",
-                    2,
-                )
-            if target.verified_by is None and not allow_unverified:
-                raise _fail(
-                    f"{finding_id} is unverified (no verified_by); "
-                    f"run `chd-curator diff` or pass --allow-unverified",
-                    2,
-                )
-        updates = {
-            i: {
-                "approved_by": by.strip(),
-                "approved_on": when,
-                "approved_digest": finding_digest(by_id[i]),
-            }
-            for i in ids
-        }
-        messages = [f"approved {i} ({by.strip()}, {when.isoformat()})" for i in ids]
+        updates, messages = _approval_updates(
+            record, approve, by, when, allow_unverified=allow_unverified, path=path
+        )
     try:
         content = with_findings_updated(raw, updates)
     except LiteratureFileError as exc:
@@ -916,3 +1190,129 @@ def literature_review(
     _write_unless_changed(path, raw, content)
     for message in messages:
         typer.echo(message)
+
+
+@literature_app.command("apply-review")
+def literature_apply_review(
+    symbol: str = typer.Argument(..., help="Gene symbol (approved, alias or previous)."),
+    decisions: Path = typer.Option(..., "--decisions", help="The review page's decisions file."),
+    by: str = typer.Option("", "--by", help="The approving person's name; the reviewer's."),
+    on: str = typer.Option("", "--on", help="Approval date, YYYY-MM-DD (default today)."),
+    root: Path = typer.Option(Path("."), help="Repository root."),
+) -> None:
+    """Approve the findings a review page's owner approved, refusing any changed since it was built.
+
+    Reads a decisions file (`chd-atlas literature digests` prints the digests a
+    page is built from). Every refusal below exits 2 and writes nothing: an
+    unreadable or invalid file, a file for another gene, a session never
+    finished (`session.finished_at` empty), a reviewer who is a second opinion
+    (never applied as approvals), `--by` differing from the reviewer's name or
+    naming an agent, a finding id absent from the literature file (on any
+    decision), `--on` in the future or before the date the page was built (local
+    time: an approval cannot predate the page that showed it), and, found only
+    for a finding about to be approved, after the stale and already-approved
+    sort, `--on` before the search that found its paper (LIT008). A
+    `curation/publications.yaml` that does not load exits 1 before any approval is written.
+    Then per `approve`: already approved and sound, printed and skipped; its current
+    `shown_digest` differs from the file's, printed as `stale` and skipped (exit 1 once the
+    others are written); else approved, as `review --approve --allow-unverified` would, so a
+    finding no verifier has compared is approved. All approvals go in one write. Written
+    nowhere, only printed: the `next round:` lines for a `fix`, a `later`, and a triage
+    review that is not `approve` (with its flips), `note on <id>` lines for a note left on
+    an `approve` decision (whatever became of it), and `papers_seen`.
+    """
+    _require_root(root)
+    try:
+        review = ReviewDecisions.model_validate_json(decisions.read_bytes())
+    except (OSError, ValueError) as exc:
+        raise _fail(f"{decisions}: cannot be applied: {exc}", 2) from None
+    approved_symbol, path = _require_literature_file(root, symbol)
+    raw = path.read_bytes()
+    try:
+        record = parse_literature(raw)
+    except LiteratureFileError as exc:
+        raise _fail(f"{path}: {exc}", 1) from None
+    if str(review.gene) != str(record.gene):
+        raise _fail(
+            f"{decisions} is for {review.gene} ({review.symbol}), not {approved_symbol} "
+            f"({record.gene}); nothing was applied",
+            2,
+        )
+    if review.session.finished_at is None:
+        raise _fail(
+            "the reviewer has not pressed I'm done (session.finished_at is empty); "
+            "nothing was applied",
+            2,
+        )
+    if review.reviewer.role is not ReviewerRole.OWNER:
+        raise _fail("a second opinion is never applied as approvals; nothing was applied", 2)
+    if not by.strip() or by.strip() != review.reviewer.name:
+        raise _fail(
+            f"--by {by!r} is not the reviewer's name ({review.reviewer.name!r}); "
+            "nothing was applied",
+            2,
+        )
+    if _is_agent(by):
+        raise _fail(f"--by {by!r} names an agent; a person must approve", 2)
+    by_id: dict[str, Finding] = {f.id: f for f in record.findings}
+    unknown = sorted(str(d.id) for d in review.findings if str(d.id) not in by_id)
+    if unknown:
+        raise _fail(f"no such finding {', '.join(unknown)} in {path}; nothing was applied", 2)
+    try:
+        when = date.fromisoformat(on) if on else _today()
+    except ValueError:
+        raise _fail(f"--on {on!r} is not a YYYY-MM-DD date", 2) from None
+    if when > _today():
+        raise _fail(f"--on {when.isoformat()} is in the future", 2)
+    built = review.page.built_on
+    built_on = (built.astimezone() if built.tzinfo is not None else built).date()
+    if when < built_on:
+        raise _fail(
+            f"--on {when.isoformat()} is before the page was built on {built_on.isoformat()}; "
+            "an approval cannot predate the page that showed it",
+            2,
+        )
+
+    papers = _publications_by_id(root)
+    to_approve: list[str] = []
+    lines: list[str] = []
+    stale = 0
+    for item in review.findings:
+        if item.decision is not Decision.APPROVE:
+            continue
+        finding = by_id[str(item.id)]
+        if finding.approved_by is not None and not _approval_void(finding):
+            lines.append(f"already approved {finding.id} by {finding.approved_by}")
+        elif shown_digest(finding, papers.get(finding.publication)) != item.shown_digest:
+            lines.append(f"stale {finding.id}: changed since the page was built; review it again")
+            stale += 1
+        else:
+            to_approve.append(finding.id)
+    updates, messages = _approval_updates(
+        record, to_approve, review.reviewer.name, when, allow_unverified=True, path=path
+    )
+    if updates:
+        try:
+            content = with_findings_updated(raw, updates)
+        except LiteratureFileError as exc:
+            raise _fail(str(exc), 1) from None
+        _write_unless_changed(path, raw, content)
+    lines.extend(messages)
+    for item in review.findings:
+        if item.decision is not Decision.APPROVE:
+            lines.append(f"next round: {item.decision.value} {item.id}: {item.note.strip()}")
+        elif item.note.strip():
+            lines.append(f"note on {item.id}: {item.note.strip()}")
+    if review.triage is not None:
+        if review.triage.decision is not Decision.APPROVE:
+            lines.append(
+                f"next round: triage {review.triage.decision.value}: {review.triage.note.strip()}"
+            )
+        for flip in review.triage.flips:
+            lines.append(f"next round: triage {flip.pmid} -> {flip.to}: {flip.note}")
+    if review.papers_seen:
+        lines.append("papers seen: " + ", ".join(str(p) for p in review.papers_seen))
+    for line in lines:
+        typer.echo(line)
+    if stale:
+        raise typer.Exit(1)

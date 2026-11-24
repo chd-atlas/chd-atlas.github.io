@@ -2,6 +2,7 @@
 import csv
 import gzip
 import html
+import itertools
 import json
 import math
 import posixpath
@@ -20,6 +21,7 @@ from chd_atlas.build.concordance import survives_own_correction
 from chd_atlas.build.render import RESEARCH_USE_NOTICE
 from chd_atlas.build.runner import build_site
 from chd_atlas.corpus import load_curation
+from tests.unit._stamp import stamped
 
 REPO = Path(__file__).parent.parent
 
@@ -150,15 +152,29 @@ def test_every_html_page_the_build_writes_carries_the_research_use_notice(site: 
 
     `+ 3` since 2026-10-26: `methods.html`, the site's reading notes (D50), is
     the third page that is not a gene's.
+
+    Plus one register page (`register/`) per published gene whose approved
+    findings carry a review mark or an `unclear` entry, read from the bundles and
+    never from `register/` itself, so a stray register -- one for an unpublished
+    gene, or for a gene with no open question -- fails the count.
     """
     pages = sorted(site.rglob("*.html"))
     bundles = sorted((site / "genes").glob("HGNC_*.json"))
-    expected = len(bundles) + 3
+    registers = sum(
+        any(
+            finding["review_status"] is not None
+            or any(v["review_status"] is not None or v["unclear"] for v in finding["variants"])
+            for finding in json.loads(bundle.read_text(encoding="utf-8"))["literature"]["findings"]
+        )
+        for bundle in bundles
+    )
+    expected = len(bundles) + 3 + registers
 
     assert len(bundles) > 1, "the build published no gene bundles; the fixture is broken"
+    assert registers > 0, "no published gene carries an open question; the count is vacuous"
     assert len(pages) == expected, (
         f"expected {expected} HTML pages (1 landing + 1 browse + 1 methods + "
-        f"{len(bundles)} gene pages), found {len(pages)}"
+        f"{len(bundles)} gene pages + {registers} registers), found {len(pages)}"
     )
     for page in pages:
         assert RESEARCH_USE_NOTICE in page.read_text(encoding="utf-8"), (
@@ -295,7 +311,7 @@ def _card(page: str) -> str:
 
 
 @pytest.mark.parametrize(
-    ("gene", "curation", "mechanism", "line"),
+    ("gene", "curation", "mechanism", "line", "questions"),
     [
         pytest.param(
             "HGNC_11604",
@@ -308,6 +324,7 @@ def _card(page: str) -> str:
             "other 28. "
             "De novo carriers in 11 papers; inherited carriers in 24 papers. "
             "From the abstract only: 21 papers; pending review: 3 papers.",
+            42,
             id="TBX5",
         ),
         pytest.param(
@@ -320,27 +337,33 @@ def _card(page: str) -> str:
             "1 paper. Lesions studied, by paper: septal 9, LVOTO 8, conotruncal 2, AVSD 2, "
             "RVOTO 1, other 3. De novo carriers in 9 papers; inherited carriers in 4 papers. "
             "From the abstract only: 4 papers; pending review: 2 papers.",
+            8,
             id="NR2F2",
         ),
     ],
 )
 def test_the_card_states_a_curated_genes_literature_by_paper_and_its_mechanism(
-    site: Path, gene: str, curation: str, mechanism: str, line: str
+    site: Path, gene: str, curation: str, mechanism: str, line: str, questions: int
 ) -> None:
     """Pins the wiring on real data: the tallies and the assertions' mechanism reach the card.
 
     Literals measured on a build of the committed corpus (2026-11-14) by an
-    independent script over the gene bundles. Sliced to the card, so a copy of
-    either sentence elsewhere on the page cannot satisfy it, and so deleting the
-    `mechanisms=` argument or the `_card_literature` call fails here. The three
-    paragraphs are asserted as one contiguous run, so reordering them or
-    interposing an element between them fails too.
+    independent script over the gene bundles, except the open-question figures
+    (42 for TBX5, 8 for NR2F2), measured 2026-11-19 with `chd-atlas literature
+    questions`, which lists no unapproved finding on that corpus. TBX5 was 25
+    until its approved variants arrived: 17 unplaced variants (rsID alone, no
+    position) each carry a `pending_review` mark, one question apiece. Sliced to
+    the card, so a copy of either sentence elsewhere on the page cannot satisfy
+    it, and so deleting the `mechanisms=` argument or the `_card_literature`
+    call fails here. The three paragraphs are asserted as one contiguous run, so
+    reordering them or interposing an element between them fails too.
     """
     card = html.unescape(_card((site / "genes" / f"{gene}.html").read_text(encoding="utf-8")))
     assert (
         f'<p class="card-curation">{curation}</p>'
         f'<p class="card-mechanism">Mechanism, as curated by the atlas: {mechanism}.</p>'
-        f'<p class="card-literature">{line}</p>'
+        f'<p class="card-literature">{line} '
+        f'<a href="../register/{gene}.html#questions">{questions} open questions</a></p>'
     ) in card
 
 
@@ -367,6 +390,250 @@ def test_no_literature_line_sums_carriers_across_papers(site: Path) -> None:
             re.findall(r"carriers in \d+ papers?", line)
         )
     assert seen >= 2, "no gene page carried a literature line; the test checked nothing"
+
+
+# A TBX5 literature record naming variants, for the one build here where a variant
+# table exists: the committed corpus names none yet (plan Task 14). Real TBX5 papers
+# and finding ids, and names checked against the pinned MANE frame (NM_181486.4).
+_TBX5_A = {
+    "hgvs_c": "NM_181486.4:c.835C>T",
+    "hgvs_p": "NP_852259.1:p.(Arg279Ter)",
+    "grch38": "12:114366312:G:A",
+    "normalisation": 1,
+}
+_TBX5_D = {
+    "hgvs_c": "NM_181486.4:c.836G>A",
+    "hgvs_p": "NP_852259.1:p.(Arg279Gln)",
+    "grch38": "12:114366311:C:T",
+    "normalisation": 1,
+}
+
+
+def _site_variant(
+    vid: int, placement: str, carriers: dict[str, int], **rest: Any
+) -> dict[str, Any]:
+    origins = {"de_novo": 0, "inherited": 0, "origin_unknown": 0, **carriers}
+    return {
+        "id": vid,
+        "as_reported": rest.pop("as_reported", f"variant {vid}"),
+        "locator": {"kind": "in_text", "element": "Table 1"},
+        "kind": rest.pop("kind", "snv_indel"),
+        "placement": placement,
+        "zygosity": rest.pop("zygosity", "heterozygous"),
+        "carriers": origins,
+        **rest,
+    }
+
+
+def _site_finding(number: int, pmid: str, design: str, **rest: Any) -> dict[str, Any]:
+    finding = {
+        "id": f"CHDA:LIT:{number:07d}",
+        "publication": pmid,
+        "design": design,
+        "methods": ["exome"],
+        "count_unit": "probands",
+        "variant_classes": ["snv_indel"],
+        "phenotypes": ["HP:0001631"],
+        "lesion_groups": ["septal"],
+        "syndromic": "both",
+        "shares_probands_with": "unknown",
+        "locators": [{"kind": "in_text", "element": "Table 1"}],
+        "summary": f"Finding {number}.",
+        "extracted_by": "agent:extract/test",
+        "approved_by": "A. Curator",
+        "approved_on": "2026-11-18",
+        **rest,
+    }
+    return stamped(finding)
+
+
+@pytest.fixture(scope="module")
+def variant_site(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The committed corpus with TBX5's literature record replaced by one naming variants.
+
+    c.835C>T is named by three papers whose findings count 2 de novo, 3 inherited
+    (in families) and 1 origin-unknown carrier: every sum of two or three of
+    those totals (4, 5, 6) differs from every number any one of its lines shows,
+    so a row printing a total cannot pass for a line's own count. The file also
+    names a protein-only variant, one outside the checked region, a structural
+    one and an unplaced one, and holds one finding that names none.
+    """
+    base = tmp_path_factory.mktemp("variants")
+    root = base / "repo"
+    root.mkdir()
+    for name in ("curation", "mirrors"):
+        shutil.copytree(REPO / name, root / name)
+    (root / "ontologies").symlink_to(REPO / "ontologies")
+    papers = ["PMID:8988165", "PMID:12789647", "PMID:21637475", "PMID:18828908", "PMID:35514310"]
+    findings = [
+        _site_finding(
+            15,
+            "PMID:8988165",
+            "cohort_screen",
+            screened=50,
+            carriers={"de_novo": 2, "inherited": 1, "origin_unknown": 4},
+            variant_classes=["snv_indel", "cnv"],
+            variants=[
+                _site_variant(1, "mane", {"de_novo": 2}, phenotypes=["HP:0001631"], **_TBX5_A),
+                _site_variant(
+                    2,
+                    "protein",
+                    {"inherited": 1},
+                    hgvs_p="NP_852259.1:p.(Gly80Arg)",
+                    zygosity="homozygous",
+                ),
+                _site_variant(
+                    3,
+                    "outside_region",
+                    {"origin_unknown": 1},
+                    as_reported="rs6489956 (c.*1101C>T)",
+                    reported={"rsid": "rs6489956"},
+                ),
+                _site_variant(
+                    4,
+                    "structural",
+                    {"origin_unknown": 1},
+                    kind="cnv",
+                    as_reported="12q24.21 microdeletion",
+                ),
+            ],
+        ),
+        _site_finding(
+            16,
+            "PMID:12789647",
+            "case_report",
+            screened=1,
+            carriers={"de_novo": 0, "inherited": 0, "origin_unknown": 1},
+            variants=[
+                _site_variant(
+                    1, "mane", {"origin_unknown": 1}, phase="trans", **{"with": [2]}, **_TBX5_A
+                ),
+                _site_variant(
+                    2, "mane", {"origin_unknown": 1}, phase="trans", **{"with": [1]}, **_TBX5_D
+                ),
+            ],
+        ),
+        _site_finding(
+            17,
+            "PMID:21637475",
+            "cohort_screen",
+            screened=20,
+            carriers={"de_novo": 0, "inherited": 0, "origin_unknown": 2},
+            variants=[
+                _site_variant(
+                    1,
+                    "unplaced",
+                    {"origin_unknown": 1},
+                    as_reported="c.998G>T p.D111Y",
+                    reported={"c": "c.998G>T", "p": "p.D111Y"},
+                    review_status="pending_review",
+                    review_note="c.998G>T names G where MANE Select has C.",
+                    review_settled_by="authors",
+                )
+            ],
+        ),
+        _site_finding(
+            18,
+            "PMID:18828908",
+            "case_report",
+            screened=1,
+            carriers={"de_novo": 1, "inherited": 0, "origin_unknown": 0},
+        ),
+        _site_finding(
+            19,
+            "PMID:35514310",
+            "family_segregation",
+            count_unit="families",
+            screened=3,
+            carriers={"de_novo": 0, "inherited": 3, "origin_unknown": 0},
+            phenotypes=["HP:0011722", "HP:0001684"],
+            lesion_groups=["anomalous_venous_return", "septal"],
+            variants=[
+                _site_variant(1, "mane", {"inherited": 3}, phenotypes=["HP:0011722"], **_TBX5_A)
+            ],
+        ),
+    ]
+    record = {
+        "gene": "HGNC:11604",
+        "normalisations": [
+            {
+                "id": 1,
+                "tool": "variantvalidator",
+                "version": "4.0.1.dev7+gbdab9c72f",
+                "hgvs_version": "4.0.0",
+                "vvta": "vvta_2025_02",
+                "vvdb": "vvdb_2025_3",
+                "seqrepo": "VV_SR_2025_02/master",
+                "run_on": "2026-11-17",
+            }
+        ],
+        "searches": [
+            {
+                "id": 1,
+                "source": "pubmed",
+                "query": "q",
+                "run_on": "2026-11-18",
+                "hits": len(papers),
+                "new_hits": len(papers),
+            }
+        ],
+        "triage": [{"pmid": pmid, "search": 1, "decision": "included"} for pmid in papers],
+        "findings": findings,
+    }
+    (root / "curation" / "literature" / "TBX5.yaml").write_text(json.dumps(record))  # JSON is YAML
+    out = base / "dist"
+    build_site(root, out)
+    return out
+
+
+def _variant_table(page: str) -> str:
+    start = page.index("<h3>Reported variants</h3>")
+    return page[page.index("<table>", start) : page.index("</table>", start)]
+
+
+def _cell_text(markup: str) -> str:
+    return html.unescape(re.sub(r"<[^>]+>", " ", markup))
+
+
+def test_no_variant_row_sums_carriers_across_findings(variant_site: Path) -> None:
+    """D33 on a built page: no `<tr>` of the variant table shows a carrier sum.
+
+    For each variant's `<tbody>`, the sums over two or more of its lines' carrier
+    counts (each origin, and each line's total) that equal no number any single
+    line shows must appear in no `<tr>` of that `<tbody>`, its variant row
+    included. The fixture makes three such sums for c.835C>T (4, 5 and 6), so the
+    check cannot pass by finding none; a row printing "6 carriers" fails it.
+    """
+    page = (variant_site / "genes" / "HGNC_11604.html").read_text(encoding="utf-8")
+    groups = re.findall(r"<tbody>(.*?)</tbody>", _variant_table(page))
+    assert len(groups) == 3, "c.(Gly80Arg), c.835C>T and c.836G>A, one tbody each"
+    distinct: set[int] = set()
+    for group in groups:
+        rows = [_cell_text(row) for row in re.findall(r"<tr>.*?</tr>", group)]
+        lines = rows[1:]
+        counts = [
+            {
+                origin: int(n)
+                for n, origin in re.findall(r"(\d+) (de novo|inherited|origin unknown)", line)
+            }
+            for line in lines
+        ]
+        series = [[sum(c.values()) for c in counts]] + [
+            [c[origin] for c in counts if c.get(origin)]
+            for origin in ("de novo", "inherited", "origin unknown")
+        ]
+        sums = {
+            sum(pick)
+            for values in series
+            for k in range(2, len(values) + 1)
+            for pick in itertools.combinations(values, k)
+        }
+        shown = {int(n) for line in lines for n in re.findall(r"\d+", line)}
+        forbidden = sums - shown
+        distinct |= forbidden
+        for row in rows:
+            assert not {int(n) for n in re.findall(r"\d+", row)} & forbidden, row
+    assert distinct == {4, 5, 6}, "the fixture no longer separates a sum from every line"
 
 
 def _burden_rows(gene: str, bundle: dict[str, Any]) -> list[BurdenRow]:
@@ -824,11 +1091,14 @@ def test_exactly_the_four_records_the_owner_marked_carry_an_open_question(site: 
     nowhere else on the page. A scope term's question is published in
     `scope.json` only, so its note is asserted absent from every page.
 
-    Literature findings are records of another kind and carry their own marks,
-    rendered beside their summaries in the Literature section (TBX5's and
-    NR2F2's pending reviews, since the pilot's findings were published). The
-    page-wide count adds those the gene's bundle publishes, so a cohort note
-    leaking outside its fold still fails.
+    Literature findings and their variants are records of another kind and
+    carry their own marks, rendered beside their summaries in the Literature
+    section (TBX5's and NR2F2's pending reviews, since the pilot's findings were
+    published; a variant's own mark since the C0 backfill, 17 on TBX5). The
+    page-wide count adds those the gene's bundle publishes, counted apart from
+    the cohort notes, whose own count stays exact, so a cohort note leaking
+    outside its fold still fails and the owner's four marked records are still
+    the only cohort or scope marks.
     """
     cohorts = {cohort["id"]: cohort for cohort in _read(site, "cohorts.json")["cohorts"]}
     terms = {term["id"]: term for term in _read(site, "scope.json")["terms"]}
@@ -896,7 +1166,17 @@ def test_exactly_the_four_records_the_owner_marked_carry_an_open_question(site: 
             for finding in bundle["literature"]["findings"]
             if finding["review_status"] == "pending_review"
         )
-        assert page.count("Pending review") == expected + literature, entry["gene"]
+        variants = sum(
+            1
+            for finding in bundle["literature"]["findings"]
+            for variant in finding["variants"]
+            if variant["review_status"] == "pending_review"
+        )
+        assert page.count("Pending review") == expected + literature + variants, entry["gene"]
+        if entry["gene"] in {"TBX5", "NR2F2"}:
+            # Measured 2026-11-19 on the published bundles: TBX5 3 findings and 17
+            # variants (the unplaced ones), NR2F2 3 findings and no variant.
+            assert (literature, variants) == {"TBX5": (3, 17), "NR2F2": (3, 0)}[entry["gene"]]
         carrying += bool(expected)
     assert carrying == 77
     for path in sorted(site.rglob("*.html")):
@@ -1958,6 +2238,43 @@ def test_every_fragment_link_on_a_gene_page_lands_on_one_element_of_that_page(
     assert fragments, "no gene page carries a fragment link; the sweep would pass vacuously"
 
 
+def test_every_why_link_on_a_gene_page_lands_on_one_element_of_its_register(
+    site: Path,
+) -> None:
+    """A review mark's "why" is a link into the gene's register, and must arrive.
+
+    Every `<a>` whose text is `why` and whose href names `register/` is resolved
+    against the page it points at: the file must exist and exactly one element
+    there must carry the fragment as its id. A mark whose register was not
+    written, or whose anchor the register spells differently, is a link that
+    scrolls nowhere beside a label promising a reason.
+
+    Measured 2026-11-19, independently of this sweep: `chd-atlas literature
+    questions` gave 42 questions for TBX5, 8 for NR2F2 and 9 for MMP21, and the
+    registers' "Open questions (42)", "(8)" and "(9)" headings agree; 59 in all
+    (50 before MMP21's literature was approved the same day; 33 on
+    2026-11-18, when TBX5 had 25). The 17 added are variant-level questions:
+    since the C0 backfill a variant carries its own review mark, and an unplaced
+    one (rsID alone) is a question of its own. Every question on the real corpus
+    is one record, so the count of links equals the count of questions.
+    Re-measure when a question is added or approved, and do not edit the figure
+    to make the test green.
+    """
+    checked = 0
+    for page_path in sorted((site / "genes").glob("HGNC_*.html")):
+        page = page_path.read_text(encoding="utf-8")
+        for href in re.findall(r'<a href="([^"]*register/[^"]*)">why</a>', page):
+            checked += 1
+            target, _, fragment = href.partition("#")
+            register = (page_path.parent / target).resolve()
+            assert register.is_file(), f"{page_path.name} links {href}, which no file answers"
+            ids = re.findall(r' id="([^"]+)"', register.read_text(encoding="utf-8"))
+            assert ids.count(fragment) == 1, (
+                f"{page_path.name} -> {href}: {ids.count(fragment)} ids"
+            )
+    assert checked == 59, f"{checked} why links on the gene pages; 59 measured"
+
+
 def test_the_front_page_declares_exactly_the_study_blocks_the_gene_pages_declare(
     site: Path,
 ) -> None:
@@ -2024,6 +2341,8 @@ _ATTRIBUTED_ON_THE_FRONT_PAGE: dict[str, str] = {
     "expression_atlas_e_mtab_6814": "EMBL-EBI Expression Atlas's (E-MTAB-6814), "
     "under EMBL-EBI's Terms of Use",
     "farah2024_hoc": "Cell-type expression is the UCSC Cell Browser data of Farah et al. 2024.",
+    "mane_select": "is checked against MANE v1.5 (NCBI and EMBL-EBI), under NCBI's data policy, "
+    "wherever the atlas's copy of MANE includes that gene.",
     "audain2026_sd3": "Audain et al. 2026 and Sierant et al. 2025, both CC BY 4.0",
     "sierant2025_ds6": "Audain et al. 2026 and Sierant et al. 2025, both CC BY 4.0",
 }
@@ -2040,6 +2359,8 @@ _LICENCE_WORDS: dict[str, str] = {
     "CC-BY-4.0": "CC BY 4.0",
     "CC0-1.0": "CC0",
     "EMBL-EBI Terms of Use": "EMBL-EBI's Terms of Use",
+    "NCBI data policy, no NCBI restrictions; "
+    "submitters may claim rights": "under NCBI's data policy",
     "Not stated by the UCSC Cell Browser; data accompany a CC BY 4.0 article "
     "(PMID:38480880) and are attributed to Farah et al. 2024": "Farah et al. 2024",
 }
@@ -2060,7 +2381,10 @@ def test_the_front_page_names_every_source_that_requires_attribution(site: Path)
     written: 7 such sources. Since the doorway page (2026-10-27) the section is
     "Sources", one paragraph of 118 words (tags deleted outright, the method
     below), and the sentence is three. Farah et al. 2024's cell-type data made it 8
-    sources on 2026-11-02, named in one 13-word sentence. Measured on builds of fe94116, the
+    sources on 2026-11-02, named in one 13-word sentence; MANE Select v1.5 made it 9 on
+    2026-11-18, named in one 26-word sentence (131 words with Farah's, 157 with MANE's,
+    tags deleted outright; 136 and 162 with each tag replaced by a space, measured on a
+    build of this branch by the method below). Measured on builds of fe94116, the
     paragraph's HTML between `<p>` and `</p>` (heading not counted) with entities unescaped and
     split on whitespace: 118 words without the sentence and 131 with it when
     tags are deleted outright, 123 and 136 when each tag is replaced by a
@@ -2559,3 +2883,34 @@ def test_no_finding_card_states_a_mechanism_or_a_null_its_rows_do_not(site: Path
     for card in cards:
         for phrase in ("aploinsufficiency", "ain-of-function", "ain-of-Function", "no enrichment"):
             assert phrase not in card, (phrase, card)
+
+
+def test_the_register_exists_for_exactly_the_genes_with_open_questions(site: Path) -> None:
+    """`register/` holds TBX5's, NR2F2's and MMP21's back pages and nothing else.
+
+    Measured 2026-11-19: those are the three genes with approved findings that
+    carry a mark (TBX5 and NR2F2 since 2026-11-18, MMP21 since its pilot review). Every
+    anchor on a register is unique, so a gene page's "why" link names one record.
+    The link sweep above already walks `register/*.html`, since it globs every
+    page in the site.
+    """
+    files = sorted(path.name for path in (site / "register").glob("*"))
+    assert files == ["HGNC_11604.html", "HGNC_14357.html", "HGNC_7976.html"]
+    for name in files:
+        page = (site / "register" / name).read_text(encoding="utf-8")
+        ids = re.findall(r' id="([^"]+)"', page)
+        assert ids and len(ids) == len(set(ids)), name
+        assert f'href="../genes/{name}"' in page
+
+
+def test_no_published_file_says_pending_review_is_for_an_expert(site: Path) -> None:
+    """Since the register names what settles each literature question ("the authors", "the
+    full text", ...), "for an expert" is false for most marks; `pending review` means one
+    thing on every record kind: a question the atlas leaves open (CLAUDE.md 4.35: grep the
+    build, not the source)."""
+    files = [p for p in site.rglob("*") if p.suffix in {".html", ".json"}]
+    assert len(files) > 100, "the build published too few files; the fixture is broken"
+    hits = [
+        str(p.relative_to(site)) for p in files if "for an expert" in p.read_text(encoding="utf-8")
+    ]
+    assert hits == []

@@ -20,6 +20,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+import pytest
 import typer
 from ruamel.yaml import YAML
 
@@ -29,13 +30,17 @@ from chd_atlas.models.assertion import InTextLocator, SupplementaryLocator
 from chd_atlas.models.gene_literature import (
     Carriers,
     Finding,
+    ReportedNames,
     Search,
     Synthesis,
     SynthesisSentence,
     TriageEntry,
+    Unclear,
+    Variant,
 )
 from chd_atlas.models.literature import Publication
 from chd_atlas.models.review import ReviewStatus
+from chd_atlas.validate.finding_variants import shape_issues
 from chd_atlas.validate.gene_synthesis import _first_number
 
 REPO = Path(__file__).parent.parent
@@ -77,6 +82,10 @@ def _model_fields() -> set[str]:
         | set(SupplementaryLocator.model_fields)
         | set(Synthesis.model_fields)
         | set(SynthesisSentence.model_fields)
+        | set(Variant.model_fields)
+        | set(ReportedNames.model_fields)
+        | set(Unclear.model_fields)
+        | {"with"}  # Variant.with_, read and written through its alias
         | {"findings", "triage", "searches", "gene", "synthesis"}
     )
 
@@ -101,8 +110,15 @@ def test_curator_holds_only_the_rules_file() -> None:
     assert sorted(p.name for p in CURATOR.iterdir()) == ["curator-rules.md"]
 
 
-def test_the_literature_commands_are_review_and_target() -> None:
-    assert set(_literature_commands()) == {"review", "target"}
+def test_the_literature_commands_are_the_six_the_rules_may_name() -> None:
+    assert set(_literature_commands()) == {
+        "review",
+        "questions",
+        "target",
+        "frame",
+        "digests",
+        "apply-review",
+    }
 
 
 def test_every_atlas_command_and_option_the_rules_name_exists() -> None:
@@ -136,8 +152,11 @@ def test_every_code_the_rules_name_is_raised_and_they_cite_every_literature_code
     source = "".join(
         p.read_text(encoding="utf-8") for p in (REPO / "src" / "chd_atlas").rglob("*.py")
     )
-    validator = (REPO / "src/chd_atlas/validate/gene_literature.py").read_text(encoding="utf-8")
-    literature_codes = set(re.findall(r'"(LIT\d{3})"', validator))
+    validators = "".join(
+        (REPO / "src/chd_atlas/validate" / name).read_text(encoding="utf-8")
+        for name in ("gene_literature.py", "finding_variants.py")
+    )
+    literature_codes = set(re.findall(r'"(LIT\d{3})"', validators))
     text = _text(RULES)
     for code in re.findall(r"\b([A-Z]{2,6}\d{3})\b", text):
         assert f'"{code}"' in source, f"{code} is raised nowhere"
@@ -159,11 +178,26 @@ def test_the_yaml_examples_hold_real_vocabulary_and_validate_as_records() -> Non
         "syndromic": enums["SyndromicStatus"],
         "lesion_groups": enums["LesionGroup"],
         "review_status": enums["ReviewStatus"],
+        "placement": enums["VariantPlacement"],
+        "zygosity": enums["VariantZygosity"],
+        "phase": enums["Phase"],
+        "settled_by": enums["SettledBy"],
+        "review_settled_by": enums["SettledBy"],
     }
     for block in _fenced_yaml(_text(RULES)):
+        # `reason` is an ExclusionReason on a triage entry and free text on an
+        # `unclear` entry; the second is read through the model instead.
+        free = {
+            Unclear.model_validate(entry).reason
+            for key, value in _walk(block)
+            if key == "unclear"
+            for entry in value.values()
+        }
         for key, value in _walk(block):
             assert key in _model_fields(), f"unknown field {key}"
-            if key in by_field:
+            if key == "reason" and value in free:
+                continue
+            if key in by_field and not isinstance(value, dict):  # `unclear.zygosity` is an entry
                 values = value if isinstance(value, list) else [value]
                 assert set(values) <= by_field[key], f"{key}: {values}"
 
@@ -192,6 +226,77 @@ def test_the_rules_state_the_verified_rulings_literally() -> None:
     assert "`chd-curator add-publication`" in rules
     assert not re.search(r"NCBI_API_KEY\s*=\s*\S", rules)
     assert not re.search(r"api_key\s*[=:]\s*\S", rules)
+
+
+def _variant_examples() -> list[list[Variant]]:
+    blocks = [b["variants"] for b in _fenced_yaml(_text(RULES)) if "variants" in b]
+    return [[Variant.model_validate(v) for v in block] for block in blocks]
+
+
+def test_the_variant_examples_raise_only_the_before_normalise_messages() -> None:
+    """Each `variants` example, set in a finding that admits it, raises what the rules say.
+
+    Each `mane` entry (one in the first block, two in the `with` block) is as an
+    agent writes it, before `normalise`: it must raise exactly the three LIT022
+    messages the rules quote and nothing else (the LIT025 message needs the MANE
+    frame, so `validate` over a copy of the repository measures it, not this test).
+    Every other entry raises nothing. The first block holds one entry per
+    placement state, so deleting a field a state requires from its example
+    fails here.
+    """
+    blocks = _variant_examples()
+    assert len(blocks) == 3
+    assert [v.placement.value for v in blocks[0]] == [
+        "mane", "protein", "structural", "outside_region", "unplaced",
+    ]  # fmt: skip
+    issues = []
+    per_block = []
+    for variants in blocks:
+        finding = Finding.model_validate(
+            {
+                "id": "CHDA:LIT:0000001",
+                "publication": "PMID:10000001",
+                "design": "cohort_screen",
+                "methods": ["targeted_sequencing"],
+                "count_unit": "probands",
+                "screened": 100,
+                "carriers": {"de_novo": 4, "inherited": 4, "origin_unknown": 20},
+                "variant_classes": ["snv_indel", "cnv"],
+                "variants": [v.model_dump(by_alias=True, mode="json") for v in variants],
+                "phenotypes": ["HP:0001631"],
+                "lesion_groups": ["septal"],
+                "syndromic": "isolated",
+                "shares_probands_with": "unknown",
+                "locators": [{"kind": "in_text", "element": "Table 1"}],
+                "summary": "Illustrative.",
+                "extracted_by": "agent:literature-extract/model",
+            }
+        )
+        found = shape_issues(finding, {1})
+        per_block.append([(c, n) for c, n, _ in found])
+        issues += found
+    rules = " ".join(_text(RULES).split())
+    assert per_block == [
+        [("LIT022", 1)] * 3,
+        [("LIT022", 1)] * 3 + [("LIT022", 2)] * 3,
+        [],
+    ]  # one `mane` entry in the first block, two in the second
+    for _, _, message in issues:
+        assert f'"{message}"' in rules, message
+
+
+def test_the_rules_state_the_variant_rulings_literally() -> None:
+    rules = " ".join(_text(RULES).split())
+    for phrase in (
+        "One entry per distinct variant per genotype context.",
+        "`not_stated` only when the paper is silent about it.",
+        "Never choose between the paper's own names",
+        "Every `pending_review` names `review_settled_by`, and `not_accessible` takes none.",
+        "a group of more than two is never `trans`",
+        "`phase` is set exactly when `with` is",
+        "carries one identical `unclear.phase` entry on every member",
+    ):
+        assert phrase in rules, phrase
 
 
 def test_the_rules_number_examples_hold_against_syn002() -> None:
@@ -229,6 +334,181 @@ def test_the_readme_points_at_curator() -> None:
     flat = " ".join(readme.split())
     assert (
         "The searches it records are published as they are, but no finding is published "
-        "until a named person approves it here with `chd-atlas literature review`."
+        "until a named person approves it here, with `chd-atlas literature review` or with "
+        "`chd-atlas literature apply-review` on the decisions file of a review page that "
+        "person has finished."
     ) in flat
     assert "Nothing it writes is published" not in flat
+
+
+def _entry(**fields: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "id": 1,
+        "as_reported": "x",
+        "locator": {"kind": "in_text", "element": "Table 1"},
+        "kind": "snv_indel",
+        "placement": "mane",
+        "zygosity": "heterozygous",
+        "carriers": {"de_novo": 0, "inherited": 0, "origin_unknown": 1},
+    }
+    return {**base, **fields}
+
+
+def _verdict(*entries: dict[str, Any]) -> list[str]:
+    finding = Finding.model_validate(
+        {
+            "id": "CHDA:LIT:0000001",
+            "publication": "PMID:10000001",
+            "design": "cohort_screen",
+            "methods": ["targeted_sequencing"],
+            "count_unit": "probands",
+            "screened": 100,
+            "carriers": {"de_novo": 0, "inherited": 0, "origin_unknown": 50},
+            "variant_classes": ["snv_indel", "cnv"],
+            "variants": list(entries),
+            "phenotypes": ["HP:0001631"],
+            "lesion_groups": ["septal"],
+            "syndromic": "isolated",
+            "shares_probands_with": "unknown",
+            "locators": [{"kind": "in_text", "element": "Table 1"}],
+            "summary": "Illustrative.",
+            "extracted_by": "agent:literature-extract/model",
+        }
+    )
+    return [m for _, _, m in shape_issues(finding, {1})]
+
+
+_FILLED = {"hgvs_c": "c", "grch38": "g", "normalisation": 1, "hgvs_p": "p"}
+_MARK = {
+    "review_status": "pending_review",
+    "review_note": "n",
+    "review_settled_by": "atlas_model",
+}
+
+
+@pytest.mark.parametrize(
+    ("sentence", "entry", "needle"),
+    [
+        ("`mane` holds `hgvs_c`, `grch38` and `normalisation`", _entry(), "needs hgvs_c"),
+        (
+            "`protein` holds `hgvs_p` and leaves `hgvs_c`, `grch38` and `normalisation` null",
+            _entry(placement="protein", hgvs_p="p", hgvs_c="c"),
+            "must leave hgvs_c null",
+        ),
+        (
+            "`protein` holds `hgvs_p` and leaves `hgvs_c`, `grch38` and `normalisation` null",
+            _entry(placement="protein", hgvs_p="p", normalisation=1),
+            "must leave normalisation null",
+        ),
+        (
+            "`structural` and `outside_region` leave `hgvs_c`, `hgvs_p` and `grch38` null",
+            _entry(placement="structural", kind="cnv", grch38="g"),
+            "must leave grch38 null",
+        ),
+        (
+            "`structural` and `outside_region` leave `hgvs_c`, `hgvs_p` and `grch38` null",
+            _entry(placement="outside_region", hgvs_p="p"),
+            "must leave hgvs_p null",
+        ),
+        (
+            "`unplaced` holds `review_status` and leaves `hgvs_c` and `grch38` null",
+            _entry(placement="unplaced", grch38="g", **_MARK),
+            "must leave grch38 null",
+        ),
+        (
+            "`unplaced` holds `review_status` and leaves `hgvs_c` and `grch38` null",
+            _entry(placement="unplaced"),
+            "needs review_status",
+        ),
+        (
+            "Links are mutual",
+            _entry(id=1, with_=[2], phase="trans"),
+            "does not name 1 back",
+        ),
+        (
+            "a group of more than two is never `trans`",
+            [_entry(id=i, **{"with": [j for j in (1, 2, 3) if j != i]}, phase="trans")
+             for i in (1, 2, 3)],
+            "more than two variants pairwise in trans",
+        ),
+    ],
+)  # fmt: skip
+def test_each_stated_hold_null_and_link_rule_is_the_validators(
+    sentence: str, entry: Any, needle: str
+) -> None:
+    assert sentence in " ".join(_text(RULES).split()), sentence
+    entries = entry if isinstance(entry, list) else [entry]
+    entries = [{("with" if k == "with_" else k): v for k, v in e.items()} for e in entries]
+    if not isinstance(entry, list) and entry.get("with_"):
+        entries.append(_entry(id=2, placement="mane", **_FILLED))
+    assert any(needle in m for m in _verdict(*entries)), _verdict(*entries)
+
+
+def test_a_group_of_two_may_be_trans_and_a_mane_entry_with_every_name_is_clean() -> None:
+    pair = [
+        _entry(id=1, **_FILLED, **{"with": [2]}, phase="trans"),
+        _entry(id=2, **{**_FILLED, "grch38": "h"}, **{"with": [1]}, phase="trans"),
+    ]
+    assert _verdict(*pair) == []
+
+
+@pytest.mark.parametrize(
+    ("entry", "settled", "ok"),
+    [
+        ({"placement": "unplaced"}, "atlas_model", True),  # rsID alone, or a `g.` name alone
+        ({"placement": "unplaced"}, "expert", True),  # `normalise` could not place it
+        ({"placement": "unplaced"}, None, False),
+    ],
+)
+def test_pending_review_needs_a_settler_and_not_accessible_takes_none(
+    entry: dict[str, Any], settled: str | None, ok: bool
+) -> None:
+    mark = {"review_status": "pending_review", "review_note": "n"}
+    if settled:
+        mark["review_settled_by"] = settled
+    try:
+        Variant.model_validate(_entry(**entry, **mark))
+    except ValueError:
+        assert not ok
+    else:
+        assert ok
+    with pytest.raises(ValueError, match="not_accessible takes no review_settled_by"):
+        Variant.model_validate(
+            _entry(
+                review_status="not_accessible",
+                review_note="n",
+                review_settled_by="full_text",
+            )
+        )
+
+
+def test_the_settler_sentence_and_the_with_rule_are_stated_literally() -> None:
+    rules = " ".join(_text(RULES).split())
+    for phrase in (
+        "An `unplaced` variant named by an rsID or a `g.` name alone that the paper does "
+        "not place is `atlas_model`; a `protein` variant whose "
+        "residue is refused is `authors`, or `atlas_model` when its `p.` names no residue; "
+        "a `mane` variant `normalise` cannot place becomes `unplaced` with `expert`.",
+        "a `protein` variant's `hgvs_p` is the agent's, and is checked at the first `validate`",
+        "needs them on every design but `common_variant_association`",
+        "a `protein` variant whose residue validate then refuses",
+        "whatever names it: a `c.`, an rsID, a `g.` position or a description",
+        "Position beats naming, and a position is never looked up in dbSNP, a genome "
+        "browser or the agent's own knowledge",
+        'A coding-DNA name printed without its `c.` prefix ("456delC", "998G>T") is still '
+        "a `c.` name: write it `mane` with `reported.c` exactly as printed; `normalise` "
+        "decides, and an agent never marks it `unplaced` itself",
+        "for a variant named by an rsID or a `g.` name alone that the paper does not place",
+    ):
+        assert phrase in rules, phrase
+
+
+def test_an_outside_region_variant_named_by_a_g_position_alone_validates() -> None:
+    """R-F2: position beats naming, so a `g.`-only `reported` needs no mark."""
+    entry = _entry(
+        placement="outside_region",
+        as_reported="g.12345678A>G",
+        reported={"rsid": None, "c": None},
+    )
+    assert _verdict(entry) == []
+    assert _verdict(_entry(placement="outside_region", reported={"rsid": "rs1"})) == []

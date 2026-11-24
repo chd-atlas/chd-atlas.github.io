@@ -1,0 +1,111 @@
+{
+  "$comment": "Exported by `chd-atlas schemas export` from src/chd_atlas/tables.py; do not edit.",
+  "fields": [
+    {
+      "constraints": {
+        "pattern": "^HGNC:\\d+$",
+        "required": true
+      },
+      "description": "In a source package this column holds the ids the manifest's `ids` names. When that is not `hgnc_id`, the cells are the source's own ids (symbols or Ensembl gene ids) and this field's `pattern` does not apply to them: `chd-atlas ingest` rewrites each to the HGNC id it resolves to, and names every id that does not resolve and writes none of its rows.",
+      "name": "hgnc_id",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "pattern": "^NM_\\d+\\.\\d+$",
+        "required": true
+      },
+      "name": "refseq_transcript",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "minimum": 1,
+        "required": true
+      },
+      "name": "exon",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "minimum": 1,
+        "required": true
+      },
+      "name": "transcript_start",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "minimum": 1,
+        "required": true
+      },
+      "name": "transcript_end",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "minimum": 1,
+        "required": true
+      },
+      "name": "genomic_start",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "minimum": 1,
+        "required": true
+      },
+      "name": "genomic_end",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "minimum": 1,
+        "required": true
+      },
+      "name": "window_start",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "minimum": 1,
+        "required": true
+      },
+      "name": "window_end",
+      "type": "integer"
+    },
+    {
+      "constraints": {
+        "pattern": "^[ACGTN]+$",
+        "required": true
+      },
+      "name": "window_sequence",
+      "type": "string"
+    },
+    {
+      "constraints": {
+        "required": true
+      },
+      "name": "source",
+      "type": "string"
+    }
+  ],
+  "geneColumn": "hgnc_id",
+  "layout": {
+    "flat": "mane_exons.tsv"
+  },
+  "missingValues": [
+    ""
+  ],
+  "name": "mane_exons",
+  "primaryKey": [
+    "hgnc_id",
+    "exon"
+  ],
+  "sortKey": [
+    "hgnc_id",
+    "exon"
+  ],
+  "sourceColumn": "source",
+  "version": 1
+}

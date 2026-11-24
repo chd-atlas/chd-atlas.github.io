@@ -7,7 +7,7 @@ REPO_ROOT = Path(__file__).parent.parent
 
 
 def test_the_committed_repository_validates_cleanly() -> None:
-    """0 errors and the baseline 3 warnings (two SCP003, one SCP007), measured 2026-11-10."""
+    """0 errors and the baseline 3 warnings (two SCP003, one SCP007), measured 2026-11-19."""
     report = validate_repository(REPO_ROOT)
     assert report.ok, report.render()
     assert report.warning_count == 3, report.render()

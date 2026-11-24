@@ -1822,3 +1822,164 @@ publications:
     # The paper reports one boy found by whole exome sequencing.
     study_type: case_report
     doi: 10.1002/ajmg.a.38700
+  - id: PMID:26429889
+    title: A human laterality disorder caused by a homozygous deleterious mutation in MMP21.
+    journal: Journal of medical genetics
+    year: 2015
+    authors:
+      - Perles Z
+      - Moon S
+      - Ta-Shma A
+      - Yaacov B
+      - Francescatto L
+      - Edvardson S
+      - Rein AJ
+      - Elpeleg O
+      - Katsanis N
+    # Reports one consanguineous family studied by exome sequencing, with a homozygous MMP21 deletion segregating with laterality disease, plus zebrafish and in vitro work.
+    study_type: family_linkage
+    doi: 10.1136/jmedgenet-2015-103336
+    pmcid: PMC4936483
+  - id: PMID:26437028
+    title: MMP21 is mutated in human heterotaxy and is required for normal left-right asymmetry in vertebrates.
+    journal: Nature genetics
+    year: 2015
+    authors:
+      - Guimier A
+      - Gabriel GC
+      - Bajolle F
+      - Tsang M
+      - Liu H
+      - Noll A
+      - Schwartz M
+      - El Malti R
+      - Smith LD
+      - Klena NT
+      - Jimenez G
+      - Miller NA
+      - Oufadem M
+      - Moreau de Bellaing A
+      - Yagi H
+      - Saunders CJ
+      - Baker CN
+      - Di Filippo S
+      - Peterson KA
+      - Thiffault I
+      - Bole-Feysot C
+      - Cooley LD
+      - Farrow EG
+      - Masson C
+      - Schoen P
+      - Deleuze JF
+      - Nitschké P
+      - Lyonnet S
+      - de Pontual L
+      - Murray SA
+      - Bonnet D
+      - Kingsmore SF
+      - Amiel J
+      - Bouvagnet P
+      - Lo CW
+      - Gordon CT
+    # Reports two families with biallelic MMP21 variants (exome and genome sequencing) and a HaloPlex screen of 264 index cases, plus zebrafish and mouse work; its first finding is a family design, its second a cohort screen.
+    study_type: cohort_sequencing
+    doi: 10.1038/ng.3376
+    pmcid: PMC5620017
+  - id: PMID:29263817
+    title: Clinical detection of deletion structural variants in whole-genome sequences.
+    journal: NPJ genomic medicine
+    year: 2016
+    authors:
+      - Noll AC
+      - Miller NA
+      - Smith LD
+      - Yoo B
+      - Fiedler S
+      - Cooley LD
+      - Willig LK
+      - Petrikin JE
+      - Cakici J
+      - Lesko J
+      - Newton A
+      - Detherage K
+      - Thiffault I
+      - Saunders CJ
+      - Farrow EG
+      - Kingsmore SF
+    # A methods paper on deletion calling in whole-genome sequences; its MMP21 result is one family of two affected brothers with compound heterozygous variants, one of 36 families sequenced.
+    study_type: family_linkage
+    doi: 10.1038/npjgenmed.2016.26
+    pmcid: PMC5685307
+  - id: PMID:33240936
+    title: A Novel Nonsense MMP21 Variant Causes Dextrocardia and Congenital Heart Disease in a Han Chinese Patient.
+    journal: Frontiers in cardiovascular medicine
+    year: 2020
+    authors:
+      - Yuan ZZ
+      - Fan LL
+      - Jiang ZC
+      - Yang YF
+      - Tan ZP
+    # Exome sequencing of 78 Han Chinese patients with dextrocardia, one of whom carried a homozygous MMP21 stopgain variant; a cohort screen with one carrier.
+    study_type: cohort_sequencing
+    doi: 10.3389/fcvm.2020.582350
+    pmcid: PMC7680847
+  - id: PMID:36123719
+    title: De novo disruptive heterozygous MMP21 variants are potential predisposing genetic risk factors in Chinese Han heterotaxy children.
+    journal: Human genomics
+    year: 2022
+    authors:
+      - Qin XJ
+      - Xu MM
+      - Ye JJ
+      - Niu YW
+      - Wu YR
+      - Xu R
+      - Li F
+      - Fu QH
+      - Chen S
+      - Sun K
+      - Xu YJ
+    # Exome sequencing of 81 heterotaxy patients with complex CHD and 89 healthy children, finding three de novo heterozygous MMP21 missense variants, followed by cell and zebrafish assays; the human-genetics result is a cohort screen.
+    study_type: cohort_sequencing
+    doi: 10.1186/s40246-022-00409-9
+    pmcid: PMC9484203
+  - id: PMID:39976347
+    title: 'Unmasking a Recessive Allele by a Rare Interstitial Deletion at 10q26.13q26.2: Prenatal Diagnosis of MMP21 -Related Disorder and Further Refine INSYN2A Involvement in the Postnatal Cognitive Phenotype.'
+    journal: Molecular genetics & genomic medicine
+    year: 2025
+    authors:
+      - Su J
+      - Zhang S
+      - Li W
+      - Wei Y
+      - Lin F
+      - Zhou C
+      - Tang X
+      - Lan Y
+      - Huang M
+      - Zhang Q
+      - Yi S
+      - Yang Q
+      - Yi S
+      - Zhou X
+      - Qin Z
+      - Huang P
+    # One fetus studied by trio exome sequencing, with an apparent homozygous MMP21 missense variant unmasked by a maternal 10q26.13q26.2 deletion.
+    study_type: case_report
+    doi: 10.1002/mgg3.70082
+    pmcid: PMC11840842
+  - id: PMID:40679208
+    title: Functional analysis of novel MMP21 gene compound heterozygous mutations in a prenatal case with heterotaxy.
+    journal: Human molecular genetics
+    year: 2025
+    authors:
+      - Chen Q
+      - Zhang H
+      - Li X
+      - Liu L
+      - Hu Z
+      - Xu Z
+    # Abstract only: one fetus with heterotaxy and two novel compound heterozygous MMP21 variants studied by exome sequencing and in vitro assays.
+    study_type: case_report
+    doi: 10.1093/hmg/ddaf122

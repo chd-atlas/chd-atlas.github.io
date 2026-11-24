@@ -1,6 +1,7 @@
 # tests/unit/test_gene_literature_model.py
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 import pytest
@@ -13,6 +14,8 @@ from chd_atlas.models.gene_literature import (
     Synthesis,
     TriageEntry,
 )
+from chd_atlas.models.review import ReviewStatus
+from chd_atlas.vocab import StudyType
 
 
 def _rare(**changes: Any) -> dict[str, Any]:
@@ -354,3 +357,222 @@ def test_a_synthesis_approval_names_a_person_with_the_findings_messages() -> Non
         Synthesis.model_validate(
             _synthesis(approved_by=" Agent:x", approved_on="2026-11-05", approved_digest="sha256:a")
         )
+
+
+def _variant_entry(**changes: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "id": 2,
+        "as_reported": "p.Arg9Cys",
+        "locator": {"kind": "in_text", "element": "Table 1"},
+        "kind": "snv_indel",
+        "placement": "protein",
+        "with": [3],
+    }
+    base.update(changes)
+    return base
+
+
+def test_a_variant_round_trips_with_its_with_key_and_defaults_omitted() -> None:
+    from chd_atlas.models.gene_literature import Variant
+
+    entry = _variant_entry()
+    variant = Variant.model_validate(entry)
+    assert variant.with_ == [3]
+    # exclude_defaults also drops the locator's own default `kind`, as it does
+    # for every finding locator in the digest.
+    expected = {**entry, "locator": {"element": "Table 1"}}
+    assert variant.model_dump(mode="json", by_alias=True, exclude_defaults=True) == expected
+
+
+def test_a_variant_review_note_without_a_status_is_refused() -> None:
+    with pytest.raises(ValidationError, match="variant 2: a review_note needs a review_status"):
+        Finding.model_validate(_rare(variants=[_variant_entry(review_note="open")]))
+    with pytest.raises(ValidationError, match="variant 2: review_status"):
+        Finding.model_validate(_rare(variants=[_variant_entry(review_status="pending_review")]))
+
+
+def test_duplicate_normalisation_ids_are_refused() -> None:
+    run = {
+        "tool": "variantvalidator",
+        "version": "v",
+        "hgvs_version": "h",
+        "vvta": "t",
+        "vvdb": "d",
+        "seqrepo": "s",
+        "run_on": "2026-11-17",
+    }
+    with pytest.raises(ValidationError, match="duplicate normalisation ids"):
+        GeneLiteratureFile.model_validate(
+            _file(normalisations=[{"id": 1, **run}, {"id": 1, **run}])
+        )
+
+
+def test_normalisations_sit_immediately_after_searches_in_the_file() -> None:
+    names = list(GeneLiteratureFile.model_fields)
+    assert names[names.index("searches") + 1] == "normalisations"
+
+
+def test_with_findings_updated_places_a_whole_variants_list_after_variant_classes() -> None:
+    from io import StringIO
+
+    from ruamel.yaml import YAML
+
+    from chd_atlas.gene_literature_io import dump_bytes, load_round_trip, with_findings_updated
+
+    raw_file = _file(findings=[_rare()])
+    data = load_round_trip(dump_bytes(raw_file))
+    out = with_findings_updated(
+        dump_bytes(data), {"CHDA:LIT:0000001": {"variants": [_variant_entry()]}}
+    )
+    keys = list(YAML().load(StringIO(out.decode()))["findings"][0])
+    assert keys.index("variants") == keys.index("variant_classes") + 1
+
+
+@pytest.mark.parametrize("record", ["finding", "variant"])
+@pytest.mark.parametrize(
+    ("mark", "message"),
+    [
+        ({"review_settled_by": "authors"}, "review_settled_by needs a review_status"),
+        (
+            {"review_status": ReviewStatus.PENDING_REVIEW, "review_note": "open"},
+            "pending_review needs a review_settled_by",
+        ),
+        (
+            {
+                "review_status": "not_accessible",
+                "review_note": "no full text",
+                "review_settled_by": "full_text",
+            },
+            "the full text settles it",
+        ),
+    ],
+)
+def test_a_pending_review_needs_review_settled_by_and_not_accessible_refuses_it(
+    record: str, mark: dict[str, Any], message: str
+) -> None:
+    if record == "finding":
+        with pytest.raises(ValidationError, match=message):
+            Finding.model_validate(_rare(**mark))
+    else:
+        with pytest.raises(ValidationError, match=message):
+            Finding.model_validate(_rare(variants=[_variant_entry(**mark)]))
+    # the paired marks load
+    ok = (
+        {
+            "review_status": ReviewStatus.PENDING_REVIEW,
+            "review_note": "open",
+            "review_settled_by": "authors",
+        }
+        if record == "finding"
+        else {}
+    )
+    if record == "finding":
+        assert Finding.model_validate(_rare(**ok)).review_settled_by is not None
+    else:
+        paired = {
+            "review_status": "not_accessible",
+            "review_note": "no full text",
+        }
+        Finding.model_validate(_rare(variants=[_variant_entry(**paired)]))
+
+
+@pytest.mark.parametrize("field", ["zygosity", "phase"])
+def test_an_unclear_value_and_its_entry_come_together(field: str) -> None:
+    entry = {"reason": "Table 2 and the text disagree.", "settled_by": "atlas_model"}
+    both = _variant_entry(**{field: "unclear", "unclear": {field: entry}})
+    loaded = Finding.model_validate(_rare(variants=[both])).variants[0]
+    assert loaded.unclear[field].settled_by.value == "atlas_model"
+    with pytest.raises(ValidationError, match=f"{field} is unclear but has no unclear entry"):
+        Finding.model_validate(_rare(variants=[_variant_entry(**{field: "unclear"})]))
+    with pytest.raises(ValidationError, match=f"unclear entry for {field}, which is not unclear"):
+        Finding.model_validate(_rare(variants=[_variant_entry(unclear={field: entry})]))
+    blank = {**entry, "reason": "  "}
+    with pytest.raises(ValidationError):
+        Finding.model_validate(
+            _rare(variants=[_variant_entry(**{field: "unclear", "unclear": {field: blank}})])
+        )
+
+
+def _shown_pair() -> tuple[Finding, Any]:
+    from chd_atlas.models.literature import Publication
+
+    unclear = {"reason": "Table 2 and the text disagree.", "settled_by": "atlas_model"}
+    finding = Finding.model_validate(
+        _rare(
+            variants=[_variant_entry(phase="unclear", unclear={"phase": unclear}, **{"with": []})]
+        )
+    )
+    paper = Publication.model_validate(
+        {
+            "id": "PMID:8988165",
+            "title": "T",
+            "journal": "J",
+            "year": 1997,
+            "authors": ["A A"],
+            "study_type": "case_report",
+        }
+    )
+    return finding, paper
+
+
+def _edited(edit: str) -> tuple[Finding, Any]:
+    finding, paper = _shown_pair()
+    variant = finding.variants[0]
+    if edit == "finding review_note":
+        finding = finding.model_copy(
+            update={
+                "review_status": ReviewStatus.PENDING_REVIEW,
+                "review_note": "Text and table differ.",
+            }
+        )
+    elif edit == "variant review_note":
+        mark = {"review_status": ReviewStatus.PENDING_REVIEW, "review_note": "Name unchecked."}
+        finding = finding.model_copy(update={"variants": [variant.model_copy(update=mark)]})
+    elif edit == "variant unclear reason":
+        entry = variant.unclear["phase"].model_copy(update={"reason": "Only the text says so."})
+        changed = variant.model_copy(update={"unclear": {"phase": entry}})
+        finding = finding.model_copy(update={"variants": [changed]})
+    elif edit == "verified_by":
+        finding = finding.model_copy(update={"verified_by": "agent:verify/blind"})
+    elif edit == "publication study_type":
+        paper = paper.model_copy(update={"study_type": StudyType.GWAS})
+    elif edit == "publication own_lab":
+        paper = paper.model_copy(update={"own_lab": True})
+    elif edit == "summary":
+        finding = finding.model_copy(update={"summary": "Another sentence."})
+    return finding, paper
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        "finding review_note",
+        "variant review_note",
+        "variant unclear reason",
+        "verified_by",
+        "publication study_type",
+        "publication own_lab",
+        "summary",
+    ],
+)
+def test_the_shown_digest_moves_with_every_field_the_page_shows(edit: str) -> None:
+    from chd_atlas.models.gene_literature import shown_digest
+
+    before = shown_digest(*_shown_pair())
+    assert before.startswith("sha256:")
+    assert shown_digest(*_edited(edit)) != before
+
+
+def test_approving_does_not_move_the_shown_digest_and_a_missing_paper_does() -> None:
+    from chd_atlas.models.gene_literature import shown_digest
+
+    finding, paper = _shown_pair()
+    approved = finding.model_copy(
+        update={
+            "approved_by": "E.A.M",
+            "approved_on": date(2026, 11, 19),
+            "approved_digest": "sha256:a",
+        }
+    )
+    assert shown_digest(approved, paper) == shown_digest(finding, paper)
+    assert shown_digest(finding, None) != shown_digest(finding, paper)

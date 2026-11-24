@@ -131,20 +131,204 @@ convention only a person can check.
   compare it. The blind verifier is the one exception to naming ids: it always writes
   `unknown`, because its ids are local to its own file.
 
+### Variants
+
+A finding's `variants` list the variants its paper names, each placed on the gene's MANE
+Select frame, which `chd-atlas literature frame <SYMBOL>` prints. `LIT016`, `LIT017`,
+`LIT018`, `LIT019`, `LIT020` and `LIT021` check an entry's `hgvs_c`, `hgvs_p` and `grch38`
+against that frame. `chd-curator normalise` writes `hgvs_c`, `grch38` and `normalisation`
+of a `mane` variant, so those checks matter once it has run; a `protein` variant's
+`hgvs_p` is the agent's, and is checked at the first `validate`.
+`LIT022` checks an entry's shape, `LIT023` its carriers, `LIT024` its phenotypes and
+`LIT025` that `hgvs_p` agrees with the paper's own `p.` name. The model's own pairings
+(a `pending_review` without `review_settled_by`, an `unclear` value without its entry
+and the reverse) are `SCHEMA001`.
+
+- One entry per distinct variant per genotype context. The context is the partners it is
+  carried with and the `phase`: one variant in two contexts is two entries, and one
+  variant in one context is one entry (`LIT022` refuses the same name twice in one
+  context, and twice in one `with` group). `kind` is among the finding's
+  `variant_classes` (`LIT022`).
+- `as_reported` is verbatim: the text at the locator. Where the paper prints `c.` and `p.`
+  in separate columns, take both, in the order printed, joined by one space. `reported`
+  holds each name the paper gives (`c`, `p`, `rsid`, and `transcript` only when the paper
+  states one) as written. Never choose between the paper's own names, even when they
+  disagree: the checks above report it.
+- Placement, by the first rule that fits:
+  - `structural` for a CNV or chromosomal change, even written in `c.` notation, with
+    `kind` `cnv` or `chromosomal`;
+  - `mane` for a `c.` name within the exons ±50 bp, with or without an rsID, with `kind`
+    `snv_indel`. A coding-DNA name printed without its `c.` prefix ("456delC", "998G>T")
+    is still a `c.` name: write it `mane` with `reported.c` exactly as printed; `normalise`
+    decides, and an agent never marks it `unplaced` itself;
+  - `outside_region` for a variant the paper places outside the exons ±50 bp (an intron
+    beyond 50, upstream or the promoter, downstream, an enhancer), whatever names it: a
+    `c.`, an rsID, a `g.` position or a description, with `kind` `snv_indel`. Position
+    beats naming, and a position is never looked up in dbSNP, a genome browser or the
+    agent's own knowledge;
+  - `protein` for a `p.` name alone, with `hgvs_p` on the MANE protein in three-letter
+    code in parentheses;
+  - `unplaced` for a variant named by an rsID or a `g.` name alone that the paper does not
+    place (inside the exons, or of unstated position), or a `protein` variant whose residue validate then refuses (or whose `p.` names
+    no residue), which moves to `unplaced`.
+- What each placement holds and leaves null (`LIT022`):
+  - `mane` holds `hgvs_c`, `grch38` and `normalisation`, all written by `normalise`; an
+    agent writes none of them, nor `hgvs_p` of a `mane` variant;
+  - `protein` holds `hgvs_p` and leaves `hgvs_c`, `grch38` and `normalisation` null;
+  - `structural` and `outside_region` leave `hgvs_c`, `hgvs_p` and `grch38` null;
+  - `unplaced` holds `review_status` and leaves `hgvs_c` and `grch38` null; it may keep an
+    `hgvs_p`, which is still checked, but a refused one is removed and the note states
+    only the mismatch.
+- `carriers` per variant, in the finding's `count_unit`. A variant needs
+  them on every design but `common_variant_association`, and none the paper gives no
+  carrier for is named; a variant with 0 is refused (`LIT022`). The variants' `de_novo` and `inherited` carriers may not exceed
+  the finding's, nor may their total, a `with` group counted once (`LIT023`). A
+  `common_variant_association` names each variant it tested and has no `carriers`
+  (`LIT022`).
+- `zygosity` as the paper states it. A variant carried with another variant of this gene
+  lists their ids in `with`. Links are mutual, each variant is `heterozygous`, every
+  entry of a group carries the same total, and `phase` is set exactly when `with` is
+  (`trans`, `cis`, `not_stated` or `unclear`); a group of more than two is never
+  `trans` (`LIT022`). A group whose phase is `unclear` carries one identical
+  `unclear.phase` entry on every member.
+- `phenotypes` only where the paper ties the lesion to these carriers, each among the
+  finding's own (`LIT024`).
+- Three ways to leave a value plain. `not_stated` only when the paper is silent about it.
+  `unclear`, with its `reason` and `settled_by`, when the paper says something one value
+  cannot hold (heterozygous in 2 carriers, homozygous in 1) or two incompatible things:
+  only `zygosity` and `phase` take it, and the model refuses the value without its entry
+  and the entry without the value. A review mark (`pending_review`) is a question about
+  the record as a whole: ask whether it would go away if this one field had a value the
+  atlas can hold, and if so use `unclear`. Every `pending_review` names
+  `review_settled_by`, and `not_accessible` takes none.
+- A settler names what would settle the question: `full_text` (only the abstract was
+  read), `authors` (the paper contradicts itself or the reference sequence), `expert` (a
+  domain judgement the paper cannot supply) or `atlas_model` (the paper is clear and the
+  atlas's record cannot hold it). An `unplaced` variant named by an rsID or a `g.` name alone that the paper does not
+  place is `atlas_model`; a `protein` variant whose residue is
+  refused is `authors`, or `atlas_model` when its `p.` names no residue;
+  a `mane` variant `normalise` cannot place becomes `unplaced` with `expert`.
+
+One entry in each placement state, as an agent writes it. A `mane` entry (here and in
+the `with` example) is before `normalise`, so `validate` reports "a mane variant needs
+hgvs_c", "a mane variant needs grch38" and "a mane variant needs normalisation"
+(`LIT022`), and, where its `reported.p` names a residue, "the paper names p.R279X but the
+variant has no hgvs_p" (`LIT025`). Every other entry validates as written, on TBX5's
+frame. Values are illustrative.
+
+```yaml
+variants:
+  - id: 1
+    as_reported: c.835C>T (p.R279X)
+    locator: {kind: in_text, element: Table 1}
+    kind: snv_indel
+    reported: {c: c.835C>T, p: p.R279X, rsid: rs10000001}
+    placement: mane
+    zygosity: heterozygous
+    carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+    phenotypes: [HP:0001631]
+  - id: 2
+    as_reported: p.R279X
+    locator: {kind: in_text, element: Table 2}
+    kind: snv_indel
+    reported: {p: p.R279X}
+    placement: protein
+    hgvs_p: NP_852259.1:p.(Arg279Ter)
+    zygosity: heterozygous
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+  - id: 3
+    as_reported: 12q24.21 deletion including the gene
+    locator: {kind: in_text, element: Case 3}
+    kind: cnv
+    placement: structural
+    zygosity: heterozygous
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+  - id: 4
+    as_reported: c.1234+51A>G
+    locator: {kind: in_text, element: Table 2}
+    kind: snv_indel
+    reported: {c: c.1234+51A>G}
+    placement: outside_region
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+  - id: 5
+    as_reported: rs10000002
+    locator: {kind: in_text, element: Table 3}
+    kind: snv_indel
+    reported: {rsid: rs10000002}
+    placement: unplaced
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+    review_status: pending_review
+    review_note: The paper names the variant by rsID alone and does not give its position.
+    review_settled_by: atlas_model
+```
+
+Two variants carried together, one on each allele (the same total on both):
+
+```yaml
+variants:
+  - id: 1
+    as_reported: c.100A>G
+    locator: {kind: in_text, element: Table 1}
+    kind: snv_indel
+    reported: {c: c.100A>G}
+    placement: mane
+    zygosity: heterozygous
+    with: [2]
+    phase: trans
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+  - id: 2
+    as_reported: c.200C>T
+    locator: {kind: in_text, element: Table 1}
+    kind: snv_indel
+    reported: {c: c.200C>T}
+    placement: mane
+    zygosity: heterozygous
+    with: [1]
+    phase: trans
+    carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+```
+
+A variant whose carriers differ in zygosity is one entry, `unclear`, not two entries for
+one name:
+
+```yaml
+variants:
+  - id: 1
+    as_reported: p.N174S
+    locator: {kind: in_text, element: Table 2}
+    kind: snv_indel
+    reported: {p: p.N174S}
+    placement: protein
+    hgvs_p: NP_852259.1:p.(Asn174Ser)
+    zygosity: unclear
+    unclear:
+      zygosity:
+        reason: Table 2 lists two carriers as heterozygous and one as homozygous; the atlas records one zygosity per variant.
+        settled_by: atlas_model
+    carriers: {de_novo: 0, inherited: 0, origin_unknown: 3}
+```
+
 ## Attribution and approval
 
 - `extracted_by` and `verified_by` are `agent:<skill>/<model>`. The verifier is a
   different model from the extractor, in a fresh context.
 - `approved_by` is a human's name. A value starting `agent:` is refused by the model
-  (`SCHEMA001`) and by `chd-atlas literature review`. `approved_by`, `approved_on` and
+  (`SCHEMA001`) and by `chd-atlas literature review` and `literature apply-review`. `approved_by`, `approved_on` and
   `approved_digest` are set together (`SCHEMA001`).
 - `approved_digest` is a hash of the finding as it was approved; `literature review
-  --approve` writes it. Editing any field it covers (the id, counts, summary, locators,
+  --approve` and `literature apply-review` both write it. Editing any field it covers (the id, counts, summary, locators,
   anything but the approval, `verified_by` and the review mark) leaves the approval
   stale: the validator reports `LIT015` and the build refuses until the three approval
   fields are deleted and a person approves again. Never write or copy a digest by hand.
-- An agent never runs `literature review --approve` and never writes `approved_by`. That
-  is a convention: the command cannot tell a person's name from an agent's invented one.
+- An agent never runs `literature review --approve` and never writes `approved_by` by
+  hand. `literature apply-review` writes it, so an agent runs it only on a decisions file
+  the review page downloaded, or one curator converted from the page's store, after the
+  reviewer pressed "I'm done", with `--by` the reviewer's name; it never writes or edits
+  that file by hand. That is a convention: `apply-review` refuses a `--by` that is not the
+  file's reviewer or that names an agent, an unfinished session and a second opinion, but
+  cannot tell who produced the file, and `review --approve` cannot tell a person's name
+  from an agent's invented one. `apply-review` passes `allow_unverified=True`, so it
+  approves findings no verifier has compared; the reviewer's decision is the check.
 - Approval is not dated before the search that found the paper (`LIT008`).
 - A review mark (`pending_review` or `not_accessible`, with its `review_note`) is
   published with the finding. It does not withdraw an approval.

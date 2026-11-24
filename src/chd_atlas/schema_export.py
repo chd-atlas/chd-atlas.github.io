@@ -1,7 +1,8 @@
 """Deterministic schema export, written to the committed ``schemas/`` directory.
 
-JSON Schema for the YAML record models and for a source package's
-``manifest.json`` (`EXPORTED_MODELS`), and a Frictionless-style Table Schema
+JSON Schema for the YAML record models, for a source package's
+``manifest.json`` and for the review decisions file a review page writes
+(`EXPORTED_MODELS`), and a Frictionless-style Table Schema
 per mirror table (`export_table_schemas`), which is also the format of a
 package's tables.
 """
@@ -22,6 +23,7 @@ from chd_atlas.models.functional import FunctionalFile
 from chd_atlas.models.gene_literature import GeneLiteratureFile
 from chd_atlas.models.literature import FeaturedFile, PhenotypeFile, PublicationFile
 from chd_atlas.models.package import PackageManifest
+from chd_atlas.models.review_decisions import ReviewDecisions
 from chd_atlas.tables import TABLE_SCHEMAS, Column, TableSchema, table_layout
 
 EXPORTED_MODELS: Final[dict[str, type[BaseModel]]] = {
@@ -33,6 +35,7 @@ EXPORTED_MODELS: Final[dict[str, type[BaseModel]]] = {
     "phenotype_file": PhenotypeFile,
     "dataset": Dataset,
     "package_manifest": PackageManifest,
+    "review_decisions": ReviewDecisions,
 }
 
 

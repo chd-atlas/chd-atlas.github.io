@@ -6,6 +6,15 @@ searches:
     run_on: 2026-11-03
     hits: 400
     new_hits: 400
+normalisations:
+  - id: 1
+    tool: variantvalidator
+    version: 4.0.1.dev7+gbdab9c72f
+    hgvs_version: 4.0.0
+    vvta: vvta_2025_02
+    vvdb: vvdb_2025_3
+    seqrepo: VV_SR_2025_02/master
+    run_on: 2026-11-19
 triage:
   - pmid: PMID:3400729
     search: 1
@@ -1590,6 +1599,164 @@ findings:
     screened: 49
     carriers: {de_novo: 0, inherited: 9, origin_unknown: 8}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: 456delC
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {c: 456delC}
+        hgvs_c: NM_181486.4:c.456del
+        hgvs_p: NP_852259.1:p.(Val153SerfsTer21)
+        grch38: 12:114398626:CG:C
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001631]
+      - id: 2
+        as_reported: 100delG
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {c: 100delG}
+        hgvs_c: NM_181486.4:c.100del
+        hgvs_p: NP_852259.1:p.(Ala34ProfsTer32)
+        grch38: 12:114403798:GC:G
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001674, HP:0001684, HP:0011623, HP:0011625]
+      - id: 3
+        as_reported: 100-101insG
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: unplaced
+        reported: {c: 100-101insG}
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001631]
+        review_status: pending_review
+        review_note: 'VariantValidator refused NM_181486.4:100-101insG: Insertion length must be 1 e.g. 100-102_100-101insG'
+        review_settled_by: expert
+      - id: 4
+        as_reported: Trp121Gly
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: protein
+        reported: {p: Trp121Gly}
+        hgvs_p: NP_852259.1:p.(Trp121Gly)
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001631, HP:0011625]
+      - id: 5
+        as_reported: Thr223Met
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: protein
+        reported: {p: Thr223Met}
+        hgvs_p: NP_852259.1:p.(Thr223Met)
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 2, origin_unknown: 1}
+        phenotypes: [HP:0001629, HP:0001631, HP:0001684, HP:0011625, HP:0011682]
+      - id: 6
+        as_reported: 798delA
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {c: 798delA}
+        hgvs_c: NM_181486.4:c.798del
+        hgvs_p: NP_852259.1:p.(Val267TrpfsTer127)
+        grch38: 12:114366348:CT:C
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001631, HP:0011682]
+      - id: 7
+        as_reported: Gly195Ala
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: protein
+        reported: {p: Gly195Ala}
+        hgvs_p: NP_852259.1:p.(Gly195Ala)
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+      - id: 8
+        as_reported: Arg279Ter
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: protein
+        reported: {p: Arg279Ter}
+        hgvs_p: NP_852259.1:p.(Arg279Ter)
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001684, HP:0011625]
+      - id: 9
+        as_reported: Ser196Ter
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: protein
+        reported: {p: Ser196Ter}
+        hgvs_p: NP_852259.1:p.(Ser196Ter)
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001629]
+      - id: 10
+        as_reported: Arg237Trp
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: protein
+        reported: {p: Arg237Trp}
+        hgvs_p: NP_852259.1:p.(Arg237Trp)
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 1}
+        phenotypes: [HP:0001684, HP:0006695, HP:0011682]
+      - id: 11
+        as_reported: Arg237Gln
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: protein
+        reported: {p: Arg237Gln}
+        hgvs_p: NP_852259.1:p.(Arg237Gln)
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001684]
+      - id: 12
+        as_reported: Ser261Cys
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: protein
+        reported: {p: Ser261Cys}
+        hgvs_p: NP_852259.1:p.(Ser261Cys)
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001719, HP:0006695]
+      - id: 13
+        as_reported: 400-401insC
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: unplaced
+        reported: {c: 400-401insC}
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001629, HP:0001631]
+        review_status: pending_review
+        review_note: 'VariantValidator refused NM_181486.4:400-401insC: Insertion length must be 1 e.g. 400-402_400-401insC'
+        review_settled_by: expert
+      - id: 14
+        as_reported: 426-427insC
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: unplaced
+        reported: {c: 426-427insC}
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001629, HP:0001684, HP:0011623, HP:0011625]
+        review_status: pending_review
+        review_note: 'VariantValidator refused NM_181486.4:426-427insC: Insertion length must be 1 e.g. 426-428_426-427insC'
+        review_settled_by: expert
     phenotypes: [HP:0001629, HP:0001631, HP:0001674, HP:0001684, HP:0001719, HP:0006695, HP:0011623, HP:0011625, HP:0011682]
     lesion_groups: [septal, avsd, conotruncal]
     syndromic: syndromic
@@ -1604,8 +1771,8 @@ findings:
     summary: Sanger sequencing of TBX5 exons 1-9 in probands with a putative diagnosis of Holt-Oram syndrome found a TBX5 mutation in 17 of the 49 probands with complete sequence data (14 different mutations; 55 probands were recruited). Mutations were found in 9 of 17 familial and 8 of 32 sporadic cases.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:66fbbe5387ae68253831f7957b3e1b2ccdf426b887a5247030efac99ae3df963
+    approved_on: 2026-11-19
+    approved_digest: sha256:5f57bc2a9f329217ad66a589f10674c91a62d27f179bfec88091cb58446a0f2d
   - id: CHDA:LIT:0000016
     publication: PMID:18828908
     design: case_report
@@ -1614,6 +1781,20 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.1333delC, p.H445fsX136
+        locator: {kind: in_text, element: Results}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.1333delC, p: p.H445fsX136}
+        hgvs_c: NM_181486.4:c.1333del
+        hgvs_p: NP_852259.1:p.(His445MetfsTer137)
+        grch38: 12:114355755:TG:T
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001631, HP:0005304, HP:0011623]
     phenotypes: [HP:0001631, HP:0005304, HP:0011623]
     lesion_groups: [other, septal]
     syndromic: syndromic
@@ -1625,10 +1806,9 @@ findings:
         element: Methods, Case report
     summary: A 4-year-old boy with classical Holt-Oram syndrome (atrial and muscular ventricular septal defects, atrioventricular block needing a pacemaker) carried a heterozygous TBX5 frameshift c.1333delC (p.H445fsX136), absent from both parents and predicted to extend the protein.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:0a6343e011a94a0b1e921f73ec681a07b02b77a1a57058b132ac1c6a8937ac7b
+    approved_on: 2026-11-19
+    approved_digest: sha256:a84c50d6571f8dccd4704fb695b4fb89e0a410a38abaa68f5bf8eb206758bb7a
   - id: CHDA:LIT:0000017
     publication: PMID:21637475
     design: cohort_screen
@@ -1637,6 +1817,46 @@ findings:
     screened: 9
     carriers: {de_novo: 2, inherited: 1, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.835C > T (p.R279X)
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_000192.3, c: c.835C>T, p: p.R279X}
+        hgvs_c: NM_181486.4:c.835C>T
+        hgvs_p: NP_852259.1:p.(Arg279Ter)
+        grch38: 12:114366312:G:A
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001631, HP:0001684]
+      - id: 2
+        as_reported: c.374delG (p.G125fsX149)
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_000192.3, c: c.374delG, p: p.G125fsX149}
+        hgvs_c: NM_181486.4:c.374del
+        hgvs_p: NP_852259.1:p.(Gly125AlafsTer25)
+        grch38: 12:114398708:GC:G
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001629, HP:0001631]
+      - id: 3
+        as_reported: c.678G > T (p.K226N)
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_000192.3, c: c.678G>T, p: p.K226N}
+        hgvs_c: NM_181486.4:c.678G>T
+        hgvs_p: NP_852259.1:p.(Lys226Asn)
+        grch38: 12:114385553:C:A
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001642, HP:0001684, HP:0006695]
     phenotypes: [HP:0001631, HP:0001684, HP:0001629, HP:0006695, HP:0001642]
     lesion_groups: [septal, avsd, rvoto]
     syndromic: syndromic
@@ -1651,8 +1871,8 @@ findings:
     summary: Direct sequencing of TBX5 in 9 unrelated patients with typical (8) or atypical (1) Holt-Oram syndrome found a pathogenic TBX5 mutation in four (c.835C>T p.R279X in two, one of them de novo; c.374delG, de novo; c.678G>T p.K226N, inherited, also in the patient's affected father); the origin of the other c.835C>T carrier is not stated.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:56bbd131464392b9b081dc89ee07c118f8eed980ff10f1cd45122dd5e13cc6f2
+    approved_on: 2026-11-19
+    approved_digest: sha256:cbebf52eff8f3ee6ea0ec1e3cc45afbd0933122d51a287e808286956a15391eb
   - id: CHDA:LIT:0000018
     publication: PMID:21637475
     design: cohort_screen
@@ -1683,6 +1903,20 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.1304delT, p.L435fsX146
+        locator: {kind: in_text, element: Case Report}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.1304delT, p: p.L435fsX146}
+        hgvs_c: NM_181486.4:c.1304del
+        hgvs_p: NP_852259.1:p.(Leu435ArgfsTer147)
+        grch38: 12:114355784:CA:C
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0011623, HP:0011567, HP:0001643]
     phenotypes: [HP:0011623, HP:0011567, HP:0001643]
     lesion_groups: [septal, other]
     syndromic: syndromic
@@ -1692,9 +1926,10 @@ findings:
         element: Case Report, paragraph on molecular analysis (c.1304delT; parents' results normal; Fig. 3)
     summary: A boy with sporadic Holt-Oram syndrome (muscular ventricular septal defect, sinus venosus-type atrial septal defect, patent ductus arteriosus, conduction defect) carried a heterozygous TBX5 frameshift c.1304delT (p.L435fsX146); the parents tested normal.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:d143b3b2a1ad0a32d87f5d5bafdd3015ca73d45ccc7139fbfae9eeff997b56bd
+    approved_on: 2026-11-19
+    approved_digest: sha256:cba401ffc74b2b01a40ae7d3d27efd14f3263c4cbfe469e992a53c82d59a0530
   - id: CHDA:LIT:0000020
     publication: PMID:22011241
     design: cohort_screen
@@ -1703,6 +1938,20 @@ findings:
     screened: 331
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: 998G>T (cDNA sequence accession NM_000192.3) (Figure 1F) resulting in D111Y
+        locator: {kind: in_text, element: Results}
+        kind: snv_indel
+        placement: unplaced
+        reported: {transcript: NM_000192.3, c: 998G>T, p: D111Y}
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001719, HP:0001629, HP:0001631, HP:0001643]
+        review_status: pending_review
+        review_note: 'VariantValidator refused NM_000192.3:998G>T: ReferenceMismatchError: NM_000192.3:c.998G>T: Variant reference (G) does not agree with reference sequence (C)'
+        review_settled_by: expert
     phenotypes: [HP:0001719, HP:0001629, HP:0001631, HP:0001643]
     lesion_groups: [conotruncal, septal, other]
     syndromic: isolated
@@ -1718,10 +1967,11 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:8a1977e729c7b6bed6853744a84503391d6a677cb6202ea24235890ba867c0c9
+    approved_on: 2026-11-19
+    approved_digest: sha256:eff39b53f87532bb99482c35650c91af9559b8b3a7c8abcf919a8bc81a7a0d8f
     review_status: pending_review
     review_note: The Results call the one TBX5 change "a synonymous variant" while naming it D111Y, a protein substitution; the Discussion treats it as a nonsynonymous variant.
+    review_settled_by: authors
   - id: CHDA:LIT:0000021
     publication: PMID:22333898
     design: family_segregation
@@ -1730,6 +1980,15 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [cnv]
+    variants:
+      - id: 1
+        as_reported: heterozygous duplication of exons 2–9 of TBX5
+        locator: {kind: in_text, element: Results}
+        kind: cnv
+        placement: structural
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001642, HP:0004383, HP:0006695]
     phenotypes: [HP:0006695, HP:0004383, HP:0001642]
     lesion_groups: [avsd, lvoto, rvoto]
     syndromic: syndromic
@@ -1743,10 +2002,9 @@ findings:
         element: Clinical report, Family members and Table 1 (9 of 12 members affected over five generations; AVSD with pulmonary stenosis in IV:3, HLHS in V:1)
     summary: A five-generation family with nine affected members and an atypical Holt-Oram phenotype (AVSD with pulmonary stenosis, hypoplastic left heart syndrome, mitral valve disease and conduction abnormalities, with mild ulnar-predominant limb defects) carried a heterozygous 48 kb duplication of TBX5 exons 2-9 that the authors report segregates with the clinically affected members; sequencing of exons 3-10 had found no variant.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:01c094bfe21c73b63f7e75f002ecea9416e51a1d2cb31a389727dd46c0ba334d
+    approved_on: 2026-11-19
+    approved_digest: sha256:30ca34c92d142b0421a5c4078752b01a3544133fef20ccf36a4136b59bf2f7a3
   - id: CHDA:LIT:0000022
     publication: PMID:22543974
     design: cohort_screen
@@ -1755,6 +2013,15 @@ findings:
     screened: 260
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: hg19, chr12:114 704 515
+        locator: {kind: in_text, element: 'Results, Sequencing CHD patient samples'}
+        kind: snv_indel
+        placement: outside_region
+        zygosity: homozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001629]
     phenotypes: [HP:0001629]
     lesion_groups: [septal]
     syndromic: isolated
@@ -1768,8 +2035,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:8204285a1ab58e69925ed18faa17d5b1e57be4d59cd9eef40f86c604ec2b7f1b
+    approved_on: 2026-11-19
+    approved_digest: sha256:bca0ae3c34315bc299f3c811b036b60db50f96a743b470dc284b0b498120b207
   - id: CHDA:LIT:0000023
     publication: PMID:26989721
     design: cohort_screen
@@ -1778,6 +2045,20 @@ findings:
     screened: 3
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.615C>T, V205V
+        locator: {kind: in_text, element: Fig. 2}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.615C>T, p: V205V}
+        hgvs_c: NM_181486.4:c.615C>T
+        hgvs_p: NP_852259.1:p.(Val205=)
+        grch38: 12:114394789:G:A
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001684]
     phenotypes: [HP:0001684, HP:0001629]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -1790,8 +2071,8 @@ findings:
     summary: Exons 2-9 of TBX5 were sequenced in three members of one family with Holt-Oram syndrome; one carried a synonymous change (c.615C>T, p.V205V) and the other two carried no change. The authors state that its potential pathologic effect remains unknown. The paper does not say which of the three has the variant, so the lesions listed are the three patients' (secundum atrial septal defects in all three, multiple ventricular septal defects in patient 2), not the carrier's own.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:777409f969c30b9acf4aeefd74f1f5e5ad8efe00a10fbcd001479a4b0d2e0a8e
+    approved_on: 2026-11-19
+    approved_digest: sha256:c2a3d4638c1ba0195bcc11c622c0fc00b41b8b3d8c7bd383fb4dc1b57d2ea598
   - id: CHDA:LIT:0000024
     publication: PMID:25216260
     design: cohort_screen
@@ -1800,6 +2081,44 @@ findings:
     screened: 6
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 2}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.709C>T (p.Arg237Trp)
+        locator: {kind: in_text, element: Results}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.709C>T, p: p.Arg237Trp}
+        hgvs_c: NM_181486.4:c.709C>T
+        hgvs_p: NP_852259.1:p.(Arg237Trp)
+        grch38: 12:114385522:G:A
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+      - id: 2
+        as_reported: c.880G>T (p.Glu294X)
+        locator: {kind: in_text, element: Results}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.880G>T, p: p.Glu294X}
+        hgvs_c: NM_181486.4:c.880G>T
+        hgvs_p: NP_852259.1:p.(Glu294Ter)
+        grch38: 12:114366267:C:A
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001684]
+      - id: 3
+        as_reported: c.755+2T>C (IVS7(+2)T>C)
+        locator: {kind: in_text, element: Results}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.755+2T>C}
+        hgvs_c: NM_181486.4:c.755+2T>C
+        hgvs_p: NP_852259.1:p.?
+        grch38: 12:114385474:A:G
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     phenotypes: [HP:0001684, HP:0011577, HP:0011623, HP:0011625, HP:0011682]
     lesion_groups: [septal, avsd]
     syndromic: syndromic
@@ -1811,10 +2130,9 @@ findings:
         element: Results, Patient characteristics (eight patients from six unrelated Korean families; partial AVSD in one, VSD with ASD in five, VSD in one, secundum ASD in one)
     summary: Eight patients from six unrelated Korean families with Holt-Oram syndrome were screened; three families carried a TBX5 variant (c.709C>T p.Arg237Trp, c.880G>T p.Glu294X, c.755+2T>C), and MLPA found no TBX5 exon deletion or duplication. All eight patients had cardiac septal defects. The c.880G>T variant was found in family 1, a father and his child (patients 2 and 1), so that family is counted as inherited; the text available does not show transmission in the other two families. Table 2 is not in the available text, so the lesions listed are the eight patients' (secundum atrial septal defect in all; ventricular septal defect perimembranous in most, muscular in some; partial atrioventricular septal defect in one), not the carrier families' own.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:907521904546cd533c70873791dd3112e412de59663243c2623e83595c07ffe9
+    approved_on: 2026-11-19
+    approved_digest: sha256:afb924bfeffd0815c4b73dd1d657086be8e2890057b0659eb57a87d4b95a0faa
   - id: CHDA:LIT:0000025
     publication: PMID:25274398
     design: family_segregation
@@ -1823,6 +2141,15 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [cnv]
+    variants:
+      - id: 1
+        as_reported: duplication of exons 1–6 in TBX5
+        locator: {kind: in_text, element: Materials and Methods}
+        kind: cnv
+        placement: structural
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001631, HP:0001684, HP:0011623]
     phenotypes: [HP:0001684, HP:0011623, HP:0001631]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -1835,8 +2162,8 @@ findings:
     summary: A Japanese family with two affected members (a boy with secundum ASD and muscular VSD and his mother, who had ASD surgery) carried a duplication of TBX5 exons 1-6 in both; the unaffected father and older brother did not carry it.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:e8c5bac9541a77f0b4a05c4ab30ead5361ed9479bac204ffdc64b8ee8141da6b
+    approved_on: 2026-11-19
+    approved_digest: sha256:1415852bbed3b98d01715df330699085d9e9e0de9bccc5fb5841df69e02d5417
   - id: CHDA:LIT:0000026
     publication: PMID:26036351
     design: cohort_screen
@@ -1868,6 +2195,20 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.215C>A, p.Thr72Lys (heterozygous)
+        locator: {kind: in_text, element: Case Report (second paragraph)}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.215C>A, p: p.Thr72Lys}
+        hgvs_c: NM_181486.4:c.215C>A
+        hgvs_p: NP_852259.1:p.(Thr72Lys)
+        grch38: 12:114401853:G:T
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001629, HP:0030968]
     phenotypes: [HP:0001629, HP:0030968]
     lesion_groups: [other, septal]
     syndromic: syndromic
@@ -1880,12 +2221,20 @@ findings:
     summary: A 4-month-old Saudi infant with Holt-Oram syndrome, multiple ventricular septal defects and bilateral radial ray deficiency carried a novel heterozygous TBX5 missense variant (c.215C>A, p.Thr72Lys) that both parents tested negative for. The authors did no functional analysis of the variant.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:65b0bf8ee8bb60bd6cc75cdc716e7ff5a4af797ddd3bd2e4db8c6f891e9dbcaa
+    approved_on: 2026-11-19
+    approved_digest: sha256:22961247173727d0c9fdd7324d5c3198df207c2d4ef8f94e5dfb006f86f5e9e9
   - id: CHDA:LIT:0000029
     publication: PMID:26283027
     design: common_variant_association
     methods: [genotyping_array, targeted_genotyping]
+    variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: rs2433752
+        locator: {kind: in_text, element: 'Results, Combined analysis of the susceptibility loci'}
+        kind: snv_indel
+        placement: outside_region
+        reported: {rsid: rs2433752}
     cases: 6998
     controls: 8656
     p_value: 1.04e-10
@@ -1903,8 +2252,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:54949a182297c2346c96cee02fdbd3c184d207c05e10c9348e4e9edfaa0fbc81
+    approved_on: 2026-11-19
+    approved_digest: sha256:24d5a5d099d6ecd991a4fb1ead0fd0cce9fd27991d67ec1ebdbcac1b7a52dc0a
   - id: CHDA:LIT:0000031
     publication: PMID:27035640
     design: family_segregation
@@ -1913,6 +2262,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.394C>T
+        locator: {kind: in_text, element: 'Results, Identification of a novel TBX5 mutation (c.394C>T, p.P132S)'}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.394C>T, p: p.P132S}
+        hgvs_c: NM_181486.4:c.394C>T
+        hgvs_p: NP_852259.1:p.(Pro132Ser)
+        grch38: 12:114398689:G:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001684]
     phenotypes: [HP:0001684]
     lesion_groups: [septal]
     syndromic: both
@@ -1928,8 +2291,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:c99ccdbbca009dae4942c95bbd9cc854f22e958842266cdd9d8a153073cf8236
+    approved_on: 2026-11-19
+    approved_digest: sha256:7461af12ce498092b19fabbbe4443bddce49cd3e9f69ed7d948ec72aabc9c0c8
   - id: CHDA:LIT:0000032
     publication: PMID:27652283
     design: case_report
@@ -1938,6 +2301,20 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.920_C>A
+        locator: {kind: in_text, element: 'Results, Identification of a novel de novo mutation p.Pro85Thr'}
+        kind: snv_indel
+        placement: unplaced
+        reported: {transcript: NM_000192.3, c: c.920_C>A, p: p.Pro85Thr}
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001629]
+        review_status: pending_review
+        review_note: 'VariantValidator refused NM_000192.3:c.920_C>A: VariantSyntaxError: Base substitution (>) submitted with a reference sequence range in NM_000192.3:c.920_C>A'
+        review_settled_by: expert
     phenotypes: [HP:0001629]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -1950,12 +2327,24 @@ findings:
     summary: A 15-month-old boy with Holt-Oram syndrome, multiple ventricular septal defects and severe upper limb malformations carried a novel heterozygous TBX5 variant, c.920C>A (p.Pro85Thr), absent in both parents, who had no history of heart or upper limb malformation. The authors report a sibling with an atrial septal defect and give no genotype for her.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:0ea68a5e85f6c76611bfef98669c7efb3ec0236f1a7ba828430fc8b527b58da3
+    approved_on: 2026-11-19
+    approved_digest: sha256:667329d7e277507ea528a714eedab07efe4adb27402e5092a92dc05db4e0edc5
   - id: CHDA:LIT:0000034
     publication: PMID:28761722
     design: common_variant_association
     methods: [targeted_genotyping]
+    variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: rs6489956 (c.* 1101C>T)
+        locator: {kind: in_text, element: 'Results, first section'}
+        kind: snv_indel
+        placement: unplaced
+        reported: {c: c.*1101C>T, rsid: rs6489956}
+        normalisation: 1
+        review_status: pending_review
+        review_note: 'VariantValidator refused NM_181486.4:c.*1101C>T: ReferenceMismatchError: NM_181486.4:c.*1101C>T: Variant reference (C) does not agree with reference sequence (A)'
+        review_settled_by: expert
     cases: 905
     controls: 606
     p_value: 1.65e-07
@@ -1971,13 +2360,26 @@ findings:
         element: Results, first section (Shandong group)
     summary: In the Shandong group (905 cases, 606 controls, Han Chinese), the TBX5 3'UTR variant rs6489956 (c.*1101C>T) was associated with CHD under the dominant model (CT/TT vs CC), adjusted OR 2.33, P=1.65e-7. The authors report it as a non-coding variant altering miRNA binding. There are no carriers to describe; the lesions are the cohort's (seven broad CHD categories, mostly septal defects).
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:5146a793cbbfd8f616b34e86bf4bffcd601a4703bf47ed8aa70ec0963ef27659
+    approved_on: 2026-11-19
+    approved_digest: sha256:64de823f75ffd4f69a4ddd31931c1da37b25038e86af059d0f2008eed2653e9f
   - id: CHDA:LIT:0000035
     publication: PMID:28761722
     design: common_variant_association
     methods: [targeted_genotyping]
+    variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: rs6489956 (c.* 1101C>T)
+        locator: {kind: in_text, element: 'Results, first section'}
+        kind: snv_indel
+        placement: unplaced
+        reported: {c: c.*1101C>T, rsid: rs6489956}
+        normalisation: 1
+        review_status: pending_review
+        review_note: 'VariantValidator refused NM_181486.4:c.*1101C>T: ReferenceMismatchError: NM_181486.4:c.*1101C>T: Variant reference (C) does not agree with reference sequence (A)'
+        review_settled_by: expert
     cases: 272
     controls: 384
     p_value: 0.0013
@@ -1993,9 +2395,10 @@ findings:
         element: Results, first section (Shanghai cohort)
     summary: In the Shanghai group (272 cases, 384 controls, Han Chinese), the TBX5 3'UTR variant rs6489956 (c.*1101C>T) was associated with CHD under the dominant model (CT/TT vs CC), adjusted OR 1.75, P=0.0013. There are no carriers to describe; the lesions are the cohort's (seven broad CHD categories, mostly septal defects).
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:43023d738770f7a0812c5c44078e9990963621a60c4f8baa186177b39e716ac1
+    approved_on: 2026-11-19
+    approved_digest: sha256:c7657b096f4400ad6b6f2d39c6ea51cc654a9d3cbb21c214adbc7572ae83b05b
   - id: CHDA:LIT:0000037
     publication: PMID:29707177
     design: cohort_screen
@@ -2004,6 +2407,17 @@ findings:
     screened: 95
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 2}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: E128X (G14742T)
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: protein
+        reported: {p: E128X}
+        hgvs_p: NP_852259.1:p.(Glu128Ter)
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 2}
+        phenotypes: [HP:0001631, HP:0001629]
     phenotypes: [HP:0001631, HP:0001629]
     lesion_groups: [septal]
     syndromic: isolated
@@ -2015,10 +2429,9 @@ findings:
         element: Materials and Methods, Study population (95 patients; 62 VSD, 25 ASD, 8 TOF)
     summary: Screening TBX5 exons 4-7 by PCR-SSCP and sequencing in 95 sporadic Iranian paediatric CHD patients found a heterozygous nonsense variant, p.E128X (G14742T), in two infants (one with ASD and a large VSD, the other with an isolated VSD), and not in 82 controls. The parents were clinically normal and the authors say it may be de novo; parental genotyping is not reported.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:d9aabf6482c24193cad9276cc8b7d2a7c7196333cc2933dc75a9451f2c0430e2
+    approved_on: 2026-11-19
+    approved_digest: sha256:a772ddf3164babf1c129c76bad28170f2cd914094300357f7f08c2bec21e1b61
   - id: CHDA:LIT:0000038
     publication: PMID:29755943
     design: family_segregation
@@ -2027,6 +2440,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.510+5G>T
+        locator: {kind: in_text, element: Family 1}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_000192.3, c: c.510+5G>T}
+        hgvs_c: NM_181486.4:c.510+5G>T
+        hgvs_p: NP_852259.1:p.?
+        grch38: 12:114398568:C:A
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001631]
     phenotypes: [HP:0001631]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -2040,8 +2467,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:a2bb5b4d7198fed7c1cd50d28d558108111c8bf56477f2d9177e4edd1bbca522
+    approved_on: 2026-11-19
+    approved_digest: sha256:486b3469bc9c0f52f57ecd4df65193e60f22ed084c7383e8f74fc3a17ade3194
   - id: CHDA:LIT:0000040
     publication: PMID:29952356
     design: cohort_screen
@@ -2073,6 +2500,20 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: NM_181486.2:c.243-1G>C
+        locator: {kind: in_text, element: Case presentation}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_181486.2, c: c.243-1G>C}
+        hgvs_c: NM_181486.4:c.243-1G>C
+        hgvs_p: NP_852259.1:p.?
+        grch38: 12:114399633:C:G
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001684, HP:0011623]
     phenotypes: [HP:0001684, HP:0011623]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -2086,8 +2527,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:70527935c379c290242eb3f27f7c38003d6865c5ea08fac7824ac6c964aa6371
+    approved_on: 2026-11-19
+    approved_digest: sha256:f4f8e7bbe719bdd98a3964eb1ef3a1399a5765e1b3af16e0cfb55fc1f40d4390
   - id: CHDA:LIT:0000042
     publication: PMID:30221396
     design: cohort_screen
@@ -2115,6 +2556,19 @@ findings:
     publication: PMID:30834692
     design: common_variant_association
     methods: [targeted_sequencing]
+    variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: TBX5-(rs6489957) c.1281C/T
+        locator: {kind: in_text, element: Methods table of primers and variants}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_000192.3, c: c.1281C>T, rsid: rs6489957}
+        hgvs_c: NM_181486.4:c.1281C>T
+        hgvs_p: NP_852259.1:p.(Ser427=)
+        grch38: 12:114355808:G:A
+        normalisation: 1
+        zygosity: not_stated
     cases: 150
     controls: 90
     phenotypes: [HP:0001629, HP:0001631, HP:0001636, HP:0001643, HP:0001669, HP:0001674, HP:0001680, HP:0010316]
@@ -2128,13 +2582,14 @@ findings:
         element: Table 3 (TBX5 rs6489957 genotype and allele counts)
     summary: In 150 Egyptian children with sporadic nonsyndromic congenital heart disease and 90 controls, the synonymous TBX5 variant rs6489957 (c.1281C>T) was genotyped by Sanger sequencing, and the authors report a significantly different genotype distribution; Table 3 gives CT 63 and CC 87 (TT 0) in cases against TT 47, CT 41 and CC 2 in controls. No carrier is reported; the lesions are the cohort's (ventricular and atrial septal defects, patent ductus arteriosus, aortic coarctation and tetralogy of Fallot).
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
     review_status: pending_review
     review_note: Table 3 prints an odds ratio of 0.187 for rs6489957, while the allele counts in the same table give about 11.3. Table 6 headers the cases CC N=87 and CT N=58 (sum 145 of 150), while Table 3 and the text give CT 63 (42%); the text gives the control CC frequency as 0.03% where Table 3 lists 2 of 90 controls.
+    review_settled_by: authors
     odds_ratio: 0.187
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:f3bd7e028b4543a509387dd69e31ec567db24a50c5a4ace98b5381976b98d0d8
+    approved_on: 2026-11-19
+    approved_digest: sha256:ed7e24c7e9990292a553753f57ed762b41f3c28add3f51345ac8fd46f8bf2d51
   - id: CHDA:LIT:0000044
     publication: PMID:31388035
     design: cohort_screen
@@ -2168,6 +2623,20 @@ findings:
     screened: 178
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: 'NM_000192.3: c.577G>T; p.(Gly193*)'
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_000192.3, c: c.577G>T, p: p.(Gly193*)}
+        hgvs_c: NM_181486.4:c.577G>T
+        hgvs_p: NP_852259.1:p.(Gly193Ter)
+        grch38: 12:114394827:C:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001631, HP:0001647]
     phenotypes: [HP:0001629, HP:0001631, HP:0001647]
     lesion_groups: [lvoto, septal]
     syndromic: isolated
@@ -2179,10 +2648,9 @@ findings:
         element: Table 1 (178 patients with CHD and AF)
     summary: Sanger sequencing of the TBX5 coding exons and splice sites in 178 unrelated Chinese Han adults with both congenital heart disease and atrial fibrillation found one carrier of a novel nonsense variant, c.577G>T, p.(Gly193*), absent from 292 healthy controls; the carrier had congenital heart disease (type not stated for the carrier), atrial fibrillation and bicuspid aortic valve, and parental origin is not shown.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:80ee82a445a737ac6ada20d6eb4896bf7fd5202899c02d5d9b2a83e7b442a3d5
+    approved_on: 2026-11-19
+    approved_digest: sha256:f26876806eeec1f184d5cc28689b4ba7650f66d98f2b68398dbd4966602dd4cc
   - id: CHDA:LIT:0000048
     publication: PMID:33306779
     design: family_segregation
@@ -2191,6 +2659,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: 'NM_000192.3: c.577G>T; p.(Gly193*)'
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_000192.3, c: c.577G>T, p: p.(Gly193*)}
+        hgvs_c: NM_181486.4:c.577G>T
+        hgvs_p: NP_852259.1:p.(Gly193Ter)
+        grch38: 12:114394827:C:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001631, HP:0001647, HP:0001629]
     phenotypes: [HP:0001631, HP:0001629, HP:0001647]
     lesion_groups: [septal, lvoto]
     syndromic: isolated
@@ -2204,8 +2686,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:2d78a479dd8a42e69b8795c9dbaf50c87319f9ad8b175dec660d9ef339d88bb6
+    approved_on: 2026-11-19
+    approved_digest: sha256:2fdf8c14544598d705e0e6753739812e52bfd1162d7c311f5dcd674464e01951
   - id: CHDA:LIT:0000049
     publication: PMID:33281169
     design: case_report
@@ -2214,6 +2696,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.148-1G>C
+        locator: {kind: in_text, element: Case description (single paragraph)}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.148-1G>C}
+        hgvs_c: NM_181486.4:c.148-1G>C
+        hgvs_p: NP_852259.1:p.?
+        grch38: 12:114401921:C:G
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001631, HP:0001634]
     phenotypes: [HP:0001631, HP:0001634]
     lesion_groups: [septal, other]
     syndromic: syndromic
@@ -2223,9 +2719,10 @@ findings:
         element: Case description (single paragraph)
     summary: A 30-year-old woman with an atrial septal defect, polydactyly, sick sinus syndrome and mitral valve prolapse carried a heterozygous TBX5 c.148-1G>C intron 2 splice-acceptor variant that the authors call pathogenic; her cardiac family history was unremarkable and parental testing is not described.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:e69f6f1b74ccc3b8c5f4b3367f41a846e47baba9c8f7c3b1005062d2ba9d82ba
+    approved_on: 2026-11-19
+    approved_digest: sha256:c7de02c7d0a50e8d6cb8fb0ee1b90de99ea1f3ac3d39c439bc370524952e1231
   - id: CHDA:LIT:0000050
     publication: PMID:33369127
     design: family_segregation
@@ -2234,6 +2731,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: p.T223M c.C668T
+        locator: {kind: in_text, element: Results}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.668C>T, p: p.T223M}
+        hgvs_c: NM_181486.4:c.668C>T
+        hgvs_p: NP_852259.1:p.(Thr223Met)
+        grch38: 12:114385563:G:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001684, HP:0011623, HP:0011624]
     phenotypes: [HP:0001684, HP:0011623, HP:0011624]
     lesion_groups: [septal]
     syndromic: isolated
@@ -2247,8 +2758,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:37852e600799c12fa551bde4cb3c43179369a659b0a0a1adb4a596853af397bc
+    approved_on: 2026-11-19
+    approved_digest: sha256:5dc35a0787b2c9c0c3c08d89c2f059eece29ea199b6f794997158755588a9957
   - id: CHDA:LIT:0000052
     publication: PMID:33866394
     design: case_report
@@ -2257,6 +2768,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.905delA
+        locator: {kind: in_text, element: 'Results, Identification of two novel TBX5 pathogenic variants (heterozygous c.905delA, p.Gln302Argfs*92, exon 9)'}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.905delA, p: p.Gln302Argfs*92}
+        hgvs_c: NM_181486.4:c.905del
+        hgvs_p: NP_852259.1:p.(Gln302ArgfsTer92)
+        grch38: 12:114366241:CT:C
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001631]
     phenotypes: [HP:0001631]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -2270,8 +2795,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:c16bd59866b320470e34f2a7c0e5d3d0c286c11c628efc9309cf08e367f1f580
+    approved_on: 2026-11-19
+    approved_digest: sha256:cc482a2debac375413fa7016c640dc8e55bb73d0b7137da1570fddbe3dbd50b0
   - id: CHDA:LIT:0000053
     publication: PMID:34738001
     design: family_segregation
@@ -2280,6 +2805,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.510+1G>A
+        locator: {kind: in_text, element: Clinical Report}
+        kind: snv_indel
+        placement: unplaced
+        reported: {transcript: NM_000192, c: c.510+1G>A}
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001629]
+        review_status: pending_review
+        review_note: 'VariantValidator refused NM_000192:c.510+1G>A: RefSeq variant accession numbers MUST include a version number'
+        review_settled_by: expert
     phenotypes: [HP:0001629]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -2292,8 +2831,8 @@ findings:
     summary: A TBX5 splice-donor variant (c.510+1G>A) found by exome sequencing in a fetus with Holt-Oram syndrome was inherited from the father; the affected father and affected brother carried it, and the mother and both grandparents did not.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:5aac8113c9e75b73b454265a6ef08cbc85db024e78c048211485f4ad9a1346f9
+    approved_on: 2026-11-19
+    approved_digest: sha256:2ccaea03bbda2b09cec58b7c8c86cadd68df11e387400ae93d9c67f28ec60fa3
   - id: CHDA:LIT:0000054
     publication: PMID:34490705
     design: family_segregation
@@ -2302,6 +2841,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.755 + 1 G > A
+        locator: {kind: in_text, element: Results 3.2}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_000192.3, c: c.755+1G>A, p: p.S252Rfs*2}
+        hgvs_c: NM_181486.4:c.755+1G>A
+        hgvs_p: NP_852259.1:p.?
+        grch38: 12:114385475:C:T
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001629, HP:0001643, HP:0001684, HP:0005301, HP:0031134]
     phenotypes: [HP:0001629, HP:0001643, HP:0001684, HP:0005301, HP:0031134]
     lesion_groups: [septal, other]
     syndromic: syndromic
@@ -2315,10 +2868,9 @@ findings:
         element: Results 3.3 and Table 1 (allele frequency 50% in III-1, 48.3% in III-2 and 38.1% in the mother II-2, called mosaic heterozygous)
     summary: A TBX5 splice-donor variant (c.755+1G>A) found by exome sequencing in a girl with atrial and ventricular septal defects was carried by her affected brother and affected mother (mosaic) and by none of the four unaffected relatives tested.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:ac515d20c86332d3d3cdff54483f54ec1b434bffc54f51145143291259add407
+    approved_on: 2026-11-19
+    approved_digest: sha256:9b62bb3460fec10dbed70ea1af22dfa0b541b3931b46d1d61fc054d02625e081
   - id: CHDA:LIT:0000056
     publication: PMID:35514310
     design: family_segregation
@@ -2327,6 +2879,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.577G>T p.Gly193*
+        locator: {kind: in_text, element: Table I}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_181486.4, c: c.577G>T, p: p.Gly193*}
+        hgvs_c: NM_181486.4:c.577G>T
+        hgvs_p: NP_852259.1:p.(Gly193Ter)
+        grch38: 12:114394827:C:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0011722, HP:0001684]
     phenotypes: [HP:0011722, HP:0001684]
     lesion_groups: [anomalous_venous_return, septal]
     syndromic: syndromic
@@ -2344,8 +2910,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:9d52db58ec55c0e99c08fee116d43680a1b53c0144f82eba1c9b52f1c7bff274
+    approved_on: 2026-11-19
+    approved_digest: sha256:4ab81338c082f7e0119a1359d05174aa9c5db356898b009b07e8cabe9e4f60c1
   - id: CHDA:LIT:0000057
     publication: PMID:35711406
     design: case_report
@@ -2376,6 +2942,16 @@ findings:
     p_value: 0.0002
     odds_ratio: 2.24
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: rs11067075 (g.51682G > T)
+        locator: {kind: in_text, element: Results}
+        kind: snv_indel
+        placement: unplaced
+        reported: {rsid: rs11067075}
+        review_status: pending_review
+        review_note: The paper names the variant by rsID rs11067075 and a g. name (g.51682G > T) and gives no c. or p. name.
+        review_settled_by: atlas_model
     phenotypes: [HP:0001629]
     lesion_groups: [septal]
     syndromic: isolated
@@ -2389,11 +2965,13 @@ findings:
         element: Table 3, TBX5 allele rows
     summary: In a Pakistani paediatric cohort of children with isolated ventricular septal defect and healthy controls, the TBX5 variant rs11067075 (g.51682G>T) had a T allele frequency of 0.44 in cases and 0.26 in controls (odds ratio 2.24, 95% CI 1.47-3.41, p 0.0002; the authors' Bonferroni threshold is 0.0125). The ventricular septal defect is the cohort's; the study gives no carrier-level lesions.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:6582543d70fcc5896363933b03d3552b9c2a687a6c192c2c0b2ebf5c6efd4020
+    approved_on: 2026-11-19
+    approved_digest: sha256:aae351e70f41e9ec6773468aa7e81da6cd19ba05e9b94bc6ca52c59b25a4ec9b
     review_status: pending_review
     review_note: 'The case and control numbers disagree within the paper: Methods and the abstract give 200 cases and 150 controls, the Table 2 header gives 121 cases and 121 controls, and the counts in Table 3 sum to 101 cases and 100 controls.'
+    review_settled_by: authors
   - id: CHDA:LIT:0000059
     publication: PMID:36444245
     design: family_segregation
@@ -2402,6 +2980,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.680_681insCTGAGAATAAT (p.I227fs∗)
+        locator: {kind: in_text, element: Discussion}
+        kind: snv_indel
+        placement: unplaced
+        reported: {transcript: NM_181486.4, c: c.680_681insCTGAGAATAAT, p: p.I227fs*}
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0011565, HP:0011643, HP:0005301, HP:0001629]
+        review_status: pending_review
+        review_note: the paper names p.I227fs* but VariantValidator places NM_181486.4:c.680_681insCTGAGAATAAT as NP_852259.1:p.(Glu228Ter); the two disagree, so the variant is unplaced
+        review_settled_by: expert
     phenotypes: [HP:0011565, HP:0011643, HP:0005301, HP:0001629]
     lesion_groups: [septal, other]
     syndromic: syndromic
@@ -2415,10 +3007,9 @@ findings:
         element: Results, paragraph 1 and Figure 1A (pedigree)
     summary: In one Chinese family, exome sequencing found a novel TBX5 insertion, c.680_681insCTGAGAATAAT (p.Ile227fs*), in the proband and his father but not in the unaffected grandparents tested by Sanger sequencing; the proband had common atrium, unroofed coronary sinus and a persistent left superior vena cava, and the father an interventricular septal defect.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:c9138d0ba97693b5109d879103d0d8435e5adac0a020c885a6a88bd8458c8a41
+    approved_on: 2026-11-19
+    approved_digest: sha256:0d5c0eab56078728e497b8dc9cc13e80181f5a854fd70336fe1b18254c41ceae
   - id: CHDA:LIT:0000061
     publication: PMID:36936432
     design: case_report
@@ -2427,6 +3018,35 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: rs883079
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: unplaced
+        reported: {rsid: rs883079}
+        zygosity: heterozygous
+        with: [2]
+        phase: trans
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0025503]
+        review_status: pending_review
+        review_note: The paper names the variant by rsID with a chromosome 12 position of unstated build (114793240, C>T) and places it in the TBX5 3' UTR; it gives no c. name.
+        review_settled_by: atlas_model
+      - id: 2
+        as_reported: rs10850326
+        locator: {kind: in_text, element: Table 1}
+        kind: snv_indel
+        placement: unplaced
+        reported: {rsid: rs10850326}
+        zygosity: heterozygous
+        with: [1]
+        phase: trans
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0025503]
+        review_status: pending_review
+        review_note: The paper names the variant by rsID with a chromosome 12 position of unstated build (114793297, T>C) and places it in the TBX5 3' UTR; it gives no c. name.
+        review_settled_by: atlas_model
     phenotypes: [HP:0025503]
     lesion_groups: [other]
     syndromic: syndromic
@@ -2440,10 +3060,9 @@ findings:
         element: Discussion, paragraph 2 (both dbSNP entries benign in ClinVar)
     summary: One woman with upper limb dysplasia and a left main coronary artery arising from the right coronary sinus carried two TBX5 3' UTR single-nucleotide variants, rs883079 (from her mother) and rs10850326 (from her father), both benign in ClinVar; no TBX5 exon variant was found, and the authors hypothesise, without testing it, that the two 3' UTR variants cause her disease.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:0e4465edb28e425ba0939c4396b767894a24692b4fbd79a899a57f4265151515
+    approved_on: 2026-11-19
+    approved_digest: sha256:4d475c8a69049048537888519b23045b08925405095451d7e57d42981f5fcf18
   - id: CHDA:LIT:0000062
     publication: PMID:38397197
     design: cohort_screen
@@ -2498,6 +3117,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.254C>G (p.P85R)
+        locator: {kind: in_text, element: Figure 1A legend}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.254C>G, p: p.P85R}
+        hgvs_c: NM_181486.4:c.254C>G
+        hgvs_p: NP_852259.1:p.(Pro85Arg)
+        grch38: 12:114399621:G:C
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001631, HP:0001629]
     phenotypes: [HP:0001631, HP:0001629]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -2511,8 +3144,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:559be08a3ba36fd4a698a06c889ad3ec8f70064a83ffbc9c560fbd3fe340262d
+    approved_on: 2026-11-19
+    approved_digest: sha256:de172ea684c2ea7a46787a68045ff31885bb96283e1fecd03665253a98f99d81
   - id: CHDA:LIT:0000066
     publication: PMID:40126773
     design: case_report
@@ -2521,6 +3154,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.486del (p.Asn162Lysfs*12)
+        locator: {kind: in_text, element: Results}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.486del, p: p.Asn162Lysfs*12}
+        hgvs_c: NM_181486.4:c.486del
+        hgvs_p: NP_852259.1:p.(Asn162LysfsTer12)
+        grch38: 12:114398596:TG:T
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001631, HP:0001629]
     phenotypes: [HP:0001631, HP:0001629]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -2534,9 +3181,10 @@ findings:
         element: Conclusion (only proband data were included and family data were not collected)
     summary: A 26-year-old man with congenital heart disease and pulmonary arterial hypertension, atrial and ventricular septal defects and left hand deformity carried a TBX5 frameshift variant, c.486del (p.Asn162Lysfs*12), found by exome sequencing; family data were not collected.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:6ef57eb362f0d80c1856c1577ddf6360ef5f34acf6903eee3799640a30966d95
+    approved_on: 2026-11-19
+    approved_digest: sha256:9ccd440c7f55f64c8a07689b365fa177409e1057a3f80a920b7d1cb926b6d562
   - id: CHDA:LIT:0000067
     publication: PMID:42311150
     design: common_variant_association
@@ -2545,6 +3193,16 @@ findings:
     controls: 600
     odds_ratio: 1.5
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: rs11067101
+        locator: {kind: in_text, element: Results 3.3}
+        kind: snv_indel
+        placement: unplaced
+        reported: {rsid: rs11067101}
+        review_status: pending_review
+        review_note: The paper names the variant by rsID alone and does not give its position.
+        review_settled_by: atlas_model
     phenotypes: [HP:0001627]
     lesion_groups: [other]
     syndromic: isolated
@@ -2556,9 +3214,10 @@ findings:
         element: Methods 2.1 and 2.4 (585 cases, 600 controls; MassArray iPLEX genotyping of 6 TBX5 SNPs)
     summary: In a single-centre Chinese case-control study the TBX5 SNP rs11067101 was associated with higher risk of non-syndromic congenital heart disease (GA vs GG, adjusted odds ratio 1.50, 95% CI 1.08-2.11; 585 cases, 600 controls).
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:ab5b6635cc63104dd9533eb2164ef8a5c735e3917236012dd6e096b04b320344
+    approved_on: 2026-11-19
+    approved_digest: sha256:99c8d57d8cb9e40519890057f6dcfb619a9c44766ff6f767ed4bb0f13898e4d6
   - id: CHDA:LIT:0000068
     publication: PMID:42311150
     design: common_variant_association
@@ -2567,6 +3226,16 @@ findings:
     controls: 600
     odds_ratio: 2.98
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: rs6489956
+        locator: {kind: in_text, element: Results 3.3}
+        kind: snv_indel
+        placement: unplaced
+        reported: {rsid: rs6489956}
+        review_status: pending_review
+        review_note: The paper names the variant by rsID alone and does not give its position.
+        review_settled_by: atlas_model
     phenotypes: [HP:0001627]
     lesion_groups: [other]
     syndromic: isolated
@@ -2578,9 +3247,10 @@ findings:
         element: Methods 2.1 and 2.4 (585 cases, 600 controls; MassArray iPLEX genotyping of 6 TBX5 SNPs)
     summary: In the same case-control study the TBX5 SNP rs6489956 was associated with higher risk of non-syndromic congenital heart disease (recessive model, adjusted odds ratio 2.98, 95% CI 1.94-4.58; 585 cases, 600 controls).
     extracted_by: agent:literature-extract/claude-sonnet-5-5
+    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:071c874101b9275194578273db6bd0f82328b3b58a0d0bceab5ee3ef27636abc
+    approved_on: 2026-11-19
+    approved_digest: sha256:9f5a30a43d33b74bf39bf6a7ce914712ee7d349a8842bd9a3c94e6ffaef4b240
   - id: CHDA:LIT:0000069
     publication: PMID:42482497
     design: family_segregation
@@ -2589,6 +3259,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: NM_181486.2:c.1270C>T, p.(Gln424Ter), rs780987688
+        locator: {kind: in_text, element: Report}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_181486.2, c: c.1270C>T, p: p.(Gln424Ter), rsid: rs780987688}
+        hgvs_c: NM_181486.4:c.1270C>T
+        hgvs_p: NP_852259.1:p.(Gln424Ter)
+        grch38: 12:114355819:G:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001643]
     phenotypes: [HP:0001643]
     lesion_groups: [other]
     syndromic: isolated
@@ -2602,8 +3286,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-03
-    approved_digest: sha256:ecfa7455c1f413581459868b59f31ab776e9bcfcd02238fafbf390883891025e
+    approved_on: 2026-11-19
+    approved_digest: sha256:dd6400044f8c779598914a95bf2889e9afbda481d3057ec3d60ed7ee243bc651
   - id: CHDA:LIT:0000070
     publication: PMID:19586889
     design: cohort_screen
@@ -2635,6 +3319,15 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [cnv]
+    variants:
+      - id: 1
+        as_reported: chr12:114797295-114884394
+        locator: {kind: in_text, element: Results}
+        kind: cnv
+        placement: structural
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001684]
     phenotypes: [HP:0001684]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -2648,8 +3341,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:0957ba7a44dac88ff329211f3aabc0e6768b5a3e567e65e9a4278f594f645a68
+    approved_on: 2026-11-19
+    approved_digest: sha256:d4997e2cd6be9c900290249b0e014b78d3beb30d69c5fd99bbf5871fc9e90820
   - id: CHDA:LIT:0000072
     publication: PMID:29555671
     design: cohort_screen
@@ -2658,6 +3351,20 @@ findings:
     screened: 30
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: NM_000192.3:c.1221C>G, p.Y407*
+        locator: {kind: in_text, element: 'Results, hcCHD Gene Screen'}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_000192.3, c: c.1221C>G, p: p.Y407*}
+        hgvs_c: NM_181486.4:c.1221C>G
+        hgvs_p: NP_852259.1:p.(Tyr407Ter)
+        grch38: 12:114355868:G:C
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001631, HP:0001629, HP:0004383]
     phenotypes: [HP:0001631, HP:0001629, HP:0004383]
     lesion_groups: [septal, lvoto]
     syndromic: isolated
@@ -2669,10 +3376,9 @@ findings:
         element: Table 2
     summary: Exome sequencing of 30 Australian families with congenital heart disease found a novel TBX5 stop-gain variant, p.Tyr407Ter, in one family (Family 00860). Family 00860 had atrial and ventricular septal defects; Table 2 also lists mitral regurgitation and left ventricular hypoplasia for it. The paper notes that subtle upper-limb abnormalities may have been missed.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:1108caa750d009f59c1c2494c6c9f838a35ef99058e1aeb1ef9508289530532a
+    approved_on: 2026-11-19
+    approved_digest: sha256:c16ad7164d67e4932f17a73284a701bdb2ea3745e2ec9cce1ccd32535ad7a282
   - id: CHDA:LIT:0000073
     publication: PMID:29555671
     design: family_segregation
@@ -2681,6 +3387,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: NM_000192.3:c.1221C>G, p.Y407*
+        locator: {kind: in_text, element: 'Results, hcCHD Gene Screen'}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_000192.3, c: c.1221C>G, p: p.Y407*}
+        hgvs_c: NM_181486.4:c.1221C>G
+        hgvs_p: NP_852259.1:p.(Tyr407Ter)
+        grch38: 12:114355868:G:C
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001631, HP:0001629, HP:0004383]
     phenotypes: [HP:0001631, HP:0001629, HP:0004383]
     lesion_groups: [septal, lvoto]
     syndromic: isolated
@@ -2693,8 +3413,8 @@ findings:
     summary: In Family 00860 the dominantly inherited TBX5 stop-gain p.Tyr407Ter segregated with disease in all six affected family members, who had atrial and ventricular septal defects; Table 2 also lists left ventricular hypoplasia for the family. The paper does not give a count of unaffected carriers or of affected non-carriers.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:73d34f344f2ddd31733224bd4d670b1eac9d60664b2742eb650b42d797f58097
+    approved_on: 2026-11-19
+    approved_digest: sha256:52017f4b6e701ea7668daa699d18f69cab316260ad53c45fe20243440a60e855
   - id: CHDA:LIT:0000074
     publication: PMID:32641638
     design: cohort_screen
@@ -2703,6 +3423,20 @@ findings:
     screened: 198
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: 'NM_000192.3: c.692C>T; p.(Pro231Leu)'
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_000192.3, c: c.692C>T, p: p.(Pro231Leu)}
+        hgvs_c: NM_181486.4:c.692C>T
+        hgvs_p: NP_852259.1:p.(Pro231Leu)
+        grch38: 12:114385539:G:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001719, HP:0001629]
     phenotypes: [HP:0001719, HP:0001629]
     lesion_groups: [conotruncal, septal]
     syndromic: isolated
@@ -2716,8 +3450,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:d45adb81790efc5f9bbdef73969d0f56d25547e9104685341d8c2541b447d1ff
+    approved_on: 2026-11-19
+    approved_digest: sha256:5924773d0b8fdf7b56caa009ddba1e945a8ba0353db392d5e9532a41ebc08c2d
   - id: CHDA:LIT:0000075
     publication: PMID:32641638
     design: family_segregation
@@ -2726,6 +3460,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: 'NM_000192.3: c.692C>T; p.(Pro231Leu)'
+        locator: {kind: in_text, element: 'Results, identification of a pathogenic TBX5 mutation'}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_000192.3, c: c.692C>T, p: p.(Pro231Leu)}
+        hgvs_c: NM_181486.4:c.692C>T
+        hgvs_p: NP_852259.1:p.(Pro231Leu)
+        grch38: 12:114385539:G:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001719, HP:0001629]
     phenotypes: [HP:0001719, HP:0001629]
     lesion_groups: [conotruncal, septal]
     syndromic: isolated
@@ -2739,8 +3487,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:8fda25061ca50f3b003091340f7002ddf0ed5afa89dff20caa56dab4f0409d67
+    approved_on: 2026-11-19
+    approved_digest: sha256:065b077ebe48ad3459569889c4f42fce77d3db56069a2b875bc7c34a30c34986
   - id: CHDA:LIT:0000076
     publication: PMID:42751140
     design: case_report
@@ -2749,6 +3497,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.130del; p.(Ala44ProfsTer22)
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.130del, p: p.(Ala44ProfsTer22)}
+        hgvs_c: NM_181486.4:c.130del
+        hgvs_p: NP_852259.1:p.(Ala44ProfsTer22)
+        grch38: 12:114403768:GC:G
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001684, HP:0011623]
     phenotypes: [HP:0001684, HP:0011623]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -2762,8 +3524,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:3cff8903fb4a7bfca72e8988088c8e834a14ba8aa90e2ac22c38c6288d7a6204
+    approved_on: 2026-11-19
+    approved_digest: sha256:3393e027c8cf8ec21becca054cefd06b490644b94fbe9fcafedbd5abf758b1c1
   - id: CHDA:LIT:0000077
     publication: PMID:12818525
     design: family_segregation
@@ -2772,6 +3534,17 @@ findings:
     screened: 2
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 2}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: Y136X
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: protein
+        reported: {p: Y136X}
+        hgvs_p: NP_852259.1:p.(Tyr136Ter)
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 2}
+        phenotypes: [HP:0001631]
     phenotypes: [HP:0001631]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -2783,8 +3556,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:25744924bb9d2b8624246d1a6a15f3d2d702997a310e96aec72b82cffee5326c
+    approved_on: 2026-11-19
+    approved_digest: sha256:25ef644b66bb73c842239a02872319d8e097178d85b1ee527a4b27f40f099dc1
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000078
@@ -2841,6 +3614,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.373G>A, resulting in the missense mutation p.Gly125Arg
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: unplaced
+        reported: {c: c.373G>A, p: p.Gly125Arg}
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001627]
+        review_status: pending_review
+        review_note: the paper names p.Gly125Arg but VariantValidator places NM_181486.4:c.373G>A as NP_852259.1:p.(Gly125Ser); the two disagree, so the variant is unplaced
+        review_settled_by: expert
     phenotypes: [HP:0001627]
     lesion_groups: [other]
     syndromic: syndromic
@@ -2850,10 +3637,9 @@ findings:
         element: Abstract
     summary: One large family with atypical Holt-Oram syndrome carried the missense variant c.373G>A (p.Gly125Arg), which the authors report cosegregates with the disease in all investigated affected members; few members have congenital heart disease, and the abstract does not give the lesion.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:863b55bb63171801249180b243f59803dc764ee769af046d50bc36d0d1b5f208
+    approved_on: 2026-11-19
+    approved_digest: sha256:adbd948517f6063a421b54c79fed399effeed0b9d9fc4e49cc67d13705548cd6
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000081
@@ -2864,6 +3650,17 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: V263M
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: protein
+        reported: {p: V263M}
+        hgvs_p: NP_852259.1:p.(Val263Met)
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001631]
     phenotypes: [HP:0001631]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -2875,8 +3672,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:da22547f18124c82ca7f593931aed1a59b46eb14ad57e64401b4e2c4c5bd243d
+    approved_on: 2026-11-19
+    approved_digest: sha256:38af56956c4d5712fe1aecb3f69e22b69a78997427beb45504426d81d098d3ef
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000082
@@ -2884,6 +3681,16 @@ findings:
     design: common_variant_association
     methods: [not_stated]
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: rs11067075
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: unplaced
+        reported: {rsid: rs11067075}
+        review_status: pending_review
+        review_note: The abstract names the tested SNP by rsID alone and does not give its position.
+        review_settled_by: atlas_model
     cases: 192
     controls: 192
     p_value: 0.0037
@@ -2898,8 +3705,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:228997bc97d8af456f61aad00caacaf3f306dde3acb0bded0e88489b8f5f38e1
+    approved_on: 2026-11-19
+    approved_digest: sha256:c5d607937c8ea699a36f091cecff8ca73b4de5dedf69a56643f5845bd1ecb96f
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000083
@@ -2910,6 +3717,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.663-1G greater than A
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: unplaced
+        reported: {c: c.663-1G>A}
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001631, HP:0025506]
+        review_status: pending_review
+        review_note: 'VariantValidator refused NM_181486.4:c.663-1G>A: ReferenceMismatchError: NM_181486.4:c.662G>A: Variant reference (G) does not agree with reference sequence (A)'
+        review_settled_by: expert
     phenotypes: [HP:0001631, HP:0025506]
     lesion_groups: [septal, other]
     syndromic: syndromic
@@ -2919,10 +3740,9 @@ findings:
         element: Abstract
     summary: A 36-year-old man with Holt-Oram syndrome carried a novel exon 8 acceptor splice-site variant (c.663-1G>A) and had an atrial septal defect and an anomalous right coronary artery crossing between the aorta and the pulmonary artery.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:72907fff33aa2abe96a7dde926f62ca29e063c42387711b856686be336f57db0
+    approved_on: 2026-11-19
+    approved_digest: sha256:567420908fe714caade8fc2f2fbd882f43db24b060b70e84380ea97c97abfaeb
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000084
@@ -2933,6 +3753,15 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [chromosomal]
+    variants:
+      - id: 1
+        as_reported: de novo partial trisomy 12q (12q24.21→qter)
+        locator: {kind: in_text, element: Abstract}
+        kind: chromosomal
+        placement: structural
+        zygosity: not_stated
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001680]
     phenotypes: [HP:0001680]
     lesion_groups: [lvoto]
     syndromic: syndromic
@@ -2944,8 +3773,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:383731ad28b22fecef6e32fafd61d5b7d155e2a3379825950ba76040eb965eea
+    approved_on: 2026-11-19
+    approved_digest: sha256:bf6af94456c0ff73f77deb2efb25b719bc872e6d904dba37e2dc93c07639ce12
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000085
@@ -2956,6 +3785,17 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: p.L65Qfs*10
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: protein
+        reported: {p: p.L65Qfs*10}
+        hgvs_p: NP_852259.1:p.(Leu65GlnfsTer10)
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001629]
     phenotypes: [HP:0001629]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -2967,8 +3807,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:b06b49871118a953d1be59d55b30909c58b4a9b5b1e14a614c89d73f5d79b1f9
+    approved_on: 2026-11-19
+    approved_digest: sha256:1bd53444ecaa867c925c9a5a74e853047ddb0f74ac439d3bb116d54a63ad154c
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000086
@@ -2979,6 +3819,17 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: Arg279ter
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: protein
+        reported: {p: Arg279Ter}
+        hgvs_p: NP_852259.1:p.(Arg279Ter)
+        zygosity: not_stated
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0011576, HP:0001680]
     phenotypes: [HP:0011576, HP:0001680]
     lesion_groups: [avsd, lvoto]
     syndromic: syndromic
@@ -2988,10 +3839,9 @@ findings:
         element: Abstract
     summary: A 9-year-old boy with Holt-Oram syndrome, an intermediate atrioventricular canal defect and aortic coarctation carried a de novo Arg279ter variant, previously described.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:073130441886eb3eca8f34c4da1afd6b76e4a2e2751192994dbc13e79aceb47c
+    approved_on: 2026-11-19
+    approved_digest: sha256:724391910010a20221a6a93a7c1d52d00153b989cc47c21bd9ae308e62e15140
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000087
@@ -3002,6 +3852,15 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [cnv]
+    variants:
+      - id: 1
+        as_reported: contiguous deletion of TBX5 and TBX3
+        locator: {kind: in_text, element: Abstract}
+        kind: cnv
+        placement: structural
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001627]
     phenotypes: [HP:0001627]
     lesion_groups: [other]
     syndromic: syndromic
@@ -3013,8 +3872,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:ed0316f238edd7daec71cce0ec67723044e95796878cb0ba475375293fdff25a
+    approved_on: 2026-11-19
+    approved_digest: sha256:d231919752255224212154c7ff4307701a9de50b1aa2cfb79b332350b242c0bd
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000088
@@ -3025,6 +3884,30 @@ findings:
     screened: 94
     carriers: {de_novo: 1, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: p.R279X
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: protein
+        reported: {p: p.R279X}
+        hgvs_p: NP_852259.1:p.(Arg279Ter)
+        zygosity: heterozygous
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001636, HP:0001684]
+      - id: 2
+        as_reported: p.S372L, c.1115C>T
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.1115C>T, p: p.S372L}
+        hgvs_c: NM_181486.4:c.1115C>T
+        hgvs_p: NP_852259.1:p.(Ser372Leu)
+        grch38: 12:114355974:G:A
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001636, HP:0001684]
     phenotypes: [HP:0001636, HP:0001684]
     lesion_groups: [conotruncal, septal]
     syndromic: both
@@ -3036,8 +3919,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:57e8d7444e47fd8076e824ab9c7c9cc5a43169b5d48018910540f551aa90cf86
+    approved_on: 2026-11-19
+    approved_digest: sha256:790c9074a1c1c9b14cadf0c6c43c96ce4aaa96e0d84fa3eaa8bc359a628ea868
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000089
@@ -3048,6 +3931,17 @@ findings:
     screened: 111
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: p.Pro108Thr
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: protein
+        reported: {p: p.Pro108Thr}
+        hgvs_p: NP_852259.1:p.(Pro108Thr)
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0011662]
     phenotypes: [HP:0011662]
     lesion_groups: [other]
     syndromic: isolated
@@ -3059,8 +3953,8 @@ findings:
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:dd2c58fcbd83687a56b91af448e7227ea0ae6e8989e47fb4fad877cacb545a97
+    approved_on: 2026-11-19
+    approved_digest: sha256:c561f8c5d831e302f4769632308f28f750e7ecccc3ec48c51c55815c01f8192d
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000090
@@ -3071,6 +3965,20 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.241A>T
+        locator: {kind: in_text, element: Title}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.241A>T}
+        hgvs_c: NM_181486.4:c.241A>T
+        hgvs_p: NP_852259.1:p.(Arg81Trp)
+        grch38: 12:114401827:T:A
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001629, HP:0001631]
     phenotypes: [HP:0001629, HP:0001631]
     lesion_groups: [septal]
     syndromic: syndromic
@@ -3080,10 +3988,9 @@ findings:
         element: Abstract
     summary: One Holt-Oram family carried the novel variant c.241A>T (p.Arg81Trp) in its affected members, a first child with an atrial septal defect and upper-limb anomalies and a father with arrhythmia and upper-limb shortening, and in a 16-week fetus with a ventricular septal defect and upper-limb reduction.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:85071447fcd579047840c5374cd01ffe493a49d4235dbe7e8bceb0494f7c826b
+    approved_on: 2026-11-19
+    approved_digest: sha256:283e84142529754d6d498daffeb0e46f1e5da9b8f4a520a3154efb210c9cf722
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000091
@@ -3094,6 +4001,20 @@ findings:
     screened: 354
     carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: c.40C > A (p.Pro14Thr)
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: mane
+        reported: {c: c.40C>A, p: p.Pro14Thr}
+        hgvs_c: NM_181486.4:c.40C>A
+        hgvs_p: NP_852259.1:p.(Pro14Thr)
+        grch38: 12:114403859:G:T
+        normalisation: 1
+        zygosity: heterozygous
+        carriers: {de_novo: 0, inherited: 0, origin_unknown: 1}
+        phenotypes: [HP:0001629]
     phenotypes: [HP:0001629]
     lesion_groups: [septal]
     syndromic: isolated
@@ -3106,8 +4027,8 @@ findings:
     summary: Sequencing of all TBX5 coding exons in 354 sporadic patients with isolated ventricular septal defect, with 341 controls, found one novel heterozygous missense variant, c.40C>A (p.Pro14Thr); the title gives its carriers as one patient, and the abstract does not state its origin.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:3570e0af73077433cc98828e3f6cf43adab95b0aa74003cba3a40ce983c70661
+    approved_on: 2026-11-19
+    approved_digest: sha256:47008f41981a65f3df643c61cad7205158547e2e35681f51c1c6ca825324686c
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000092
@@ -3185,6 +4106,15 @@ findings:
     screened: 1
     carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
     variant_classes: [cnv]
+    variants:
+      - id: 1
+        as_reported: duplication at 12q24.21 identified on array-CGH comprising both TBX5 and TBX3 genes
+        locator: {kind: in_text, element: Abstract}
+        kind: cnv
+        placement: structural
+        zygosity: not_stated
+        carriers: {de_novo: 0, inherited: 1, origin_unknown: 0}
+        phenotypes: [HP:0001643, HP:0001650, HP:0001627]
     phenotypes: [HP:0001643, HP:0001650, HP:0001627]
     lesion_groups: [other, lvoto]
     syndromic: syndromic
@@ -3194,10 +4124,9 @@ findings:
         element: Abstract
     summary: One large German family with at least 17 affected individuals over 6 generations carried a duplication at 12q24.21 comprising TBX5 and TBX3 (array-CGH; FISH confirmed a tandem duplication). Cardiac findings included congenital heart defects, persistent arterial duct and aortic stenosis; the abstract does not state how many members carry the duplication.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:9417b90c40c543385bf88a3322bb1513be1063e8c4df4a93b35789e03e7fb549
+    approved_on: 2026-11-19
+    approved_digest: sha256:286d17fd3912f5b0d2011485f71a9a844b37e39739cb4e0f9e7628e127fe445f
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000096
@@ -3231,6 +4160,20 @@ findings:
     screened: 1
     carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
     variant_classes: [snv_indel]
+    variants:
+      - id: 1
+        as_reported: NM_181486.4:c.680T>C, p.(Ile227Thr)
+        locator: {kind: in_text, element: Abstract}
+        kind: snv_indel
+        placement: mane
+        reported: {transcript: NM_181486.4, c: c.680T>C, p: p.(Ile227Thr)}
+        hgvs_c: NM_181486.4:c.680T>C
+        hgvs_p: NP_852259.1:p.(Ile227Thr)
+        grch38: 12:114385551:A:G
+        normalisation: 1
+        zygosity: not_stated
+        carriers: {de_novo: 1, inherited: 0, origin_unknown: 0}
+        phenotypes: [HP:0001627]
     phenotypes: [HP:0001627]
     lesion_groups: [other]
     syndromic: syndromic
@@ -3240,10 +4183,9 @@ findings:
         element: Abstract
     summary: Whole exome sequencing of one patient with congenital tracheal stenosis and a congenital heart defect found a de novo TBX5 variant, NM_181486.4:c.680T>C, p.(Ile227Thr). The abstract does not give the heart lesion.
     extracted_by: agent:literature-extract/claude-sonnet-5-5
-    verified_by: agent:literature-verify/claude-opus-5-5
     approved_by: E.A.M
-    approved_on: 2026-11-09
-    approved_digest: sha256:7504113b454b51293ed24718862940e08e89609062bd8d7806d4332653b7019e
+    approved_on: 2026-11-19
+    approved_digest: sha256:846511f55e539e5e6b684c59894dac5c5c19e554a35157e0f67206a2d266fd77
     review_status: not_accessible
     review_note: Only the PubMed abstract was read; the full text was not.
   - id: CHDA:LIT:0000098
@@ -3312,5 +4254,5 @@ synthesis:
         - CHDA:LIT:0000025
   drafted_by: agent:gene-synthesis/claude-opus-5-5
   approved_by: E.A.M
-  approved_on: 2026-11-16
-  approved_digest: sha256:ce3761fc09389323d41fd089bba8ca7e65f3d79014077e54214cb7711df7efc7
+  approved_on: 2026-11-19
+  approved_digest: sha256:5f5a3045ac52e4ace42df741c044f646777707151f1cee27ad0a5c117c4e1c25

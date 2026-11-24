@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -12,6 +13,7 @@ from chd_atlas.tables import TABLE_SCHEMAS
 from chd_atlas.validate.genes import validate_registry_is_current
 from chd_atlas.validate.runner import ValidationReport, validate_repository
 from tests.unit._stamp import stamped
+from tests.unit.mane_fixtures import genes_frame, synthetic_rows, write_mane_mirrors
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 
@@ -536,6 +538,54 @@ def test_a_gap_warning_is_reported_without_blocking_the_build() -> None:
     assert gap.ok is True, "a gap must not block a deploy; it must be visible in the report"
 
 
+_PORTO_VARIANT: dict[str, object] = {
+    "id": 1,
+    "as_reported": "c.835C>T p.R279X",
+    "locator": {"kind": "in_text", "element": "Table 1"},
+    "kind": "snv_indel",
+    "placement": "mane",
+    "hgvs_c": "NM_181486.4:c.835C>T",
+    "hgvs_p": "NP_852259.1:p.(Arg279Ter)",
+    "grch38": "12:114366312:G:A",
+    "normalisation": 1,
+    "carriers": {"de_novo": 1, "inherited": 0, "origin_unknown": 0},
+}
+_NORMALISATIONS: list[dict[str, object]] = [
+    {
+        "id": 1,
+        "tool": "variantvalidator",
+        "version": "4.0.1.dev7+gbdab9c72f",
+        "hgvs_version": "4.0.0",
+        "vvta": "vvta_2025_02",
+        "vvdb": "vvdb_2025_3",
+        "seqrepo": "VV_SR_2025_02/master",
+        "run_on": "2026-11-17",
+    }
+]
+
+
+def _variants_without_a_mane_mirror(root: Path) -> None:
+    """A literature file with a `mane` variant, and a repository that never had MANE.
+
+    The pin is cut out of `sources.yaml` as well as the two mirrors, so the
+    runner's own MAN005 (a pinned mirror gone) stays silent and the error that
+    explains MAN000 is the file's.
+    """
+    _literature_repo(root, finding={"variants": [_PORTO_VARIANT]}, normalisations=_NORMALISATIONS)
+    for name in ("mane_transcripts.tsv", "mane_exons.tsv"):
+        (root / "mirrors" / name).unlink()
+    sources = root / "mirrors" / "sources.yaml"
+    text = sources.read_text(encoding="utf-8")
+    # Cut the `package:` pin out of the `mane_select` entry only, wherever it sits.
+    entry = text.index("  - id: mane_select\n")
+    end = text.find("\n  - id: ", entry)
+    end = len(text) if end == -1 else end
+    pin = re.compile(r"    package:\n      version: [^\n]+\n      manifest_sha256: [0-9a-f]{64}\n")
+    block, count = pin.subn("", text[entry:end])
+    assert count == 1, "the mane_select entry must carry exactly one pin"
+    sources.write_text(text[:entry] + block + text[end:], encoding="utf-8")
+
+
 @pytest.mark.parametrize(
     ("setup", "expected_warnings", "causing_errors"),
     [
@@ -597,6 +647,15 @@ def test_a_gap_warning_is_reported_without_blocking_the_build() -> None:
             {"PRF000"},
             {"PRF013"},
             id="phase-vocabulary-empty",
+        ),
+        # MAN000's own cause: a finding names a variant and the frame it is checked
+        # against never loaded. The two SCP warnings are the committed corpus's own
+        # (the baseline); without MAN005, MAN000 would arrive alone.
+        pytest.param(
+            _variants_without_a_mane_mirror,
+            {"MAN000", "SCP003", "SCP007"},
+            {"MAN005"},
+            id="variants-without-a-mane-mirror",
         ),
         # SCP008's own cause: an Orphanet-scoped term with no Orphanet mirrors.
         pytest.param(
@@ -1507,6 +1566,22 @@ def test_a_clean_literature_file_adds_no_issue(tmp_path: Path) -> None:
         # PMID:8988165 has no burden rows (final review I6); septal-only HP:0001631 (I3).
         ({"finding": {"burden_study": "PMID:8988165"}}, "LIT014"),
         ({"finding": {"lesion_groups": ["septal", "conotruncal"]}}, "REF009"),
+        # A variant on the wrong transcript reaches the frame's checks; one citing
+        # a normalisation run the file does not record reaches the shape checks.
+        (
+            {
+                "normalisations": _NORMALISATIONS,
+                "finding": {"variants": [{**_PORTO_VARIANT, "hgvs_c": "NM_000001.1:c.835C>T"}]},
+            },
+            "LIT016",
+        ),
+        (
+            {
+                "normalisations": _NORMALISATIONS,
+                "finding": {"variants": [{**_PORTO_VARIANT, "normalisation": 7}]},
+            },
+            "LIT022",
+        ),
     ],
 )
 def test_each_literature_check_is_reached_through_the_repository_validator(
@@ -1854,3 +1929,149 @@ def test_the_runner_reports_synthesis_issues(tmp_path: Path) -> None:
         },
     )
     assert "SYN002" in _codes_of(root)
+
+
+def test_the_runner_checks_the_mane_frame_when_the_corpus_loads(tmp_path: Path) -> None:
+    """The MAN call site on the branch where the corpus loads (§4.34)."""
+    root = _real_repo(tmp_path)
+    transcripts, exons = synthetic_rows()
+    transcripts[0]["protein_sequence"] = "G" + transcripts[0]["protein_sequence"][1:]
+    write_mane_mirrors(root, transcripts, exons)
+    codes = _codes_of(root)
+    assert "CORPUS001" not in codes
+    assert "MAN002" in codes
+
+
+@pytest.mark.parametrize(
+    "absent",
+    [
+        ("mane_transcripts.tsv",),
+        ("mane_exons.tsv",),
+        ("mane_transcripts.tsv", "mane_exons.tsv"),
+    ],
+    ids=["transcripts", "exons", "both"],
+)
+def test_a_pinned_mane_source_with_a_missing_mirror_is_an_error(
+    tmp_path: Path, absent: tuple[str, ...]
+) -> None:
+    """MAN005. Measured before it existed: deleting either MANE file left validate
+    at 0 errors, because the reader answers `(None, [])` for an absent file and
+    MAN001-MAN004 never ran. The copy pins `mane_select` (the committed
+    `sources.yaml`); each deletion in turn, and both, must be reported, and the
+    message names exactly the files that are gone."""
+    root = _real_repo(tmp_path)
+    assert "MAN005" not in _codes_of(root)
+    for name in absent:
+        (root / "mirrors" / name).unlink()
+    found = [i for i in validate_repository(root).issues if i.code == "MAN005"]
+    assert len(found) == 1
+    assert found[0].severity is Severity.ERROR
+    for name in ("mane_transcripts.tsv", "mane_exons.tsv"):
+        assert (name in found[0].message) == (name in absent)
+
+
+def test_an_unpinned_mane_source_with_no_mirror_is_not_an_error(tmp_path: Path) -> None:
+    """The other half of MAN005: a repository that never pinned `mane_select`."""
+    root = _real_repo(tmp_path)
+    for name in ("mane_transcripts.tsv", "mane_exons.tsv"):
+        (root / "mirrors" / name).unlink()
+    sources = root / "mirrors" / "sources.yaml"
+    text = sources.read_text(encoding="utf-8")
+    pin = "    package:\n      version: '1.5'\n"
+    start = text.index(pin)
+    assert "  - id: " not in text[start:], "mane_select must be the last entry"
+    sources.write_text(text[:start], encoding="utf-8")
+    assert "mane_select" in text[:start]
+    assert "MAN005" not in _codes_of(root)
+
+
+def _mane_codes(root: Path) -> list[str]:
+    return sorted(i.code for i in validate_repository(root).issues if i.code.startswith("MAN"))
+
+
+def test_each_mane_state_reports_exactly_its_own_codes(tmp_path: Path) -> None:
+    """No MANE mirror is no issue; a present one is checked.
+
+    The repositories here have no curation, so they fail corpus loading
+    (measured codes for the no-genes.tsv one: CORPUS001, ID001, ONT000, REF000,
+    SRC000, SRC001) and reach only that branch;
+    `test_the_runner_checks_the_mane_frame_when_the_corpus_loads` reaches the
+    other. An unreadable exon file is TBL000 from `validate_table` alone: the
+    reader's copy of it is discarded. This test does not measure how many times
+    the mirrors are read.
+    """
+    assert _mane_codes(_repo_with_no_profiles(tmp_path / "none")) == []
+
+    transcripts, exons = synthetic_rows()
+    root = tmp_path / "frame"
+    write_mane_mirrors(root, transcripts, exons)
+    assert _mane_codes(root) == []  # no genes.tsv: registry checks skipped
+
+    genes_frame(transcripts).write_csv(root / "mirrors" / "genes.tsv", separator="\t")
+    assert _mane_codes(root) == []
+
+    genes_frame(transcripts).head(1).write_csv(root / "mirrors" / "genes.tsv", separator="\t")
+    assert _mane_codes(root) == []  # one registry gene, and it matches
+    genes_frame(transcripts).with_columns(mane_select=pl.lit("NM_900001.7")).write_csv(
+        root / "mirrors" / "genes.tsv", separator="\t"
+    )
+    assert _mane_codes(root) == ["MAN003", "MAN003"]
+
+    broken = tmp_path / "broken"
+    transcripts[0]["protein_sequence"] = "G" + transcripts[0]["protein_sequence"][1:]
+    write_mane_mirrors(broken, transcripts, exons)
+    assert _mane_codes(broken) == ["MAN002"]
+
+    # An exon row naming a gene with no transcript is the reader's MAN001, kept.
+    orphan = tmp_path / "orphan"
+    stray = dict(exons[0], hgnc_id="HGNC:90077")
+    write_mane_mirrors(orphan, *synthetic_rows())
+    write_mane_mirrors(orphan, synthetic_rows()[0], [*synthetic_rows()[1], stray])
+    assert _mane_codes(orphan) == ["MAN001"]
+
+    unreadable = tmp_path / "unreadable"
+    write_mane_mirrors(unreadable, *synthetic_rows())
+    (unreadable / "mirrors" / "mane_exons.tsv").write_bytes(b"")
+    report = validate_repository(unreadable)
+    tbl000 = [i for i in report.issues if i.code == "TBL000" and "mane_exons" in i.location]
+    assert len(tbl000) == 1
+
+
+def test_a_gene_missing_from_a_loaded_frame_is_lit016_and_never_the_files_man005(
+    tmp_path: Path,
+) -> None:
+    """D2: a registry gene may have no MANE row (MAN004 is a warning).
+
+    The frame loads without TBX5, so its `mane` variant is LIT016 (the curator then
+    lists it `unplaced`); the per-file MAN005 is for a frame that did not load at
+    all and must stay silent here, and MAN000 with it.
+    """
+    root = _literature_repo(
+        tmp_path, finding={"variants": [_PORTO_VARIANT]}, normalisations=_NORMALISATIONS
+    )
+    for name in ("mane_transcripts.tsv", "mane_exons.tsv"):
+        path = root / "mirrors" / name
+        frame = pl.read_csv(path, separator="\t", infer_schema_length=0)
+        kept = frame.filter(pl.col("hgnc_id") != "HGNC:11604")
+        assert kept.height < frame.height and kept.height > 0
+        kept.write_csv(path, separator="\t")
+
+    report = validate_repository(root)
+
+    where = [
+        (i.code, i.severity) for i in report.issues if i.code in {"MAN004", "MAN005", "MAN000"}
+    ]
+    assert where == [("MAN004", Severity.WARNING)]
+    lit016 = [i for i in report.issues if i.code == "LIT016"]
+    assert [i.location.endswith(":finding CHDA:LIT:0000001:variant 1") for i in lit016] == [True]
+
+
+def test_the_files_man005_names_the_file_not_the_mirrors(tmp_path: Path) -> None:
+    """The runner's MAN005 sits at `mirrors/`; the per-file one at the literature file."""
+    root = tmp_path
+    _variants_without_a_mane_mirror(root)
+    issues = [i for i in validate_repository(root).issues if i.code in {"MAN005", "MAN000"}]
+    assert sorted((i.code, i.location) for i in issues) == [
+        ("MAN000", "curation/literature/TBX5.yaml"),
+        ("MAN005", "curation/literature/TBX5.yaml"),
+    ]

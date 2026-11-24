@@ -88,8 +88,11 @@ every-gene packages, so re-ingesting them from their caches adds the new genes' 
 one thing `--all` cannot do: the Farah package is a registry slice (cut at the registry its
 manifest names), so a grown registry needs a new `farah2024_hoc` package from
 `chd-atlas/feeds`, pinned and ingested; until then `ingest` names the registry genes the
-slice lacks. The Audain 2021 and 2026 burden packages and the E-MTAB-6814 package are every-gene
-packages too, so `ingest --all` re-filters them to the grown registry. No converter is left
+slice lacks. The Audain 2021 and 2026 burden packages, the E-MTAB-6814 package and the
+`mane_select` package (`coverage: every_gene`) are every-gene packages too, so `ingest --all`
+re-filters them to the grown registry. Until `mane_select` is re-ingested (or ever, if the package drops that gene's Select), a
+gene the registry gained has no MANE row, and
+`validate` warns (`MAN004`) rather than refusing. No converter is left
 in this repository: every recipe lives in `chd-atlas/feeds` (`sources/<id>`).
 
 Two tables are kept only in part, because their packages carry the whole source.
@@ -143,6 +146,7 @@ it), which is kept as it was.
 Searching PubMed, triaging hits, extracting findings and the blind second pass
 live in [chd-atlas/curator](https://github.com/chd-atlas/curator) (`chd-curator`
 and its Claude plugin). The searches it records are published as they are, but no
-finding is published until a named person approves it here with
-`chd-atlas literature review`. The rules it follows are in
+finding is published until a named person approves it here, with
+`chd-atlas literature review` or with `chd-atlas literature apply-review` on the
+decisions file of a review page that person has finished. The rules it follows are in
 `curator/curator-rules.md`.

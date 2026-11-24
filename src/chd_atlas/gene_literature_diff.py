@@ -17,6 +17,11 @@ is excluded too (ruling R26): it names finding ids, the blind pass uses ids
 local to its own file, so a list from the first pass could never agree with
 anything; the curator reads it in the `review` listing.
 
+`variants` is compared as a set of what the paper says about each variant:
+before comparing, each variant loses its `id`, `with`, `normalisation`,
+`locator`, `review_status`, `review_note`, `review_settled_by` and `unclear`
+(pass-local ids and the bookkeeping around them), and the dicts are sorted by canonical JSON.
+
 Lists compared as sets, because their order carries no meaning: `methods`,
 `variant_classes`, `phenotypes`, `lesion_groups` and `cohorts`. `carriers` is a mapping and is
 compared by value. Reported values are the model's JSON-mode values, with the
@@ -25,6 +30,7 @@ set-like lists sorted.
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -42,6 +48,7 @@ EXCLUDED_FIELDS: Final = (
     "approved_digest",
     "review_status",
     "review_note",
+    "review_settled_by",
     "locators",
     "shares_probands_with",
 )
@@ -56,6 +63,17 @@ _SET_LIKE: Final = frozenset(
         "lesion_groups",
         "cohorts",
     }
+)
+
+_VARIANT_BOOKKEEPING: Final = (
+    "id",
+    "with",
+    "normalisation",
+    "locator",
+    "review_status",
+    "review_note",
+    "review_settled_by",
+    "unclear",
 )
 
 FieldDifference = tuple[str, Any, Any]
@@ -83,7 +101,14 @@ def _key(finding: Finding) -> _Key:
 
 
 def _values(finding: Finding) -> dict[str, Any]:
-    dumped = finding.model_dump(mode="json")
+    dumped = finding.model_dump(mode="json", by_alias=True)
+    dumped["variants"] = sorted(
+        (
+            {k: v for k, v in variant.items() if k not in _VARIANT_BOOKKEEPING}
+            for variant in dumped["variants"]
+        ),
+        key=lambda variant: json.dumps(variant, sort_keys=True),
+    )
     return {
         name: sorted(dumped[name])
         if name in _SET_LIKE and isinstance(dumped[name], list)
